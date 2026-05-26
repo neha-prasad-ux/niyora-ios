@@ -51,6 +51,14 @@ export const Fonts = Platform.select({
   },
 });
 
+export const PoppinsFont = {
+  light: 'Poppins-Light',
+  regular: 'Poppins-Regular',
+  medium: 'Poppins-Medium',
+  semiBold: 'Poppins-SemiBold',
+  bold: 'Poppins-Bold',
+} as const;
+
 export const Spacing = {
   half: 2,
   one: 4,
