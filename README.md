@@ -1,56 +1,66 @@
-# Welcome to your Expo app 👋
+# Niyora (iOS, v1)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The Niyora iPhone app. Standalone v1. No accounts, no cloud, nothing leaves the device.
 
-## Get started
+> Calm in 60 seconds.
 
-1. Install dependencies
+Built with **Expo + React Native + TypeScript** (SDK 56). The older `niyora/ios` repo (`NiyoraCompanion`, SwiftUI companion to Mac) is unrelated; this is the new standalone phone app.
 
-   ```bash
-   npm install
-   ```
+See [DESIGN.md](DESIGN.md) for the visual, interaction, and tonal language. Every PR that touches the app surface should justify itself against that document.
 
-2. Start the app
+## Project layout
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+ios-v1/
+├── DESIGN.md             source of truth for look and feel
+├── app.json              Expo config (bundleId, splash, orientation)
+├── package.json
+├── src/
+│   ├── app/              expo-router file-based routing
+│   │   ├── _layout.tsx   single Stack, no header
+│   │   └── index.tsx     home screen
+│   ├── components/       Orb, BeginButton, Header, BackgroundGradient
+│   ├── models/           Technique data
+│   └── theme/            colors.ts, typography.ts
+└── assets/               icons, splash images
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Run it
 
-### Other setup steps
+Requires Node 18+ and the Expo Go app on a physical iPhone, OR the iOS Simulator (Xcode 15+).
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```sh
+cd ios-v1
+npm install            # one-time
+npx expo start         # opens the dev server, scan the QR with the Expo Go app
+```
 
-## Learn more
+Or run directly in the iOS Simulator:
 
-To learn more about developing your project with Expo, look at the following resources:
+```sh
+npx expo start --ios
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Current scope
 
-## Join the community
+v1, first pass: **home screen only**.
 
-Join our community of developers creating universal apps.
+- Header (person + wordmark + speaker)
+- Pulsing orb (5.5s ease-in-out)
+- Technique name + subtitle (rotates via "Try a different one")
+- BEGIN button (haptic + visual press feedback)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Wired but not yet implemented in this pass:
+
+- BEGIN button taps don't navigate anywhere (session screen lands next)
+- Person icon doesn't open My Soul (sheet lands next)
+- Speaker icon toggles state but no audio yet
+
+## Tooling notes for future agents
+
+- `expo-router` v6: import everything from `expo-router`, never directly from `@react-navigation/*`.
+- `expo-symbols` for SF Symbols. iOS only. If we add Android, pass a `{ ios, android }` object to `name`.
+- Reanimated v4 worklets are the default. The orb pulse uses `useSharedValue` + `withRepeat(withTiming(...))`.
+- No global state library in v1. `useState` and props are enough for the home screen scope.
+- Dark mode only. `app.json` forces `userInterfaceStyle: "dark"`.
+- Portrait only. Locked in `app.json`.
