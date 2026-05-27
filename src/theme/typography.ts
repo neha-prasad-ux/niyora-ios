@@ -1,41 +1,41 @@
 // Typography from DESIGN.md home screen anatomy. Sizes/weights/letter
-// spacing match the spec exactly. System font (SF Pro on iOS) so Dynamic
-// Type works.
+// spacing match the spec exactly. Poppins is loaded in _layout.tsx via
+// expo-font; fontFamily strings here must match the keys passed to useFonts.
 
 import type { TextStyle } from 'react-native';
 
 export const typography = {
   wordmark: {
+    fontFamily: 'Poppins-Medium',
     fontSize: 13,
-    fontWeight: '500',
     letterSpacing: 3,
     textTransform: 'uppercase',
   } satisfies TextStyle,
 
   tagline: {
+    fontFamily: 'Poppins-Light',
     fontSize: 11,
-    fontWeight: '300',
   } satisfies TextStyle,
 
   techniqueName: {
+    fontFamily: 'Poppins-SemiBold',
     fontSize: 24,
-    fontWeight: '600',
     letterSpacing: 0.3,
   } satisfies TextStyle,
 
   subtitle: {
+    fontFamily: 'Poppins-Light',
     fontSize: 13,
-    fontWeight: '300',
   } satisfies TextStyle,
 
   tertiaryAction: {
+    fontFamily: 'Poppins-Light',
     fontSize: 13,
-    fontWeight: '300',
   } satisfies TextStyle,
 
   beginLabel: {
+    fontFamily: 'Poppins-Medium',
     fontSize: 15,
-    fontWeight: '500',
     letterSpacing: 2,
     textTransform: 'uppercase',
   } satisfies TextStyle,

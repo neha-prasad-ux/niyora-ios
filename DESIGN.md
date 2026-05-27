@@ -128,7 +128,7 @@ background: linear-gradient(135deg, hsl(270, 50%, 45%), hsl(280, 40%, 35%))
 border:     1px solid hsl(270, 40%, 55%) at 30% opacity
 shadow:     soft purple glow below + thin inner top highlight
 text:       white at 95% opacity, "BEGIN", uppercase, letter-spacing 2pt
-font:       SF Pro 15pt weight 500
+font:       Poppins-Medium 15pt
 padding:    14pt vertical, full width minus 24pt horizontal
 corner:     26pt continuous
 ```
@@ -144,8 +144,10 @@ On tap: scale to 0.97 + opacity 0.92 over 150ms (press feedback), soft haptic, t
 
 ### Typography
 
-- **Source Serif 4** for headings and long-form copy (post-session screens, About).
-- **SF Pro** (system) for chrome and controls. Use system fonts via `.font(.system(...))` to get Dynamic Type for free.
+- **Poppins** is the canonical typeface across all screens (loaded via expo-font at app start).
+  - Light (300) for taglines, subtitles, and secondary actions.
+  - Medium (500) for chrome labels and the BEGIN button.
+  - SemiBold (600) for technique names and other emphasis.
 - Line-height: 1.6 body, 1.2 headings.
 - No display fonts, no script fonts.
 
