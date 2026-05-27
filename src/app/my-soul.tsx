@@ -23,6 +23,13 @@ import { colors } from '@/theme/colors';
 
 // Placeholder values; the practice-history store + check-in flow land later.
 const SESSIONS_COMPLETED = 14;
+
+// Maps tier id to the number of Saturn-style rings around the orb.
+// Matches Mac tierRingCount(): spark=0, glow=1, shine=2, radiance=3, brilliance=4.
+const TIER_RING_COUNTS: Record<string, number> = {
+  spark: 0, glow: 1, shine: 2, radiance: 3, brilliance: 4,
+};
+
 const TODAY_MOOD = 'Calm';
 const CHECK_IN_COUNT = 12;
 const CHECK_IN_HISTORY = [4, 5, 4, 6, 5, 7, 4, 4, 6, 5, 6, 6];
@@ -63,7 +70,11 @@ export default function MySoulScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.orbWrap}>
-            <Orb size={110} />
+            <Orb
+              size={110}
+              tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
+              tierHue={tier.hue}
+            />
           </View>
           <Text style={styles.todayLabel}>
             Today: 
@@ -73,6 +84,7 @@ export default function MySoulScreen() {
           <LevelCard
             tierName={tier.name}
             nextName={next?.name ?? null}
+            nextThreshold={next?.threshold ?? null}
             toNext={toNext}
             accent={accent}
             sessions={SESSIONS_COMPLETED}
@@ -108,18 +120,21 @@ export default function MySoulScreen() {
 function LevelCard({
   tierName,
   nextName,
+  nextThreshold,
   toNext,
   accent,
   sessions,
 }: {
   tierName: string;
   nextName: string | null;
+  nextThreshold: number | null;
   toNext: number;
   accent: string;
   sessions: number;
 }) {
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
+      <View style={styles.cardTopEdge} />
       <View style={styles.levelHeader}>
         <Text style={[styles.levelName, { color: accent }]}>Level {tierName}</Text>
         {nextName && (
@@ -132,12 +147,20 @@ function LevelCard({
         <Text style={styles.sessionsNum}>{sessions}</Text>
         <Text style={styles.sessionsLabel}>sessions</Text>
       </View>
-      <TierTrack sessions={sessions} accent={accent} />
+      <TierTrack sessions={sessions} accent={accent} nextThreshold={nextThreshold} />
     </View>
   );
 }
 
-function TierTrack({ sessions, accent }: { sessions: number; accent: string }) {
+function TierTrack({
+  sessions,
+  accent,
+  nextThreshold,
+}: {
+  sessions: number;
+  accent: string;
+  nextThreshold: number | null;
+}) {
   // Skip the spark marker (always reached) per Mac convention.
   const markers = TIERS.filter((t) => t.id !== 'spark');
   const cap = markers[markers.length - 1].threshold;
@@ -155,6 +178,8 @@ function TierTrack({ sessions, accent }: { sessions: number; accent: string }) {
       <View style={styles.markers}>
         {markers.map((m) => {
           const reached = sessions >= m.threshold;
+          const isNext =
+            nextThreshold !== null && m.threshold === nextThreshold;
           const pos = (m.threshold / cap) * 100;
           return (
             <View
@@ -163,15 +188,27 @@ function TierTrack({ sessions, accent }: { sessions: number; accent: string }) {
                 styles.marker,
                 {
                   left: `${pos}%`,
-                  borderColor: reached ? accent : 'rgba(255,255,255,0.25)',
-                  backgroundColor: reached ? '#13101a' : '#13101a',
+                  borderColor:
+                    isNext || reached ? accent : 'rgba(255,255,255,0.25)',
+                  borderWidth: isNext ? 2.5 : 1.5,
+                  backgroundColor: '#13101a',
+                  ...(isNext && {
+                    shadowColor: accent,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.75,
+                    shadowRadius: 5,
+                  }),
                 },
               ]}
             >
               <Text
                 style={[
                   styles.markerNum,
-                  { color: reached ? accent : 'rgba(255,255,255,0.4)' },
+                  {
+                    color:
+                      isNext || reached ? accent : 'rgba(255,255,255,0.4)',
+                    fontWeight: isNext ? '600' : '500',
+                  },
                 ]}
               >
                 {m.threshold}
@@ -195,6 +232,7 @@ function CheckInCard({
 }) {
   return (
     <View style={styles.card}>
+      <View style={styles.cardTopEdge} />
       <Text style={styles.cardTitle}>Mental health check-in</Text>
       <Text style={styles.cardCopy}>
         {count} check-ins so far. Lower is calmer.
@@ -249,6 +287,7 @@ function ToggleCard({
 }) {
   return (
     <View style={styles.card}>
+      <View style={styles.cardTopEdge} />
       <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: 16 }}>
           <Text style={styles.cardTitle}>{title}</Text>
@@ -271,6 +310,7 @@ function ToggleCard({
 function MessageCard({ accent: _accent }: { accent: string }) {
   return (
     <View style={styles.card}>
+      <View style={styles.cardTopEdge} />
       <Text style={styles.cardTitle}>Message the founder</Text>
       <Text style={[styles.cardCopy, { marginTop: 6 }]}>
         Tell Neha what's working, what isn't, what you'd love next.
@@ -325,10 +365,20 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderRadius: 16,
-    padding: 18,
+    padding: 22,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 14,
+    overflow: 'hidden',
+  },
+  // Thin inner highlight along the top edge — mirrors the Mac card top-gradient.
+  cardTopEdge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
   cardTitle: {
     fontSize: 15,
