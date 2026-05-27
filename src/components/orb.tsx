@@ -19,8 +19,14 @@
 //
 // RN has no radial gradients or inset box-shadows. We rebuild it with
 // react-native-svg: the halo, the sphere body, the inset shading, the inset
-// highlight, and the crescent rim each become their own radial gradient,
-// layered in the same order as the Mac CSS. Drop shadow stays a View shadow.
+// highlight, and the crescent rim each become their own layer, painted in the
+// same order as the Mac CSS. Drop shadow stays a View shadow.
+//
+// Halo: two Gaussian-blurred solid circles (tight glow + wide haze) instead of
+// a RadialGradient ring. The RadialGradient approach produces a visible seam
+// where the ring starts (opacity 0 to 0.5 over a narrow offset band). FeGaussianBlur
+// fades the circle from its solid center outward with a true Gaussian rolloff,
+// matching the smooth box-shadow glow on Mac.
 //
 // Pulse: scale 1.0 -> 1.04 over 5.5s ease-in-out. Respects reduce motion.
 
@@ -33,7 +39,14 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  FeGaussianBlur,
+  Filter,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 
 type OrbProps = {
   size?: number;
@@ -66,6 +79,16 @@ export function Orb({ size = 220 }: OrbProps) {
   const sphereRadius = size / 2;
   const center = canvas / 2;
 
+  // Blur stdDeviation values derived from Mac box-shadow blur radii
+  // (28px tight, 64px wide) scaled to the orb diameter.
+  const tightBlur = size * 0.064;
+  const wideBlur = size * 0.145;
+
+  // Halo circle radii scaled from Mac box-shadow spread values
+  // (4px tight spread, 16px wide spread) on a 220px-diameter orb.
+  const tightHaloR = sphereRadius + size * 0.018;
+  const wideHaloR = sphereRadius + size * 0.073;
+
   return (
     <View
       style={{
@@ -90,22 +113,30 @@ export function Orb({ size = 220 }: OrbProps) {
       >
         <Svg width={canvas} height={canvas} viewBox={`0 0 ${canvas} ${canvas}`}>
           <Defs>
-            {/* Outer halo, tight ring then soft haze. Mirrors the two
-                outer-glow box-shadow layers on the Mac. */}
-            <RadialGradient
-              id="halo"
-              cx={center}
-              cy={center}
-              r={sphereRadius * 1.7}
-              fx={center}
-              fy={center}
-              gradientUnits="userSpaceOnUse"
+            {/* Tight halo filter -- blur=28px on 220px orb. filterUnits=userSpaceOnUse
+                with full-canvas bounds prevents the blur from being clipped at edges. */}
+            <Filter
+              id="tightHalo"
+              x={0}
+              y={0}
+              width={canvas}
+              height={canvas}
+              filterUnits="userSpaceOnUse"
             >
-              <Stop offset="0.55" stopColor="hsl(220, 55%, 75%)" stopOpacity="0" />
-              <Stop offset="0.62" stopColor="hsl(220, 55%, 75%)" stopOpacity="0.5" />
-              <Stop offset="0.72" stopColor="hsl(220, 50%, 70%)" stopOpacity="0.22" />
-              <Stop offset="1" stopColor="hsl(220, 50%, 70%)" stopOpacity="0" />
-            </RadialGradient>
+              <FeGaussianBlur stdDeviation={tightBlur} />
+            </Filter>
+
+            {/* Wide haze filter -- blur=64px on 220px orb. */}
+            <Filter
+              id="wideHaze"
+              x={0}
+              y={0}
+              width={canvas}
+              height={canvas}
+              filterUnits="userSpaceOnUse"
+            >
+              <FeGaussianBlur stdDeviation={wideBlur} />
+            </Filter>
 
             {/* Sphere body. radial-gradient circle at 35% 30%, three stops. */}
             <RadialGradient
@@ -153,7 +184,7 @@ export function Orb({ size = 220 }: OrbProps) {
             </RadialGradient>
 
             {/* Crescent rim highlight at 28% 22%. Three stops, falls off at
-                42% of its own radius — matches the Mac ::after layer. */}
+                42% of its own radius -- matches the Mac ::after layer. */}
             <RadialGradient
               id="crescent"
               cx={center - sphereRadius * 0.44}
@@ -169,8 +200,25 @@ export function Orb({ size = 220 }: OrbProps) {
             </RadialGradient>
           </Defs>
 
-          {/* Halo (sits beneath everything) */}
-          <Circle cx={center} cy={center} r={sphereRadius * 1.7} fill="url(#halo)" />
+          {/* Wide soft haze -- outermost glow layer, matches Mac: 0 0 64px 16px hsla(220,50%,70%,0.2) */}
+          <Circle
+            cx={center}
+            cy={center}
+            r={wideHaloR}
+            fill="hsl(220, 50%, 70%)"
+            fillOpacity={0.22}
+            filter="url(#wideHaze)"
+          />
+
+          {/* Tight inner glow -- sits just above the wide haze, matches Mac: 0 0 28px 4px hsla(220,55%,75%,0.5) */}
+          <Circle
+            cx={center}
+            cy={center}
+            r={tightHaloR}
+            fill="hsl(220, 55%, 75%)"
+            fillOpacity={0.5}
+            filter="url(#tightHalo)"
+          />
 
           {/* Sphere body */}
           <Circle cx={center} cy={center} r={sphereRadius} fill="url(#body)" />
