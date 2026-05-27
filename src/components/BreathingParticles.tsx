@@ -25,6 +25,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -89,7 +90,9 @@ const ParticleView = memo(function ParticleView({
   hue,
   allParticles,
 }: ParticleViewProps) {
-  const style = useAnimatedStyle(() => {
+  // Animated wrapper carries position + size + opacity. The inner gradient
+  // fills it; the native shadow on the wrapper provides the soft outer halo.
+  const wrapperStyle = useAnimatedStyle(() => {
     const particles = allParticles.value;
     if (index >= particles.length) return { opacity: 0 };
     const p = particles[index];
@@ -99,20 +102,40 @@ const ParticleView = memo(function ParticleView({
         { translateX: p.x - s * 0.5 },
         { translateY: p.y - s * 0.5 },
       ],
-      width:        s,
-      height:       s,
+      width: s,
+      height: s,
       borderRadius: s * 0.5,
-      opacity:      Math.max(0, Math.min(1, p.opacity)),
+      opacity: Math.max(0, Math.min(1, p.opacity)),
+      shadowRadius: s * 1.6,
     };
   });
 
-  // backgroundColor is static per-particle so it lives outside the animated style
-  const color = `hsl(${hue}, 70%, 65%)`;
+  // Per-particle hue. Body is a top-to-bottom linear gradient (highlight at
+  // top, deep at bottom) mirroring the user's Figma mock. Halo is a native
+  // iOS shadow on the wrapper, tinted by the same hue.
+  const lightTop = `hsl(${hue}, 75%, 78%)`;
+  const deepBottom = `hsl(${hue}, 80%, 32%)`;
+  const haloColor = `hsl(${hue}, 85%, 60%)`;
 
   return (
     <Animated.View
-      style={[particleBase, { backgroundColor: color }, style]}
-    />
+      style={[
+        particleBase,
+        {
+          shadowColor: haloColor,
+          shadowOpacity: 0.55,
+          shadowOffset: { width: 0, height: 0 },
+        },
+        wrapperStyle,
+      ]}
+    >
+      <LinearGradient
+        colors={[lightTop, deepBottom]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={{ flex: 1, borderRadius: 9999 }}
+      />
+    </Animated.View>
   );
 });
 

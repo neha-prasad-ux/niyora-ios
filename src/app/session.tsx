@@ -15,7 +15,7 @@ import { useEffect, useMemo } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ParticleField } from '@/components/particles';
+import { BreathingParticles } from '@/components/BreathingParticles';
 import { PhaseLabel } from '@/components/phase-label';
 import { SessionBackground } from '@/components/session-background';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
@@ -74,12 +74,13 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
   return (
     <View style={styles.root}>
       <SessionBackground hsl={phaseHsl} />
-      <ParticleField
-        width={width}
-        height={height}
+      <BreathingParticles
+        motion="converge"
         phase={cycle.phase.type}
         phaseT={cycle.phaseT}
-        hue={particleHue}
+        roundProgress={cycle.sessionT}
+        active
+        style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
