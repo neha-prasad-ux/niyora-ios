@@ -73,7 +73,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
 
   return (
     <View style={styles.root}>
-      <SessionBackground hsl={phaseHsl} />
+      <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
       <BreathingParticles
         motion="converge"
         phase={cycle.phase.type}
