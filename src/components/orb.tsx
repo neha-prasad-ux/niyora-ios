@@ -33,13 +33,24 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 
 type OrbProps = {
   size?: number;
+  /**
+   * Number of Saturn-style rings to draw at the equator.
+   * 0 = none (home orb stays ring-free); 1 = Glow, 2 = Shine,
+   * 3 = Radiance, 4 = Brilliance. Matches Mac tierRingCount().
+   */
+  tierRingCount?: number;
+  /**
+   * HSL hue used to tint the rings (matches tier.hue from tiers.ts).
+   * Only used when tierRingCount > 0.
+   */
+  tierHue?: number;
 };
 
-export function Orb({ size = 220 }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -65,6 +76,14 @@ export function Orb({ size = 220 }: OrbProps) {
   const canvas = size * 1.8;
   const sphereRadius = size / 2;
   const center = canvas / 2;
+
+  // Ring geometry — matches Mac tierRingCount() proportions.
+  // rx wider than sphere so arcs peek out on each side (Saturn effect).
+  // Sphere body circles drawn on top occlude the ring centres.
+  const ringRx = sphereRadius * 1.45;
+  const ringRy = sphereRadius * 0.20;
+  const ringSpacing = size * 0.07;
+  const ringColor = `hsl(${tierHue}, 70%, 75%)`;
 
   return (
     <View
@@ -171,6 +190,27 @@ export function Orb({ size = 220 }: OrbProps) {
 
           {/* Halo (sits beneath everything) */}
           <Circle cx={center} cy={center} r={sphereRadius * 1.7} fill="url(#halo)" />
+
+          {/* Tier rings — drawn before sphere body so the body circles cover
+              the ring centres, leaving only the outer arcs visible (Saturn). */}
+          {tierRingCount > 0 &&
+            Array.from({ length: tierRingCount }).map((_, i) => {
+              const totalSpan = (tierRingCount - 1) * ringSpacing;
+              const yOff = i * ringSpacing - totalSpan / 2;
+              return (
+                <Ellipse
+                  key={i}
+                  cx={center}
+                  cy={center + yOff}
+                  rx={ringRx}
+                  ry={ringRy}
+                  fill="none"
+                  stroke={ringColor}
+                  strokeWidth={1.5}
+                  strokeOpacity={0.72}
+                />
+              );
+            })}
 
           {/* Sphere body */}
           <Circle cx={center} cy={center} r={sphereRadius} fill="url(#body)" />
