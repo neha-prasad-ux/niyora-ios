@@ -1,98 +1,121 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+// Home screen. The pre-session info screen described in DESIGN.md.
+// Anatomy: header, orb, technique name + subtitle, "Try a different one",
+// Begin button anchored to the bottom safe area.
+
+import { useCallback, useMemo, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { BackgroundGradient } from '@/components/background-gradient';
+import { BeginButton } from '@/components/begin-button';
+import { Header } from '@/components/header';
+import { Orb } from '@/components/orb';
+import { colors } from '@/theme/colors';
+import { typography } from '@/theme/typography';
+import { isBreathing, unlockedTechniques } from '@/models/techniques';
 
 export default function HomeScreen() {
+  // v1 session screen only supports breathing techniques. Hide mindfulness
+  // entries from rotation until their session port lands.
+  const techniques = useMemo(
+    () => unlockedTechniques().filter(isBreathing),
+    []
+  );
+  const [index, setIndex] = useState(0);
+  const [muted, setMuted] = useState(false);
+
+  const current = techniques[index];
+
+  const handleTryDifferent = useCallback(() => {
+    Haptics.selectionAsync();
+    setIndex((i) => (i + 1) % techniques.length);
+  }, [techniques.length]);
+
+  const handleBegin = useCallback(() => {
+    router.push({ pathname: '/session', params: { id: current.id } });
+  }, [current.id]);
+
+  const handleProfile = useCallback(() => {
+    router.push('/my-soul');
+  }, []);
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <Header
+          muted={muted}
+          onPressProfile={handleProfile}
+          onToggleMute={() => setMuted((m) => !m)}
+        />
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <View style={styles.orbWrap}>
+          <Orb size={220} />
+        </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <View style={styles.techniqueWrap}>
+          <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
+            {current.name}
+          </Text>
+          <Text
+            style={[
+              typography.subtitle,
+              { color: colors.textSubtitle, marginTop: 6, textAlign: 'center' },
+            ]}
+          >
+            {current.subtitle} {'·'} {current.durationSeconds}s
+          </Text>
+        </View>
 
-        {Platform.OS === 'web' && <WebBadge />}
+        <View style={styles.tryWrap}>
+          <Pressable
+            onPress={handleTryDifferent}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Try a different practice"
+          >
+            <Text style={[typography.tertiaryAction, { color: colors.textTertiary }]}>
+              Try a different one
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.beginWrap}>
+          <BeginButton onPress={handleBegin} />
+        </View>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: colors.backgroundBottom,
   },
-  safeArea: {
+  safe: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
-  heroSection: {
+  orbWrap: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
-  title: {
-    textAlign: 'center',
+  techniqueWrap: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
-  code: {
-    textTransform: 'uppercase',
+  tryWrap: {
+    alignItems: 'center',
+    marginTop: 28,
+    marginBottom: 20,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  beginWrap: {
+    paddingHorizontal: 12,
+    paddingBottom: 4,
   },
 });

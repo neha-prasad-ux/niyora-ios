@@ -1,141 +1,189 @@
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+// Home + session orb. Ported from the Mac CSS recipe in
+// niyora/app/src/App.css (.stress-ball + scoreToBallGradient at calm score).
+//
+// Mac CSS (calm score >= 80):
+//   background: radial-gradient(circle at 35% 30%,
+//     rgba(255,255,255,0.97) 0%,
+//     hsla(220,25%,92%,0.95) 45%,
+//     hsla(220,40%,72%,0.9) 100%);
+//   box-shadow:
+//     0 0 28px 4px hsla(220,55%,75%,0.5),     /* tight outer halo */
+//     0 0 64px 16px hsla(220,50%,70%,0.2),    /* wide soft haze */
+//     0 24px 50px rgba(0,0,0,0.4),            /* drop shadow */
+//     inset -22px -18px 36px rgba(0,0,0,0.32),/* bottom-right shading */
+//     inset 14px 10px 26px rgba(255,255,255,0.10); /* top-left inner */
+//   ::after { radial-gradient(circle at 28% 22%,
+//     rgba(255,255,255,0.45) 0%,
+//     rgba(255,255,255,0.18) 14%,
+//     transparent 42%); }
+//
+// RN has no radial gradients or inset box-shadows. We rebuild it with
+// react-native-svg: the halo, the sphere body, the inset shading, the inset
+// highlight, and the crescent rim each become their own radial gradient,
+// layered in the same order as the Mac CSS. Drop shadow stays a View shadow.
+//
+// Pulse: scale 1.0 -> 1.04 over 5.5s ease-in-out. Respects reduce motion.
 
-const RING_COLOR = '#D966A8';
-const ORB_DEEP = '#1A1030';
-const ORB_MID = '#4A2F7A';
-const ORB_GLOW = '#7B4FB8';
-const ORB_HIGHLIGHT = '#B88FD8';
-const ORB_BORDER = '#6B4FA0';
+import { useEffect } from 'react';
+import { AccessibilityInfo, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
-interface TierRingProps {
-  size: number;
-  index: number;
-  total: number;
-}
+type OrbProps = {
+  size?: number;
+};
 
-function TierRing({ size, index, total }: TierRingProps) {
-  const ringW = Math.round(size * 1.45);
-  const ringH = Math.round(size * 0.2);
-  const spacing = size * 0.07;
-  const midOffset = ((total - 1) / 2) * spacing;
-  const topOffset = (size - ringH) / 2 + index * spacing - midOffset;
+export function Orb({ size = 220 }: OrbProps) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled || reduce) return;
+      scale.value = withRepeat(
+        withTiming(1.04, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  // Canvas is 1.8x the sphere so the outer halo has room to fade.
+  const canvas = size * 1.8;
+  const sphereRadius = size / 2;
+  const center = canvas / 2;
 
   return (
     <View
-      pointerEvents="none"
       style={{
-        position: 'absolute',
-        width: ringW,
-        height: ringH,
-        borderRadius: ringH / 2,
-        borderWidth: 1.5,
-        borderColor: RING_COLOR,
-        left: -Math.round((ringW - size) / 2),
-        top: Math.round(topOffset),
-        opacity: 0.72,
+        width: canvas,
+        height: canvas,
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
-    />
-  );
-}
-
-export interface OrbProps {
-  size?: number;
-  /**
-   * Number of Saturn-style rings to draw at the equator.
-   * Default 0 leaves the orb ring-free (home screen orb stays unaffected).
-   * Port of Mac `tierRingCount(tier)`.
-   */
-  tierRingCount?: number;
-  style?: ViewStyle;
-}
-
-/**
- * Sphere orb with optional tier-accent rings rendered behind the sphere body
- * so they appear to pass through it at the equator.
- */
-export function Orb({ size = 140, tierRingCount = 0, style }: OrbProps) {
-  const r = size / 2;
-  const glowSize = size * 1.32;
-  const glowOffset = -(glowSize - size) / 2;
-
-  return (
-    <View style={[{ width: size, height: size }, style]}>
-      {/* Ambient glow halo behind everything */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          width: glowSize,
-          height: glowSize,
-          borderRadius: glowSize / 2,
-          backgroundColor: ORB_MID,
-          opacity: 0.14,
-          top: glowOffset,
-          left: glowOffset,
-        }}
-      />
-
-      {/* Tier rings drawn first so sphere body occludes their centre */}
-      {tierRingCount > 0 &&
-        Array.from({ length: tierRingCount }).map((_, i) => (
-          <TierRing key={i} size={size} index={i} total={tierRingCount} />
-        ))}
-
-      {/* Sphere body — solid background to occlude ring centres */}
-      <View
+    >
+      <Animated.View
         style={[
-          StyleSheet.absoluteFill,
-          { borderRadius: r, backgroundColor: ORB_DEEP, overflow: 'hidden' },
-        ]}>
-        {/* Mid-sphere volume glow */}
-        <View
-          style={{
-            position: 'absolute',
-            width: size * 0.68,
-            height: size * 0.68,
-            borderRadius: size * 0.34,
-            backgroundColor: ORB_GLOW,
-            opacity: 0.48,
-            top: size * 0.16,
-            left: size * 0.16,
-          }}
-        />
-        {/* Specular highlight lobe */}
-        <View
-          style={{
-            position: 'absolute',
-            width: size * 0.38,
-            height: size * 0.38,
-            borderRadius: size * 0.19,
-            backgroundColor: ORB_HIGHLIGHT,
-            opacity: 0.22,
-            top: size * 0.07,
-            left: size * 0.1,
-          }}
-        />
-        {/* Bright specular point */}
-        <View
-          style={{
-            position: 'absolute',
-            width: size * 0.11,
-            height: size * 0.11,
-            borderRadius: size * 0.055,
-            backgroundColor: '#FFFFFF',
-            opacity: 0.2,
-            top: size * 0.12,
-            left: size * 0.19,
-          }}
-        />
-      </View>
-
-      {/* Sphere rim */}
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFill,
-          { borderRadius: r, borderWidth: 1, borderColor: ORB_BORDER, opacity: 0.45 },
+          animatedStyle,
+          {
+            width: canvas,
+            height: canvas,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 24 },
+            shadowOpacity: 0.4,
+            shadowRadius: 25,
+          },
         ]}
-      />
+      >
+        <Svg width={canvas} height={canvas} viewBox={`0 0 ${canvas} ${canvas}`}>
+          <Defs>
+            {/* Outer halo, tight ring then soft haze. Mirrors the two
+                outer-glow box-shadow layers on the Mac. */}
+            <RadialGradient
+              id="halo"
+              cx={center}
+              cy={center}
+              r={sphereRadius * 1.7}
+              fx={center}
+              fy={center}
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0.55" stopColor="hsl(220, 55%, 75%)" stopOpacity="0" />
+              <Stop offset="0.62" stopColor="hsl(220, 55%, 75%)" stopOpacity="0.5" />
+              <Stop offset="0.72" stopColor="hsl(220, 50%, 70%)" stopOpacity="0.22" />
+              <Stop offset="1" stopColor="hsl(220, 50%, 70%)" stopOpacity="0" />
+            </RadialGradient>
+
+            {/* Sphere body. radial-gradient circle at 35% 30%, three stops. */}
+            <RadialGradient
+              id="body"
+              cx={center - sphereRadius * 0.30}
+              cy={center - sphereRadius * 0.40}
+              r={sphereRadius * 1.3}
+              fx={center - sphereRadius * 0.30}
+              fy={center - sphereRadius * 0.40}
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
+              <Stop offset="0.45" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.95" />
+              <Stop offset="1" stopColor="hsl(220, 40%, 72%)" stopOpacity="0.9" />
+            </RadialGradient>
+
+            {/* Inset darkening from bottom-right. Replaces
+                `inset -22px -18px 36px rgba(0,0,0,0.32)`. */}
+            <RadialGradient
+              id="insetDark"
+              cx={center + sphereRadius * 0.55}
+              cy={center + sphereRadius * 0.45}
+              r={sphereRadius * 1.05}
+              fx={center + sphereRadius * 0.55}
+              fy={center + sphereRadius * 0.45}
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0" stopColor="rgb(0, 0, 0)" stopOpacity="0.32" />
+              <Stop offset="0.75" stopColor="rgb(0, 0, 0)" stopOpacity="0" />
+            </RadialGradient>
+
+            {/* Inset highlight from top-left. Replaces
+                `inset 14px 10px 26px rgba(255,255,255,0.10)`. */}
+            <RadialGradient
+              id="insetLight"
+              cx={center - sphereRadius * 0.5}
+              cy={center - sphereRadius * 0.55}
+              r={sphereRadius * 0.9}
+              fx={center - sphereRadius * 0.5}
+              fy={center - sphereRadius * 0.55}
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.10" />
+              <Stop offset="0.8" stopColor="rgb(255, 255, 255)" stopOpacity="0" />
+            </RadialGradient>
+
+            {/* Crescent rim highlight at 28% 22%. Three stops, falls off at
+                42% of its own radius — matches the Mac ::after layer. */}
+            <RadialGradient
+              id="crescent"
+              cx={center - sphereRadius * 0.44}
+              cy={center - sphereRadius * 0.56}
+              r={sphereRadius * 0.95}
+              fx={center - sphereRadius * 0.44}
+              fy={center - sphereRadius * 0.56}
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.45" />
+              <Stop offset="0.14" stopColor="rgb(255, 255, 255)" stopOpacity="0.18" />
+              <Stop offset="0.42" stopColor="rgb(255, 255, 255)" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+
+          {/* Halo (sits beneath everything) */}
+          <Circle cx={center} cy={center} r={sphereRadius * 1.7} fill="url(#halo)" />
+
+          {/* Sphere body */}
+          <Circle cx={center} cy={center} r={sphereRadius} fill="url(#body)" />
+
+          {/* Inset shading + highlight, clipped naturally because we draw
+              circles of the same sphere radius on top. */}
+          <Circle cx={center} cy={center} r={sphereRadius} fill="url(#insetDark)" />
+          <Circle cx={center} cy={center} r={sphereRadius} fill="url(#insetLight)" />
+
+          {/* Crescent rim highlight on top */}
+          <Circle cx={center} cy={center} r={sphereRadius} fill="url(#crescent)" />
+        </Svg>
+      </Animated.View>
     </View>
   );
 }

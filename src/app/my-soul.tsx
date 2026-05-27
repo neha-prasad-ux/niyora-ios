@@ -1,298 +1,475 @@
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// My Soul sheet. Ported from the Mac Settings.tsx "My Soul" panel at the
+// level of fidelity DESIGN.md asks for. v1 shows static data (14 sessions →
+// Glow tier) because the practice-history store lands in a later PR.
 
+import * as Haptics from 'expo-haptics';
+import { SymbolView } from 'expo-symbols';
+import { router } from 'expo-router';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+
+import { BackgroundGradient } from '@/components/background-gradient';
 import { Orb } from '@/components/orb';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
+import { colors } from '@/theme/colors';
 
-// ── Design tokens ──────────────────────────────────────────────────────────
-const ACCENT = '#D966A8';
-const ACCENT_SOFT = 'rgba(217, 102, 168, 0.18)';
-const ACCENT_NEXT = 'rgba(217, 102, 168, 0.4)';
-const CARD_TOP_EDGE = 'rgba(200, 160, 230, 0.22)';
-const MARKER_REACHED = ACCENT;
-const MARKER_UNREACHED = 'rgba(160, 140, 180, 0.28)';
-const SPARKLINE_COLOR = ACCENT;
+// Placeholder values; the practice-history store + check-in flow land later.
+const SESSIONS_COMPLETED = 14;
+const TODAY_MOOD = 'Calm';
+const CHECK_IN_COUNT = 12;
+const CHECK_IN_HISTORY = [4, 5, 4, 6, 5, 7, 4, 4, 6, 5, 6, 6];
 
-// ── Mock data (replaced by practice store when it lands) ───────────────────
-const TIER_NAME = 'Glow';
-const TIER_RING_COUNT = 1;
-const LEVEL_TOTAL = 15;
-const LEVEL_CURRENT = 10;
-const LEVEL_NEXT_TIER = 15;
-const SPARKLINE_VALUES = [3, 5, 2, 6, 4, 7, 5, 8, 6, 9, 7, 10, 8, 6];
-
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function LevelMarker({ n, current, nextTier }: { n: number; current: number; nextTier: number }) {
-  const isReached = n <= current;
-  const isNextTier = n === nextTier;
-  const isCurrent = n === current;
-
-  if (isNextTier) {
-    return (
-      <View style={styles.markerNext}>
-        <View style={styles.markerNextInner} />
-        <View style={styles.markerNextRing} />
-      </View>
-    );
-  }
+export default function MySoulScreen() {
+  const [analyticsOn, setAnalyticsOn] = useState(true);
+  const tier = currentTier(SESSIONS_COMPLETED);
+  const next = nextTier(tier);
+  const toNext = sessionsToNext(SESSIONS_COMPLETED);
+  const accent = `hsl(${tier.hue}, 70%, 75%)`;
 
   return (
-    <View
-      style={[
-        styles.marker,
-        isReached && styles.markerReached,
-        isCurrent && styles.markerCurrent,
-      ]}
-    />
-  );
-}
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.back();
+            }}
+            hitSlop={16}
+            accessibilityLabel="Close My Soul"
+          >
+            <SymbolView
+              name="chevron.left"
+              tintColor={colors.iconChrome}
+              size={20}
+              weight="regular"
+            />
+          </Pressable>
+          <Text style={styles.title}>My Soul</Text>
+          <View style={{ width: 20 }} />
+        </View>
 
-function Sparkline({ values }: { values: number[] }) {
-  const max = Math.max(...values);
-  const barH = 28;
+        <ScrollView
+          contentContainerStyle={styles.scrollBody}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.orbWrap}>
+            <Orb size={110} />
+          </View>
+          <Text style={styles.todayLabel}>
+            Today: 
+            <Text style={{ color: colors.textPrimary }}>{TODAY_MOOD}</Text>
+          </Text>
 
-  return (
-    <View style={styles.sparklineRow}>
-      {values.map((v, i) => (
-        <View
-          key={i}
-          style={[
-            styles.sparklineBar,
-            {
-              height: Math.round((v / max) * barH),
-              opacity: 0.5 + (v / max) * 0.5,
-            },
-          ]}
-        />
-      ))}
+          <LevelCard
+            tierName={tier.name}
+            nextName={next?.name ?? null}
+            toNext={toNext}
+            accent={accent}
+            sessions={SESSIONS_COMPLETED}
+          />
+
+          <CheckInCard
+            count={CHECK_IN_COUNT}
+            history={CHECK_IN_HISTORY}
+            accent={accent}
+          />
+
+          <ToggleCard
+            title="Anonymous analytics"
+            description="Helps shape what to improve next. Stress scores, breath patterns, and anything that identifies you stay on your iPhone."
+            value={analyticsOn}
+            onChange={setAnalyticsOn}
+          />
+
+          <MessageCard accent={accent} />
+
+          <Text style={styles.footer}>
+            Niyora runs entirely on your iPhone. No accounts, no profiles.
+            Analytics are anonymous, optional, and only sent if you choose.
+            Breathe easy.
+          </Text>
+          <Text style={styles.version}>Version 0.1.0</Text>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
 
-// ── Screen ─────────────────────────────────────────────────────────────────
-
-export default function MySoulScreen() {
-  const theme = useTheme();
-  const safeAreaInsets = useSafeAreaInsets();
-  const contentInsets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: contentInsets.top,
-      paddingLeft: contentInsets.left,
-      paddingRight: contentInsets.right,
-      paddingBottom: contentInsets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
-
+function LevelCard({
+  tierName,
+  nextName,
+  toNext,
+  accent,
+  sessions,
+}: {
+  tierName: string;
+  nextName: string | null;
+  toNext: number;
+  accent: string;
+  sessions: number;
+}) {
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={contentInsets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.inner}>
-
-        {/* Page title */}
-        <ThemedText type="subtitle" style={styles.pageTitle}>
-          My Soul
-        </ThemedText>
-
-        {/* Orb + level label */}
-        <View style={styles.orbSection}>
-          <Orb size={148} tierRingCount={TIER_RING_COUNT} />
-          <ThemedText themeColor="textSecondary" style={styles.orbLabel}>
-            Level {LEVEL_CURRENT}
-          </ThemedText>
-        </View>
-
-        {/* Level Glow card */}
-        <View style={[styles.card, { borderColor: ACCENT_SOFT, backgroundColor: theme.backgroundElement }]}>
-          {/* Softer top-edge inner highlight (simulates Mac inner-gradient) */}
-          <View style={styles.cardTopEdge} />
-
-          <View style={styles.cardBody}>
-            {/* Tier name in serif — Source Serif 4 when font asset is added (#5) */}
-            <ThemedText style={styles.tierName}>Level {TIER_NAME}</ThemedText>
-
-            <ThemedText themeColor="textSecondary" style={styles.progressLabel}>
-              {LEVEL_CURRENT} / {LEVEL_NEXT_TIER} to next tier
-            </ThemedText>
-
-            {/* Level markers */}
-            <View style={styles.markerRow}>
-              {Array.from({ length: LEVEL_TOTAL }, (_, i) => i + 1).map((n) => (
-                <LevelMarker key={n} n={n} current={LEVEL_CURRENT} nextTier={LEVEL_NEXT_TIER} />
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Sessions sparkline card */}
-        <View style={[styles.card, { borderColor: ACCENT_SOFT, backgroundColor: theme.backgroundElement }]}>
-          <View style={styles.cardTopEdge} />
-          <View style={styles.cardBody}>
-            <ThemedText style={styles.cardLabel}>Sessions</ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.sparklineSubtitle}>
-              Last {SPARKLINE_VALUES.length} days
-            </ThemedText>
-            <Sparkline values={SPARKLINE_VALUES} />
-          </View>
-        </View>
-
-      </ThemedView>
-    </ScrollView>
+    <View style={[styles.card, { borderColor: accent + '33' }]}>
+      <View style={styles.levelHeader}>
+        <Text style={[styles.levelName, { color: accent }]}>Level {tierName}</Text>
+        {nextName && (
+          <Text style={styles.levelSub}>
+            {toNext} to {nextName}
+          </Text>
+        )}
+      </View>
+      <View style={styles.sessionsRow}>
+        <Text style={styles.sessionsNum}>{sessions}</Text>
+        <Text style={styles.sessionsLabel}>sessions</Text>
+      </View>
+      <TierTrack sessions={sessions} accent={accent} />
+    </View>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────
+function TierTrack({ sessions, accent }: { sessions: number; accent: string }) {
+  // Skip the spark marker (always reached) per Mac convention.
+  const markers = TIERS.filter((t) => t.id !== 'spark');
+  const cap = markers[markers.length - 1].threshold;
+  const fillPct = Math.min(100, (sessions / cap) * 100);
+
+  return (
+    <View style={styles.trackWrap}>
+      <View style={styles.trackBase} />
+      <View
+        style={[
+          styles.trackFill,
+          { width: `${fillPct}%`, backgroundColor: accent },
+        ]}
+      />
+      <View style={styles.markers}>
+        {markers.map((m) => {
+          const reached = sessions >= m.threshold;
+          const pos = (m.threshold / cap) * 100;
+          return (
+            <View
+              key={m.id}
+              style={[
+                styles.marker,
+                {
+                  left: `${pos}%`,
+                  borderColor: reached ? accent : 'rgba(255,255,255,0.25)',
+                  backgroundColor: reached ? '#13101a' : '#13101a',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.markerNum,
+                  { color: reached ? accent : 'rgba(255,255,255,0.4)' },
+                ]}
+              >
+                {m.threshold}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function CheckInCard({
+  count,
+  history,
+  accent,
+}: {
+  count: number;
+  history: number[];
+  accent: string;
+}) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Mental health check-in</Text>
+      <Text style={styles.cardCopy}>
+        {count} check-ins so far. Lower is calmer.
+      </Text>
+      <Sparkline values={history} accent={accent} />
+      <Pressable
+        onPress={() => Haptics.selectionAsync()}
+        style={styles.smallButton}
+      >
+        <Text style={styles.smallButtonLabel}>Take again</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function Sparkline({ values, accent }: { values: number[]; accent: string }) {
+  // A row of vertical bars normalized to the data's range. Cheap to render
+  // and reads as a trend without pulling in SVG path math.
+  const max = Math.max(...values, 1);
+  return (
+    <View style={styles.sparkline}>
+      {values.map((v, i) => {
+        const h = (v / max) * 36 + 4;
+        return (
+          <View
+            key={i}
+            style={{
+              width: 4,
+              height: h,
+              borderRadius: 2,
+              backgroundColor: accent,
+              opacity: 0.65,
+              marginRight: 4,
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+function ToggleCard({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.toggleRow}>
+        <View style={{ flex: 1, paddingRight: 16 }}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={[styles.cardCopy, { marginTop: 6 }]}>{description}</Text>
+        </View>
+        <Switch
+          value={value}
+          onValueChange={(v) => {
+            Haptics.selectionAsync();
+            onChange(v);
+          }}
+          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          thumbColor="#fff"
+        />
+      </View>
+    </View>
+  );
+}
+
+function MessageCard({ accent: _accent }: { accent: string }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Message the founder</Text>
+      <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+        Tell Neha what's working, what isn't, what you'd love next.
+      </Text>
+      <Pressable
+        onPress={() => Haptics.selectionAsync()}
+        style={[styles.primarySmallButton]}
+      >
+        <Text style={styles.primarySmallButtonLabel}>Open</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-  scrollView: {
+  root: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  safe: {
     flex: 1,
   },
-  contentContainer: {
+  header: {
     flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  inner: {
-    flex: 1,
-    maxWidth: MaxContentWidth,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.three,
-    paddingTop: Spacing.four,
-  },
-  pageTitle: {
-    textAlign: 'center',
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.two,
-  },
-
-  // Orb
-  orbSection: {
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.four,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  orbLabel: {
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  scrollBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 60,
+  },
+  orbWrap: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  todayLabel: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '300',
+    marginTop: 2,
+    marginBottom: 20,
+  },
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.07)',
+    marginBottom: 14,
+  },
+  cardTitle: {
     fontSize: 15,
     fontWeight: '500',
-    letterSpacing: 0.2,
+    color: colors.textPrimary,
   },
-
-  // Cards — generous padding, soft border, top-edge highlight
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: 'hidden',
+  cardCopy: {
+    fontSize: 12,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.55)',
+    lineHeight: 18,
   },
-  cardTopEdge: {
-    height: 1.5,
-    backgroundColor: CARD_TOP_EDGE,
-  },
-  cardBody: {
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.four,
-    gap: Spacing.two,
-  },
-
-  // Level Glow card text
-  tierName: {
-    fontFamily: Fonts.serif,
-    fontSize: 22,
-    fontWeight: '600',
-    letterSpacing: 0.1,
-  },
-  progressLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-
-  // Marker row
-  markerRow: {
+  levelHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-    marginTop: Spacing.one,
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  levelName: {
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  levelSub: {
+    fontSize: 12,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.55)',
+  },
+  sessionsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 14,
+    marginBottom: 18,
+  },
+  sessionsNum: {
+    fontSize: 36,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginRight: 8,
+  },
+  sessionsLabel: {
+    fontSize: 11,
+    fontWeight: '400',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: 'rgba(255, 255, 255, 0.45)',
+  },
+  trackWrap: {
+    position: 'relative',
+    height: 28,
+    marginTop: 6,
+    marginHorizontal: 14,
+  },
+  trackBase: {
+    position: 'absolute',
+    top: 11,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 1,
+  },
+  trackFill: {
+    position: 'absolute',
+    top: 11,
+    left: 0,
+    height: 2,
+    borderRadius: 1,
+  },
+  markers: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   marker: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: MARKER_UNREACHED,
-  },
-  markerReached: {
-    backgroundColor: MARKER_REACHED,
-    opacity: 0.6,
-  },
-  markerCurrent: {
-    opacity: 1,
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 4,
-    shadowOpacity: 0.7,
-    elevation: 4,
-  },
-  // Next-tier marker: filled circle at 0.4 opacity with glowing ring
-  markerNext: {
-    width: 18,
-    height: 18,
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    marginLeft: -12,
+    borderRadius: 12,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    top: 0,
   },
-  markerNextInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: ACCENT_NEXT,
-    position: 'absolute',
-  },
-  markerNextRing: {
-    position: 'absolute',
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: ACCENT,
-    opacity: 0.7,
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 4,
-    shadowOpacity: 0.6,
-    elevation: 2,
-  },
-
-  // Sparkline card
-  cardLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  sparklineSubtitle: {
-    fontSize: 12,
+  markerNum: {
+    fontSize: 10,
     fontWeight: '500',
   },
-  sparklineRow: {
+  sparkline: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 4,
-    height: 36,
-    marginTop: Spacing.one,
+    height: 44,
+    marginTop: 14,
+    marginBottom: 14,
   },
-  sparklineBar: {
-    flex: 1,
-    borderRadius: 3,
-    backgroundColor: SPARKLINE_COLOR,
-    minHeight: 4,
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    borderRadius: 18,
+    backgroundColor: 'hsl(270, 50%, 45%)',
+    marginTop: 6,
+  },
+  smallButtonLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  primarySmallButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 9,
+    borderRadius: 18,
+    backgroundColor: 'hsl(270, 50%, 45%)',
+    marginTop: 12,
+  },
+  primarySmallButtonLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  footer: {
+    marginTop: 18,
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.4)',
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  version: {
+    marginTop: 8,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.3)',
+    textAlign: 'center',
   },
 });
