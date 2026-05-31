@@ -2,7 +2,7 @@
 // Mac BreathingSession.tsx canvas at a v1-appropriate level of detail.
 //
 // Differs from the Mac:
-// - Native iOS pull-down dismiss (full-screen sheet).
+// - Swipe-down to dismiss via react-native-gesture-handler pan gesture.
 // - No pause overlay yet (tap to pause is on the roadmap).
 // - No round dots / progress ring yet.
 // - Single "converge" particle motion regardless of technique.motion;
@@ -14,6 +14,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
 import { PhaseLabel } from '@/components/phase-label';
@@ -73,46 +80,77 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
 
+  const translateY = useSharedValue(0);
+
+  function exitSession() {
+    Haptics.selectionAsync();
+    router.back();
+  }
+
+  // Swipe-down to dismiss: drag threshold 80pt or velocity 800pt/s.
+  const panGesture = Gesture.Pan()
+    .activeOffsetY(10)
+    .failOffsetX([-30, 30])
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > 80 || e.velocityY > 800) {
+        runOnJS(exitSession)();
+      } else {
+        translateY.value = withSpring(0, { damping: 20, stiffness: 200 });
+      }
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
   return (
-    <View style={styles.root}>
-      <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
-      <BreathingParticles
-        motion="converge"
-        phase={cycle.phase.type}
-        phaseT={cycle.phaseT}
-        roundProgress={cycle.sessionT}
-        active
-        style={{ position: 'absolute', top: 0, left: 0, width, height }}
-      />
+    <GestureDetector gesture={panGesture}>
+      <Animated.View style={[styles.root, animatedStyle]}>
+        <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
+        <BreathingParticles
+          motion="converge"
+          phase={cycle.phase.type}
+          phaseT={cycle.phaseT}
+          roundProgress={cycle.sessionT}
+          active
+          style={{ position: 'absolute', top: 0, left: 0, width, height }}
+        />
 
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-        <View style={styles.topRow}>
-          <Pressable
-            onPress={() => {
-              Haptics.selectionAsync();
-              router.back();
-            }}
-            hitSlop={16}
-            accessibilityRole="button"
-            accessibilityLabel="End session"
-          >
-            <SymbolView
-              name="xmark"
-              tintColor={colors.iconChrome}
-              size={20}
-              weight="regular"
-            />
-          </Pressable>
-        </View>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
+          <View style={styles.dragHandleWrap}>
+            <View style={styles.dragHandle} />
+          </View>
 
-        <View style={styles.bottomBlock}>
-          <PhaseLabel label={labelText} />
-          <Text style={styles.instructions}>
-            {cycle.done ? 'take this calm with you' : technique.instructions}
-          </Text>
-        </View>
-      </SafeAreaView>
-    </View>
+          <View style={styles.topRow}>
+            <Pressable
+              onPress={exitSession}
+              hitSlop={20}
+              accessibilityRole="button"
+              accessibilityLabel="End session"
+            >
+              <SymbolView
+                name="chevron.down"
+                tintColor={colors.textPrimary}
+                size={28}
+                weight="medium"
+              />
+            </Pressable>
+          </View>
+
+          <View style={styles.bottomBlock}>
+            <PhaseLabel label={labelText} />
+            <Text style={styles.instructions}>
+              {cycle.done ? 'take this calm with you' : technique.instructions}
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 
@@ -124,6 +162,17 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  dragHandleWrap: {
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   topRow: {
     flexDirection: 'row',
