@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Dimensions, StyleSheet, View } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 type HSL = [number, number, number];
@@ -34,7 +34,22 @@ export function SessionBackground({ targetColor }: Props) {
   const targetRef = useRef<HSL>(targetColor);
   const lastTsRef = useRef<number | null>(null);
   const rafRef = useRef<number>(0);
+  const reduceMotionRef = useRef(false);
   const [bgColor, setBgColor] = useState<HSL>([...INIT]);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (!cancelled) reduceMotionRef.current = rm;
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (rm) => {
+      reduceMotionRef.current = rm;
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     targetRef.current = targetColor;
@@ -48,7 +63,9 @@ export function SessionBackground({ targetColor }: Props) {
           : 0;
       lastTsRef.current = ts;
 
-      const next = lerpHSL(bgRef.current, targetRef.current, dt * 1.2);
+      const next: HSL = reduceMotionRef.current
+        ? [...targetRef.current]
+        : lerpHSL(bgRef.current, targetRef.current, dt * 1.2);
       bgRef.current = next;
       setBgColor([...next]);
 
@@ -71,7 +88,12 @@ export function SessionBackground({ targetColor }: Props) {
   ];
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+    >
       <LinearGradient colors={gradColors} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
       <Svg style={StyleSheet.absoluteFill} width={W} height={H}>
         <Defs>

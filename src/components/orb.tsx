@@ -97,6 +97,8 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
         alignItems: 'center',
         justifyContent: 'center',
       }}
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
     >
       <Animated.View
         style={[
