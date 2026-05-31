@@ -24,6 +24,7 @@ import {
   getTechnique,
   isBreathing,
 } from '@/models/techniques';
+import { appendSession } from '@/store/session-history';
 import { colors } from '@/theme/colors';
 
 export default function SessionScreen() {
@@ -60,11 +61,12 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
 
   useEffect(() => {
     if (cycle.done) {
+      appendSession(technique.id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const t = setTimeout(() => router.back(), 1200);
       return () => clearTimeout(t);
     }
-  }, [cycle.done]);
+  }, [cycle.done, technique.id]);
 
   const labelText = useMemo(() => {
     if (cycle.done) return 'well done';

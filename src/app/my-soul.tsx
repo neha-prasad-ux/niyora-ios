@@ -1,10 +1,9 @@
 // My Soul sheet. Ported from the Mac Settings.tsx "My Soul" panel at the
-// level of fidelity DESIGN.md asks for. v1 shows static data (14 sessions →
-// Glow tier) because the practice-history store lands in a later PR.
+// level of fidelity DESIGN.md asks for.
 
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   Pressable,
   ScrollView,
@@ -14,15 +13,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
+import { getSessionCount } from '@/store/session-history';
 import { colors } from '@/theme/colors';
-
-// Placeholder values; the practice-history store + check-in flow land later.
-const SESSIONS_COMPLETED = 14;
 
 // Maps tier id to the number of Saturn-style rings around the orb.
 // Matches Mac tierRingCount(): spark=0, glow=1, shine=2, radiance=3, brilliance=4.
@@ -36,9 +33,21 @@ const CHECK_IN_HISTORY = [4, 5, 4, 6, 5, 7, 4, 4, 6, 5, 6, 6];
 
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
-  const tier = currentTier(SESSIONS_COMPLETED);
+  const [sessionsCompleted, setSessionsCompleted] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getSessionCount().then((n) => {
+        if (active) setSessionsCompleted(n);
+      }).catch(() => {});
+      return () => { active = false; };
+    }, [])
+  );
+
+  const tier = currentTier(sessionsCompleted);
   const next = nextTier(tier);
-  const toNext = sessionsToNext(SESSIONS_COMPLETED);
+  const toNext = sessionsToNext(sessionsCompleted);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
 
   return (
@@ -87,7 +96,7 @@ export default function MySoulScreen() {
             nextThreshold={next?.threshold ?? null}
             toNext={toNext}
             accent={accent}
-            sessions={SESSIONS_COMPLETED}
+            sessions={sessionsCompleted}
           />
 
           <CheckInCard
