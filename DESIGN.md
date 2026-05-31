@@ -165,7 +165,7 @@ BEGIN                   15pt, weight 500, letter-spacing 2pt, UPPERCASE, white@9
 ### Motion
 
 - Breath cycles dictate animation cadence. Easing should feel like an inhale, not a bounce.
-- The home orb pulses 5.5s ease-in-out, scale 1.0 → 1.04, repeats forever.
+- The home orb pulses 5.5s ease-in-out, normalised to ~6px absolute radius change (scale ≈1.055 at 220px, ≈1.11 at 110px), repeats forever.
 - The session orb pulses on the technique's specific breath rhythm (Box = 4-4-4-4, 4-7-8 = 4-7-8, etc.).
 - `accessibilityReduceMotion` must be respected throughout. Disable orb pulse, freeze particles, replace particle field with a static soft radial vignette.
 - No single animation should outlast ~7 seconds.

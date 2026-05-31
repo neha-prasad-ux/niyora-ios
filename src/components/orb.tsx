@@ -22,7 +22,9 @@
 // highlight, and the crescent rim each become their own radial gradient,
 // layered in the same order as the Mac CSS. Drop shadow stays a View shadow.
 //
-// Pulse: scale 1.0 -> 1.04 over 5.5s ease-in-out. Respects reduce motion.
+// Pulse: normalised to ~6px absolute radius change per breath so smaller orbs
+// breathe as clearly as the home orb. Formula: 1 + 12/size (≈1.055 at 220px,
+// ≈1.11 at 110px). 5.5s ease-in-out. Respects reduce motion.
 
 import { useEffect } from 'react';
 import { AccessibilityInfo, View } from 'react-native';
@@ -52,13 +54,15 @@ type OrbProps = {
 
 export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) {
   const scale = useSharedValue(1);
+  // Normalise amplitude so both 220px and 110px orbs have ~6px radius travel.
+  const scaleMax = 1 + 12 / size;
 
   useEffect(() => {
     let cancelled = false;
     AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
       if (cancelled || reduce) return;
       scale.value = withRepeat(
-        withTiming(1.04, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(scaleMax, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
         -1,
         true
       );
@@ -66,7 +70,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
     return () => {
       cancelled = true;
     };
-  }, [scale]);
+  }, [scale, scaleMax]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
