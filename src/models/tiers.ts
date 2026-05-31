@@ -39,3 +39,9 @@ export function sessionsToNext(completedSessions: number): number {
   const next = nextTier(currentTier(completedSessions));
   return next ? Math.max(0, next.threshold - completedSessions) : 0;
 }
+
+export function tierById(id: TierId): Tier {
+  const tier = TIERS.find((t) => t.id === id);
+  if (!tier) throw new Error(`Unknown tier id: ${id}`);
+  return tier;
+}
