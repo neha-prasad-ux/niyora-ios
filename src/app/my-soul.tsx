@@ -3,6 +3,7 @@
 // Glow tier) because the practice-history store lands in a later PR.
 
 import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
 import {
@@ -308,6 +309,15 @@ function ToggleCard({
 }
 
 function MessageCard({ accent: _accent }: { accent: string }) {
+  async function handleOpen() {
+    Haptics.selectionAsync();
+    const url = 'mailto:neha@luminik.io?subject=Niyora%20iOS%20feedback';
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    }
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.cardTopEdge} />
@@ -316,7 +326,7 @@ function MessageCard({ accent: _accent }: { accent: string }) {
         Tell Neha what's working, what isn't, what you'd love next.
       </Text>
       <Pressable
-        onPress={() => Haptics.selectionAsync()}
+        onPress={handleOpen}
         style={[styles.primarySmallButton]}
       >
         <Text style={styles.primarySmallButtonLabel}>Open</Text>
