@@ -18,6 +18,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   AppState,
   LayoutChangeEvent,
   StyleProp,
@@ -181,6 +182,11 @@ export function BreathingParticles({
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+  }, []);
 
   // All particle state lives here so the UI-thread worklet can read/write it.
   const allParticles = useSharedValue<Particle[]>([]);
@@ -243,18 +249,18 @@ export function BreathingParticles({
     allParticles.value = next;
   }, true /* autostart */);
 
-  // Pause/resume on prop change
+  // Pause/resume on prop change or reduce-motion change
   useEffect(() => {
-    frameCallback.setActive(active);
-  }, [active]);
+    frameCallback.setActive(active && !reduceMotion);
+  }, [active, reduceMotion]);
 
   // Pause when app goes to background; resume on foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
-      frameCallback.setActive(nextState === 'active' && active);
+      frameCallback.setActive(nextState === 'active' && active && !reduceMotion);
     });
     return () => sub.remove();
-  }, [active]);
+  }, [active, reduceMotion]);
 
   // Stop cleanly on unmount
   useEffect(() => {

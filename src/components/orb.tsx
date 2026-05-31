@@ -25,17 +25,29 @@
 // Pulse: normalised to ~6px absolute radius change per breath so smaller orbs
 // breathe as clearly as the home orb. Formula: 1 + 12/size (≈1.055 at 220px,
 // ≈1.11 at 110px). 5.5s ease-in-out. Respects reduce motion.
+//
+// Halo swell: an animated SVG Circle carries an `opacity` prop (0.7→1.0) that
+// swells in sync with the scale, giving a gentle glow-on-inhale quality.
+//
+// Session mode: when `phase` + `phaseDuration` are supplied, the orb drives
+// from the breath cadence via withTiming instead of the continuous home loop.
+// inhale → scale expands + halo brightens, exhale → scale contracts + halo
+// dims, hold → animation is cancelled and the orb holds its current state.
 
 import { useEffect } from 'react';
 import { AccessibilityInfo, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 type OrbProps = {
   size?: number;
@@ -50,14 +62,28 @@ type OrbProps = {
    * Only used when tierRingCount > 0.
    */
   tierHue?: number;
+  /**
+   * Current breath phase. When supplied the animation is driven by the
+   * breath cadence rather than the continuous home loop.
+   */
+  phase?: 'inhale' | 'hold' | 'exhale';
+  /**
+   * Duration of the current phase in seconds. Sizes the withTiming call
+   * when phase changes in session mode.
+   */
+  phaseDuration?: number;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration }: OrbProps) {
   const scale = useSharedValue(1);
+  const haloOpacity = useSharedValue(0.7);
   // Normalise amplitude so both 220px and 110px orbs have ~6px radius travel.
   const scaleMax = 1 + 12 / size;
+  const sessionMode = phase !== undefined;
 
+  // Home mode: continuous 5.5s ease-in-out loop (scale + halo swell together).
   useEffect(() => {
+    if (sessionMode) return;
     let cancelled = false;
     AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
       if (cancelled || reduce) return;
@@ -66,14 +92,48 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
         -1,
         true
       );
+      haloOpacity.value = withRepeat(
+        withTiming(1.0, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true
+      );
     });
     return () => {
       cancelled = true;
     };
-  }, [scale, scaleMax]);
+  }, [sessionMode, scale, scaleMax, haloOpacity]);
+
+  // Session mode: trigger a UI-thread withTiming whenever the phase changes so
+  // the orb visually inhales and exhales with the guidance at 60fps.
+  useEffect(() => {
+    if (!sessionMode) return;
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled || reduce) return;
+      const dur = (phaseDuration ?? 4) * 1000;
+      if (phase === 'inhale') {
+        scale.value = withTiming(scaleMax, { duration: dur, easing: Easing.out(Easing.sin) });
+        haloOpacity.value = withTiming(1.0, { duration: dur, easing: Easing.out(Easing.sin) });
+      } else if (phase === 'exhale') {
+        scale.value = withTiming(1, { duration: dur, easing: Easing.in(Easing.sin) });
+        haloOpacity.value = withTiming(0.7, { duration: dur, easing: Easing.in(Easing.sin) });
+      } else {
+        // Hold: cancel any in-progress tween so the orb rests at its current value.
+        cancelAnimation(scale);
+        cancelAnimation(haloOpacity);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, phaseDuration, sessionMode, scale, scaleMax, haloOpacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
+  }));
+
+  const haloAnimProps = useAnimatedProps(() => ({
+    opacity: haloOpacity.value,
   }));
 
   // Canvas is 1.8x the sphere so the outer halo has room to fade.
@@ -192,8 +252,14 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
             </RadialGradient>
           </Defs>
 
-          {/* Halo (sits beneath everything) */}
-          <Circle cx={center} cy={center} r={sphereRadius * 1.7} fill="url(#halo)" />
+          {/* Halo with animated opacity swell (sits beneath everything) */}
+          <AnimatedCircle
+            cx={center}
+            cy={center}
+            r={sphereRadius * 1.7}
+            fill="url(#halo)"
+            animatedProps={haloAnimProps}
+          />
 
           {/* Tier rings — drawn before sphere body so the body circles cover
               the ring centres, leaving only the outer arcs visible (Saturn). */}
