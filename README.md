@@ -41,6 +41,47 @@ Or run directly in the iOS Simulator:
 npx expo start --ios
 ```
 
+## E2E testing (Maestro)
+
+[Maestro](https://maestro.mobile.dev) flows live in `.maestro/`. Five flows cover the full user journey with per-step screenshots.
+
+**Requirements:**
+
+- Maestro CLI: `brew tap mobile-dev-inc/tap && brew install maestro`
+- An iOS Simulator booted (`xcrun simctl list devices | grep Booted`)
+
+**Step 1 — build a Release binary (required; flows must not rely on Metro):**
+
+```sh
+npm run build:ios:release
+```
+
+This runs `expo run:ios --configuration Release`, which embeds the JS bundle into the native build and installs it on the booted simulator.
+
+**Step 2 — run all flows:**
+
+```sh
+maestro test .maestro
+```
+
+Screenshots for each step are written to the Maestro test output directory (default: `~/.maestro/tests/<timestamp>/screenshots/`).
+
+**Run a single flow:**
+
+```sh
+maestro test .maestro/03_session_exit_button.yaml
+```
+
+**Flows at a glance:**
+
+| File | What it covers |
+|------|---------------|
+| `01_home.yaml` | Launch; assert orb screen, technique name, Begin button |
+| `02_cycle_technique.yaml` | "Try a different one" cycles the technique twice |
+| `03_session_exit_button.yaml` | Begin session; exit via the X / chevron-down button |
+| `04_session_exit_swipe.yaml` | Begin session; exit via swipe-down gesture |
+| `05_my_soul.yaml` | Open My Soul from header; assert level + sessions; back to Home |
+
 ## Current scope
 
 v1, first pass: **home screen only**.

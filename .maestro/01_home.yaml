@@ -1,0 +1,9 @@
+appId: com.niyora.app
+---
+- launchApp
+- takeScreenshot: 01_home_launched
+- assertVisible: "Niyora"
+- assertVisible: "Calm in 60 seconds"
+- assertVisible: "Try a different one"
+- assertVisible: "Begin"
+- takeScreenshot: 01_home_verified
