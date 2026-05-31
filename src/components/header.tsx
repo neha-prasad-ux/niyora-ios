@@ -1,5 +1,5 @@
-// Home-screen header. Person icon on the left, wordmark + tagline center,
-// speaker icon on the right. Selection haptic on icon taps.
+// Home-screen header. Person icon on the left, wordmark + tagline center.
+// Speaker/mute toggle removed for v1 -- audio is out of scope until #5 lands.
 
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
@@ -9,22 +9,16 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 
 type HeaderProps = {
-  muted: boolean;
   onPressProfile: () => void;
-  onToggleMute: () => void;
 };
 
 const ICON_SIZE = 22;
 const HIT_SLOP = 12;
 
-export function Header({ muted, onPressProfile, onToggleMute }: HeaderProps) {
+export function Header({ onPressProfile }: HeaderProps) {
   function handleProfile() {
     Haptics.selectionAsync();
     onPressProfile();
-  }
-  function handleMute() {
-    Haptics.selectionAsync();
-    onToggleMute();
   }
 
   return (
@@ -50,20 +44,8 @@ export function Header({ muted, onPressProfile, onToggleMute }: HeaderProps) {
         </Text>
       </View>
 
-      <Pressable
-        onPress={handleMute}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel={muted ? 'Unmute audio cues' : 'Mute audio cues'}
-        accessibilityState={{ selected: muted }}
-      >
-        <SymbolView
-          name={muted ? 'speaker.slash' : 'speaker.wave.2'}
-          tintColor={colors.iconChrome}
-          size={ICON_SIZE}
-          weight="regular"
-        />
-      </Pressable>
+      {/* Placeholder keeps layout symmetric; remove when #5 adds real audio */}
+      <View style={{ width: ICON_SIZE }} />
     </View>
   );
 }
