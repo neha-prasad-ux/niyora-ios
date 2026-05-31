@@ -12,6 +12,7 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
+import { Button as NwButton } from '@/components/ui/button';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import { isBreathing, unlockedTechniques } from '@/models/techniques';
@@ -82,6 +83,11 @@ export default function HomeScreen() {
         <View style={styles.beginWrap}>
           <BeginButton onPress={handleBegin} />
         </View>
+
+        {/* NativeWind proof: confirms brand tokens resolve as utility classes */}
+        <View style={styles.proofWrap}>
+          <NwButton label="NW proof" />
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -113,6 +119,11 @@ const styles = StyleSheet.create({
   },
   beginWrap: {
     paddingHorizontal: 12,
+    paddingBottom: 4,
+  },
+  proofWrap: {
+    alignItems: 'center',
+    paddingTop: 8,
     paddingBottom: 4,
   },
 });
