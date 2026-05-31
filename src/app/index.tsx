@@ -24,7 +24,6 @@ export default function HomeScreen() {
     []
   );
   const [index, setIndex] = useState(0);
-  const [muted, setMuted] = useState(false);
 
   const current = techniques[index];
 
@@ -46,9 +45,7 @@ export default function HomeScreen() {
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <Header
-          muted={muted}
           onPressProfile={handleProfile}
-          onToggleMute={() => setMuted((m) => !m)}
         />
 
         <View style={styles.orbWrap}>
