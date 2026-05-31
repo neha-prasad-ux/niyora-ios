@@ -5,6 +5,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -27,13 +29,27 @@ export function PhaseLabel({ label }: PhaseLabelProps) {
 
   useEffect(() => {
     if (label === lastLabelRef.current) return;
+
+    // Snapshot before canceling so prev inherits exactly where shown left off,
+    // avoiding a pop-to-1 flicker when a change arrives mid-animation.
+    const currentShownOpacity = shownOpacity.value;
+
+    cancelAnimation(shownOpacity);
+    cancelAnimation(prevOpacity);
+
     setPrev(lastLabelRef.current);
     setShown(label);
     lastLabelRef.current = label;
+
+    prevOpacity.value = currentShownOpacity;
     shownOpacity.value = 0;
-    prevOpacity.value = 1;
+    prevOpacity.value = withTiming(0, { duration: FADE_MS }, (finished) => {
+      'worklet';
+      if (finished) {
+        runOnJS(setPrev)(null);
+      }
+    });
     shownOpacity.value = withTiming(1, { duration: FADE_MS });
-    prevOpacity.value = withTiming(0, { duration: FADE_MS });
   }, [label, prevOpacity, shownOpacity]);
 
   const shownStyle = useAnimatedStyle(() => ({ opacity: shownOpacity.value }));
