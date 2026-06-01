@@ -49,11 +49,15 @@ export default function HomeScreen() {
           onPressProfile={handleProfile}
         />
 
-        <View style={styles.orbWrap}>
+        <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
           <Orb size={220} />
         </View>
 
-        <View style={styles.techniqueWrap}>
+        <View
+          style={styles.techniqueWrap}
+          accessible={true}
+          accessibilityLabel={`${current.name}. ${current.subtitle}. ${current.durationSeconds} seconds.`}
+        >
           <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
             {current.name}
           </Text>
