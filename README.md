@@ -97,6 +97,42 @@ Wired but not yet implemented in this pass:
 - Person icon doesn't open My Soul (sheet lands next)
 - Speaker icon toggles state but no audio yet
 
+## TestFlight / EAS Build (maintainer steps)
+
+Config is in `eas.json`. Two build profiles are defined:
+
+- **production** — Release build uploaded to App Store Connect / TestFlight. `buildNumber` auto-increments each run.
+- **preview** — internal-distribution Release build for ad-hoc device testing without the App Store.
+
+### One-time setup (requires credentials)
+
+```sh
+# 1. Log in to your Expo account
+npx eas-cli login
+
+# 2. Log in with your Apple ID (prompts during first build if skipped)
+#    EAS will ask for Apple Team ID and ASC App ID at submit time.
+```
+
+### Build and submit
+
+```sh
+# Build for TestFlight (production profile)
+npm run build:ios
+
+# Submit the latest build to TestFlight
+npm run submit:ios
+```
+
+`eas submit` will prompt for **Apple ID**, **ASC App ID** (from App Store Connect), and **Apple Team ID** on first run. These are not stored in the repo.
+
+### Out of scope in this repo
+
+- Creating the App Store Connect app record.
+- Running `eas build` / `eas submit` (needs Apple Developer credentials).
+
+---
+
 ## Tooling notes for future agents
 
 - `expo-router` v6: import everything from `expo-router`, never directly from `@react-navigation/*`.

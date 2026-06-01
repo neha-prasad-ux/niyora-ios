@@ -44,7 +44,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "build:ios:release": "expo run:ios --configuration Release"
+    "build:ios:release": "expo run:ios --configuration Release",
+    "build:ios": "eas build -p ios --profile production",
+    "submit:ios": "eas submit -p ios --latest"
   },
   "private": true
 }
