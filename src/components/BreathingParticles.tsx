@@ -64,7 +64,7 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
       baseSize:     base,
       size:         base,
       opacity:      0.3 + Math.random() * 0.35,
-      hue:          200 + Math.random() * 60, // blue-to-purple
+      hue:          260 + Math.random() * 40, // violet, matching Mac createParticle
       noiseOffsetX: Math.random() * 100,
       noiseOffsetY: Math.random() * 100,
       side:         (i % 2 === 0 ? -1 : 1) as (-1 | 1),
@@ -114,9 +114,12 @@ const ParticleView = memo(function ParticleView({
   // Per-particle hue. Body is a top-to-bottom linear gradient (highlight at
   // top, deep at bottom) mirroring the user's Figma mock. Halo is a native
   // iOS shadow on the wrapper, tinted by the same hue.
-  const lightTop = `hsl(${hue}, 75%, 78%)`;
-  const deepBottom = `hsl(${hue}, 80%, 32%)`;
-  const haloColor = `hsl(${hue}, 85%, 60%)`;
+  // Softer, less directional stops so each particle reads as a glowing point
+  // (Mac radial-gradient: bright 65% center -> 50% mid -> transparent), not a
+  // top-lit solid ball. The native shadow below carries the outer glow.
+  const lightTop = `hsl(${hue}, 72%, 68%)`;
+  const deepBottom = `hsl(${hue}, 65%, 50%)`;
+  const haloColor = `hsl(${hue}, 75%, 58%)`;
 
   return (
     <Animated.View
