@@ -11,7 +11,9 @@
       "icon": "./assets/expo.icon",
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
-      "bundleIdentifier": "com.niyora.app"
+      "bundleIdentifier": "com.niyora.app",
+      "buildNumber": "1",
+      "infoPlist": {}
     },
     "android": {
       "adaptiveIcon": {
