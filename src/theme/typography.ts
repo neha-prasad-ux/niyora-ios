@@ -18,7 +18,7 @@ export const typography = {
   } satisfies TextStyle,
 
   techniqueName: {
-    fontFamily: 'Poppins-SemiBold',
+    fontFamily: 'Poppins-Light',
     fontSize: 24,
     letterSpacing: 0.3,
   } satisfies TextStyle,
@@ -36,7 +36,6 @@ export const typography = {
   beginLabel: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   } satisfies TextStyle,
 } as const;

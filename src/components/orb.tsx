@@ -1,17 +1,15 @@
 // Home + session orb. Ported from the Mac CSS recipe in
 // niyora/app/src/App.css (.stress-ball + scoreToBallGradient at calm score).
 //
-// Mac CSS (calm score >= 80):
+// Mac reveal-orb (resting state):
 //   background: radial-gradient(circle at 35% 30%,
-//     rgba(255,255,255,0.97) 0%,
-//     hsla(220,25%,92%,0.95) 45%,
-//     hsla(220,40%,72%,0.9) 100%);
-//   box-shadow:
-//     0 0 28px 4px hsla(220,55%,75%,0.5),     /* tight outer halo */
-//     0 0 64px 16px hsla(220,50%,70%,0.2),    /* wide soft haze */
-//     0 24px 50px rgba(0,0,0,0.4),            /* drop shadow */
-//     inset -22px -18px 36px rgba(0,0,0,0.32),/* bottom-right shading */
-//     inset 14px 10px 26px rgba(255,255,255,0.10); /* top-left inner */
+//     hsla(280,82%,86%,.96) 0%,
+//     hsla(280,65%,56%,.86) 42%,
+//     hsla(265,55%,30%,.92) 100%);
+//   box-shadow: 0 0 40px 12px hsla(280,65%,55%,.46), /* violet halo */
+//     0 24px 50px rgba(0,0,0,0.4),
+//     inset -22px -18px 36px rgba(0,0,0,0.34),
+//     inset 14px 10px 26px rgba(255,255,255,0.10);
 //   ::after { radial-gradient(circle at 28% 22%,
 //     rgba(255,255,255,0.45) 0%,
 //     rgba(255,255,255,0.18) 14%,
@@ -157,6 +155,8 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
         alignItems: 'center',
         justifyContent: 'center',
       }}
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
     >
       <Animated.View
         style={[
@@ -173,8 +173,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
       >
         <Svg width={canvas} height={canvas} viewBox={`0 0 ${canvas} ${canvas}`}>
           <Defs>
-            {/* Outer halo, tight ring then soft haze. Mirrors the two
-                outer-glow box-shadow layers on the Mac. */}
+            {/* Outer halo. Mirrors the cool blue glow on the Mac calm-state orb (score >= 80). */}
             <RadialGradient
               id="halo"
               cx={center}
@@ -201,12 +200,12 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               gradientUnits="userSpaceOnUse"
             >
               <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
-              <Stop offset="0.45" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.95" />
+              <Stop offset="0.42" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.95" />
               <Stop offset="1" stopColor="hsl(220, 40%, 72%)" stopOpacity="0.9" />
             </RadialGradient>
 
             {/* Inset darkening from bottom-right. Replaces
-                `inset -22px -18px 36px rgba(0,0,0,0.32)`. */}
+                `inset -22px -18px 36px rgba(0,0,0,0.34)`. */}
             <RadialGradient
               id="insetDark"
               cx={center + sphereRadius * 0.55}
@@ -216,7 +215,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               fy={center + sphereRadius * 0.45}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor="rgb(0, 0, 0)" stopOpacity="0.32" />
+              <Stop offset="0" stopColor="rgb(0, 0, 0)" stopOpacity="0.34" />
               <Stop offset="0.75" stopColor="rgb(0, 0, 0)" stopOpacity="0" />
             </RadialGradient>
 

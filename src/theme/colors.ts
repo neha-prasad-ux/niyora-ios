@@ -18,9 +18,9 @@ export const colors = {
   orbShadow: 'rgba(0, 0, 0, 0.55)',
   orbCrescent: 'rgba(255, 255, 255, 0.55)',
 
-  // Begin button. hsl(270, 50%, 45%) -> hsl(280, 40%, 35%).
-  beginStart: '#683aac',
-  beginEnd: '#5e3580',
+  // Begin button. hsla(270,50%,45%,.8) -> hsla(280,40%,35%,.8) per Mac spec.
+  beginStart: 'rgba(115, 57, 172, 0.8)',
+  beginEnd: 'rgba(101, 54, 125, 0.8)',
   beginBorder: 'rgba(150, 110, 187, 0.30)',
   beginGlow: 'rgba(104, 58, 172, 0.45)',
 

@@ -48,11 +48,15 @@ export default function HomeScreen() {
           onPressProfile={handleProfile}
         />
 
-        <View style={styles.orbWrap}>
+        <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
           <Orb size={220} />
         </View>
 
-        <View style={styles.techniqueWrap}>
+        <View
+          style={styles.techniqueWrap}
+          accessible={true}
+          accessibilityLabel={`${current.name}. ${current.subtitle}. ${current.durationSeconds} seconds.`}
+        >
           <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
             {current.name}
           </Text>
@@ -66,6 +70,10 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        <View style={styles.beginWrap}>
+          <BeginButton onPress={handleBegin} />
+        </View>
+
         <View style={styles.tryWrap}>
           <Pressable
             onPress={handleTryDifferent}
@@ -77,10 +85,6 @@ export default function HomeScreen() {
               Try a different one
             </Text>
           </Pressable>
-        </View>
-
-        <View style={styles.beginWrap}>
-          <BeginButton onPress={handleBegin} />
         </View>
       </SafeAreaView>
     </View>
@@ -106,13 +110,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
-  tryWrap: {
+  beginWrap: {
     alignItems: 'center',
     marginTop: 28,
-    marginBottom: 20,
   },
-  beginWrap: {
-    paddingHorizontal: 12,
-    paddingBottom: 4,
+  tryWrap: {
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
   },
 });

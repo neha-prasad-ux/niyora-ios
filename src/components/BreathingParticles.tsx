@@ -185,7 +185,15 @@ export function BreathingParticles({
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (!cancelled) setReduceMotion(rm);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
   }, []);
 
   // All particle state lives here so the UI-thread worklet can read/write it.
@@ -249,7 +257,7 @@ export function BreathingParticles({
     allParticles.value = next;
   }, true /* autostart */);
 
-  // Pause/resume on prop change or reduce-motion change
+  // Pause/resume on prop change or reduce-motion toggle
   useEffect(() => {
     frameCallback.setActive(active && !reduceMotion);
   }, [active, reduceMotion]);
@@ -270,7 +278,12 @@ export function BreathingParticles({
   }, []);
 
   return (
-    <View style={[styles.container, style]} onLayout={handleLayout}>
+    <View
+      style={[styles.container, style]}
+      onLayout={handleLayout}
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+    >
       {hasLayout &&
         Array.from({ length: N_PARTICLES }, (_, i) => (
           <ParticleView

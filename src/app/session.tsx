@@ -141,7 +141,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
         </View>
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-          <View style={styles.dragHandleWrap}>
+          <View style={styles.dragHandleWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
             <View style={styles.dragHandle} />
           </View>
 
@@ -151,6 +151,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
               hitSlop={20}
               accessibilityRole="button"
               accessibilityLabel="End session"
+              accessibilityHint="Swipe down to dismiss"
             >
               <SymbolView
                 name="chevron.down"

@@ -3,7 +3,7 @@
 // so the active cue feels "lit" (mirrors the Mac canvas shadowBlur on text).
 
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   runOnJS,
@@ -26,6 +26,19 @@ export function PhaseLabel({ label }: PhaseLabelProps) {
   const shownOpacity = useSharedValue(1);
   const prevOpacity = useSharedValue(0);
   const lastLabelRef = useRef(label);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (!cancelled) setReduceMotion(rm);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (label === lastLabelRef.current) return;
@@ -41,16 +54,21 @@ export function PhaseLabel({ label }: PhaseLabelProps) {
     setShown(label);
     lastLabelRef.current = label;
 
+    const duration = reduceMotion ? 0 : FADE_MS;
+
     prevOpacity.value = currentShownOpacity;
     shownOpacity.value = 0;
-    prevOpacity.value = withTiming(0, { duration: FADE_MS }, (finished) => {
+    prevOpacity.value = withTiming(0, { duration }, (finished) => {
       'worklet';
       if (finished) {
         runOnJS(setPrev)(null);
       }
     });
-    shownOpacity.value = withTiming(1, { duration: FADE_MS });
-  }, [label, prevOpacity, shownOpacity]);
+    shownOpacity.value = withTiming(1, { duration });
+
+    // Announce the new phase label for iOS VoiceOver.
+    AccessibilityInfo.announceForAccessibility(label);
+  }, [label, prevOpacity, shownOpacity, reduceMotion]);
 
   const shownStyle = useAnimatedStyle(() => ({ opacity: shownOpacity.value }));
   const prevStyle = useAnimatedStyle(() => ({ opacity: prevOpacity.value }));
@@ -63,7 +81,7 @@ export function PhaseLabel({ label }: PhaseLabelProps) {
         </Animated.View>
       )}
       <Animated.View style={shownStyle}>
-        <Text style={styles.text}>{shown}</Text>
+        <Text style={styles.text} accessibilityLiveRegion="polite">{shown}</Text>
       </Animated.View>
     </View>
   );
