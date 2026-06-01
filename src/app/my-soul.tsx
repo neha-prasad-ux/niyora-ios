@@ -2,6 +2,7 @@
 // level of fidelity DESIGN.md asks for.
 
 import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -61,6 +62,7 @@ export default function MySoulScreen() {
               router.back();
             }}
             hitSlop={16}
+            accessibilityRole="button"
             accessibilityLabel="Close My Soul"
           >
             <SymbolView
@@ -78,7 +80,7 @@ export default function MySoulScreen() {
           contentContainerStyle={styles.scrollBody}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.orbWrap}>
+          <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
             <Orb
               size={110}
               tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
@@ -176,7 +178,7 @@ function TierTrack({
   const fillPct = Math.min(100, (sessions / cap) * 100);
 
   return (
-    <View style={styles.trackWrap}>
+    <View style={styles.trackWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
       <View style={styles.trackBase} />
       <View
         style={[
@@ -219,6 +221,7 @@ function TierTrack({
                     fontWeight: isNext ? '600' : '500',
                   },
                 ]}
+                maxFontSizeMultiplier={1.0}
               >
                 {m.threshold}
               </Text>
@@ -250,6 +253,8 @@ function CheckInCard({
       <Pressable
         onPress={() => Haptics.selectionAsync()}
         style={styles.smallButton}
+        accessibilityRole="button"
+        accessibilityLabel="Take check-in again"
       >
         <Text style={styles.smallButtonLabel}>Take again</Text>
       </Pressable>
@@ -262,7 +267,7 @@ function Sparkline({ values, accent }: { values: number[]; accent: string }) {
   // and reads as a trend without pulling in SVG path math.
   const max = Math.max(...values, 1);
   return (
-    <View style={styles.sparkline}>
+    <View style={styles.sparkline} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
       {values.map((v, i) => {
         const h = (v / max) * 36 + 4;
         return (
@@ -308,6 +313,7 @@ function ToggleCard({
             Haptics.selectionAsync();
             onChange(v);
           }}
+          accessibilityLabel={title}
           trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
           thumbColor="#fff"
         />
@@ -317,6 +323,15 @@ function ToggleCard({
 }
 
 function MessageCard({ accent: _accent }: { accent: string }) {
+  async function handleOpen() {
+    Haptics.selectionAsync();
+    const url = 'mailto:neha@luminik.io?subject=Niyora%20iOS%20feedback';
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    }
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.cardTopEdge} />
@@ -325,8 +340,10 @@ function MessageCard({ accent: _accent }: { accent: string }) {
         Tell Neha what's working, what isn't, what you'd love next.
       </Text>
       <Pressable
-        onPress={() => Haptics.selectionAsync()}
+        onPress={handleOpen}
         style={[styles.primarySmallButton]}
+        accessibilityRole="button"
+        accessibilityLabel="Message the founder"
       >
         <Text style={styles.primarySmallButtonLabel}>Open</Text>
       </Pressable>
@@ -404,6 +421,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   levelName: {
     fontSize: 17,
@@ -414,6 +433,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '300',
     color: 'rgba(255, 255, 255, 0.55)',
+    flexShrink: 1,
   },
   sessionsRow: {
     flexDirection: 'row',

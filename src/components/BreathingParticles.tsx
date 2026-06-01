@@ -18,6 +18,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   AppState,
   LayoutChangeEvent,
   StyleProp,
@@ -181,6 +182,19 @@ export function BreathingParticles({
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (!cancelled) setReduceMotion(rm);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   // All particle state lives here so the UI-thread worklet can read/write it.
   const allParticles = useSharedValue<Particle[]>([]);
@@ -243,18 +257,18 @@ export function BreathingParticles({
     allParticles.value = next;
   }, true /* autostart */);
 
-  // Pause/resume on prop change
+  // Pause/resume on prop change or reduce-motion toggle
   useEffect(() => {
-    frameCallback.setActive(active);
-  }, [active]);
+    frameCallback.setActive(active && !reduceMotion);
+  }, [active, reduceMotion]);
 
   // Pause when app goes to background; resume on foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
-      frameCallback.setActive(nextState === 'active' && active);
+      frameCallback.setActive(nextState === 'active' && active && !reduceMotion);
     });
     return () => sub.remove();
-  }, [active]);
+  }, [active, reduceMotion]);
 
   // Stop cleanly on unmount
   useEffect(() => {
@@ -264,7 +278,12 @@ export function BreathingParticles({
   }, []);
 
   return (
-    <View style={[styles.container, style]} onLayout={handleLayout}>
+    <View
+      style={[styles.container, style]}
+      onLayout={handleLayout}
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+    >
       {hasLayout &&
         Array.from({ length: N_PARTICLES }, (_, i) => (
           <ParticleView
