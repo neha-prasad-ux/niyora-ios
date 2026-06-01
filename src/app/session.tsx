@@ -21,7 +21,6 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
-import { Orb } from '@/components/orb';
 import { PhaseLabel } from '@/components/phase-label';
 import { SessionBackground } from '@/components/session-background';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
@@ -111,6 +110,9 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     <GestureDetector gesture={panGesture}>
       <Animated.View style={[styles.root, animatedStyle]}>
         <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
+        {/* The session visual IS the particle field, exactly like the Mac
+            BreathingSession canvas: no resting sphere, the particles converge
+            and disperse with the breath over the center bloom. */}
         <BreathingParticles
           motion={technique.motion}
           phase={cycle.phase.type}
@@ -119,26 +121,6 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           active
           style={{ position: 'absolute', top: 0, left: 0, width, height }}
         />
-
-        {/* Orb centered on screen, driven by the breath cadence */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width,
-            height,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          pointerEvents="none"
-        >
-          <Orb
-            size={200}
-            phase={cycle.phase.type}
-            phaseDuration={cycle.phase.duration}
-          />
-        </View>
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.dragHandleWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
