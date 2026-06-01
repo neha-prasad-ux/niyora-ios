@@ -66,6 +66,10 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        <View style={styles.beginWrap}>
+          <BeginButton onPress={handleBegin} />
+        </View>
+
         <View style={styles.tryWrap}>
           <Pressable
             onPress={handleTryDifferent}
@@ -77,10 +81,6 @@ export default function HomeScreen() {
               Try a different one
             </Text>
           </Pressable>
-        </View>
-
-        <View style={styles.beginWrap}>
-          <BeginButton onPress={handleBegin} />
         </View>
       </SafeAreaView>
     </View>
@@ -106,13 +106,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
-  tryWrap: {
+  beginWrap: {
     alignItems: 'center',
     marginTop: 28,
-    marginBottom: 20,
   },
-  beginWrap: {
-    paddingHorizontal: 12,
-    paddingBottom: 4,
+  tryWrap: {
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
   },
 });
