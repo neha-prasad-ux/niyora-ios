@@ -5,8 +5,6 @@
 // - Swipe-down to dismiss via react-native-gesture-handler pan gesture.
 // - No pause overlay yet (tap to pause is on the roadmap).
 // - No round dots / progress ring yet.
-// - Single "converge" particle motion regardless of technique.motion;
-//   per-technique motion comes back when we port the full Mac engine.
 
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
@@ -23,6 +21,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
+import { Orb } from '@/components/orb';
 import { PhaseLabel } from '@/components/phase-label';
 import { SessionBackground } from '@/components/session-background';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
@@ -113,13 +112,33 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
       <Animated.View style={[styles.root, animatedStyle]}>
         <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
         <BreathingParticles
-          motion="converge"
+          motion={technique.motion}
           phase={cycle.phase.type}
           phaseT={cycle.phaseT}
           roundProgress={cycle.sessionT}
           active
           style={{ position: 'absolute', top: 0, left: 0, width, height }}
         />
+
+        {/* Orb centered on screen, driven by the breath cadence */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width,
+            height,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          pointerEvents="none"
+        >
+          <Orb
+            size={200}
+            phase={cycle.phase.type}
+            phaseDuration={cycle.phase.duration}
+          />
+        </View>
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.dragHandleWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
