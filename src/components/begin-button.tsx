@@ -68,15 +68,16 @@ export function BeginButton({ label = 'Begin', onPress }: BeginButtonProps) {
 
 const styles = StyleSheet.create({
   shadowWrap: {
+    alignSelf: 'center',
     shadowColor: colors.beginGlow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.6,
     shadowRadius: 18,
   },
   button: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 26,
+    paddingVertical: 12,
+    paddingHorizontal: 48,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: colors.beginBorder,
     alignItems: 'center',
