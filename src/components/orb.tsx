@@ -113,7 +113,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
       >
         <Svg width={canvas} height={canvas} viewBox={`0 0 ${canvas} ${canvas}`}>
           <Defs>
-            {/* Outer halo. Mirrors the violet glow on the Mac reveal-orb. */}
+            {/* Outer halo. Mirrors the cool blue glow on the Mac calm-state orb (score >= 80). */}
             <RadialGradient
               id="halo"
               cx={center}
@@ -123,10 +123,10 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
               fy={center}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0.55" stopColor="hsl(280, 65%, 55%)" stopOpacity="0" />
-              <Stop offset="0.62" stopColor="hsl(280, 65%, 55%)" stopOpacity="0.46" />
-              <Stop offset="0.72" stopColor="hsl(280, 65%, 55%)" stopOpacity="0.22" />
-              <Stop offset="1" stopColor="hsl(280, 65%, 55%)" stopOpacity="0" />
+              <Stop offset="0.55" stopColor="hsl(220, 55%, 75%)" stopOpacity="0" />
+              <Stop offset="0.62" stopColor="hsl(220, 55%, 75%)" stopOpacity="0.5" />
+              <Stop offset="0.72" stopColor="hsl(220, 50%, 70%)" stopOpacity="0.22" />
+              <Stop offset="1" stopColor="hsl(220, 50%, 70%)" stopOpacity="0" />
             </RadialGradient>
 
             {/* Sphere body. radial-gradient circle at 35% 30%, three stops. */}
@@ -139,9 +139,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335 }: OrbProps) 
               fy={center - sphereRadius * 0.40}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor="hsl(280, 82%, 86%)" stopOpacity="0.96" />
-              <Stop offset="0.42" stopColor="hsl(280, 65%, 56%)" stopOpacity="0.86" />
-              <Stop offset="1" stopColor="hsl(265, 55%, 30%)" stopOpacity="0.92" />
+              <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
+              <Stop offset="0.42" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.95" />
+              <Stop offset="1" stopColor="hsl(220, 40%, 72%)" stopOpacity="0.9" />
             </RadialGradient>
 
             {/* Inset darkening from bottom-right. Replaces
