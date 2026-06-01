@@ -1,0 +1,9 @@
+appId: com.niyora.app
+---
+- launchApp
+- tapOn: "Begin"
+- takeScreenshot: 03_session_active
+- tapOn: "End session"
+- takeScreenshot: 03_session_exited
+- assertVisible: "Niyora"
+- takeScreenshot: 03_home_restored

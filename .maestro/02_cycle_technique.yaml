@@ -1,0 +1,9 @@
+appId: com.niyora.app
+---
+- launchApp
+- assertVisible: "Try a different one"
+- takeScreenshot: 02_before_cycle
+- tapOn: "Try a different one"
+- takeScreenshot: 02_after_first_cycle
+- tapOn: "Try a different one"
+- takeScreenshot: 02_after_second_cycle
