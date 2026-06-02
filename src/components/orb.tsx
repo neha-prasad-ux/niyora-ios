@@ -186,9 +186,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               fy={center}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0.55" stopColor="hsl(220, 55%, 75%)" stopOpacity="0" />
-              <Stop offset="0.62" stopColor="hsl(220, 55%, 75%)" stopOpacity="0.5" />
-              <Stop offset="0.72" stopColor="hsl(220, 50%, 70%)" stopOpacity="0.22" />
+              <Stop offset="0.5" stopColor="hsl(220, 58%, 80%)" stopOpacity="0" />
+              <Stop offset="0.585" stopColor="hsl(220, 58%, 80%)" stopOpacity="0.6" />
+              <Stop offset="0.72" stopColor="hsl(220, 52%, 72%)" stopOpacity="0.24" />
               <Stop offset="1" stopColor="hsl(220, 50%, 70%)" stopOpacity="0" />
             </RadialGradient>
 
@@ -203,8 +203,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               gradientUnits="userSpaceOnUse"
             >
               <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
-              <Stop offset="0.42" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.95" />
-              <Stop offset="1" stopColor="hsl(220, 40%, 72%)" stopOpacity="0.9" />
+              <Stop offset="0.42" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.96" />
+              <Stop offset="0.92" stopColor="hsl(220, 38%, 78%)" stopOpacity="1" />
+              <Stop offset="1" stopColor="hsl(220, 42%, 74%)" stopOpacity="1" />
             </RadialGradient>
 
             {/* Inset darkening from bottom-right. Replaces
@@ -278,8 +279,8 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
                   ry={ringRy}
                   fill="none"
                   stroke={ringColor}
-                  strokeWidth={1.5}
-                  strokeOpacity={0.72}
+                  strokeWidth={0.75}
+                  strokeOpacity={0.7}
                 />
               );
             })}
