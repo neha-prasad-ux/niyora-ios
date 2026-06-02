@@ -5,8 +5,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SymbolView } from 'expo-symbols';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -14,23 +15,35 @@ import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
-import { isBreathing, unlockedTechniques } from '@/models/techniques';
+import { isBreathing, TECHNIQUES } from '@/models/techniques';
 
 export default function HomeScreen() {
-  // v1 session screen only supports breathing techniques. Hide mindfulness
-  // entries from rotation until their session port lands.
+  // v1: all breathing techniques are selectable (no lock gating -- Wave 4 later).
+  // Mindfulness stays hidden until its session port lands.
   const techniques = useMemo(
-    () => unlockedTechniques().filter(isBreathing),
+    () => TECHNIQUES.filter(isBreathing),
     []
   );
   const [index, setIndex] = useState(0);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const current = techniques[index];
 
   const handleTryDifferent = useCallback(() => {
     Haptics.selectionAsync();
-    setIndex((i) => (i + 1) % techniques.length);
-  }, [techniques.length]);
+    setPickerVisible(true);
+  }, []);
+
+  const handlePickerSelect = useCallback((id: string) => {
+    Haptics.selectionAsync();
+    const idx = techniques.findIndex((t) => t.id === id);
+    if (idx !== -1) setIndex(idx);
+    setPickerVisible(false);
+  }, [techniques]);
+
+  const handlePickerClose = useCallback(() => {
+    setPickerVisible(false);
+  }, []);
 
   const handleBegin = useCallback(() => {
     router.push({ pathname: '/session', params: { id: current.id } });
@@ -79,7 +92,7 @@ export default function HomeScreen() {
             onPress={handleTryDifferent}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel="Try a different practice"
+            accessibilityLabel="Choose a practice"
           >
             <Text style={[typography.tertiaryAction, { color: colors.textTertiary }]}>
               Try a different one
@@ -87,6 +100,64 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </SafeAreaView>
+
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handlePickerClose}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.pickerBackdrop}
+          onPress={handlePickerClose}
+          accessibilityLabel="Close practice picker"
+          accessibilityRole="button"
+        >
+          {/* Inner Pressable intercepts touches on the sheet so they don't close the modal */}
+          <Pressable style={styles.pickerSheet} onPress={() => {}}>
+            <View style={styles.pickerHeaderRow}>
+              <Text style={styles.pickerTitle}>Choose a practice</Text>
+              <Pressable
+                onPress={handlePickerClose}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <SymbolView
+                  name="xmark"
+                  tintColor={colors.textSubtitle}
+                  size={15}
+                  weight="medium"
+                />
+              </Pressable>
+            </View>
+
+            <Text style={styles.pickerSectionLabel}>Breathing</Text>
+
+            {techniques.map((t) => (
+              <Pressable
+                key={t.id}
+                style={styles.pickerRow}
+                onPress={() => handlePickerSelect(t.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.name}. ${t.subtitle}`}
+                accessibilityState={{ selected: t.id === current.id }}
+              >
+                <Text
+                  style={[
+                    styles.pickerRowName,
+                    t.id === current.id && styles.pickerRowNameActive,
+                  ]}
+                >
+                  {t.name}
+                </Text>
+                <Text style={styles.pickerRowSub}>{t.subtitle}</Text>
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -118,5 +189,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     marginBottom: 12,
+  },
+
+  // picker overlay
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: 'rgba(18, 14, 26, 0.98)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    paddingTop: 22,
+    paddingBottom: 44,
+  },
+  pickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 22,
+  },
+  pickerTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  pickerSectionLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textTertiary,
+    paddingHorizontal: 24,
+    marginBottom: 6,
+  },
+  pickerRow: {
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+  },
+  pickerRowName: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  pickerRowNameActive: {
+    color: colors.textPrimary,
+    fontFamily: 'Poppins-Medium',
+  },
+  pickerRowSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.35)',
+    marginTop: 2,
   },
 });
