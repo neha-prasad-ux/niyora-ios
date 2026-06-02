@@ -13,7 +13,9 @@
       "userInterfaceStyle": "dark",
       "bundleIdentifier": "com.niyora.app",
       "buildNumber": "1",
-      "infoPlist": {}
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
