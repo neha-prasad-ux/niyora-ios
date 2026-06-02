@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
       "bundleIdentifier": "com.niyora.app",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

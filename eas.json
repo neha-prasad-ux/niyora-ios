@@ -1,14 +1,13 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "remote",
+    "appVersionSource": "local",
     "promptToConfigurePushNotifications": false
   },
   "build": {
     "production": {
       "ios": {
-        "buildConfiguration": "Release",
-        "autoIncrement": "buildNumber"
+        "buildConfiguration": "Release"
       }
     },
     "preview": {
