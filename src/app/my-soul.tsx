@@ -29,8 +29,6 @@ const TIER_RING_COUNTS: Record<string, number> = {
 };
 
 const TODAY_MOOD = 'Calm';
-const CHECK_IN_COUNT = 12;
-const CHECK_IN_HISTORY = [4, 5, 4, 6, 5, 7, 4, 4, 6, 5, 6, 6];
 
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
@@ -99,12 +97,6 @@ export default function MySoulScreen() {
             toNext={toNext}
             accent={accent}
             sessions={sessionsCompleted}
-          />
-
-          <CheckInCard
-            count={CHECK_IN_COUNT}
-            history={CHECK_IN_HISTORY}
-            accent={accent}
           />
 
           <ToggleCard
@@ -229,61 +221,6 @@ function TierTrack({
           );
         })}
       </View>
-    </View>
-  );
-}
-
-function CheckInCard({
-  count,
-  history,
-  accent,
-}: {
-  count: number;
-  history: number[];
-  accent: string;
-}) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardTopEdge} />
-      <Text style={styles.cardTitle}>Mental health check-in</Text>
-      <Text style={styles.cardCopy}>
-        {count} check-ins so far. Lower is calmer.
-      </Text>
-      <Sparkline values={history} accent={accent} />
-      <Pressable
-        onPress={() => Haptics.selectionAsync()}
-        style={styles.smallButton}
-        accessibilityRole="button"
-        accessibilityLabel="Take check-in again"
-      >
-        <Text style={styles.smallButtonLabel}>Take again</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function Sparkline({ values, accent }: { values: number[]; accent: string }) {
-  // A row of vertical bars normalized to the data's range. Cheap to render
-  // and reads as a trend without pulling in SVG path math.
-  const max = Math.max(...values, 1);
-  return (
-    <View style={styles.sparkline} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
-      {values.map((v, i) => {
-        const h = (v / max) * 36 + 4;
-        return (
-          <View
-            key={i}
-            style={{
-              width: 4,
-              height: h,
-              borderRadius: 2,
-              backgroundColor: accent,
-              opacity: 0.65,
-              marginRight: 4,
-            }}
-          />
-        );
-      })}
     </View>
   );
 }
@@ -498,30 +435,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
   },
-  sparkline: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 44,
-    marginTop: 14,
-    marginBottom: 14,
-  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  smallButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: 'hsl(270, 50%, 45%)',
-    marginTop: 6,
-  },
-  smallButtonLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    letterSpacing: 0.3,
   },
   primarySmallButton: {
     alignSelf: 'center',
