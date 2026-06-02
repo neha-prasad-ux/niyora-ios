@@ -12,13 +12,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
 import { PhaseLabel } from '@/components/phase-label';
@@ -91,41 +84,17 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
 
-  const translateY = useSharedValue(0);
-
   function exitSession() {
     Haptics.selectionAsync();
     fadeOut();
     router.back();
   }
 
-  // Swipe-down to dismiss: drag threshold 80pt or velocity 800pt/s.
-  const panGesture = Gesture.Pan()
-    .activeOffsetY(10)
-    .failOffsetX([-30, 30])
-    .onUpdate((e) => {
-      if (e.translationY > 0) {
-        translateY.value = e.translationY;
-      }
-    })
-    .onEnd((e) => {
-      if (e.translationY > 80 || e.velocityY > 800) {
-        runOnJS(exitSession)();
-      } else {
-        translateY.value = withSpring(0, { damping: 20, stiffness: 200 });
-      }
-    });
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-
   const musicLabel =
     track === 'mute' ? 'Music, muted' : `Music, ${track}`;
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.root, animatedStyle]}>
+    <View style={styles.root}>
         <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
         {/* The session visual IS the particle field, exactly like the Mac
             BreathingSession canvas: no resting sphere, the particles converge
@@ -140,11 +109,21 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
         />
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
-          <View style={styles.dragHandleWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
-            <View style={styles.dragHandle} />
-          </View>
-
           <View style={styles.topRow}>
+            <Pressable
+              onPress={exitSession}
+              hitSlop={20}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <SymbolView
+                name="chevron.left"
+                tintColor={colors.textPrimary}
+                size={28}
+                weight="medium"
+              />
+            </Pressable>
+
             <Pressable
               onPress={() => setPickerVisible((v) => !v)}
               hitSlop={20}
@@ -155,21 +134,6 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
                 name="music.note"
                 tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
                 size={22}
-                weight="medium"
-              />
-            </Pressable>
-
-            <Pressable
-              onPress={exitSession}
-              hitSlop={20}
-              accessibilityRole="button"
-              accessibilityLabel="End session"
-              accessibilityHint="Swipe down to dismiss"
-            >
-              <SymbolView
-                name="chevron.down"
-                tintColor={colors.textPrimary}
-                size={28}
                 weight="medium"
               />
             </Pressable>
@@ -219,8 +183,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
             </Text>
           </View>
         </SafeAreaView>
-      </Animated.View>
-    </GestureDetector>
+    </View>
   );
 }
 
@@ -233,22 +196,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
   },
-  dragHandleWrap: {
-    alignItems: 'center',
-    paddingTop: 6,
-    paddingBottom: 2,
-  },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: 8,
   },
   pickerCard: {
     position: 'absolute',

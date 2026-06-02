@@ -38,9 +38,8 @@ export default function RootLayout() {
           <Stack.Screen
             name="session"
             options={{
-              presentation: 'fullScreenModal',
-              animation: 'fade',
-              gestureEnabled: false,
+              animation: 'slide_from_right',
+              gestureEnabled: true,
             }}
           />
           <Stack.Screen

@@ -74,24 +74,27 @@ type OrbProps = {
 
 export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration }: OrbProps) {
   const scale = useSharedValue(1);
-  const haloOpacity = useSharedValue(0.7);
-  // Normalise amplitude so both 220px and 110px orbs have ~6px radius travel.
-  const scaleMax = 1 + 12 / size;
+  const haloOpacity = useSharedValue(0.6);
+  // Normalise so the breath is a clearly visible ~10px radius travel at any size
+  // (the Mac stress-ball breathes ~scale 1.04; we read it a touch larger so the
+  // motion is obvious on a phone, not a near-still orb).
+  const scaleMax = 1 + 20 / size;
   const sessionMode = phase !== undefined;
 
-  // Home mode: continuous 5.5s ease-in-out loop (scale + halo swell together).
+  // Home mode: continuous ease-in-out breath (scale + halo swell together) at a
+  // calm ~4.2s cadence so it reads as breathing, not static.
   useEffect(() => {
     if (sessionMode) return;
     let cancelled = false;
     AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
       if (cancelled || reduce) return;
       scale.value = withRepeat(
-        withTiming(scaleMax, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(scaleMax, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
         -1,
         true
       );
       haloOpacity.value = withRepeat(
-        withTiming(1.0, { duration: 5500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.0, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
         -1,
         true
       );

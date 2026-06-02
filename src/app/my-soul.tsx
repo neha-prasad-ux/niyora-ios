@@ -66,7 +66,7 @@ export default function MySoulScreen() {
             accessibilityLabel="Close My Soul"
           >
             <SymbolView
-              name="chevron.left"
+              name="xmark"
               tintColor={colors.iconChrome}
               size={20}
               weight="regular"
@@ -364,8 +364,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   title: {
     fontSize: 17,
