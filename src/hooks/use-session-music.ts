@@ -44,7 +44,7 @@ export function useSessionMusic() {
   }, []);
 
   // React to track changes: swap source or pause for mute.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- player is a stable SharedObject ref
+   
   useEffect(() => {
     if (fadeIntervalRef.current) {
       clearInterval(fadeIntervalRef.current);
@@ -68,7 +68,7 @@ export function useSessionMusic() {
     setMusicTrack(next).catch(() => {});
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- player is stable; trackRef always current
+   
   const fadeOut = useCallback(() => {
     if (trackRef.current === 'mute') return;
     if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
