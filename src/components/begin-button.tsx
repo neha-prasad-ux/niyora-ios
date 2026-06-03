@@ -1,6 +1,6 @@
 // Primary action button per DESIGN.md: purple gradient capsule, anchored to
-// the bottom safe area, with press feedback (scale 0.97, opacity 0.92 over
-// 150ms) and a soft impact haptic.
+// the bottom safe area, with press feedback (spring to scale 0.96, opacity 0.92)
+// and a soft impact haptic.
 
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
@@ -23,7 +23,7 @@ export function BeginButton({ label = 'Begin', onPress }: BeginButtonProps) {
   const pressed = useSharedValue(0);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const scale = 1 - pressed.value * 0.03;
+    const scale = 1 - pressed.value * 0.04;
     const opacity = 1 - pressed.value * 0.08;
     return {
       transform: [{ scale }],
@@ -32,10 +32,10 @@ export function BeginButton({ label = 'Begin', onPress }: BeginButtonProps) {
   });
 
   function handlePressIn() {
-    pressed.value = withTiming(1, { duration: 150 });
+    pressed.value = withSpring(1, { damping: 20, stiffness: 400, mass: 0.8 });
   }
   function handlePressOut() {
-    pressed.value = withTiming(0, { duration: 150 });
+    pressed.value = withSpring(0, { damping: 20, stiffness: 400, mass: 0.8 });
   }
   function handlePress() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);

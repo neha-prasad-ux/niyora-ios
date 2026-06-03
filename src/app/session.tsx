@@ -4,13 +4,12 @@
 // Differs from the Mac:
 // - Swipe-down to dismiss via react-native-gesture-handler pan gesture.
 // - No pause overlay yet (tap to pause is on the roadmap).
-// - No round dots / progress ring yet.
 
 import * as Haptics from 'expo-haptics';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
@@ -59,6 +58,17 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
   const { track, changeTrack, fadeOut } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [showMood, setShowMood] = useState(false);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: cycle.sessionT,
+      duration: 50,
+      useNativeDriver: false,
+    }).start();
+  }, [cycle.sessionT, progressAnim]);
+
+  const completedRounds = cycle.done ? technique.rounds : cycle.round - 1;
 
   // Pick the HSL triple that matches the current phase type.
   const phaseHsl =
@@ -187,12 +197,41 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           )}
 
           {!showMood && (
-            <View style={styles.bottomBlock}>
-              <PhaseLabel label={labelText} />
-              {!cycle.done && (
-                <Text style={styles.instructions}>{technique.instructions}</Text>
-              )}
-            </View>
+            <>
+              <View style={styles.bottomBlock}>
+                <PhaseLabel label={labelText} />
+                {!cycle.done && (
+                  <Text style={styles.instructions}>{technique.instructions}</Text>
+                )}
+              </View>
+
+              <View style={styles.progressArea}>
+                <View
+                  style={styles.dotsRow}
+                  accessibilityLabel={`Round ${cycle.round} of ${technique.rounds}`}
+                >
+                  {Array.from({ length: technique.rounds }, (_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.dot, i < completedRounds && styles.dotFilled]}
+                    />
+                  ))}
+                </View>
+                <View style={styles.barTrack}>
+                  <Animated.View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: progressAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }),
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            </>
           )}
         </SafeAreaView>
 
@@ -263,5 +302,39 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.65)',
     textAlign: 'center',
     letterSpacing: 0.3,
+  },
+  progressArea: {
+    position: 'absolute',
+    bottom: 16,
+    left: 24,
+    right: 24,
+    alignItems: 'center',
+    gap: 10,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  dotFilled: {
+    backgroundColor: 'rgba(160, 120, 220, 0.80)',
+  },
+  barTrack: {
+    width: '100%',
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 1,
+    backgroundColor: 'rgba(150, 110, 210, 0.72)',
   },
 });
