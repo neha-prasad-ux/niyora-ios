@@ -13,7 +13,9 @@ import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
+import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { PhaseLabel } from '@/components/phase-label';
+import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import { useSessionMusic } from '@/hooks/use-session-music';
@@ -55,6 +57,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
   const { width, height } = Dimensions.get('window');
   const { track, changeTrack, fadeOut } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [showMood, setShowMood] = useState(false);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -83,7 +86,8 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
       appendSession(technique.id).catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fadeOut();
-      const t = setTimeout(() => router.back(), 1200);
+      // Give the "well done" label a moment to appear before the mood overlay fades in
+      const t = setTimeout(() => setShowMood(true), 500);
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fadeOut is stable; omitting avoids double-fire on track change
@@ -117,6 +121,12 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           active
           style={{ position: 'absolute', top: 0, left: 0, width, height }}
         />
+
+        {cycle.done && (
+          <CelebrationParticles
+            style={{ position: 'absolute', top: 0, left: 0, width, height }}
+          />
+        )}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
@@ -186,40 +196,51 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
             </View>
           )}
 
-          <View style={styles.bottomBlock}>
-            <PhaseLabel label={labelText} />
-            <Text style={styles.instructions}>
-              {cycle.done ? 'take this calm with you' : technique.instructions}
-            </Text>
-          </View>
+          {!showMood && (
+            <>
+              <View style={styles.bottomBlock}>
+                <PhaseLabel label={labelText} />
+                {!cycle.done && (
+                  <Text style={styles.instructions}>{technique.instructions}</Text>
+                )}
+              </View>
 
-          <View style={styles.progressArea}>
-            <View
-              style={styles.dotsRow}
-              accessibilityLabel={`Round ${cycle.round} of ${technique.rounds}`}
-            >
-              {Array.from({ length: technique.rounds }, (_, i) => (
+              <View style={styles.progressArea}>
                 <View
-                  key={i}
-                  style={[styles.dot, i < completedRounds && styles.dotFilled]}
-                />
-              ))}
-            </View>
-            <View style={styles.barTrack}>
-              <Animated.View
-                style={[
-                  styles.barFill,
-                  {
-                    width: progressAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-            </View>
-          </View>
+                  style={styles.dotsRow}
+                  accessibilityLabel={`Round ${cycle.round} of ${technique.rounds}`}
+                >
+                  {Array.from({ length: technique.rounds }, (_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.dot, i < completedRounds && styles.dotFilled]}
+                    />
+                  ))}
+                </View>
+                <View style={styles.barTrack}>
+                  <Animated.View
+                    style={[
+                      styles.barFill,
+                      {
+                        width: progressAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                        }),
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            </>
+          )}
         </SafeAreaView>
+
+        {showMood && (
+          <PostSessionMood
+            techniqueId={technique.id}
+            onDone={() => router.back()}
+          />
+        )}
     </View>
   );
 }
