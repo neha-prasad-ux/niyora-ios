@@ -2,6 +2,8 @@
 // reads phases + visual colors from the breathing entries. Locked state is
 // hard-coded for now; progression unlocking arrives with the Soul tier work.
 
+import type { MotionType } from '../lib/motions';
+
 export type Category = 'breathing' | 'mindfulness';
 
 export type PhaseType = 'inhale' | 'hold' | 'exhale';
@@ -33,6 +35,7 @@ export type BreathingTechnique = {
   phases: readonly BreathPhase[];
   rounds: number;
   colors: PhaseColors;
+  motion: MotionType;
 };
 
 export type MindfulnessTechnique = {
@@ -68,6 +71,7 @@ export const TECHNIQUES: readonly Technique[] = [
       hold: [250, 18, 11],
       exhale: [210, 22, 11],
     },
+    motion: 'converge',
   },
   {
     id: 'ocean',
@@ -87,6 +91,7 @@ export const TECHNIQUES: readonly Technique[] = [
       hold: [190, 20, 11],
       exhale: [175, 25, 11],
     },
+    motion: 'wave',
   },
   {
     id: 'cooling',
@@ -107,6 +112,7 @@ export const TECHNIQUES: readonly Technique[] = [
       hold: [210, 20, 11],
       exhale: [195, 30, 10],
     },
+    motion: 'snowfall',
   },
   {
     id: 'belly',
@@ -126,6 +132,7 @@ export const TECHNIQUES: readonly Technique[] = [
       hold: [60, 18, 11],
       exhale: [35, 25, 11],
     },
+    motion: 'belly',
   },
   {
     id: 'wind-down',
@@ -146,6 +153,7 @@ export const TECHNIQUES: readonly Technique[] = [
       hold: [275, 18, 11],
       exhale: [285, 22, 10],
     },
+    motion: 'sedation',
   },
 
   // ── Mindfulness ──

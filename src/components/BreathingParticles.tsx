@@ -18,6 +18,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   AppState,
   LayoutChangeEvent,
   StyleProp,
@@ -63,7 +64,7 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
       baseSize:     base,
       size:         base,
       opacity:      0.3 + Math.random() * 0.35,
-      hue:          200 + Math.random() * 60, // blue-to-purple
+      hue:          260 + Math.random() * 40, // violet, matching Mac createParticle
       noiseOffsetX: Math.random() * 100,
       noiseOffsetY: Math.random() * 100,
       side:         (i % 2 === 0 ? -1 : 1) as (-1 | 1),
@@ -113,9 +114,12 @@ const ParticleView = memo(function ParticleView({
   // Per-particle hue. Body is a top-to-bottom linear gradient (highlight at
   // top, deep at bottom) mirroring the user's Figma mock. Halo is a native
   // iOS shadow on the wrapper, tinted by the same hue.
-  const lightTop = `hsl(${hue}, 75%, 78%)`;
-  const deepBottom = `hsl(${hue}, 80%, 32%)`;
-  const haloColor = `hsl(${hue}, 85%, 60%)`;
+  // Softer, less directional stops so each particle reads as a glowing point
+  // (Mac radial-gradient: bright 65% center -> 50% mid -> transparent), not a
+  // top-lit solid ball. The native shadow below carries the outer glow.
+  const lightTop = `hsl(${hue}, 72%, 68%)`;
+  const deepBottom = `hsl(${hue}, 65%, 50%)`;
+  const haloColor = `hsl(${hue}, 75%, 58%)`;
 
   return (
     <Animated.View
@@ -181,6 +185,19 @@ export function BreathingParticles({
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((rm) => {
+      if (!cancelled) setReduceMotion(rm);
+    });
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
 
   // All particle state lives here so the UI-thread worklet can read/write it.
   const allParticles = useSharedValue<Particle[]>([]);
@@ -243,18 +260,18 @@ export function BreathingParticles({
     allParticles.value = next;
   }, true /* autostart */);
 
-  // Pause/resume on prop change
+  // Pause/resume on prop change or reduce-motion toggle
   useEffect(() => {
-    frameCallback.setActive(active);
-  }, [active]);
+    frameCallback.setActive(active && !reduceMotion);
+  }, [active, reduceMotion]);
 
   // Pause when app goes to background; resume on foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
-      frameCallback.setActive(nextState === 'active' && active);
+      frameCallback.setActive(nextState === 'active' && active && !reduceMotion);
     });
     return () => sub.remove();
-  }, [active]);
+  }, [active, reduceMotion]);
 
   // Stop cleanly on unmount
   useEffect(() => {
@@ -264,7 +281,12 @@ export function BreathingParticles({
   }, []);
 
   return (
-    <View style={[styles.container, style]} onLayout={handleLayout}>
+    <View
+      style={[styles.container, style]}
+      onLayout={handleLayout}
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+    >
       {hasLayout &&
         Array.from({ length: N_PARTICLES }, (_, i) => (
           <ParticleView

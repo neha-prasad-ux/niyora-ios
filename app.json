@@ -11,7 +11,11 @@
       "icon": "./assets/expo.icon",
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
-      "bundleIdentifier": "com.niyora.app"
+      "bundleIdentifier": "com.niyora.app",
+      "buildNumber": "4",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -38,11 +42,17 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "099a0843-fff6-4b50-8ac4-c098aad50a62"
+      }
     }
   }
 }

@@ -1,0 +1,11 @@
+appId: com.niyora.app
+---
+- launchApp
+- tapOn: "Begin"
+- takeScreenshot: 04_session_before_swipe
+- swipe:
+    direction: DOWN
+    duration: 500
+- takeScreenshot: 04_session_after_swipe
+- assertVisible: "Niyora"
+- takeScreenshot: 04_home_restored

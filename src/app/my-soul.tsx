@@ -2,6 +2,7 @@
 // level of fidelity DESIGN.md asks for.
 
 import * as Haptics from 'expo-haptics';
+import * as Linking from 'expo-linking';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -28,8 +29,6 @@ const TIER_RING_COUNTS: Record<string, number> = {
 };
 
 const TODAY_MOOD = 'Calm';
-const CHECK_IN_COUNT = 12;
-const CHECK_IN_HISTORY = [4, 5, 4, 6, 5, 7, 4, 4, 6, 5, 6, 6];
 
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
@@ -61,10 +60,11 @@ export default function MySoulScreen() {
               router.back();
             }}
             hitSlop={16}
+            accessibilityRole="button"
             accessibilityLabel="Close My Soul"
           >
             <SymbolView
-              name="chevron.left"
+              name="xmark"
               tintColor={colors.iconChrome}
               size={20}
               weight="regular"
@@ -78,7 +78,7 @@ export default function MySoulScreen() {
           contentContainerStyle={styles.scrollBody}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.orbWrap}>
+          <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
             <Orb
               size={110}
               tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
@@ -97,12 +97,6 @@ export default function MySoulScreen() {
             toNext={toNext}
             accent={accent}
             sessions={sessionsCompleted}
-          />
-
-          <CheckInCard
-            count={CHECK_IN_COUNT}
-            history={CHECK_IN_HISTORY}
-            accent={accent}
           />
 
           <ToggleCard
@@ -176,7 +170,7 @@ function TierTrack({
   const fillPct = Math.min(100, (sessions / cap) * 100);
 
   return (
-    <View style={styles.trackWrap}>
+    <View style={styles.trackWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
       <View style={styles.trackBase} />
       <View
         style={[
@@ -219,6 +213,7 @@ function TierTrack({
                     fontWeight: isNext ? '600' : '500',
                   },
                 ]}
+                maxFontSizeMultiplier={1.0}
               >
                 {m.threshold}
               </Text>
@@ -226,59 +221,6 @@ function TierTrack({
           );
         })}
       </View>
-    </View>
-  );
-}
-
-function CheckInCard({
-  count,
-  history,
-  accent,
-}: {
-  count: number;
-  history: number[];
-  accent: string;
-}) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardTopEdge} />
-      <Text style={styles.cardTitle}>Mental health check-in</Text>
-      <Text style={styles.cardCopy}>
-        {count} check-ins so far. Lower is calmer.
-      </Text>
-      <Sparkline values={history} accent={accent} />
-      <Pressable
-        onPress={() => Haptics.selectionAsync()}
-        style={styles.smallButton}
-      >
-        <Text style={styles.smallButtonLabel}>Take again</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function Sparkline({ values, accent }: { values: number[]; accent: string }) {
-  // A row of vertical bars normalized to the data's range. Cheap to render
-  // and reads as a trend without pulling in SVG path math.
-  const max = Math.max(...values, 1);
-  return (
-    <View style={styles.sparkline}>
-      {values.map((v, i) => {
-        const h = (v / max) * 36 + 4;
-        return (
-          <View
-            key={i}
-            style={{
-              width: 4,
-              height: h,
-              borderRadius: 2,
-              backgroundColor: accent,
-              opacity: 0.65,
-              marginRight: 4,
-            }}
-          />
-        );
-      })}
     </View>
   );
 }
@@ -308,6 +250,7 @@ function ToggleCard({
             Haptics.selectionAsync();
             onChange(v);
           }}
+          accessibilityLabel={title}
           trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
           thumbColor="#fff"
         />
@@ -317,6 +260,15 @@ function ToggleCard({
 }
 
 function MessageCard({ accent: _accent }: { accent: string }) {
+  async function handleOpen() {
+    Haptics.selectionAsync();
+    const url = 'mailto:neha@luminik.io?subject=Niyora%20iOS%20feedback';
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    }
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.cardTopEdge} />
@@ -325,8 +277,10 @@ function MessageCard({ accent: _accent }: { accent: string }) {
         Tell Neha what's working, what isn't, what you'd love next.
       </Text>
       <Pressable
-        onPress={() => Haptics.selectionAsync()}
+        onPress={handleOpen}
         style={[styles.primarySmallButton]}
+        accessibilityRole="button"
+        accessibilityLabel="Message the founder"
       >
         <Text style={styles.primarySmallButtonLabel}>Open</Text>
       </Pressable>
@@ -347,8 +301,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   title: {
     fontSize: 17,
@@ -404,6 +358,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   levelName: {
     fontSize: 17,
@@ -414,6 +370,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '300',
     color: 'rgba(255, 255, 255, 0.55)',
+    flexShrink: 1,
   },
   sessionsRow: {
     flexDirection: 'row',
@@ -478,30 +435,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
   },
-  sparkline: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 44,
-    marginTop: 14,
-    marginBottom: 14,
-  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  smallButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: 'hsl(270, 50%, 45%)',
-    marginTop: 6,
-  },
-  smallButtonLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    letterSpacing: 0.3,
   },
   primarySmallButton: {
     alignSelf: 'center',

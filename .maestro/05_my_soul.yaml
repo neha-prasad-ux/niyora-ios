@@ -1,0 +1,13 @@
+appId: com.niyora.app
+---
+- launchApp
+- tapOn: "My Soul"
+- takeScreenshot: 05_my_soul_opened
+- assertVisible: "My Soul"
+- assertVisible: "Level"
+- assertVisible: "sessions"
+- takeScreenshot: 05_my_soul_verified
+- tapOn: "Close My Soul"
+- takeScreenshot: 05_home_restored
+- assertVisible: "Niyora"
+- takeScreenshot: 05_home_confirmed
