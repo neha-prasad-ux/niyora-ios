@@ -7,7 +7,7 @@ on:
 
 jobs:
   check:
-    name: Typecheck and test
+    name: Typecheck, lint, and test
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # Lint is omitted until eslint is set up in the project (npx expo lint
-      # currently errors with "Cannot find module 'eslint'"). Tracked separately.
+      - name: Lint
+        run: npx expo lint
+
       - name: Test
-        run: npm test --if-present
+        run: npm test
