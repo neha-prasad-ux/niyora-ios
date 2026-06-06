@@ -1,0 +1,77 @@
+name: Advance v1 launch chain
+
+# Keeps Alfred working the v1 launch issues one after another. When an issue
+# in the chain is closed as completed (e.g. its PR merged with "Closes #N"),
+# this removes the do-not-pickup gate from the next issue so it becomes
+# eligible for pickup. One issue is ever active at a time.
+#
+# Chain order is defined below. To re-order or extend, edit CHAIN.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            // Ordered v1 launch chain (issue numbers in this repo).
+            const CHAIN = [33, 82, 83, 92, 84, 85, 86];
+            const GATE = 'do-not-pickup';
+
+            const issue = context.payload.issue;
+
+            // Only advance on a genuine completion (merged PR / "completed" close),
+            // not when an issue is closed as "not planned".
+            if (issue.state_reason && issue.state_reason !== 'completed') {
+              core.info(`#${issue.number} closed as "${issue.state_reason}" - not advancing.`);
+              return;
+            }
+
+            const idx = CHAIN.indexOf(issue.number);
+            if (idx === -1) {
+              core.info(`#${issue.number} is not in the v1 chain - nothing to do.`);
+              return;
+            }
+
+            const next = CHAIN[idx + 1];
+            if (next === undefined) {
+              core.info(`#${issue.number} is the last link in the chain. Done.`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+
+            const { data: nextIssue } = await github.rest.issues.get({
+              owner, repo, issue_number: next,
+            });
+
+            if (nextIssue.state === 'closed') {
+              core.info(`#${next} is already closed - skipping.`);
+              return;
+            }
+
+            const hasGate = nextIssue.labels.some(
+              (l) => (typeof l === 'string' ? l : l.name) === GATE
+            );
+            if (!hasGate) {
+              core.info(`#${next} is already un-gated - nothing to do.`);
+              return;
+            }
+
+            await github.rest.issues.removeLabel({
+              owner, repo, issue_number: next, name: GATE,
+            });
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: next,
+              body: `Auto-advanced: #${issue.number} closed, so this issue is now un-gated and eligible for pickup. (v1 launch chain)`,
+            });
+
+            core.info(`Un-gated #${next} after #${issue.number} closed.`);
