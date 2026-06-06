@@ -4,7 +4,7 @@ import UIKit
 
 protocol MacConnectionDelegate: AnyObject {
     func connection(_ conn: MacConnection, didDiscover name: String, endpoint: NWEndpoint)
-    func connection(_ conn: MacConnection, didReceive envelope: Envelope)
+    func connection(_ conn: MacConnection, didReceive message: ServerMessage)
     func connection(_ conn: MacConnection, didChangeState state: NWConnection.State)
 }
 
@@ -17,7 +17,7 @@ final class MacConnection {
     private var browser: NWBrowser?
     private var conn: NWConnection?
     private var recvBuf = Data()
-    private let kMaxFrameBodyLen = 4 * 1_048_576  // 4 MB hard cap; guards against crafted oversized length prefixes
+    private let kMaxLineLen = 4 * 1_048_576  // 4 MB cap; guards against a peer that never sends a newline.
 
     // MARK: Discovery
 
@@ -29,9 +29,7 @@ final class MacConnection {
         b.browseResultsChangedHandler = { [weak self] _, changes in
             guard let self else { return }
             for change in changes {
-                if case .added(let result) = change {
-                    self.handleDiscovered(result)
-                }
+                if case .added(let result) = change { self.handleDiscovered(result) }
             }
         }
         b.start(queue: queue)
@@ -51,10 +49,15 @@ final class MacConnection {
 
     // MARK: Connect / Disconnect
 
+    func connect(host: String, port: UInt16) {
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else { return }
+        connect(to: .hostPort(host: NWEndpoint.Host(host), port: nwPort))
+    }
+
     func connect(to endpoint: NWEndpoint) {
         let tlsOptions = NWProtocolTLS.Options()
-        // Accept the peer's self-signed cert; the QR challenge authenticates the peer.
-        // TLS still encrypts the channel, defeating passive eavesdroppers.
+        // Accept the peer's self-signed cert; the HMAC auth handshake proves the
+        // peer holds the pairing secret. TLS still encrypts against eavesdroppers.
         sec_protocol_options_set_verify_block(
             tlsOptions.securityProtocolOptions,
             { _, _, completion in completion(true) },
@@ -66,8 +69,9 @@ final class MacConnection {
         c.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
             self.delegate?.connection(self, didChangeState: state)
-            if state == .ready { self.startReceiving() }
+            if state == .ready { self.receiveNext() }
         }
+        recvBuf.removeAll()
         c.start(queue: queue)
         conn = c
     }
@@ -80,16 +84,12 @@ final class MacConnection {
 
     // MARK: Send
 
-    func send(_ envelope: Envelope) {
-        guard let c = conn, let data = try? wire(envelope) else { return }
-        c.send(content: data, completion: .idempotent)
+    func send(_ message: ClientMessage) {
+        guard let c = conn else { return }
+        c.send(content: message.line(), completion: .idempotent)
     }
 
-    // MARK: Receive (length-prefixed framing)
-
-    private func startReceiving() {
-        receiveNext()
-    }
+    // MARK: Receive (newline-delimited framing)
 
     private func receiveNext() {
         conn?.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { [weak self] content, _, isComplete, error in
@@ -102,21 +102,17 @@ final class MacConnection {
     }
 
     private func drainBuffer() {
-        while recvBuf.count >= kFrameHeaderLen {
-            let rawLen  = recvBuf.prefix(kFrameHeaderLen).withUnsafeBytes { $0.load(as: UInt32.self) }
-            let bodyLen = Int(UInt32(bigEndian: rawLen))
-            guard bodyLen <= kMaxFrameBodyLen else {
-                conn?.cancel()
-                recvBuf.removeAll()
-                return
+        while let nl = recvBuf.firstIndex(of: 0x0A) {
+            let lineData = recvBuf.subdata(in: recvBuf.startIndex..<nl)
+            recvBuf.removeSubrange(recvBuf.startIndex...nl)
+            guard !lineData.isEmpty else { continue }
+            if let msg = ServerMessage.parse(lineData) {
+                delegate?.connection(self, didReceive: msg)
             }
-            let total   = kFrameHeaderLen + bodyLen
-            guard recvBuf.count >= total else { break }
-            let body = recvBuf.subdata(in: kFrameHeaderLen..<total)
-            recvBuf.removeFirst(total)
-            if let env = try? unwire(body) {
-                delegate?.connection(self, didReceive: env)
-            }
+        }
+        if recvBuf.count > kMaxLineLen {
+            conn?.cancel()
+            recvBuf.removeAll()
         }
     }
 }

@@ -1,40 +1,44 @@
 import Foundation
 import Network
 import CryptoKit
+import UIKit
 
 enum PairingState {
     case unpaired
     case connecting
-    case awaitingResponse(challenge: String)
     case paired(serverId: String)
     case failed(String)
 }
 
 enum PairingError: LocalizedError {
     case invalidQR
-    case notPaired
-    case rejected
-
     var errorDescription: String? {
         switch self {
-        case .invalidQR:   return "QR code is not a valid Niyora pairing code."
-        case .notPaired:   return "Device is not paired with any Mac."
-        case .rejected:    return "Mac rejected the pairing request."
+        case .invalidQR: return "QR code is not a valid Niyora pairing code."
         }
     }
 }
 
+/// Drives the handshake against the Mac's `companion_sync`:
+///   identify -> hello -> challenge -> auth(HMAC) -> authed,
+/// then forwards `status_update` and sends `session_recorded`.
 final class PairingFlow: MacConnectionDelegate {
-    private let mac          = MacConnection()
-    private let keychain     = KeychainStore()
-    private var serverStore  = KnownServerStore()
-    private var heartbeatSrc: DispatchSourceTimer?
+    private let mac         = MacConnection()
+    private let keychain    = KeychainStore()
+    private var serverStore = KnownServerStore()
 
     private(set) var state: PairingState = .unpaired
 
     var onStateChange:      ((PairingState) -> Void)?
     var onServerDiscovered: ((String, NWEndpoint) -> Void)?
-    var onSyncAck:          (() -> Void)?
+    var onStatusUpdate:     ((String, Int) -> Void)?   // (soulTier, completedSessions)
+
+    // Handshake context: set when a connection is initiated, used when the
+    // server's challenge arrives.
+    private var pendingSecret: Data?
+    private var pendingPairingId: String?   // present only on a fresh QR pair
+    private var pendingServerId: String?
+    private var isFreshPairing = false
 
     init() { mac.delegate = self }
 
@@ -44,78 +48,82 @@ final class PairingFlow: MacConnectionDelegate {
     func stopDiscovery()  { mac.stopBrowsing() }
 
     // MARK: QR pairing
-    // QR payload: "niyora://<host>:<port>/<challenge>"
 
     func initiateFromQR(_ qrString: String) throws {
-        guard let (host, port, challenge) = parseQR(qrString) else {
+        guard let qr = QrPayload.decode(qrString),
+              let secret = Data(hexString: qr.secretHex) else {
             throw PairingError.invalidQR
         }
-        guard let nwPort = NWEndpoint.Port(rawValue: port), port > 0 else {
-            throw PairingError.invalidQR
-        }
-        let endpoint = NWEndpoint.hostPort(
-            host: NWEndpoint.Host(host),
-            port: nwPort
-        )
+        pendingSecret    = secret
+        pendingPairingId = qr.pairingId
+        pendingServerId  = qr.serverId
+        isFreshPairing   = true
         transition(.connecting)
-        mac.connect(to: endpoint)
-        transition(.awaitingResponse(challenge: challenge))
+        mac.connect(host: qr.host, port: qr.port)
+        // Identify is sent once the connection is .ready (didChangeState).
     }
 
-    private func parseQR(_ s: String) -> (host: String, port: UInt16, challenge: String)? {
-        guard
-            let url  = URL(string: s),
-            url.scheme == "niyora",
-            let host = url.host,
-            let port = url.port,
-            port > 0,
-            !url.path.isEmpty
-        else { return nil }
-        let challenge = String(url.path.dropFirst())
-        guard !challenge.isEmpty else { return nil }
-        return (host, UInt16(port), challenge)
-    }
+    // MARK: Send a completed session to the Mac
 
-    // MARK: Sync
-
-    func pushSync(payload: String) {
-        guard case .paired(let serverId) = state,
-              let secret = keychain.get("niyora.sync.\(serverId)")
-        else { return }
-        let tag     = hmacTag(payload: payload, key: secret)
-        let body    = "{\"data\":\(payload),\"hmac\":\"\(tag)\"}"
-        let env     = Envelope(type: .syncPush, deviceId: mac.deviceId, body: body)
-        mac.send(env)
+    func recordSession(
+        techniqueName: String,
+        techniqueKind: String,
+        durationSec: Int,
+        intendedDurationSec: Int?,
+        completed: Bool,
+        recordedAt: String
+    ) {
+        guard case .paired = state else { return }
+        mac.send(.sessionRecorded(
+            techniqueName: techniqueName,
+            techniqueKind: techniqueKind,
+            durationSec: durationSec,
+            intendedDurationSec: intendedDurationSec,
+            completed: completed,
+            recordedAt: recordedAt
+        ))
     }
 
     // MARK: MacConnectionDelegate
 
     func connection(_ conn: MacConnection, didDiscover name: String, endpoint: NWEndpoint) {
         onServerDiscovered?(name, endpoint)
+        // Auto-reconnect to a known server (no QR) when it reappears on the wifi.
+        guard serverStore.contains(id: name), !isConnectingOrPaired() else { return }
+        pendingSecret    = keychain.get("niyora.sync.\(name)")
+        pendingPairingId = nil
+        pendingServerId  = name
+        isFreshPairing   = false
+        guard pendingSecret != nil else { return }
+        transition(.connecting)
+        mac.connect(to: endpoint)
     }
 
-    func connection(_ conn: MacConnection, didReceive envelope: Envelope) {
-        switch envelope.type {
-        case .identify:
-            handleIdentify(envelope)
-        case .pairResponse:
-            handlePairResponse(envelope)
-        case .heartbeat:
-            mac.send(Envelope(type: .heartbeat, deviceId: mac.deviceId, body: nil))
-        case .syncAck:
-            onSyncAck?()
-        default:
+    func connection(_ conn: MacConnection, didReceive message: ServerMessage) {
+        switch message {
+        case let .hello(serverId, _):
+            // Trust the server_id the Mac reports for keychain keying.
+            if pendingServerId == nil { pendingServerId = serverId }
+        case let .challenge(nonceHex):
+            sendAuth(nonceHex: nonceHex)
+        case .authed:
+            handleAuthed()
+        case let .authFailed(reason):
+            transition(.failed(reason))
+        case let .statusUpdate(soulTier, completedSessions):
+            onStatusUpdate?(soulTier, completedSessions)
+        case .requestMeasurement, .unknown:
             break
         }
     }
 
     func connection(_ conn: MacConnection, didChangeState nwState: NWConnection.State) {
         switch nwState {
+        case .ready:
+            sendIdentify()
         case .failed(let err):
-            stopHeartbeat()
             transition(.failed(err.localizedDescription))
         case .cancelled:
-            stopHeartbeat()
             if case .paired = state { /* keep paired across reconnect */ } else {
                 transition(.unpaired)
             }
@@ -124,69 +132,48 @@ final class PairingFlow: MacConnectionDelegate {
         }
     }
 
-    // MARK: Message handlers
+    // MARK: Handshake steps
 
-    private func handleIdentify(_ env: Envelope) {
-        // If already known, skip re-pairing and enter paired state directly.
-        if serverStore.contains(id: env.deviceId) {
-            transition(.paired(serverId: env.deviceId))
-            startHeartbeat()
-            return
-        }
-        // Otherwise send pair_request with the QR challenge.
-        guard case .awaitingResponse(let challenge) = state else { return }
-        let body = "{\"challenge\":\"\(challenge)\"}"
-        mac.send(Envelope(type: .pairRequest, deviceId: mac.deviceId, body: body))
+    private func sendIdentify() {
+        mac.send(.identify(
+            clientId: mac.deviceId,
+            clientName: UIDevice.current.name,
+            pairingId: isFreshPairing ? pendingPairingId : nil
+        ))
     }
 
-    private func handlePairResponse(_ env: Envelope) {
-        guard case .awaitingResponse = state,
-              let body    = env.body,
-              let data    = body.data(using: .utf8),
-              let json    = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let accepted = json["accepted"] as? Bool,
-              accepted,
-              let secretHex = json["secret"] as? String,
-              let secretData = Data(hexString: secretHex)
-        else {
-            transition(.failed("Pairing rejected or malformed response."))
+    private func sendAuth(nonceHex: String) {
+        guard let secret = pendingSecret,
+              let nonce  = Data(hexString: nonceHex) else {
+            transition(.failed("Missing pairing secret."))
             return
         }
-        let serverId = env.deviceId
-        keychain.set("niyora.sync.\(serverId)", value: secretData)
-        serverStore.upsert(KnownServer(id: serverId, name: serverId, lastSeenAt: Date()))
+        let key  = SymmetricKey(data: secret)
+        let code = HMAC<SHA256>.authenticationCode(for: nonce, using: key)
+        mac.send(.auth(hmacHex: Data(code).hexString))
+    }
+
+    private func handleAuthed() {
+        guard let serverId = pendingServerId else { return }
+        if isFreshPairing, let secret = pendingSecret {
+            keychain.set("niyora.sync.\(serverId)", value: secret)
+            serverStore.upsert(KnownServer(id: serverId, name: serverId, lastSeenAt: Date()))
+        }
+        isFreshPairing = false
         transition(.paired(serverId: serverId))
-        startHeartbeat()
-    }
-
-    // MARK: Heartbeat
-
-    private func startHeartbeat() {
-        let src = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
-        src.schedule(deadline: .now() + 30, repeating: 30)
-        src.setEventHandler { [weak self] in
-            guard let self, case .paired = self.state else { return }
-            self.mac.send(Envelope(type: .heartbeat, deviceId: self.mac.deviceId, body: nil))
-        }
-        src.resume()
-        heartbeatSrc = src
-    }
-
-    private func stopHeartbeat() {
-        heartbeatSrc?.cancel()
-        heartbeatSrc = nil
     }
 
     // MARK: Helpers
 
+    private func isConnectingOrPaired() -> Bool {
+        switch state {
+        case .connecting, .paired: return true
+        default: return false
+        }
+    }
+
     private func transition(_ next: PairingState) {
         state = next
         onStateChange?(next)
-    }
-
-    private func hmacTag(payload: String, key: Data) -> String {
-        let symKey = SymmetricKey(data: key)
-        let code   = HMAC<SHA256>.authenticationCode(for: Data(payload.utf8), using: symKey)
-        return Data(code).hexString
     }
 }

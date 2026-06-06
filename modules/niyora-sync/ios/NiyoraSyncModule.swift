@@ -7,7 +7,7 @@ public class NiyoraSyncModule: Module {
     public func definition() -> ModuleDefinition {
         Name("NiyoraSync")
 
-        Events("onServerDiscovered", "onStateChanged", "onSyncAck")
+        Events("onServerDiscovered", "onStateChanged", "onStatusUpdate")
 
         OnCreate {
             self.flow.onStateChange = { [weak self] state in
@@ -16,8 +16,11 @@ public class NiyoraSyncModule: Module {
             self.flow.onServerDiscovered = { [weak self] name, _ in
                 self?.sendEvent("onServerDiscovered", ["name": name])
             }
-            self.flow.onSyncAck = { [weak self] in
-                self?.sendEvent("onSyncAck", [:])
+            self.flow.onStatusUpdate = { [weak self] soulTier, completedSessions in
+                self?.sendEvent("onStatusUpdate", [
+                    "soulTier": soulTier,
+                    "completedSessions": completedSessions,
+                ])
             }
         }
 
@@ -37,8 +40,21 @@ public class NiyoraSyncModule: Module {
             try self.flow.initiateFromQR(qrString)
         }
 
-        Function("pushSync") { (payload: String) in
-            self.flow.pushSync(payload: payload)
+        Function("recordSession") {
+            (techniqueName: String,
+             techniqueKind: String,
+             durationSec: Int,
+             intendedDurationSec: Int,
+             completed: Bool,
+             recordedAt: String) in
+            self.flow.recordSession(
+                techniqueName: techniqueName,
+                techniqueKind: techniqueKind,
+                durationSec: durationSec,
+                intendedDurationSec: intendedDurationSec,
+                completed: completed,
+                recordedAt: recordedAt
+            )
         }
 
         Function("isPaired") -> Bool {
@@ -53,8 +69,6 @@ public class NiyoraSyncModule: Module {
             sendEvent("onStateChanged", ["state": "unpaired"])
         case .connecting:
             sendEvent("onStateChanged", ["state": "connecting"])
-        case .awaitingResponse:
-            sendEvent("onStateChanged", ["state": "awaiting_response"])
         case .paired(let id):
             sendEvent("onStateChanged", ["state": "paired", "serverId": id])
         case .failed(let msg):
