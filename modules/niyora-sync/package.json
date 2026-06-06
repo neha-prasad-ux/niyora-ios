@@ -1,0 +1,12 @@
+{
+  "name": "niyora-sync",
+  "version": "1.0.0",
+  "description": "Local-network sync and QR pairing for Niyora iOS",
+  "main": "src/index",
+  "types": "src/index",
+  "files": [
+    "src",
+    "ios",
+    "expo-module.config.json"
+  ]
+}
