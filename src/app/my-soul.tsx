@@ -17,9 +17,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState } from 'react';
 
 import { BackgroundGradient } from '@/components/background-gradient';
+import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
 import { getSessionCount } from '@/store/session-history';
+import {
+  getCheckInRecords,
+  todayCheckIn,
+  type CheckInLevel,
+  type CheckInRecord,
+} from '@/store/checkin-history';
 import { colors } from '@/theme/colors';
 
 // Maps tier id to the number of Saturn-style rings around the orb.
@@ -28,11 +35,17 @@ const TIER_RING_COUNTS: Record<string, number> = {
   spark: 0, glow: 1, shine: 2, radiance: 3, brilliance: 4,
 };
 
-const TODAY_MOOD = 'Calm';
+const LEVEL_LABELS: Record<CheckInLevel, string> = {
+  light: 'Light',
+  okay: 'Okay',
+  heavy: 'Heavy',
+};
 
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
+  const [showCheckIn, setShowCheckIn] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,14 +53,25 @@ export default function MySoulScreen() {
       getSessionCount().then((n) => {
         if (active) setSessionsCompleted(n);
       }).catch(() => {});
+      getCheckInRecords().then((r) => {
+        if (active) setCheckInRecords(r);
+      }).catch(() => {});
       return () => { active = false; };
     }, [])
   );
+
+  function handleCheckInDone(recorded: boolean) {
+    setShowCheckIn(false);
+    if (recorded) {
+      getCheckInRecords().then(setCheckInRecords).catch(() => {});
+    }
+  }
 
   const tier = currentTier(sessionsCompleted);
   const next = nextTier(tier);
   const toNext = sessionsToNext(sessionsCompleted);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
+  const todayRecord = todayCheckIn(checkInRecords);
 
   return (
     <View style={styles.root}>
@@ -78,17 +102,21 @@ export default function MySoulScreen() {
           contentContainerStyle={styles.scrollBody}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
+          <View style={[styles.orbWrap, !todayRecord && { marginBottom: 20 }]} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
             <Orb
               size={110}
               tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
               tierHue={tier.hue}
             />
           </View>
-          <Text style={styles.todayLabel}>
-            Today: 
-            <Text style={{ color: colors.textPrimary }}>{TODAY_MOOD}</Text>
-          </Text>
+          {todayRecord && (
+            <Text style={styles.todayLabel}>
+              Today:{' '}
+              <Text style={{ color: colors.textPrimary }}>
+                {LEVEL_LABELS[todayRecord.level]}
+              </Text>
+            </Text>
+          )}
 
           <LevelCard
             tierName={tier.name}
@@ -97,6 +125,11 @@ export default function MySoulScreen() {
             toNext={toNext}
             accent={accent}
             sessions={sessionsCompleted}
+          />
+
+          <CheckInCard
+            records={checkInRecords}
+            onCheckIn={() => setShowCheckIn(true)}
           />
 
           <ToggleCard
@@ -116,6 +149,103 @@ export default function MySoulScreen() {
           <Text style={styles.version}>Version 0.1.0</Text>
         </ScrollView>
       </SafeAreaView>
+
+      {showCheckIn && (
+        <CheckInSheet onDone={handleCheckInDone} />
+      )}
+    </View>
+  );
+}
+
+// ---- Sparkline helpers ----
+
+function last7Days(): string[] {
+  const days: string[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toDateString());
+  }
+  return days;
+}
+
+function buildSparkData(records: CheckInRecord[]): (CheckInLevel | null)[] {
+  const days = last7Days();
+  return days.map((day) => {
+    for (let i = records.length - 1; i >= 0; i--) {
+      if (new Date(records[i].recordedAt).toDateString() === day) {
+        return records[i].level;
+      }
+    }
+    return null;
+  });
+}
+
+const LEVEL_HUES: Record<CheckInLevel, number> = {
+  light: 215,
+  okay: 260,
+  heavy: 335,
+};
+
+function CheckInSparkline({ records }: { records: CheckInRecord[] }) {
+  const spark = buildSparkData(records);
+  return (
+    <View style={styles.sparkline} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
+      {spark.map((level, i) => (
+        <View
+          key={i}
+          style={[
+            styles.sparkDot,
+            {
+              backgroundColor: level
+                ? `hsl(${LEVEL_HUES[level]}, 52%, 58%)`
+                : 'rgba(255,255,255,0.12)',
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+// ---- Card components ----
+
+function CheckInCard({
+  records,
+  onCheckIn,
+}: {
+  records: CheckInRecord[];
+  onCheckIn: () => void;
+}) {
+  const todayRecord = todayCheckIn(records);
+  const count = records.length;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTopEdge} />
+      <View style={styles.checkInHeader}>
+        <Text style={styles.cardTitle}>Mental health</Text>
+        {count > 0 && (
+          <Text style={styles.checkInCount}>
+            {count}
+            <Text style={styles.checkInCountLabel}> check-ins</Text>
+          </Text>
+        )}
+      </View>
+      {count > 0 && <CheckInSparkline records={records} />}
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          onCheckIn();
+        }}
+        style={styles.checkInButton}
+        accessibilityRole="button"
+        accessibilityLabel={todayRecord ? 'Check in again' : 'Check in'}
+      >
+        <Text style={styles.checkInButtonLabel}>
+          {todayRecord ? 'Check in again' : 'Check in'}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -334,7 +464,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     overflow: 'hidden',
   },
-  // Thin inner highlight along the top edge — mirrors the Mac card top-gradient.
+  // Thin inner highlight along the top edge -- mirrors the Mac card top-gradient.
   cardTopEdge: {
     position: 'absolute',
     top: 0,
@@ -354,6 +484,50 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.55)',
     lineHeight: 18,
   },
+  // Check-in card
+  checkInHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 16,
+  },
+  checkInCount: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  checkInCountLabel: {
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.45)',
+  },
+  sparkline: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  sparkDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  checkInButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 9,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  checkInButtonLabel: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  // Level card
   levelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
