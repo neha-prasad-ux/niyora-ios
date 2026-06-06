@@ -24,6 +24,8 @@ import {
   getTechnique,
   isBreathing,
 } from '@/models/techniques';
+import { NiyoraSync } from 'niyora-sync';
+
 import { appendSession } from '@/store/session-history';
 import type { MusicTrack } from '@/store/music-prefs';
 import { colors } from '@/theme/colors';
@@ -84,6 +86,15 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
   useEffect(() => {
     if (cycle.done) {
       appendSession(technique.id).catch(() => {});
+      // Report to the paired Mac (no-op when not paired).
+      NiyoraSync.recordSession({
+        techniqueName: technique.name,
+        techniqueKind: technique.category,
+        durationSec: technique.durationSeconds,
+        intendedDurationSec: technique.durationSeconds,
+        completed: true,
+        recordedAt: new Date().toISOString(),
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fadeOut();
       // Give the "well done" label a moment to appear before the mood overlay fades in

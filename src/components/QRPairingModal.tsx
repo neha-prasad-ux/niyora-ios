@@ -35,9 +35,6 @@ export function QRPairingModal({ visible, syncState, onClose }: Props) {
         {syncState.state === 'connecting' && (
           <Text style={styles.status}>Connecting...</Text>
         )}
-        {syncState.state === 'awaiting_response' && (
-          <Text style={styles.status}>Waiting for Mac confirmation...</Text>
-        )}
         {syncState.state === 'paired' && (
           <Text style={[styles.status, styles.success]}>Paired!</Text>
         )}

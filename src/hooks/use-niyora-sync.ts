@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { NiyoraSync, SyncState } from 'niyora-sync';
+import { NiyoraSync, SyncState, SyncStatus } from 'niyora-sync';
 
-export type { SyncState };
+export type { SyncState, SyncStatus };
 
 export function useNiyoraSync() {
   const [syncState, setSyncState] = useState<SyncState>({ state: 'unpaired' });
   const [discoveredServers, setDiscoveredServers] = useState<string[]>([]);
+  const [macStatus, setMacStatus] = useState<SyncStatus | null>(null);
 
   useEffect(() => {
     const stateSub = NiyoraSync.addStateListener(setSyncState);
@@ -15,6 +16,7 @@ export function useNiyoraSync() {
         prev.includes(e.name) ? prev : [...prev, e.name]
       );
     });
+    const statusSub = NiyoraSync.addStatusListener(setMacStatus);
 
     NiyoraSync.startDiscovery();
 
@@ -22,14 +24,16 @@ export function useNiyoraSync() {
       NiyoraSync.stopDiscovery();
       stateSub.remove();
       discSub.remove();
+      statusSub.remove();
     };
   }, []);
 
   return {
     syncState,
     discoveredServers,
+    macStatus,
     isPaired: syncState.state === 'paired',
     pairWithQR: NiyoraSync.pairWithQR,
-    pushSync: NiyoraSync.pushSync,
+    recordSession: NiyoraSync.recordSession,
   };
 }
