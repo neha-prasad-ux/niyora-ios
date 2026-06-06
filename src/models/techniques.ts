@@ -58,7 +58,7 @@ export const TECHNIQUES: readonly Technique[] = [
     durationSeconds: 65,
     category: 'breathing',
     locked: false,
-    instructions: 'In 4, hold 4, out 4, hold 4. Steady rhythm.',
+    instructions: 'In 4, hold 4, out 4, hold 4. Breathe through nose.',
     rounds: 4,
     phases: [
       { type: 'inhale', label: 'inhale', duration: 4 },
@@ -121,7 +121,7 @@ export const TECHNIQUES: readonly Technique[] = [
     durationSeconds: 60,
     category: 'breathing',
     locked: false,
-    instructions: 'Let your belly rise on the in-breath, soften on the out.',
+    instructions: 'Let your belly rise on the in-breath, soften on the out. Breathe through nose.',
     rounds: 6,
     phases: [
       { type: 'inhale', label: 'breathe into belly', duration: 4 },
