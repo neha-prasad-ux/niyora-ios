@@ -14,7 +14,10 @@
       "bundleIdentifier": "com.niyora.app",
       "buildNumber": "4",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
+        "NSBonjourServices": ["_niyora._tcp"],
+        "NSCameraUsageDescription": "Niyora uses your camera to scan the pairing QR code from your Mac."
       }
     },
     "android": {
