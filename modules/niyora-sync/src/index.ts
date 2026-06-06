@@ -40,6 +40,19 @@ export type SyncSession = {
   recordedAt: string;
 };
 
+/**
+ * Mac reminder schedule. The phone schedules a matching local notification
+ * unless the Mac is the active device (active-device rule).
+ */
+export type ReminderState = {
+  /** ISO 8601 — when the next reminder fires. */
+  fireAt: string;
+  /** True when the Mac app is in the foreground. Phone stays silent in that case. */
+  macActive: boolean;
+  title: string;
+  body: string;
+};
+
 export type Subscription = { remove: () => void };
 
 type NiyoraSyncEvents = {
@@ -47,6 +60,7 @@ type NiyoraSyncEvents = {
   onServerDiscovered: (event: { name: string }) => void;
   onStatusUpdate: (status: SyncStatus) => void;
   onSoulStateUpdate: (state: MacSoulState) => void;
+  onReminderState: (state: ReminderState) => void;
 };
 
 const NativeModule = requireNativeModule('NiyoraSync');
@@ -97,5 +111,23 @@ export const NiyoraSync = {
   /** Mac situational day reading; check `ts` freshness before displaying. */
   addSoulStateListener(cb: (s: MacSoulState) => void): Subscription {
     return emitter.addListener('onSoulStateUpdate', cb);
+  },
+
+  /**
+   * Request iOS notification permission. Should be called once on first launch.
+   * Returns true if the user granted access.
+   */
+  async requestNotificationPermission(): Promise<boolean> {
+    return NativeModule.requestNotificationPermission();
+  },
+
+  /**
+   * Mac reminder schedule; fires whenever the Mac sends updated timing or copy.
+   * The native layer already handles scheduling/cancellation automatically; this
+   * listener is exposed so the React layer can mirror the state if needed (e.g.
+   * showing an in-app countdown or suppressing its own UI prompts).
+   */
+  addReminderStateListener(cb: (s: ReminderState) => void): Subscription {
+    return emitter.addListener('onReminderState', cb);
   },
 };

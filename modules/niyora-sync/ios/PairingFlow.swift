@@ -27,12 +27,15 @@ final class PairingFlow: MacConnectionDelegate {
     private let keychain    = KeychainStore()
     private var serverStore = KnownServerStore()
 
+    let notifCoord = NotificationCoordinator()
+
     private(set) var state: PairingState = .unpaired
 
     var onStateChange:      ((PairingState) -> Void)?
     var onServerDiscovered: ((String, NWEndpoint) -> Void)?
     var onStatusUpdate:     ((String, Int) -> Void)?   // (soulTier, completedSessions)
     var onSoulStateUpdate:  ((String, Int, String, String) -> Void)?  // (label, index, source, ts)
+    var onReminderState:    ((String, Bool, String, String) -> Void)?  // (fireAt, macActive, title, body)
 
     // Handshake context: set when a connection is initiated, used when the
     // server's challenge arrives.
@@ -41,7 +44,10 @@ final class PairingFlow: MacConnectionDelegate {
     private var pendingServerId: String?
     private var isFreshPairing = false
 
-    init() { mac.delegate = self }
+    init() {
+        mac.delegate = self
+        notifCoord.sendToMac = { [weak self] msg in self?.mac.send(msg) }
+    }
 
     // MARK: Discovery
 
@@ -75,6 +81,9 @@ final class PairingFlow: MacConnectionDelegate {
         recordedAt: String
     ) {
         guard case .paired = state else { return }
+        // A completed session resets the shared reminder clock. Cancel the pending phone
+        // notification immediately; the Mac will send updated reminder_state after ack.
+        if completed { notifCoord.didCompleteSession() }
         mac.send(.sessionRecorded(
             techniqueName: techniqueName,
             techniqueKind: techniqueKind,
@@ -115,6 +124,9 @@ final class PairingFlow: MacConnectionDelegate {
             onStatusUpdate?(soulTier, completedSessions)
         case let .soulStateUpdate(label, index, source, ts):
             onSoulStateUpdate?(label, index, source, ts)
+        case let .reminderState(fireAt, macActive, title, body):
+            notifCoord.apply(fireAt: fireAt, macIsActive: macActive, title: title, body: body)
+            onReminderState?(fireAt, macActive, title, body)
         case .requestMeasurement, .unknown:
             break
         }
@@ -125,9 +137,11 @@ final class PairingFlow: MacConnectionDelegate {
         case .ready:
             sendIdentify()
         case .failed(let err):
+            notifCoord.stop()
             transition(.failed(err.localizedDescription))
         case .cancelled:
             if case .paired = state { /* keep paired across reconnect */ } else {
+                notifCoord.stop()
                 transition(.unpaired)
             }
         default:
@@ -163,7 +177,12 @@ final class PairingFlow: MacConnectionDelegate {
             serverStore.upsert(KnownServer(id: serverId, name: serverId, lastSeenAt: Date()))
         }
         isFreshPairing = false
+        notifCoord.start()
         transition(.paired(serverId: serverId))
+    }
+
+    func requestNotificationPermission(_ completion: @escaping (Bool) -> Void) {
+        notifCoord.requestPermission(completion)
     }
 
     // MARK: Helpers

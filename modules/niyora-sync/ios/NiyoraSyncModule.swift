@@ -7,7 +7,7 @@ public class NiyoraSyncModule: Module {
     public func definition() -> ModuleDefinition {
         Name("NiyoraSync")
 
-        Events("onServerDiscovered", "onStateChanged", "onStatusUpdate", "onSoulStateUpdate")
+        Events("onServerDiscovered", "onStateChanged", "onStatusUpdate", "onSoulStateUpdate", "onReminderState")
 
         OnCreate {
             self.flow.onStateChange = { [weak self] state in
@@ -28,6 +28,14 @@ public class NiyoraSyncModule: Module {
                     "index": index,
                     "source": source,
                     "ts": ts,
+                ])
+            }
+            self.flow.onReminderState = { [weak self] fireAt, macActive, title, body in
+                self?.sendEvent("onReminderState", [
+                    "fireAt": fireAt,
+                    "macActive": macActive,
+                    "title": title,
+                    "body": body,
                 ])
             }
         }
@@ -68,6 +76,14 @@ public class NiyoraSyncModule: Module {
         Function("isPaired") -> Bool {
             if case .paired = self.flow.state { return true }
             return false
+        }
+
+        AsyncFunction("requestNotificationPermission") { () async -> Bool in
+            await withCheckedContinuation { continuation in
+                self.flow.requestNotificationPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
         }
     }
 
