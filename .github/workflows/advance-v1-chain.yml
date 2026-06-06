@@ -1,21 +1,26 @@
 name: Advance v1 launch chain
 
-# Keeps Alfred working the v1 launch issues one after another. When an issue
-# in the chain is closed as completed (e.g. its PR merged with "Closes #N"),
-# this removes the do-not-pickup gate from the next issue so it becomes
-# eligible for pickup. One issue is ever active at a time.
+# Keeps Alfred working the v1 launch issues one after another. When a PR that
+# closes a chain issue is MERGED, this removes the do-not-pickup gate from the
+# next issue so it becomes eligible for pickup. Only one issue is ever active.
+#
+# Keyed on PR merge (not issue close) on purpose: agents sometimes mark an
+# issue closed before its PR merges, which would advance the chain early. The
+# merge event is the only honest "this work has actually landed" signal.
 #
 # Chain order is defined below. To re-order or extend, edit CHAIN.
 
 on:
-  issues:
+  pull_request:
     types: [closed]
 
 permissions:
   issues: write
+  pull-requests: read
 
 jobs:
   advance:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v7
@@ -25,53 +30,60 @@ jobs:
             const CHAIN = [33, 82, 83, 92, 84, 85, 86];
             const GATE = 'do-not-pickup';
 
-            const issue = context.payload.issue;
-
-            // Only advance on a genuine completion (merged PR / "completed" close),
-            // not when an issue is closed as "not planned".
-            if (issue.state_reason && issue.state_reason !== 'completed') {
-              core.info(`#${issue.number} closed as "${issue.state_reason}" - not advancing.`);
-              return;
-            }
-
-            const idx = CHAIN.indexOf(issue.number);
-            if (idx === -1) {
-              core.info(`#${issue.number} is not in the v1 chain - nothing to do.`);
-              return;
-            }
-
-            const next = CHAIN[idx + 1];
-            if (next === undefined) {
-              core.info(`#${issue.number} is the last link in the chain. Done.`);
-              return;
-            }
-
+            const pr = context.payload.pull_request;
             const { owner, repo } = context.repo;
 
-            const { data: nextIssue } = await github.rest.issues.get({
-              owner, repo, issue_number: next,
-            });
+            // Which issues does this merged PR close? Use the resolved closing
+            // references (from "Closes #N") rather than parsing the body.
+            const q = `query($owner:String!, $repo:String!, $num:Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $num) {
+                  closingIssuesReferences(first: 20) { nodes { number } }
+                }
+              }
+            }`;
+            const res = await github.graphql(q, { owner, repo, num: pr.number });
+            const closed = res.repository.pullRequest
+              .closingIssuesReferences.nodes.map((n) => n.number);
 
-            if (nextIssue.state === 'closed') {
-              core.info(`#${next} is already closed - skipping.`);
+            if (closed.length === 0) {
+              core.info(`PR #${pr.number} closes no issues - nothing to do.`);
               return;
             }
 
-            const hasGate = nextIssue.labels.some(
-              (l) => (typeof l === 'string' ? l : l.name) === GATE
-            );
-            if (!hasGate) {
-              core.info(`#${next} is already un-gated - nothing to do.`);
-              return;
+            for (const closedNum of closed) {
+              const idx = CHAIN.indexOf(closedNum);
+              if (idx === -1) {
+                core.info(`#${closedNum} is not in the v1 chain - skipping.`);
+                continue;
+              }
+              const next = CHAIN[idx + 1];
+              if (next === undefined) {
+                core.info(`#${closedNum} is the last link in the chain.`);
+                continue;
+              }
+
+              const { data: nextIssue } = await github.rest.issues.get({
+                owner, repo, issue_number: next,
+              });
+              if (nextIssue.state === 'closed') {
+                core.info(`#${next} is already closed - skipping.`);
+                continue;
+              }
+              const hasGate = nextIssue.labels.some(
+                (l) => (typeof l === 'string' ? l : l.name) === GATE
+              );
+              if (!hasGate) {
+                core.info(`#${next} is already un-gated - skipping.`);
+                continue;
+              }
+
+              await github.rest.issues.removeLabel({
+                owner, repo, issue_number: next, name: GATE,
+              });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: next,
+                body: `Auto-advanced: PR #${pr.number} merged and closed #${closedNum}, so this issue is now un-gated and eligible for pickup. (v1 launch chain)`,
+              });
+              core.info(`Un-gated #${next} after PR #${pr.number} merged (#${closedNum}).`);
             }
-
-            await github.rest.issues.removeLabel({
-              owner, repo, issue_number: next, name: GATE,
-            });
-
-            await github.rest.issues.createComment({
-              owner, repo, issue_number: next,
-              body: `Auto-advanced: #${issue.number} closed, so this issue is now un-gated and eligible for pickup. (v1 launch chain)`,
-            });
-
-            core.info(`Un-gated #${next} after #${issue.number} closed.`);
