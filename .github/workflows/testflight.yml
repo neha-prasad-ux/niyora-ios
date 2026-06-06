@@ -1,0 +1,44 @@
+name: TestFlight build
+
+# One-click TestFlight build + submit. Run it from the Actions tab
+# (workflow_dispatch) or by pushing a tag like `ios-v0.1.0`.
+#
+# Requires one repo secret: EXPO_TOKEN (an Expo access token from
+# expo.dev -> Account -> Access tokens). The actual iOS build runs on EAS;
+# this job just drives it and waits, so the run's status reflects when the
+# build + App Store Connect submission finished (then Apple processes it
+# into TestFlight, ~10-30 min later).
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'EAS build profile'
+        default: 'production'
+        type: string
+  push:
+    tags:
+      - 'ios-v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Build + submit to TestFlight
+        run: |
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          eas build --platform ios --profile "$PROFILE" --non-interactive --auto-submit
