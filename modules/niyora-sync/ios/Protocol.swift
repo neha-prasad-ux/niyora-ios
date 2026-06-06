@@ -26,6 +26,10 @@ enum ClientMessage {
         completed: Bool,
         recordedAt: String
     )
+    /// Phone foreground state; lets the Mac suppress its own notification when the
+    /// phone is the active device. Sent on every app-active/resign transition and
+    /// once immediately after the post-auth handshake completes.
+    case phoneActive(active: Bool, ts: String)
 
     /// JSON object + trailing newline, ready to write to the socket.
     func line() -> Data {
@@ -51,6 +55,8 @@ enum ClientMessage {
                 "recorded_at": recordedAt,
             ]
             if let intended { obj["intended_duration_sec"] = intended }
+        case let .phoneActive(active, ts):
+            obj = ["type": "phone_active", "active": active, "ts": ts]
         }
         var data = (try? JSONSerialization.data(withJSONObject: obj)) ?? Data()
         data.append(0x0A) // '\n'
@@ -69,6 +75,9 @@ enum ServerMessage {
     case requestMeasurement(sessionId: String, phase: String, techniqueName: String)
     /// Mac situational day reading; `ts` is ISO 8601. Schema version 1.
     case soulStateUpdate(label: String, index: Int, source: String, ts: String)
+    /// Mac reminder schedule. Phone schedules a matching local notification unless
+    /// the Mac is the active device (active-device rule). `fire_at` is ISO 8601.
+    case reminderState(fireAt: String, macActive: Bool, title: String, body: String)
     case unknown
 
     static func parse(_ line: Data) -> ServerMessage? {
@@ -104,6 +113,14 @@ enum ServerMessage {
                 index: obj["index"] as? Int ?? 50,
                 source: obj["source"] as? String ?? "mac",
                 ts: obj["ts"] as? String ?? ""
+            )
+        case "reminder_state":
+            guard let fireAt = obj["fire_at"] as? String else { return .unknown }
+            return .reminderState(
+                fireAt: fireAt,
+                macActive: obj["mac_active"] as? Bool ?? false,
+                title: obj["title"] as? String ?? "Time for a breath",
+                body: obj["body"] as? String ?? ""
             )
         default:
             return .unknown
