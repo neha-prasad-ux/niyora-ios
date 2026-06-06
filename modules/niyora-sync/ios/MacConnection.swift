@@ -52,7 +52,15 @@ final class MacConnection {
     // MARK: Connect / Disconnect
 
     func connect(to endpoint: NWEndpoint) {
-        let params = NWParameters.tcp
+        let tlsOptions = NWProtocolTLS.Options()
+        // Accept the peer's self-signed cert; the QR challenge authenticates the peer.
+        // TLS still encrypts the channel, defeating passive eavesdroppers.
+        sec_protocol_options_set_verify_block(
+            tlsOptions.securityProtocolOptions,
+            { _, _, completion in completion(true) },
+            queue
+        )
+        let params = NWParameters(tls: tlsOptions, tcp: NWProtocolTCP.Options())
         params.includePeerToPeer = true
         let c = NWConnection(to: endpoint, using: params)
         c.stateUpdateHandler = { [weak self] state in
