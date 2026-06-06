@@ -1,6 +1,9 @@
 // Cross-fading phase label. When the label string changes, the old text
 // fades out while the new one fades in, both shifted by a soft text shadow
 // so the active cue feels "lit" (mirrors the Mac canvas shadowBlur on text).
+//
+// Pass nextLabel to show a dimmer sub-label ("then hold") below the current
+// phase, matching the Mac next-phase cue from niyora#78.
 
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
@@ -16,17 +19,22 @@ import { colors } from '@/theme/colors';
 
 type PhaseLabelProps = {
   label: string;
+  nextLabel?: string | null;
 };
 
 const FADE_MS = 280;
 
-export function PhaseLabel({ label }: PhaseLabelProps) {
+export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
   const [shown, setShown] = useState(label);
   const [prev, setPrev] = useState<string | null>(null);
   const shownOpacity = useSharedValue(1);
   const prevOpacity = useSharedValue(0);
   const lastLabelRef = useRef(label);
   const [reduceMotion, setReduceMotion] = useState(false);
+
+  const [shownNext, setShownNext] = useState(nextLabel ?? null);
+  const nextOpacity = useSharedValue(nextLabel ? 1 : 0);
+  const lastNextRef = useRef(nextLabel);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +78,25 @@ export function PhaseLabel({ label }: PhaseLabelProps) {
     AccessibilityInfo.announceForAccessibility(label);
   }, [label, prevOpacity, shownOpacity, reduceMotion]);
 
+  useEffect(() => {
+    if (nextLabel === lastNextRef.current) return;
+    lastNextRef.current = nextLabel;
+    const duration = reduceMotion ? 0 : FADE_MS;
+    if (nextLabel) {
+      setShownNext(nextLabel);
+      nextOpacity.value = 0;
+      nextOpacity.value = withTiming(1, { duration });
+    } else {
+      nextOpacity.value = withTiming(0, { duration }, (finished) => {
+        'worklet';
+        if (finished) runOnJS(setShownNext)(null);
+      });
+    }
+  }, [nextLabel, nextOpacity, reduceMotion]);
+
   const shownStyle = useAnimatedStyle(() => ({ opacity: shownOpacity.value }));
   const prevStyle = useAnimatedStyle(() => ({ opacity: prevOpacity.value }));
+  const nextStyle = useAnimatedStyle(() => ({ opacity: nextOpacity.value }));
 
   return (
     <View style={styles.wrap}>
@@ -83,6 +108,11 @@ export function PhaseLabel({ label }: PhaseLabelProps) {
       <Animated.View style={shownStyle}>
         <Text style={styles.text} accessibilityLiveRegion="polite">{shown}</Text>
       </Animated.View>
+      {shownNext !== null && (
+        <Animated.View style={[styles.nextWrap, nextStyle]}>
+          <Text style={styles.nextText}>{shownNext}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -108,5 +138,15 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255, 245, 235, 0.55)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 14,
+  },
+  nextWrap: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  nextText: {
+    fontSize: 12,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.47)',
+    letterSpacing: 0.3,
   },
 });
