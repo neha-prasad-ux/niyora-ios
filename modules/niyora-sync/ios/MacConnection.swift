@@ -17,6 +17,7 @@ final class MacConnection {
     private var browser: NWBrowser?
     private var conn: NWConnection?
     private var recvBuf = Data()
+    private let kMaxFrameBodyLen = 4 * 1_048_576  // 4 MB hard cap; guards against crafted oversized length prefixes
 
     // MARK: Discovery
 
@@ -96,6 +97,11 @@ final class MacConnection {
         while recvBuf.count >= kFrameHeaderLen {
             let rawLen  = recvBuf.prefix(kFrameHeaderLen).withUnsafeBytes { $0.load(as: UInt32.self) }
             let bodyLen = Int(UInt32(bigEndian: rawLen))
+            guard bodyLen <= kMaxFrameBodyLen else {
+                conn?.cancel()
+                recvBuf.removeAll()
+                return
+            }
             let total   = kFrameHeaderLen + bodyLen
             guard recvBuf.count >= total else { break }
             let body = recvBuf.subdata(in: kFrameHeaderLen..<total)
