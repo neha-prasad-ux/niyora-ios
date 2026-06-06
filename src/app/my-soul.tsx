@@ -27,6 +27,7 @@ import {
   type CheckInLevel,
   type CheckInRecord,
 } from '@/store/checkin-history';
+import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { colors } from '@/theme/colors';
 
@@ -72,6 +73,7 @@ export default function MySoulScreen() {
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
   const { isPaired, macSoulState } = useNiyoraSync();
 
   useFocusEffect(
@@ -83,6 +85,9 @@ export default function MySoulScreen() {
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
       }).catch(() => {});
+      getMacPromoDismissed().then((d) => {
+        if (active) setMacPromoDismissedState(d);
+      }).catch(() => {});
       return () => { active = false; };
     }, [])
   );
@@ -92,6 +97,11 @@ export default function MySoulScreen() {
     if (recorded) {
       getCheckInRecords().then(setCheckInRecords).catch(() => {});
     }
+  }
+
+  function handleMacPromoDismiss() {
+    setMacPromoDismissedState(true);
+    setMacPromoDismissed().catch(() => {});
   }
 
   const tier = currentTier(sessionsCompleted);
@@ -162,6 +172,10 @@ export default function MySoulScreen() {
             accent={accent}
             sessions={sessionsCompleted}
           />
+
+          {!isPaired && !macPromoDismissed && (
+            <MacPromoCard onDismiss={handleMacPromoDismiss} />
+          )}
 
           <CheckInCard
             records={checkInRecords}
@@ -436,6 +450,55 @@ function ToggleCard({
   );
 }
 
+function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
+  async function handleLearnMore() {
+    Haptics.selectionAsync();
+    const url = 'https://niyora.com/mac';
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTopEdge} />
+      <View style={styles.macPromoHeader}>
+        <Text style={[styles.cardTitle, { flex: 1, paddingRight: 8 }]}>
+          Niyora is calmer with your Mac
+        </Text>
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync();
+            onDismiss();
+          }}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss"
+        >
+          <SymbolView
+            name="xmark"
+            tintColor={colors.iconChrome}
+            size={14}
+            weight="regular"
+          />
+        </Pressable>
+      </View>
+      <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+        Pair with your Mac to share session data and reflect across devices.
+      </Text>
+      <Pressable
+        onPress={handleLearnMore}
+        style={styles.primarySmallButton}
+        accessibilityRole="link"
+        accessibilityLabel="Get Niyora for Mac"
+      >
+        <Text style={styles.primarySmallButtonLabel}>Get Niyora for Mac</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function MessageCard({ accent: _accent }: { accent: string }) {
   async function handleOpen() {
     Haptics.selectionAsync();
@@ -661,6 +724,11 @@ const styles = StyleSheet.create({
   markerNum: {
     fontSize: 10,
     fontWeight: '500',
+  },
+  macPromoHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   toggleRow: {
     flexDirection: 'row',
