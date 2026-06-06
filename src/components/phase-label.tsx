@@ -83,6 +83,7 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
     lastNextRef.current = nextLabel;
     const duration = reduceMotion ? 0 : FADE_MS;
     if (nextLabel) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors the label cross-fade effect above; the ref guard prevents cascading renders
       setShownNext(nextLabel);
       nextOpacity.value = 0;
       nextOpacity.value = withTiming(1, { duration });
