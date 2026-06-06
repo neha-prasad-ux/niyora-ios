@@ -28,7 +28,7 @@ export function QRPairingModal({ visible, syncState, onClose }: Props) {
             active={visible && isScanning}
             onScan={handleScan}
             onError={() => {}}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
           />
         </View>
 

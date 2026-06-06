@@ -2,9 +2,6 @@ import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 
 export { QRScannerView } from './QRScannerView';
 
-const NativeModule = requireNativeModule('NiyoraSync');
-const emitter = new EventEmitter(NativeModule);
-
 export type SyncState =
   | { state: 'unpaired' }
   | { state: 'connecting' }
@@ -13,6 +10,15 @@ export type SyncState =
   | { state: 'failed'; message: string };
 
 export type Subscription = { remove: () => void };
+
+type NiyoraSyncEvents = {
+  onStateChanged: (state: SyncState) => void;
+  onServerDiscovered: (event: { name: string }) => void;
+  onSyncAck: () => void;
+};
+
+const NativeModule = requireNativeModule('NiyoraSync');
+const emitter = new EventEmitter<NiyoraSyncEvents>(NativeModule);
 
 export const NiyoraSync = {
   startDiscovery(): void {
