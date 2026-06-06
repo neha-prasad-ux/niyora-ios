@@ -32,6 +32,7 @@ final class PairingFlow: MacConnectionDelegate {
     var onStateChange:      ((PairingState) -> Void)?
     var onServerDiscovered: ((String, NWEndpoint) -> Void)?
     var onStatusUpdate:     ((String, Int) -> Void)?   // (soulTier, completedSessions)
+    var onSoulStateUpdate:  ((String, Int, String, String) -> Void)?  // (label, index, source, ts)
 
     // Handshake context: set when a connection is initiated, used when the
     // server's challenge arrives.
@@ -112,6 +113,8 @@ final class PairingFlow: MacConnectionDelegate {
             transition(.failed(reason))
         case let .statusUpdate(soulTier, completedSessions):
             onStatusUpdate?(soulTier, completedSessions)
+        case let .soulStateUpdate(label, index, source, ts):
+            onSoulStateUpdate?(label, index, source, ts)
         case .requestMeasurement, .unknown:
             break
         }

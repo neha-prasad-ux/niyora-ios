@@ -7,7 +7,7 @@ public class NiyoraSyncModule: Module {
     public func definition() -> ModuleDefinition {
         Name("NiyoraSync")
 
-        Events("onServerDiscovered", "onStateChanged", "onStatusUpdate")
+        Events("onServerDiscovered", "onStateChanged", "onStatusUpdate", "onSoulStateUpdate")
 
         OnCreate {
             self.flow.onStateChange = { [weak self] state in
@@ -20,6 +20,14 @@ public class NiyoraSyncModule: Module {
                 self?.sendEvent("onStatusUpdate", [
                     "soulTier": soulTier,
                     "completedSessions": completedSessions,
+                ])
+            }
+            self.flow.onSoulStateUpdate = { [weak self] label, index, source, ts in
+                self?.sendEvent("onSoulStateUpdate", [
+                    "label": label,
+                    "index": index,
+                    "source": source,
+                    "ts": ts,
                 ])
             }
         }
