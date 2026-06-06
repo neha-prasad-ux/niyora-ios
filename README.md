@@ -27,19 +27,37 @@ ios-v1/
 
 ## Run it
 
-Requires Node 18+ and the Expo Go app on a physical iPhone, OR the iOS Simulator (Xcode 15+).
+Requires Node 18+ and Xcode 15+. This project uses a **custom dev client** instead of Expo Go because native modules (sync, HRV, Screen Time) cannot load inside Expo Go.
+
+### Simulator (quickest start)
 
 ```sh
-cd ios-v1
 npm install            # one-time
-npx expo start         # opens the dev server, scan the QR with the Expo Go app
+npx expo run:ios       # builds the dev client and boots it in the simulator
 ```
 
-Or run directly in the iOS Simulator:
+After the first native build, Metro starts automatically. For subsequent JS-only sessions, skip the native build:
 
 ```sh
-npx expo start --ios
+npx expo start         # starts Metro; open the already-installed dev client on the simulator
 ```
+
+### Physical device (EAS remote build)
+
+Build the dev client once via EAS, install it on the device, then use Metro for JS updates:
+
+```sh
+# 1. Build the dev client (runs on EAS servers; ~10 min first time)
+eas build --platform ios --profile development
+
+# 2. When the build finishes, install the .ipa from the EAS dashboard link or
+#    the email EAS sends. Tap "Open with..." -> Dev Client on device.
+
+# 3. Start Metro
+npx expo start
+```
+
+Re-run step 1 only when native dependencies change. JS changes go through Metro without a rebuild.
 
 ## E2E testing (Maestro)
 
@@ -99,10 +117,11 @@ Wired but not yet implemented in this pass:
 
 ## TestFlight / EAS Build (maintainer steps)
 
-Config is in `eas.json`. Two build profiles are defined:
+Config is in `eas.json`. Three build profiles are defined:
 
-- **production** — Release build uploaded to App Store Connect / TestFlight. `buildNumber` auto-increments each run.
+- **development** — Debug dev client, internal distribution. Required for any native module development. Build once per native-dep change; use Metro for JS iterations.
 - **preview** — internal-distribution Release build for ad-hoc device testing without the App Store.
+- **production** — Release build uploaded to App Store Connect / TestFlight.
 
 ### One-time setup (requires credentials)
 
@@ -135,6 +154,7 @@ npm run submit:ios
 
 ## Tooling notes for future agents
 
+- **Dev client, not Expo Go.** `expo-dev-client` is installed. Any new native module is safe to add — rebuild with `eas build --profile development` after adding it.
 - `expo-router` v6: import everything from `expo-router`, never directly from `@react-navigation/*`.
 - `expo-symbols` for SF Symbols. iOS only. If we add Android, pass a `{ ios, android }` object to `name`.
 - Reanimated v4 worklets are the default. The orb pulse uses `useSharedValue` + `withRepeat(withTiming(...))`.
