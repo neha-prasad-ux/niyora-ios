@@ -14,6 +14,19 @@ export type SyncStatus = {
   completedSessions: number;
 };
 
+export type MacSoulLabel = 'calm' | 'normal' | 'dense' | 'heavy';
+
+/**
+ * Mac situational day reading (DayLabel). Schema v1.
+ * Ignore if `ts` is older than 90 minutes -- the Mac only re-sends on label change.
+ */
+export type MacSoulState = {
+  label: MacSoulLabel;
+  index: number;   // 0-100
+  source: 'mac' | 'phone' | 'self' | 'hrv';
+  ts: string;      // ISO 8601
+};
+
 /** A completed (or abandoned) session to report to the paired Mac. */
 export type SyncSession = {
   techniqueName: string;
@@ -33,6 +46,7 @@ type NiyoraSyncEvents = {
   onStateChanged: (state: SyncState) => void;
   onServerDiscovered: (event: { name: string }) => void;
   onStatusUpdate: (status: SyncStatus) => void;
+  onSoulStateUpdate: (state: MacSoulState) => void;
 };
 
 const NativeModule = requireNativeModule('NiyoraSync');
@@ -78,5 +92,10 @@ export const NiyoraSync = {
   /** Mac-side tier + session count, for showing paired progression. */
   addStatusListener(cb: (s: SyncStatus) => void): Subscription {
     return emitter.addListener('onStatusUpdate', cb);
+  },
+
+  /** Mac situational day reading; check `ts` freshness before displaying. */
+  addSoulStateListener(cb: (s: MacSoulState) => void): Subscription {
+    return emitter.addListener('onSoulStateUpdate', cb);
   },
 };

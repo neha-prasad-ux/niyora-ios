@@ -67,6 +67,8 @@ enum ServerMessage {
     case authFailed(reason: String)
     case statusUpdate(soulTier: String, completedSessions: Int)
     case requestMeasurement(sessionId: String, phase: String, techniqueName: String)
+    /// Mac situational day reading; `ts` is ISO 8601. Schema version 1.
+    case soulStateUpdate(label: String, index: Int, source: String, ts: String)
     case unknown
 
     static func parse(_ line: Data) -> ServerMessage? {
@@ -95,6 +97,13 @@ enum ServerMessage {
                 sessionId: obj["session_id"] as? String ?? "",
                 phase: obj["phase"] as? String ?? "",
                 techniqueName: obj["technique_name"] as? String ?? ""
+            )
+        case "soul_state":
+            return .soulStateUpdate(
+                label: obj["label"] as? String ?? "normal",
+                index: obj["index"] as? Int ?? 50,
+                source: obj["source"] as? String ?? "mac",
+                ts: obj["ts"] as? String ?? ""
             )
         default:
             return .unknown

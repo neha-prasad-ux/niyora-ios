@@ -27,7 +27,33 @@ import {
   type CheckInLevel,
   type CheckInRecord,
 } from '@/store/checkin-history';
+import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { colors } from '@/theme/colors';
+
+const SOUL_FRESHNESS_MS = 90 * 60 * 1000;
+
+function effectiveSoul(
+  isPaired: boolean,
+  macSoulState: MacSoulState | null,
+): MacSoulState | null {
+  if (!isPaired || !macSoulState || !macSoulState.ts) return null;
+  const age = Date.now() - new Date(macSoulState.ts).getTime();
+  return age < SOUL_FRESHNESS_MS ? macSoulState : null;
+}
+
+const MAC_SOUL_HUES: Record<string, number> = {
+  calm: 215,
+  normal: 260,
+  dense: 295,
+  heavy: 335,
+};
+
+const MAC_SOUL_DISPLAY: Record<string, string> = {
+  calm: 'Calm',
+  normal: 'Normal',
+  dense: 'Dense',
+  heavy: 'Heavy',
+};
 
 // Maps tier id to the number of Saturn-style rings around the orb.
 // Matches Mac tierRingCount(): spark=0, glow=1, shine=2, radiance=3, brilliance=4.
@@ -46,6 +72,7 @@ export default function MySoulScreen() {
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const { isPaired, macSoulState } = useNiyoraSync();
 
   useFocusEffect(
     useCallback(() => {
@@ -72,6 +99,7 @@ export default function MySoulScreen() {
   const toNext = sessionsToNext(sessionsCompleted);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
   const todayRecord = todayCheckIn(checkInRecords);
+  const macSoul = effectiveSoul(isPaired, macSoulState);
 
   return (
     <View style={styles.root}>
@@ -117,6 +145,14 @@ export default function MySoulScreen() {
               </Text>
             </Text>
           )}
+          {!todayRecord && macSoul && (
+            <Text style={styles.todayLabel}>
+              Mac:{' '}
+              <Text style={{ color: `hsl(${MAC_SOUL_HUES[macSoul.label] ?? 260}, 60%, 70%)` }}>
+                {MAC_SOUL_DISPLAY[macSoul.label] ?? macSoul.label}
+              </Text>
+            </Text>
+          )}
 
           <LevelCard
             tierName={tier.name}
@@ -129,6 +165,7 @@ export default function MySoulScreen() {
 
           <CheckInCard
             records={checkInRecords}
+            macSoul={macSoul}
             onCheckIn={() => setShowCheckIn(true)}
           />
 
@@ -212,9 +249,11 @@ function CheckInSparkline({ records }: { records: CheckInRecord[] }) {
 
 function CheckInCard({
   records,
+  macSoul,
   onCheckIn,
 }: {
   records: CheckInRecord[];
+  macSoul: MacSoulState | null;
   onCheckIn: () => void;
 }) {
   const todayRecord = todayCheckIn(records);
@@ -233,6 +272,14 @@ function CheckInCard({
         )}
       </View>
       {count > 0 && <CheckInSparkline records={records} />}
+      {macSoul && (
+        <Text style={styles.macSoulRow}>
+          {'From Mac: '}
+          <Text style={{ color: `hsl(${MAC_SOUL_HUES[macSoul.label] ?? 260}, 60%, 68%)` }}>
+            {MAC_SOUL_DISPLAY[macSoul.label] ?? macSoul.label}
+          </Text>
+        </Text>
+      )}
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
@@ -526,6 +573,12 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.textPrimary,
     letterSpacing: 0.3,
+  },
+  macSoulRow: {
+    fontSize: 12,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.45)',
+    marginBottom: 14,
   },
   // Level card
   levelHeader: {
