@@ -275,7 +275,6 @@ function CheckInCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardTopEdge} />
       <View style={styles.checkInHeader}>
         <Text style={styles.cardTitle}>Mental health</Text>
         {count > 0 && (
@@ -328,7 +327,6 @@ function LevelCard({
 }) {
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
-      <View style={styles.cardTopEdge} />
       <View style={styles.levelHeader}>
         <Text style={[styles.levelName, { color: accent }]}>Level {tierName}</Text>
         {nextName && (
@@ -429,7 +427,6 @@ function ToggleCard({
 }) {
   return (
     <View style={styles.card}>
-      <View style={styles.cardTopEdge} />
       <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: 16 }}>
           <Text style={styles.cardTitle}>{title}</Text>
@@ -462,7 +459,6 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardTopEdge} />
       <View style={styles.macPromoHeader}>
         <Text style={[styles.cardTitle, { flex: 1, paddingRight: 8 }]}>
           Niyora is calmer with your Mac
@@ -511,7 +507,6 @@ function MessageCard({ accent: _accent }: { accent: string }) {
 
   return (
     <View style={styles.card}>
-      <View style={styles.cardTopEdge} />
       <Text style={styles.cardTitle}>Message the founder</Text>
       <Text style={[styles.cardCopy, { marginTop: 6 }]}>
         Tell Neha what's working, what isn't, what you'd love next.
@@ -573,15 +568,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.07)',
     marginBottom: 14,
     overflow: 'hidden',
-  },
-  // Thin inner highlight along the top edge -- mirrors the Mac card top-gradient.
-  cardTopEdge: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
   cardTitle: {
     fontSize: 15,
