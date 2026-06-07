@@ -125,15 +125,17 @@ export default function MySoulScreen() {
             accessibilityRole="button"
             accessibilityLabel="Close My Soul"
           >
-            <SymbolView
-              name="xmark"
-              tintColor={colors.iconChrome}
-              size={20}
-              weight="regular"
-            />
+            <View style={styles.closeButton}>
+              <SymbolView
+                name="xmark"
+                tintColor={colors.iconChrome}
+                size={14}
+                weight="medium"
+              />
+            </View>
           </Pressable>
           <Text style={styles.title}>My Soul</Text>
-          <View style={{ width: 20 }} />
+          <View style={{ width: 34 }} />
         </View>
 
         <ScrollView
@@ -536,8 +538,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 28,
     paddingBottom: 12,
+  },
+  closeButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: 17,
