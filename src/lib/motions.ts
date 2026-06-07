@@ -43,6 +43,7 @@ export interface Particle {
   vy: number;
   homeY: number;          // resting Y used by wave/belly
   homeAngle: number;      // fixed radial angle from centre, for breath motions
+  homeR: number;          // 0..1 radial position (area-uniform) so the field fills, not rings
   baseSize: number;
   size: number;
   opacity: number;
@@ -112,8 +113,8 @@ function motionConverge(
   }
 
   // Steer each particle along its fixed radial ray to the breath-ellipse point.
-  const tx = cx + Math.cos(p.homeAngle) * cx * 0.86 * rf;
-  const ty = cy + Math.sin(p.homeAngle) * cy * 0.82 * rf;
+  const tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.86 * rf;
+  const ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.82 * rf;
   fx += (tx - p.x) * 0.06;
   fy += (ty - p.y) * 0.06;
   return { fx, fy };
@@ -128,26 +129,31 @@ function motionWave(
   ndx: number, ndy: number, dist: number,
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
-  nx: number, ny: number
+  nx: number, ny: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx, fy = ny;
-  const wave = Math.sin(t * 1.5 + p.homeY * 0.05) * 0.3;
+  let fx = nx * 0.3, fy = ny * 0.3;
+  // Ocean sway: gentle per-particle undulation over the breath.
+  fy += Math.sin(t * 1.1 + p.homeAngle * 2) * 0.5;
+  fx += Math.cos(t * 0.9 + p.homeAngle * 2) * 0.25;
+  let rf: number;
   if (phaseType === 'inhale') {
-    fx += 0.4 + phaseT * 0.3; // rightward sweep
-    fy += wave;
-    p.opacity = lerpVal(p.opacity, 0.6 + phaseT * 0.2, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.2), dt * 2);
+    rf = 1 - phaseT * 0.8;
+    p.opacity = lerpVal(p.opacity, 0.6 + phaseT * 0.15, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.2), dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fx += 0.1;
-    fy += wave * 0.5;
-    p.opacity = lerpVal(p.opacity, 0.65, dt * 2);
-  } else { // exhale - recede
-    fx -= ndx * 0.15 * phaseT;
-    fy += wave * 0.3;
-    p.opacity = lerpVal(p.opacity, 0.4 - phaseT * 0.1, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.1), dt * 2);
+    rf = 0.22;
+    p.opacity = lerpVal(p.opacity, 0.6, dt * 2);
+  } else {
+    rf = 0.22 + phaseT * 0.78;
+    p.opacity = lerpVal(p.opacity, 0.45 - phaseT * 0.1, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.1), dt * 2);
   }
+  const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.88 * rf;
+  const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.84 * rf;
+  fx += (txp - p.x) * 0.05;
+  fy += (typ - p.y) * 0.05;
   return { fx, fy };
 }
 
@@ -160,26 +166,30 @@ function motionSnowfall(
   ndx: number, ndy: number, dist: number,
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
-  nx: number, ny: number
+  nx: number, ny: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx * 0.6, fy = ny * 0.6;
-  const drift = Math.sin(t * 0.8 + p.noiseOffsetX) * 0.12;
+  let fx = nx * 0.4, fy = ny * 0.4;
+  fx += Math.sin(t * 0.6 + p.noiseOffsetX) * 0.15; // drifting snow
+  let rf: number;
   if (phaseType === 'inhale') {
-    fx += drift;
-    fy -= 0.15 + phaseT * 0.25; // float upward on inhale
-    p.opacity = lerpVal(p.opacity, 0.7, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * 1.1, dt * 2);
+    rf = 1 - phaseT * 0.78;
+    p.opacity = lerpVal(p.opacity, 0.65, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * 1.05, dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fx += drift * 0.4;
-    fy -= 0.04;
+    rf = 0.24;
     p.opacity = lerpVal(p.opacity, 0.6, dt * 2);
-  } else { // exhale - fall like cooling snow
-    fx += drift;
-    fy += 0.18 + phaseT * 0.32;
+  } else {
+    rf = 0.24 + phaseT * 0.76;
+    fy += 0.18; // settle downward like falling snow on exhale
     p.opacity = lerpVal(p.opacity, 0.5 - phaseT * 0.1, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * 0.9, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * 0.92, dt * 2);
   }
+  const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.88 * rf;
+  const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.84 * rf;
+  fx += (txp - p.x) * 0.05;
+  fy += (typ - p.y) * 0.05;
   return { fx, fy };
 }
 
@@ -193,27 +203,31 @@ function motionAlternate(
   ndx: number, ndy: number, dist: number,
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
-  nx: number, ny: number
+  nx: number, ny: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx, fy = ny;
+  let fx = nx * 0.3, fy = ny * 0.3;
+  // Breath gathers toward one side on inhale, crosses to the other on exhale.
+  let rf: number;
+  let cxo = cx;
   if (phaseType === 'inhale') {
-    const str = 0.3 + phaseT * 0.5;
-    // Pull toward centre; side bias makes each half converge distinctly
-    fx += ndx * str * (1 + 40 / (dist + 20)) - p.side * 0.15;
-    fy += ndy * str * (1 + 40 / (dist + 20));
-    p.opacity = lerpVal(p.opacity, 0.6 + phaseT * 0.2, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.2), dt * 2);
+    rf = 1 - phaseT * 0.78;
+    cxo = cx + p.side * cx * 0.4 * phaseT; // gather toward this side
+    p.opacity = lerpVal(p.opacity, 0.6, dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fx += ndx * 0.05; fy += ndy * 0.05;
-    p.opacity = lerpVal(p.opacity, 0.65 + Math.sin(t * 2 + p.noiseOffsetX) * 0.08, dt * 2);
-  } else { // exhale toward opposite side
-    const str = 0.2 + phaseT * 0.5;
-    fx -= ndx * str + p.side * (0.25 + phaseT * 0.2);
-    fy -= ndy * str;
-    p.opacity = lerpVal(p.opacity, 0.4 - phaseT * 0.15, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.15), dt * 2);
+    rf = 0.3;
+    cxo = cx + p.side * cx * 0.4;
+    p.opacity = lerpVal(p.opacity, 0.62, dt * 2);
+  } else {
+    rf = 0.3 + phaseT * 0.7;
+    cxo = cx + p.side * cx * 0.4 - p.side * cx * 0.8 * phaseT; // cross over
+    p.opacity = lerpVal(p.opacity, 0.45 - phaseT * 0.12, dt * 2);
   }
+  const txp = cxo + Math.cos(p.homeAngle) * p.homeR * cx * 0.55 * rf;
+  const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.78 * rf;
+  fx += (txp - p.x) * 0.05;
+  fy += (typ - p.y) * 0.05;
   return { fx, fy };
 }
 
@@ -226,31 +240,32 @@ function motionLunar(
   ndx: number, ndy: number, dist: number,
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
-  nx: number, ny: number
+  nx: number, ny: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  // Tangent for CCW orbit: perpendicular to the radial direction
-  const tx = -ndy;
-  const ty =  ndx;
-  let fx = nx * 0.6, fy = ny * 0.6;
+  // Left Nostril: the field drifts to the left on the in-breath and sweeps
+  // across to the right on the out-breath.
+  let fx = nx * 0.3, fy = ny * 0.3;
+  let rf: number;
+  let cxo: number;
   if (phaseType === 'inhale') {
-    const str = 0.2 + phaseT * 0.35;
-    fx += ndx * str - 0.12; // slight leftward bias
-    fy += ndy * str;
-    fx += tx * 0.08;
-    p.opacity = lerpVal(p.opacity, 0.55 + phaseT * 0.2, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.15), dt * 2);
+    rf = 1 - phaseT * 0.65;
+    cxo = cx - cx * 0.4 * phaseT;
+    p.opacity = lerpVal(p.opacity, 0.55 + phaseT * 0.15, dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fx += tx * 0.14 - 0.06;
-    fy += ty * 0.14;
-    p.opacity = lerpVal(p.opacity, 0.6 + Math.sin(t * 1.5 + p.noiseOffsetX) * 0.08, dt * 2);
-  } else { // exhale - drift leftward and disperse
-    const str = 0.12 + phaseT * 0.2;
-    fx -= ndx * str - 0.1;
-    fx += tx * 0.08;
+    rf = 0.4;
+    cxo = cx - cx * 0.4;
+    p.opacity = lerpVal(p.opacity, 0.58, dt * 2);
+  } else {
+    rf = 0.4 + phaseT * 0.5;
+    cxo = cx - cx * 0.4 + cx * 0.8 * phaseT;
     p.opacity = lerpVal(p.opacity, 0.4 - phaseT * 0.1, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.1), dt * 2);
   }
+  const txp = cxo + Math.cos(p.homeAngle) * p.homeR * cx * 0.5 * rf;
+  const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.62 * rf;
+  fx += (txp - p.x) * 0.05;
+  fy += (typ - p.y) * 0.05;
   return { fx, fy };
 }
 
@@ -263,24 +278,30 @@ function motionBelly(
   ndx: number, ndy: number, dist: number,
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
-  nx: number, ny: number
+  nx: number, ny: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx * 0.4, fy = ny * 0.4;
+  // Belly expands on the in-breath (field blooms outward) and softens back in
+  // on the out-breath — the inverse of converge, with a taller vertical reach.
+  let fx = nx * 0.3, fy = ny * 0.3;
+  let rf: number;
   if (phaseType === 'inhale') {
-    fx += ndx * 0.12;
-    fy += 0.28 + phaseT * 0.45; // pull downward
-    p.opacity = lerpVal(p.opacity, 0.65 + phaseT * 0.2, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.25), dt * 2);
+    rf = 0.3 + phaseT * 0.7;
+    p.opacity = lerpVal(p.opacity, 0.6 + phaseT * 0.15, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.25), dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fy += 0.06; // gentle settle at bottom
-    p.opacity = lerpVal(p.opacity, 0.65, dt * 2);
-  } else { // exhale - rise back toward homeY
-    fy -= 0.12 + phaseT * 0.18;
-    fx += ndx * 0.08 * phaseT;
+    rf = 0.95;
+    p.opacity = lerpVal(p.opacity, 0.6, dt * 2);
+  } else {
+    rf = 1 - phaseT * 0.7;
     p.opacity = lerpVal(p.opacity, 0.45 - phaseT * 0.1, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.15), dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.15), dt * 2);
   }
+  const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.8 * rf;
+  const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.9 * rf;
+  fx += (txp - p.x) * 0.05;
+  fy += (typ - p.y) * 0.05;
   return { fx, fy };
 }
 
@@ -294,28 +315,30 @@ function motionSedation(
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
   nx: number, ny: number,
-  roundProgress: number
+  roundProgress: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  const calm = 1 - roundProgress * 0.72; // 1.0 at start, 0.28 at end
-  let fx = nx * calm, fy = ny * calm;
+  // Wind Down: the same breath as converge, but the dispersed extent shrinks as
+  // the rounds accumulate, so the field calms inward toward stillness.
+  const calm = 1 - roundProgress * 0.5;
+  let fx = nx * 0.3 * calm, fy = ny * 0.3 * calm;
+  let rf: number;
   if (phaseType === 'inhale') {
-    const str = (0.25 + phaseT * 0.45) * calm;
-    fx += ndx * str * (1 + 40 / (dist + 20));
-    fy += ndy * str * (1 + 40 / (dist + 20));
-    p.opacity = lerpVal(p.opacity, 0.55 * calm + 0.15, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.15 * calm), dt * 2);
+    rf = 1 - phaseT * 0.82;
+    p.opacity = lerpVal(p.opacity, 0.5 + phaseT * 0.15, dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fx += ndx * 0.06 * calm; fy += ndy * 0.06 * calm;
-    p.opacity = lerpVal(p.opacity, 0.5 * calm + 0.12, dt * 2);
-  } else { // exhale
-    const str = (0.15 + phaseT * 0.35) * calm;
-    fx -= ndx * str * (1 + 25 / (dist + 30));
-    fy -= ndy * str * (1 + 25 / (dist + 30));
-    fy -= 0.1 * phaseT * calm;
-    p.opacity = lerpVal(p.opacity, (0.35 - phaseT * 0.1) * calm + 0.1, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.12 * calm), dt * 2);
+    rf = 0.18;
+    p.opacity = lerpVal(p.opacity, 0.5, dt * 2);
+  } else {
+    rf = 0.18 + phaseT * 0.82;
+    p.opacity = lerpVal(p.opacity, 0.4 - phaseT * 0.1, dt * 2);
   }
+  const disp = 0.5 + 0.38 * calm;
+  const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * disp * rf;
+  const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * (disp - 0.04) * rf;
+  fx += (txp - p.x) * 0.05;
+  fy += (typ - p.y) * 0.05;
   return { fx, fy };
 }
 
@@ -510,12 +533,12 @@ function applyMotion(
 ): { fx: number; fy: number } {
   'worklet';
   if (motion === 'converge')  return motionConverge (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
-  if (motion === 'wave')      return motionWave     (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
-  if (motion === 'snowfall')  return motionSnowfall (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
-  if (motion === 'alternate') return motionAlternate(p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
-  if (motion === 'lunar')     return motionLunar    (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
-  if (motion === 'belly')     return motionBelly    (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
-  if (motion === 'sedation')  return motionSedation (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, roundProgress);
+  if (motion === 'wave')      return motionWave     (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
+  if (motion === 'snowfall')  return motionSnowfall (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
+  if (motion === 'alternate') return motionAlternate(p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
+  if (motion === 'lunar')     return motionLunar    (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
+  if (motion === 'belly')     return motionBelly    (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
+  if (motion === 'sedation')  return motionSedation (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, roundProgress, cx, cy);
   if (motion === 'river')     return motionRiver    (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
   if (motion === 'warmPulse') return motionWarmPulse(p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
   if (motion === 'orbit')     return motionOrbit    (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
@@ -562,6 +585,7 @@ export function updateParticle(
     vy:           particle.vy,
     homeY:        particle.homeY,
     homeAngle:    particle.homeAngle,
+    homeR:        particle.homeR,
     baseSize:     particle.baseSize,
     size:         particle.size,
     opacity:      particle.opacity,
