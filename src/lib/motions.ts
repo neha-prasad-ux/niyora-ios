@@ -577,6 +577,26 @@ export function updateParticle(
     vy = (vy / spd) * maxSpeed;
   }
 
+  // Soft center containment. Several motions carry a constant directional drift
+  // (wave sweeps right, river flows, lunar leans left, belly pulls down). The
+  // Mac keeps these on-canvas with a global edge boundary plus per-motion
+  // wrap-around; both were dropped in this port, so on the much narrower phone
+  // screen the drift carried particles off the edge for good. A radial spring
+  // that engages past ~half the field's extent and strengthens outward
+  // overpowers the drift well before the edge — keeping the field gathered in
+  // the centre instead of letting it escape or pile against a wall. It stays
+  // dormant near the centre, so the noise-driven motions move freely.
+  if (cx > 0 && cy > 0) {
+    const rx = (p.x - cx) / cx; // -1 at left edge .. +1 at right edge
+    const ry = (p.y - cy) / cy;
+    const ENGAGE = 0.5;
+    const PULL = 2.8;
+    const ox = Math.abs(rx) - ENGAGE;
+    const oy = Math.abs(ry) - ENGAGE;
+    if (ox > 0) vx -= Math.sign(rx) * ox * PULL;
+    if (oy > 0) vy -= Math.sign(ry) * oy * PULL;
+  }
+
   p.x  += vx;
   p.y  += vy;
   p.vx  = vx;
