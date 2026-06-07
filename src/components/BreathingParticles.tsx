@@ -207,10 +207,15 @@ export interface BreathingParticlesProps {
   /**
    * Current phase colour [h,s,l] (the same triple driving the background
    * gradient). Particles lerp toward it so their colour shifts with the phase.
+   * Optional — defaults to a soft violet so callers that don't drive a phase
+   * colour (e.g. the mindfulness screen) still get sensible particles.
    */
-  phaseColor:     HSL;
+  phaseColor?:    HSL;
   style?:         StyleProp<ViewStyle>;
 }
+
+// Fallback particle colour when no phase colour is supplied.
+const DEFAULT_PHASE_COLOR: HSL = [260, 30, 12];
 
 // ---------------------------------------------------------------------------
 // BreathingParticles
@@ -222,7 +227,7 @@ export function BreathingParticles({
   phaseT,
   roundProgress = 0,
   active        = true,
-  phaseColor,
+  phaseColor    = DEFAULT_PHASE_COLOR,
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
