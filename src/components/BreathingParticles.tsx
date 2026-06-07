@@ -16,7 +16,7 @@
  * and selected by the `motion` prop.
  */
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   AppState,
@@ -26,7 +26,6 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   SharedValue,
   useAnimatedStyle,
@@ -35,6 +34,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Particle, MotionType, PhaseType, updateParticle } from '../lib/motions';
+
+type HSL = readonly [number, number, number];
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -81,23 +82,37 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
 // ---------------------------------------------------------------------------
 
 interface ParticleViewProps {
-  index:       number;
-  hue:         number;           // static, set at init
+  index:        number;
   allParticles: SharedValue<Particle[]>;
+  /** Live phase colour [h,s,l], lerped on the UI thread. */
+  phaseColor:   SharedValue<HSL>;
 }
 
 const ParticleView = memo(function ParticleView({
   index,
-  hue,
   allParticles,
+  phaseColor,
 }: ParticleViewProps) {
-  // Animated wrapper carries position + size + opacity. The inner gradient
-  // fills it; the native shadow on the wrapper provides the soft outer halo.
+  // Animated wrapper carries position + size + opacity + colour. The native
+  // shadow on the wrapper provides the soft outer halo.
   const wrapperStyle = useAnimatedStyle(() => {
     const particles = allParticles.value;
     if (index >= particles.length) return { opacity: 0 };
     const p = particles[index];
     const s = p.size;
+
+    // Colour tracks the live phase/background colour, mirroring the Mac
+    // (ph = bgHue + per-particle jitter, brighter + more saturated than the
+    // dim background so the dots glow against it). Recomputed every frame, so
+    // the field shifts hue together with the gradient.
+    const c = phaseColor.value;
+    const jitter = (p.noiseOffsetX % 20) - 10;
+    const ph = Math.round(c[0] + jitter);
+    const ps = Math.round(Math.min(c[1] + 50, 90));
+    const pl = Math.round(Math.min(c[2] + 50, 85));
+    const body = `hsl(${ph}, ${ps}%, ${pl}%)`;
+    const halo = `hsl(${ph}, ${ps}%, ${Math.min(pl + 6, 90)}%)`;
+
     return {
       transform: [
         { translateX: p.x - s * 0.5 },
@@ -107,39 +122,23 @@ const ParticleView = memo(function ParticleView({
       height: s,
       borderRadius: s * 0.5,
       opacity: Math.max(0, Math.min(1, p.opacity)),
+      backgroundColor: body,
+      shadowColor: halo,
       shadowRadius: s * 1.6,
     };
   });
-
-  // Per-particle hue. Body is a top-to-bottom linear gradient (highlight at
-  // top, deep at bottom) mirroring the user's Figma mock. Halo is a native
-  // iOS shadow on the wrapper, tinted by the same hue.
-  // Softer, less directional stops so each particle reads as a glowing point
-  // (Mac radial-gradient: bright 65% center -> 50% mid -> transparent), not a
-  // top-lit solid ball. The native shadow below carries the outer glow.
-  const lightTop = `hsl(${hue}, 72%, 68%)`;
-  const deepBottom = `hsl(${hue}, 65%, 50%)`;
-  const haloColor = `hsl(${hue}, 75%, 58%)`;
 
   return (
     <Animated.View
       style={[
         particleBase,
         {
-          shadowColor: haloColor,
           shadowOpacity: 0.55,
           shadowOffset: { width: 0, height: 0 },
         },
         wrapperStyle,
       ]}
-    >
-      <LinearGradient
-        colors={[lightTop, deepBottom]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={{ flex: 1, borderRadius: 9999 }}
-      />
-    </Animated.View>
+    />
   );
 });
 
@@ -169,6 +168,11 @@ export interface BreathingParticlesProps {
    * not in focus).  Defaults to true.
    */
   active?:        boolean;
+  /**
+   * Current phase colour [h,s,l] (the same triple driving the background
+   * gradient). Particles lerp toward it so their colour shifts with the phase.
+   */
+  phaseColor:     HSL;
   style?:         StyleProp<ViewStyle>;
 }
 
@@ -182,6 +186,7 @@ export function BreathingParticles({
   phaseT,
   roundProgress = 0,
   active        = true,
+  phaseColor,
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
@@ -202,9 +207,6 @@ export function BreathingParticles({
   // All particle state lives here so the UI-thread worklet can read/write it.
   const allParticles = useSharedValue<Particle[]>([]);
 
-  // Per-particle static hue values, read on the JS thread during render.
-  const hues = useRef<number[]>([]);
-
   // Shared values for props that change during a session
   const cxSV            = useSharedValue(0);
   const cySV            = useSharedValue(0);
@@ -213,11 +215,16 @@ export function BreathingParticles({
   const phaseTSV        = useSharedValue(phaseT);
   const roundProgressSV = useSharedValue(roundProgress);
 
+  // Current (lerped) particle colour and the phase target it eases toward.
+  const phaseColorSV    = useSharedValue<HSL>(phaseColor);
+  const targetColorSV   = useSharedValue<HSL>(phaseColor);
+
   // Keep shared values in sync with props (JS thread → shared memory)
   useEffect(() => { motionSV.value = motion; },               [motion]);
   useEffect(() => { phaseSV.value  = phase; },                [phase]);
   useEffect(() => { phaseTSV.value = phaseT; },               [phaseT]);
   useEffect(() => { roundProgressSV.value = roundProgress; }, [roundProgress]);
+  useEffect(() => { targetColorSV.value = phaseColor; },      [phaseColor]);
 
   // Initialise (or re-initialise after rotation) when layout is known
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
@@ -231,7 +238,6 @@ export function BreathingParticles({
 
     const particles = createInitialParticles(cx, cy);
     allParticles.value = particles;
-    hues.current = particles.map((p) => p.hue);
 
     setHasLayout(true);
   }, []);
@@ -245,6 +251,21 @@ export function BreathingParticles({
     // Clamp dt to 50ms so a long GC pause doesn't teleport particles
     const dt          = Math.min((frameInfo.timeSincePreviousFrame ?? 16.67) / 1000, 0.05);
     const t           = frameInfo.timestamp / 1000;
+
+    // Ease the particle colour toward the current phase colour at the same rate
+    // as the background gradient (dt * 1.2), with shortest-arc hue interpolation
+    // so the field and gradient shift together rather than snapping.
+    const cur = phaseColorSV.value;
+    const tgt = targetColorSV.value;
+    let dh = tgt[0] - cur[0];
+    if (dh > 180) dh -= 360;
+    if (dh < -180) dh += 360;
+    const ck = Math.min(dt * 1.2, 1);
+    phaseColorSV.value = [
+      (cur[0] + dh * ck + 360) % 360,
+      cur[1] + (tgt[1] - cur[1]) * ck,
+      cur[2] + (tgt[2] - cur[2]) * ck,
+    ];
     const cx          = cxSV.value;
     const cy          = cySV.value;
     const mot         = motionSV.value;
@@ -292,8 +313,8 @@ export function BreathingParticles({
           <ParticleView
             key={i}
             index={i}
-            hue={hues.current[i] ?? 220}
             allParticles={allParticles}
+            phaseColor={phaseColorSV}
           />
         ))}
     </View>
