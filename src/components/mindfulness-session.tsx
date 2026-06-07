@@ -17,6 +17,7 @@ import Animated, {
 
 import { BreathingParticles } from '@/components/BreathingParticles';
 import { CelebrationParticles } from '@/components/CelebrationParticles';
+import { DriftingLeaf } from '@/components/DriftingLeaf';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
@@ -146,6 +147,15 @@ export function MindfulnessSession({
 
   const promptStyle = useAnimatedStyle(() => ({ opacity: promptOpacity.value }));
 
+  // Let It Drift (river): the leaf appears on the "place ... on a leaf" prompt
+  // and drifts downstream across the prompts that follow.
+  const leafStart = technique.prompts.findIndex((p) => p.text.includes('leaf'));
+  const showLeaf = technique.motion === 'river' && leafStart >= 0;
+  const leafProgress = showLeaf
+    ? (promptIndex - leafStart) /
+      Math.max(1, technique.prompts.length - 1 - leafStart)
+    : 0;
+
   return (
     <View style={styles.root}>
       <SessionBackground targetColor={bgColor} />
@@ -157,6 +167,13 @@ export function MindfulnessSession({
         active={!done}
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
+
+      {showLeaf && (
+        <DriftingLeaf
+          visible={!done && promptIndex >= leafStart}
+          progress={Math.max(0, Math.min(1, leafProgress))}
+        />
+      )}
 
       {done && (
         <CelebrationParticles
