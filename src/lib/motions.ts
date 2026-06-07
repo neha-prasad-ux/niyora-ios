@@ -565,9 +565,18 @@ export function updateParticle(
     motion, p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, roundProgress
   );
 
-  // Spring-damped integrate
-  let vx = p.vx * 0.92 + force.fx * dt * 8;
-  let vy = p.vy * 0.92 + force.fy * dt * 8;
+  // Spring-damped integrate. On a breath hold the field should settle into
+  // stillness (a held breath), not keep drifting — but several motions don't
+  // damp their own noise/drift during hold. So globally clamp down here:
+  // stronger friction bleeds off residual velocity fast, and the force (which
+  // includes the per-particle noise) is admitted at a whisper, so particles
+  // glide to a near-stop and hover. Opacity/size still pulse (set in the motion
+  // fns) so the field reads as a glowing pause rather than a dead freeze.
+  const holding = phaseType === 'hold' || phaseType === 'hold2';
+  const friction = holding ? 0.8 : 0.92;
+  const forceScale = holding ? 0.1 : 1;
+  let vx = p.vx * friction + force.fx * dt * 8 * forceScale;
+  let vy = p.vy * friction + force.fy * dt * 8 * forceScale;
 
   // Speed cap
   const maxSpeed = 1.8;
@@ -575,6 +584,26 @@ export function updateParticle(
   if (spd > maxSpeed) {
     vx = (vx / spd) * maxSpeed;
     vy = (vy / spd) * maxSpeed;
+  }
+
+  // Soft center containment. Several motions carry a constant directional drift
+  // (wave sweeps right, river flows, lunar leans left, belly pulls down). The
+  // Mac keeps these on-canvas with a global edge boundary plus per-motion
+  // wrap-around; both were dropped in this port, so on the much narrower phone
+  // screen the drift carried particles off the edge for good. A radial spring
+  // that engages past ~half the field's extent and strengthens outward
+  // overpowers the drift well before the edge — keeping the field gathered in
+  // the centre instead of letting it escape or pile against a wall. It stays
+  // dormant near the centre, so the noise-driven motions move freely.
+  if (cx > 0 && cy > 0) {
+    const rx = (p.x - cx) / cx; // -1 at left edge .. +1 at right edge
+    const ry = (p.y - cy) / cy;
+    const ENGAGE = 0.5;
+    const PULL = 2.8;
+    const ox = Math.abs(rx) - ENGAGE;
+    const oy = Math.abs(ry) - ENGAGE;
+    if (ox > 0) vx -= Math.sign(rx) * ox * PULL;
+    if (oy > 0) vy -= Math.sign(ry) * oy * PULL;
   }
 
   p.x  += vx;
