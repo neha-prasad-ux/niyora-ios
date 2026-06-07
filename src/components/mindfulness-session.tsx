@@ -153,6 +153,7 @@ export function MindfulnessSession({
         motion={technique.motion}
         phase={cadence.phase}
         phaseT={cadence.phaseT}
+        phaseColor={bgColor}
         active={!done}
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
