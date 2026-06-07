@@ -80,10 +80,13 @@ function lerpVal(current: number, target: number, speed: number): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Box Breath — scaled elliptical breath. Particles gather toward the centre on
- * inhale and disperse to fill most of the screen on exhale (the Mac
- * converge/disperse feel, scaled to the phone so the gesture is clearly visible
- * and uses the whole canvas instead of a tiny central cluster).
+ * Box Breath — faithful port of the Mac converge motion. Each particle is
+ * pulled toward the centre on inhale with an inverse-distance "suck" (far
+ * particles accelerate hard, the whole field rushes in fast), pushed back out
+ * on exhale, and barely held on hold. Full per-particle noise is mixed straight
+ * into the force so the motion is alive and never stable, exactly like the Mac.
+ * Edge containment in the integrator keeps the dispersed field on-screen, so it
+ * fills the phone rather than collapsing to a tiny cluster.
  */
 function motionConverge(
   p: Particle,
@@ -94,29 +97,39 @@ function motionConverge(
   cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  // Calm organic drift (lighter than full noise so the breath reads clearly).
-  let fx = nx * 0.35, fy = ny * 0.35;
+  // Per-particle organic drift mixed straight into the force so every particle
+  // keeps its own restless dance (the Mac "not stable" feel) — but kept below
+  // the breath force so the gather still reads clearly.
+  let fx = nx * 0.6, fy = ny * 0.6;
 
-  // radiusFactor: 0 = gathered at centre, 1 = dispersed to the screen edges.
-  let rf: number;
   if (phaseType === 'inhale') {
-    rf = 1 - phaseT * 0.82; // dispersed -> gathered
-    p.opacity = lerpVal(p.opacity, 0.55 + phaseT * 0.2, dt * 2);
-    p.size = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.3), dt * 2);
+    // Strong spring straight to the centre. Because the force scales with the
+    // distance from centre, the particles farthest out are pulled hardest, so
+    // the whole wide phone field rushes in fast and gathers — the Mac "suck to
+    // centre" feel, fixed for the phone's much larger spread. k ramps up over
+    // the inhale so the pull accelerates as you breathe in.
+    const k = 0.05 + phaseT * 0.12;
+    fx += (cx - p.x) * k;
+    fy += (cy - p.y) * k;
+    p.opacity = lerpVal(p.opacity, 0.55 + phaseT * 0.25, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.35), dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    rf = 0.18;
-    p.opacity = lerpVal(p.opacity, 0.6 + Math.sin(t * 2 + p.noiseOffsetX) * 0.1, dt * 2);
+    // Held breath: hover near the centre, opacity shimmers (alive, not frozen).
+    fx += (cx - p.x) * 0.025;
+    fy += (cy - p.y) * 0.025;
+    p.opacity = lerpVal(p.opacity, 0.6 + Math.sin(t * 2 + p.noiseOffsetX) * 0.12, dt * 2);
   } else {
-    rf = 0.18 + phaseT * 0.82; // gathered -> dispersed
+    // Exhale: release back out along each particle's own ray so the field
+    // disperses evenly across the whole screen instead of snapping to the edges.
+    const rf = 0.2 + phaseT * 0.8;
+    const tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.92 * rf;
+    const ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.88 * rf;
+    const k = 0.05 + phaseT * 0.06;
+    fx += (tx - p.x) * k;
+    fy += (ty - p.y) * k;
     p.opacity = lerpVal(p.opacity, 0.5 - phaseT * 0.15, dt * 2);
-    p.size = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.15), dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.18), dt * 2);
   }
-
-  // Steer each particle along its fixed radial ray to the breath-ellipse point.
-  const tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.86 * rf;
-  const ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.82 * rf;
-  fx += (tx - p.x) * 0.06;
-  fy += (ty - p.y) * 0.06;
   return { fx, fy };
 }
 
@@ -607,13 +620,17 @@ export function updateParticle(
   // glide to a near-stop and hover. Opacity/size still pulse (set in the motion
   // fns) so the field reads as a glowing pause rather than a dead freeze.
   const holding = phaseType === 'hold' || phaseType === 'hold2';
-  const friction = holding ? 0.8 : 0.92;
-  const forceScale = holding ? 0.1 : 1;
+  // On a hold the field settles but stays alive — the Mac never freezes it. Bleed
+  // off velocity a little faster and admit the force (incl. per-particle noise)
+  // at a fraction, so particles hover and drift gently rather than locking dead.
+  const friction = holding ? 0.9 : 0.92;
+  const forceScale = holding ? 0.35 : 1;
   let vx = p.vx * friction + force.fx * dt * 8 * forceScale;
   let vy = p.vy * friction + force.fy * dt * 8 * forceScale;
 
-  // Speed cap
-  const maxSpeed = 1.8;
+  // Speed cap — higher off-hold so the field can sweep across the taller phone
+  // screen within a phase (the Mac's 1.8 was tuned to a smaller canvas).
+  const maxSpeed = holding ? 1.8 : 2.8;
   const spd = Math.sqrt(vx * vx + vy * vy);
   if (spd > maxSpeed) {
     vx = (vx / spd) * maxSpeed;
