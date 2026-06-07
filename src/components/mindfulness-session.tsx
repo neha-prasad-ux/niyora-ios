@@ -67,6 +67,11 @@ export function MindfulnessSession({
 
   const promptOpacity = useSharedValue(0);
 
+  // A soft cue that the session has begun.
+  useEffect(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }, []);
+
   // Background tint shifts inhale -> exhale across the prompts (Mac behaviour).
   const denom = Math.max(1, technique.prompts.length - 1);
   const bgColor = lerpHSL(
