@@ -130,7 +130,12 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     track === 'mute' ? 'Music, muted' : `Music, ${track}`;
 
   return (
-    <Pressable style={styles.root} onPress={handleSessionTap} accessible={false}>
+    <Pressable
+      style={styles.root}
+      onPress={handleSessionTap}
+      accessibilityRole="button"
+      accessibilityLabel={paused ? 'Resume session' : 'Pause session'}
+    >
         <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
         {/* The session visual IS the particle field, exactly like the Mac
             BreathingSession canvas: no resting sphere, the particles converge
