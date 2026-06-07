@@ -353,9 +353,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
                 y2={center}
                 gradientUnits="userSpaceOnUse"
               >
-                <Stop offset="0" stopColor={`hsl(${tierHue}, 68%, 78%)`} stopOpacity="0.25" />
-                <Stop offset="0.5" stopColor={`hsl(${tierHue}, 80%, 86%)`} stopOpacity="0.95" />
-                <Stop offset="1" stopColor={`hsl(${tierHue}, 68%, 78%)`} stopOpacity="0.25" />
+                <Stop offset="0" stopColor={`hsl(${tierHue}, 72%, 58%)`} stopOpacity="0.28" />
+                <Stop offset="0.5" stopColor={`hsl(${tierHue}, 80%, 66%)`} stopOpacity="0.97" />
+                <Stop offset="1" stopColor={`hsl(${tierHue}, 72%, 58%)`} stopOpacity="0.28" />
               </LinearGradient>
             )}
           </Defs>
