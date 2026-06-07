@@ -39,8 +39,19 @@ const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
 ];
 
 export default function SessionScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const technique = id ? getTechnique(id) : undefined;
+  const { id, rounds: roundsParam } = useLocalSearchParams<{ id: string; rounds?: string }>();
+  const baseTechnique = id ? getTechnique(id) : undefined;
+
+  // Apply an optional rounds override passed from the recommendation engine
+  // (e.g. user chose "1 min" in the quick check).
+  const technique = (() => {
+    if (!baseTechnique || !isBreathing(baseTechnique)) return baseTechnique;
+    const r = roundsParam ? parseInt(roundsParam, 10) : NaN;
+    if (!isNaN(r) && r > 0 && r !== baseTechnique.rounds) {
+      return { ...baseTechnique, rounds: r };
+    }
+    return baseTechnique;
+  })();
 
   // Unknown id: bounce home rather than render a blank screen.
   useEffect(() => {

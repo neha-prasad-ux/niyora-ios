@@ -2,7 +2,7 @@
 // Anatomy: header, orb, technique name + subtitle, "Try a different one",
 // Begin button anchored to the bottom safe area.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import {
@@ -22,6 +22,7 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
+import { QuickCheckSheet, type QuickCheckResult } from '@/components/QuickCheckSheet';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import {
@@ -31,6 +32,9 @@ import {
   TECHNIQUES,
   type Technique,
 } from '@/models/techniques';
+import { recommend, type Recommendation } from '@/lib/recommendation';
+import { getMoodRecords } from '@/store/mood-history';
+import { getCheckInRecords } from '@/store/checkin-history';
 
 export default function HomeScreen() {
   // v1: all techniques are selectable (no lock gating -- Wave 4 later).
@@ -39,9 +43,48 @@ export default function HomeScreen() {
   const mindful = useMemo(() => TECHNIQUES.filter(isMindfulness), []);
   const [selectedId, setSelectedId] = useState(breathing[0].id);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [checkSheetVisible, setCheckSheetVisible] = useState(false);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const { height } = useWindowDimensions();
 
   const current = getTechnique(selectedId) ?? breathing[0];
+
+  // true only when the displayed technique is an active recommendation (not user-overridden).
+  const isRecommended =
+    recommendation !== null &&
+    recommendation.source !== 'fallback' &&
+    recommendation.techniqueId === selectedId;
+
+  // rounds override from the recommendation (null = use technique default).
+  const roundsOverride = recommendation?.rounds ?? null;
+
+  // Displayed duration: adjusted when a rounds override is in effect.
+  const displayDurationSeconds = useMemo(() => {
+    if (roundsOverride == null) return current.durationSeconds;
+    if (!isBreathing(current)) return current.durationSeconds;
+    const perRound = current.phases.reduce((s, p) => s + p.duration, 0);
+    return perRound * roundsOverride;
+  }, [roundsOverride, current]);
+
+  const displayMinutes = Math.max(1, Math.round(displayDurationSeconds / 60));
+
+  // Load a recommendation from mood + check-in history on mount.
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const [moods, checkins] = await Promise.all([getMoodRecords(), getCheckInRecords()]);
+      if (cancelled) return;
+      const rec = recommend({ moods, checkins, sessions: [] });
+      if (rec.source !== 'fallback') {
+        setSelectedId(rec.techniqueId);
+        setRecommendation(rec);
+      }
+    }
+    load().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleTryDifferent = useCallback(() => {
     Haptics.selectionAsync();
@@ -51,6 +94,7 @@ export default function HomeScreen() {
   const handlePickerSelect = useCallback((id: string) => {
     Haptics.selectionAsync();
     setSelectedId(id);
+    setRecommendation(null); // user made a manual choice; clear suggestion context
     setPickerVisible(false);
   }, []);
 
@@ -58,9 +102,34 @@ export default function HomeScreen() {
     setPickerVisible(false);
   }, []);
 
+  const handleOpenCheck = useCallback(() => {
+    Haptics.selectionAsync();
+    setCheckSheetVisible(true);
+  }, []);
+
+  const handleCheckResult = useCallback((result: QuickCheckResult) => {
+    setCheckSheetVisible(false);
+    if (!result.emotion && !result.targetSeconds) return;
+    Promise.all([getMoodRecords(), getCheckInRecords()])
+      .then(([moods, checkins]) => {
+        const rec = recommend({
+          moods,
+          checkins,
+          sessions: [],
+          emotion: result.emotion ?? undefined,
+          targetSeconds: result.targetSeconds ?? undefined,
+        });
+        setSelectedId(rec.techniqueId);
+        setRecommendation(rec);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleBegin = useCallback(() => {
-    router.push({ pathname: '/session', params: { id: current.id } });
-  }, [current.id]);
+    const params: Record<string, string> = { id: current.id };
+    if (roundsOverride != null) params.rounds = String(roundsOverride);
+    router.push({ pathname: '/session', params });
+  }, [current.id, roundsOverride]);
 
   const handleProfile = useCallback(() => {
     router.push('/my-soul');
@@ -102,8 +171,13 @@ export default function HomeScreen() {
         <View
           style={styles.techniqueWrap}
           accessible={true}
-          accessibilityLabel={`${current.name}. ${current.subtitle}. ${current.durationSeconds} seconds.`}
+          accessibilityLabel={`${isRecommended ? 'Suggested for you. ' : ''}${current.name}. ${current.subtitle}. ${displayDurationSeconds} seconds.`}
         >
+          {isRecommended && (
+            <Text style={styles.suggestionLabel} accessibilityElementsHidden={true}>
+              Suggested for you {'·'} {displayMinutes} min
+            </Text>
+          )}
           <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
             {current.name}
           </Text>
@@ -113,7 +187,7 @@ export default function HomeScreen() {
               { color: colors.textSubtitle, marginTop: 6, textAlign: 'center' },
             ]}
           >
-            {current.subtitle} {'·'} {current.durationSeconds}s
+            {current.subtitle} {'·'} {displayDurationSeconds}s
           </Text>
         </View>
 
@@ -131,6 +205,15 @@ export default function HomeScreen() {
             <Text style={[typography.tertiaryAction, { color: colors.textTertiary }]}>
               Try a different one
             </Text>
+          </Pressable>
+          <Pressable
+            onPress={handleOpenCheck}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Quick check: what do you need"
+            style={styles.checkLink}
+          >
+            <Text style={styles.checkLinkLabel}>what do you need?</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -191,6 +274,8 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {checkSheetVisible && <QuickCheckSheet onDone={handleCheckResult} />}
     </View>
   );
 }
@@ -214,6 +299,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
+  suggestionLabel: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: 'rgba(150, 110, 220, 0.65)',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
   beginWrap: {
     alignItems: 'center',
     marginTop: 28,
@@ -222,6 +316,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     marginBottom: 12,
+  },
+  checkLink: {
+    marginTop: 10,
+  },
+  checkLinkLabel: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.32)',
+    letterSpacing: 0.2,
   },
 
   // picker overlay
