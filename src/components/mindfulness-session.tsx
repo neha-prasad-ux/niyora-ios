@@ -16,8 +16,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
-import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { PostSessionMood } from '@/components/PostSessionMood';
+import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
 import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
@@ -158,11 +158,7 @@ export function MindfulnessSession({
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
 
-      {done && (
-        <CelebrationParticles
-          style={{ position: 'absolute', top: 0, left: 0, width, height }}
-        />
-      )}
+      {done && <SessionDoneBackdrop />}
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.topRow}>

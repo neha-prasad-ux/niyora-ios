@@ -1,11 +1,12 @@
 /**
  * PostSessionMood
  *
- * Gentle post-session check shown after every completed breath session.
- * Replaces the minimal "well done / take this calm with you" inline text.
+ * Gentle post-session check shown after every completed session (breath or
+ * mindfulness). Sits centred over the SessionDoneBackdrop (dark-blue gradient +
+ * white falling particles).
  *
- * Flow: fades in -> user taps 1-5 dot or skip -> brief "thank you"
- * (on tap) -> fades out -> onDone() called so session.tsx can router.back().
+ * Flow: fades in -> user taps a mood row or skip -> brief closing line
+ * "take this calm with you" -> fades out -> onDone() so the screen can go back.
  */
 
 import * as Haptics from 'expo-haptics';
@@ -20,8 +21,17 @@ import Animated, {
 import { appendMood, type MoodValue } from '@/store/mood-history';
 import { colors } from '@/theme/colors';
 
-// Dot hues: cool blue -> mid violet -> warm purple across positions 1..5
+// Dot hues: cool blue -> mid violet -> warm purple across positions 1..5.
 const DOT_HUES = [215, 240, 260, 278, 295] as const;
+
+// Vertical scale, lightest feeling at the top down to heaviest at the bottom.
+const MOODS: { value: MoodValue; label: string }[] = [
+  { value: 5, label: 'at peace' },
+  { value: 4, label: 'calm' },
+  { value: 3, label: 'settling' },
+  { value: 2, label: 'a little lighter' },
+  { value: 1, label: 'still tense' },
+];
 
 interface PostSessionMoodProps {
   techniqueId: string;
@@ -41,12 +51,12 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
     setTimeout(onDone, 380);
   }
 
-  async function handleDot(mood: MoodValue) {
+  async function handleMood(mood: MoodValue) {
     if (phase !== 'picking') return;
     Haptics.selectionAsync();
     setPhase('thanks');
     appendMood(techniqueId, mood).catch(() => {});
-    setTimeout(dismiss, 1400);
+    setTimeout(dismiss, 1600);
   }
 
   function handleSkip() {
@@ -54,46 +64,45 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
     Haptics.selectionAsync();
     // Still send them off with the closing line rather than cutting straight out.
     setPhase('thanks');
-    setTimeout(dismiss, 1400);
+    setTimeout(dismiss, 1600);
   }
 
   const wrapStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
     <Animated.View style={[styles.overlay, wrapStyle]} pointerEvents="box-none">
-      <View style={styles.card}>
-        {phase === 'picking' ? (
-          <>
-            <Text style={styles.eyebrow}>After breath</Text>
-            <Text style={styles.heading}>How does this feel?</Text>
+      {phase === 'picking' ? (
+        <View style={styles.card} pointerEvents="box-none">
+          <Text style={styles.heading}>how does this feel?</Text>
 
-            <View style={styles.dotRow} accessibilityRole="radiogroup">
-              {([1, 2, 3, 4, 5] as MoodValue[]).map((n) => (
-                <Pressable
-                  key={n}
-                  onPress={() => handleDot(n)}
-                  hitSlop={14}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`Mood ${n} of 5`}
-                >
-                  <View
-                    style={[
-                      styles.dot,
-                      { backgroundColor: `hsl(${DOT_HUES[n - 1]}, 52%, 62%)` },
-                    ]}
-                  />
-                </Pressable>
-              ))}
-            </View>
+          <View style={styles.moodList} accessibilityRole="radiogroup">
+            {MOODS.map(({ value, label }) => (
+              <Pressable
+                key={value}
+                onPress={() => handleMood(value)}
+                hitSlop={10}
+                style={styles.moodRow}
+                accessibilityRole="radio"
+                accessibilityLabel={label}
+              >
+                <View
+                  style={[
+                    styles.dot,
+                    { backgroundColor: `hsl(${DOT_HUES[value - 1]}, 60%, 66%)` },
+                  ]}
+                />
+                <Text style={styles.moodLabel}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
 
-            <Pressable onPress={handleSkip} hitSlop={16}>
-              <Text style={styles.skip}>skip</Text>
-            </Pressable>
-          </>
-        ) : (
-          <Text style={styles.thanks}>keep this calm with you</Text>
-        )}
-      </View>
+          <Pressable onPress={handleSkip} hitSlop={16}>
+            <Text style={styles.skip}>skip</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Text style={styles.closing}>take this calm with you</Text>
+      )}
     </Animated.View>
   );
 }
@@ -101,55 +110,60 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
 const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
-    bottom: 0,
+    top: 0,
     left: 0,
     right: 0,
-    paddingBottom: 96,
+    bottom: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   card: {
     alignItems: 'center',
-    gap: 0,
-  },
-  eyebrow: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: colors.textSubtitle,
-    marginBottom: 10,
   },
   heading: {
     fontFamily: 'Poppins-Light',
-    fontSize: 18,
+    fontSize: 20,
     color: colors.textPrimary,
-    marginBottom: 28,
+    marginBottom: 36,
     letterSpacing: 0.2,
   },
-  dotRow: {
+  moodList: {
+    alignItems: 'flex-start',
+    gap: 22,
+    marginBottom: 40,
+  },
+  moodRow: {
     flexDirection: 'row',
-    gap: 18,
-    marginBottom: 24,
+    alignItems: 'center',
+    gap: 16,
   },
   dot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     shadowColor: '#9b7fd4',
     shadowOpacity: 0.55,
-    shadowRadius: 8,
+    shadowRadius: 9,
     shadowOffset: { width: 0, height: 0 },
+  },
+  moodLabel: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
   },
   skip: {
     fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textSubtitle,
     letterSpacing: 0.4,
   },
-  thanks: {
+  closing: {
     fontFamily: 'Poppins-Light',
-    fontSize: 18,
+    fontSize: 20,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
 });

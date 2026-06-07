@@ -13,11 +13,11 @@ import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
-import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { MindfulnessSession } from '@/components/mindfulness-session';
 import { PhaseLabel } from '@/components/phase-label';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
+import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import {
@@ -147,11 +147,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           style={{ position: 'absolute', top: 0, left: 0, width, height }}
         />
 
-        {cycle.done && (
-          <CelebrationParticles
-            style={{ position: 'absolute', top: 0, left: 0, width, height }}
-          />
-        )}
+        {cycle.done && <SessionDoneBackdrop />}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
