@@ -42,6 +42,7 @@ export interface Particle {
   vx: number;
   vy: number;
   homeY: number;          // resting Y used by wave/belly
+  homeAngle: number;      // fixed radial angle from centre, for breath motions
   baseSize: number;
   size: number;
   opacity: number;
@@ -78,36 +79,43 @@ function lerpVal(current: number, target: number, speed: number): number {
 // ---------------------------------------------------------------------------
 
 /**
- * Box Breath — particles converge on inhale, orbit gently on hold, disperse
- * with upward drift on exhale.  Verbatim port of motionConverge from Mac.
+ * Box Breath — scaled elliptical breath. Particles gather toward the centre on
+ * inhale and disperse to fill most of the screen on exhale (the Mac
+ * converge/disperse feel, scaled to the phone so the gesture is clearly visible
+ * and uses the whole canvas instead of a tiny central cluster).
  */
 function motionConverge(
   p: Particle,
   ndx: number, ndy: number, dist: number,
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
-  nx: number, ny: number
+  nx: number, ny: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx, fy = ny;
+  // Calm organic drift (lighter than full noise so the breath reads clearly).
+  let fx = nx * 0.35, fy = ny * 0.35;
+
+  // radiusFactor: 0 = gathered at centre, 1 = dispersed to the screen edges.
+  let rf: number;
   if (phaseType === 'inhale') {
-    const str = 0.3 + phaseT * 0.7;
-    fx += ndx * str * (1 + 50 / (dist + 20));
-    fy += ndy * str * (1 + 50 / (dist + 20));
-    p.opacity = lerpVal(p.opacity, 0.5 + phaseT * 0.2, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.3), dt * 2);
+    rf = 1 - phaseT * 0.82; // dispersed -> gathered
+    p.opacity = lerpVal(p.opacity, 0.55 + phaseT * 0.2, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.3), dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    fx += ndx * 0.1; fy += ndy * 0.1;
-    fx *= 0.3;       fy *= 0.3;
+    rf = 0.18;
     p.opacity = lerpVal(p.opacity, 0.6 + Math.sin(t * 2 + p.noiseOffsetX) * 0.1, dt * 2);
-  } else { // exhale
-    const str = 0.2 + phaseT * 0.6;
-    fx -= ndx * str * (1 + 30 / (dist + 30));
-    fy -= ndy * str * (1 + 30 / (dist + 30));
-    fy -= 0.15 * phaseT; // drift upward as they disperse
-    p.opacity = lerpVal(p.opacity, 0.5 - phaseT * 0.2, dt * 2);
-    p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.2), dt * 2);
+  } else {
+    rf = 0.18 + phaseT * 0.82; // gathered -> dispersed
+    p.opacity = lerpVal(p.opacity, 0.5 - phaseT * 0.15, dt * 2);
+    p.size = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.15), dt * 2);
   }
+
+  // Steer each particle along its fixed radial ray to the breath-ellipse point.
+  const tx = cx + Math.cos(p.homeAngle) * cx * 0.86 * rf;
+  const ty = cy + Math.sin(p.homeAngle) * cy * 0.82 * rf;
+  fx += (tx - p.x) * 0.06;
+  fy += (ty - p.y) * 0.06;
   return { fx, fy };
 }
 
@@ -497,10 +505,11 @@ function applyMotion(
   phaseType: PhaseType, phaseT: number,
   t: number, dt: number,
   nx: number, ny: number,
-  roundProgress: number
+  roundProgress: number,
+  cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  if (motion === 'converge')  return motionConverge (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
+  if (motion === 'converge')  return motionConverge (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, cx, cy);
   if (motion === 'wave')      return motionWave     (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
   if (motion === 'snowfall')  return motionSnowfall (p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
   if (motion === 'alternate') return motionAlternate(p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny);
@@ -552,6 +561,7 @@ export function updateParticle(
     vx:           particle.vx,
     vy:           particle.vy,
     homeY:        particle.homeY,
+    homeAngle:    particle.homeAngle,
     baseSize:     particle.baseSize,
     size:         particle.size,
     opacity:      particle.opacity,
@@ -562,7 +572,7 @@ export function updateParticle(
   };
 
   const force = applyMotion(
-    motion, p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, roundProgress
+    motion, p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, roundProgress, cx, cy
   );
 
   // Spring-damped integrate. On a breath hold the field should settle into
@@ -586,24 +596,19 @@ export function updateParticle(
     vy = (vy / spd) * maxSpeed;
   }
 
-  // Soft center containment. Several motions carry a constant directional drift
-  // (wave sweeps right, river flows, lunar leans left, belly pulls down). The
-  // Mac keeps these on-canvas with a global edge boundary plus per-motion
-  // wrap-around; both were dropped in this port, so on the much narrower phone
-  // screen the drift carried particles off the edge for good. A radial spring
-  // that engages past ~half the field's extent and strengthens outward
-  // overpowers the drift well before the edge — keeping the field gathered in
-  // the centre instead of letting it escape or pile against a wall. It stays
-  // dormant near the centre, so the noise-driven motions move freely.
+  // Edge containment (mirrors the Mac global boundary): the field should fill
+  // the whole screen and only get nudged back once a particle nears the real
+  // edge. A proportional spring within `margin` of each edge keeps particles
+  // on-screen without letting them escape, while leaving the entire interior
+  // free so the field spreads edge to edge instead of clustering centrally.
   if (cx > 0 && cy > 0) {
-    const rx = (p.x - cx) / cx; // -1 at left edge .. +1 at right edge
-    const ry = (p.y - cy) / cy;
-    const ENGAGE = 0.5;
-    const PULL = 2.8;
-    const ox = Math.abs(rx) - ENGAGE;
-    const oy = Math.abs(ry) - ENGAGE;
-    if (ox > 0) vx -= Math.sign(rx) * ox * PULL;
-    if (oy > 0) vy -= Math.sign(ry) * oy * PULL;
+    const w = cx * 2;
+    const h = cy * 2;
+    const margin = 24;
+    if (p.x < margin) vx += (margin - p.x) * 0.06;
+    else if (p.x > w - margin) vx -= (p.x - (w - margin)) * 0.06;
+    if (p.y < margin) vy += (margin - p.y) * 0.06;
+    else if (p.y > h - margin) vy -= (p.y - (h - margin)) * 0.06;
   }
 
   p.x  += vx;
