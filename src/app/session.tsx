@@ -341,6 +341,9 @@ const styles = StyleSheet.create({
   },
   instructions: {
     marginTop: 14,
+    // Stretch to the block's full width so multi-word guidance centers on as
+    // few lines as fit, rather than collapsing to a narrow vertical column.
+    alignSelf: 'stretch',
     fontSize: 12,
     fontWeight: '300',
     color: 'rgba(255, 255, 255, 0.65)',
