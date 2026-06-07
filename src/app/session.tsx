@@ -71,6 +71,11 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     }).start();
   }, [cycle.sessionT, progressAnim]);
 
+  // A soft cue that the session has begun.
+  useEffect(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+  }, []);
+
   const completedRounds = cycle.done ? technique.rounds : cycle.round - 1;
 
   // Pick the HSL triple that matches the current phase type.
@@ -187,6 +192,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
                   key={opt.id}
                   style={styles.pickerRow}
                   onPress={() => {
+                    Haptics.selectionAsync();
                     changeTrack(opt.id);
                     setPickerVisible(false);
                   }}

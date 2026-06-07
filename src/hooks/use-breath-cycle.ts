@@ -3,6 +3,7 @@
 // current phase, its label, and a 0-to-1 progress within that phase. When
 // all rounds finish it sets `done`.
 
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 
 import type { BreathPhase } from '@/models/techniques';
@@ -39,6 +40,8 @@ export function useBreathCycle(
   const startRef = useRef<number>(Date.now());
   // Non-null while paused; holds the wall-clock time when pause began.
   const pausedAtRef = useRef<number | null>(null);
+  // Last phase index a haptic fired for, so we tick once per phase change.
+  const lastHapticPhaseRef = useRef<number>(0);
   const phaseDurationsTotal = phases.reduce((sum, p) => sum + p.duration, 0);
   const totalSeconds = phaseDurationsTotal * rounds;
 
@@ -85,6 +88,19 @@ export function useBreathCycle(
       const phase = phases[phaseIndex];
       const phaseT = Math.min(1, t / phase.duration);
       const sessionT = elapsed / totalSeconds;
+
+      // Distinct cue at each phase boundary so the haptic guides the breath:
+      // a fuller tap to breathe in, a soft tap to release, a light tick to hold.
+      if (phaseIndex !== lastHapticPhaseRef.current) {
+        lastHapticPhaseRef.current = phaseIndex;
+        const style =
+          phase.type === 'inhale'
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : phase.type === 'exhale'
+              ? Haptics.ImpactFeedbackStyle.Soft
+              : Haptics.ImpactFeedbackStyle.Light; // hold / hold2
+        Haptics.impactAsync(style).catch(() => {});
+      }
 
       setState((s) => ({ ...s, phase, phaseIndex, phaseT, sessionT, round, done: false }));
     }, TICK_MS);
