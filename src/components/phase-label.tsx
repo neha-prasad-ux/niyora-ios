@@ -157,8 +157,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   text: {
-    fontSize: 17,
-    fontWeight: '500',
+    // Match the mindfulness prompt title (22/400) so breathing and mindfulness
+    // sessions read with the same size and weight.
+    fontSize: 22,
+    fontWeight: '400',
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.3,
