@@ -121,7 +121,10 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
 const styles = StyleSheet.create({
   wrap: {
     minHeight: 24,
-    alignItems: 'center',
+    // Stretch to the parent's full width so a long cue ("inhale through your
+    // mouth") lays out on one line and centers, instead of collapsing to the
+    // longest-word width and wrapping into a narrow vertical column.
+    alignSelf: 'stretch',
     justifyContent: 'center',
   },
   absolute: {
@@ -135,6 +138,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '500',
     color: colors.textPrimary,
+    textAlign: 'center',
     letterSpacing: 0.3,
     textShadowColor: 'rgba(255, 245, 235, 0.55)',
     textShadowOffset: { width: 0, height: 0 },
@@ -148,6 +152,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '300',
     color: 'rgba(255, 255, 255, 0.47)',
+    textAlign: 'center',
     letterSpacing: 0.3,
   },
 });

@@ -46,13 +46,15 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
     Haptics.selectionAsync();
     setPhase('thanks');
     appendMood(techniqueId, mood).catch(() => {});
-    setTimeout(dismiss, 900);
+    setTimeout(dismiss, 1400);
   }
 
   function handleSkip() {
     if (phase !== 'picking') return;
     Haptics.selectionAsync();
-    dismiss();
+    // Still send them off with the closing line rather than cutting straight out.
+    setPhase('thanks');
+    setTimeout(dismiss, 1400);
   }
 
   const wrapStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -89,7 +91,7 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
             </Pressable>
           </>
         ) : (
-          <Text style={styles.thanks}>thank you</Text>
+          <Text style={styles.thanks}>keep this calm with you</Text>
         )}
       </View>
     </Animated.View>

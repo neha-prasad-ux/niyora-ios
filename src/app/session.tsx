@@ -81,9 +81,6 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
         ? technique.colors.exhale
         : technique.colors.hold;
 
-  // Particle hue brightens slightly on inhale, settles on exhale.
-  const particleHue = phaseHsl[0];
-
   useEffect(() => {
     if (cycle.done) {
       appendSession(technique.id).catch(() => {});
@@ -151,6 +148,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           phase={cycle.phase.type}
           phaseT={cycle.phaseT}
           roundProgress={cycle.sessionT}
+          phaseColor={phaseHsl}
           active
           style={{ position: 'absolute', top: 0, left: 0, width, height }}
         />
@@ -341,6 +339,9 @@ const styles = StyleSheet.create({
   },
   instructions: {
     marginTop: 14,
+    // Stretch to the block's full width so multi-word guidance centers on as
+    // few lines as fit, rather than collapsing to a narrow vertical column.
+    alignSelf: 'stretch',
     fontSize: 12,
     fontWeight: '300',
     color: 'rgba(255, 255, 255, 0.65)',

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -149,6 +150,16 @@ export default function HomeScreen() {
         >
           {/* Inner Pressable intercepts touches on the sheet so they don't close the modal */}
           <Pressable style={styles.pickerSheet} onPress={() => {}}>
+            {/* Gradient backdrop so the practice list matches the app's look
+                instead of a flat dark panel. Clipped to the sheet's rounded
+                top corners via overflow: 'hidden'. */}
+            <LinearGradient
+              colors={['#1b1430', '#0e0b14', colors.backgroundBottom]}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <View style={styles.pickerHeaderRow}>
               <Text style={styles.pickerTitle}>Choose a practice</Text>
               <Pressable
@@ -220,13 +231,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickerSheet: {
-    backgroundColor: 'rgba(18, 14, 26, 0.98)',
+    backgroundColor: colors.backgroundBottom,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 22,
     paddingBottom: 44,
+    // Clip the gradient backdrop to the rounded top corners.
+    overflow: 'hidden',
   },
   pickerHeaderRow: {
     flexDirection: 'row',
