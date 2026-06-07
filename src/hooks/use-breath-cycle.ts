@@ -51,6 +51,7 @@ export function useBreathCycle(
       startRef.current += Date.now() - pausedAtRef.current;
       pausedAtRef.current = null;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: mirror the paused prop into cycle state when it changes
     setState((s) => ({ ...s, paused }));
   }, [paused]);
 
