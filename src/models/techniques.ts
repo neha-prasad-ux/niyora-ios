@@ -58,7 +58,7 @@ export const TECHNIQUES: readonly Technique[] = [
     durationSeconds: 65,
     category: 'breathing',
     locked: false,
-    instructions: 'In 4, hold 4, out 4, hold 4. Breathe through nose.',
+    instructions: 'In 4, hold 4, out 4, hold 4. Steady rhythm. Breathe through nose.',
     rounds: 4,
     phases: [
       { type: 'inhale', label: 'inhale', duration: 4 },
