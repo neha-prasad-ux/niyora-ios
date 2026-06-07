@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -22,13 +23,19 @@ type PhaseLabelProps = {
   nextLabel?: string | null;
 };
 
-const FADE_MS = 280;
+const FADE_MS = 360;
+// How far the cue slides horizontally as it crosses over (new in from the
+// right, old out to the left).
+const SLIDE = 22;
+const EASE = Easing.out(Easing.cubic);
 
 export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
   const [shown, setShown] = useState(label);
   const [prev, setPrev] = useState<string | null>(null);
   const shownOpacity = useSharedValue(1);
   const prevOpacity = useSharedValue(0);
+  const shownTx = useSharedValue(0);
+  const prevTx = useSharedValue(0);
   const lastLabelRef = useRef(label);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -64,19 +71,25 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
 
     const duration = reduceMotion ? 0 : FADE_MS;
 
+    // Old text fades + slides out to the left; new text fades + slides in from
+    // the right, for a smooth horizontal hand-off.
     prevOpacity.value = currentShownOpacity;
+    prevTx.value = 0;
     shownOpacity.value = 0;
-    prevOpacity.value = withTiming(0, { duration }, (finished) => {
+    shownTx.value = reduceMotion ? 0 : SLIDE;
+    prevOpacity.value = withTiming(0, { duration, easing: EASE }, (finished) => {
       'worklet';
       if (finished) {
         runOnJS(setPrev)(null);
       }
     });
-    shownOpacity.value = withTiming(1, { duration });
+    prevTx.value = withTiming(reduceMotion ? 0 : -SLIDE, { duration, easing: EASE });
+    shownOpacity.value = withTiming(1, { duration, easing: EASE });
+    shownTx.value = withTiming(0, { duration, easing: EASE });
 
     // Announce the new phase label for iOS VoiceOver.
     AccessibilityInfo.announceForAccessibility(label);
-  }, [label, prevOpacity, shownOpacity, reduceMotion]);
+  }, [label, prevOpacity, shownOpacity, prevTx, shownTx, reduceMotion]);
 
   useEffect(() => {
     if (nextLabel === lastNextRef.current) return;
@@ -95,8 +108,14 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
     }
   }, [nextLabel, nextOpacity, reduceMotion]);
 
-  const shownStyle = useAnimatedStyle(() => ({ opacity: shownOpacity.value }));
-  const prevStyle = useAnimatedStyle(() => ({ opacity: prevOpacity.value }));
+  const shownStyle = useAnimatedStyle(() => ({
+    opacity: shownOpacity.value,
+    transform: [{ translateX: shownTx.value }],
+  }));
+  const prevStyle = useAnimatedStyle(() => ({
+    opacity: prevOpacity.value,
+    transform: [{ translateX: prevTx.value }],
+  }));
   const nextStyle = useAnimatedStyle(() => ({ opacity: nextOpacity.value }));
 
   return (
@@ -126,6 +145,9 @@ const styles = StyleSheet.create({
     // longest-word width and wrapping into a narrow vertical column.
     alignSelf: 'stretch',
     justifyContent: 'center',
+    // Breathing room so the soft white text-glow isn't cramped on the sides.
+    paddingTop: 10,
+    paddingHorizontal: 18,
   },
   absolute: {
     position: 'absolute',
