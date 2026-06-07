@@ -22,8 +22,10 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
+import { RecommendSheet } from '@/components/RecommendSheet';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
+import type { Recommendation } from '@/models/recommend';
 import {
   getTechnique,
   isBreathing,
@@ -39,6 +41,7 @@ export default function HomeScreen() {
   const mindful = useMemo(() => TECHNIQUES.filter(isMindfulness), []);
   const [selectedId, setSelectedId] = useState(breathing[0].id);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [recommendVisible, setRecommendVisible] = useState(false);
   const { height } = useWindowDimensions();
 
   const current = getTechnique(selectedId) ?? breathing[0];
@@ -61,6 +64,26 @@ export default function HomeScreen() {
   const handleBegin = useCallback(() => {
     router.push({ pathname: '/session', params: { id: current.id } });
   }, [current.id]);
+
+  const handleRecommendOpen = useCallback(() => {
+    Haptics.selectionAsync();
+    setRecommendVisible(true);
+  }, []);
+
+  const handleRecommendClose = useCallback(() => {
+    setRecommendVisible(false);
+  }, []);
+
+  const handleRecommendPick = useCallback((rec: Recommendation) => {
+    setRecommendVisible(false);
+    router.push({
+      pathname: '/session',
+      params:
+        rec.rounds != null
+          ? { id: rec.techniqueId, rounds: String(rec.rounds) }
+          : { id: rec.techniqueId },
+    });
+  }, []);
 
   const handleProfile = useCallback(() => {
     router.push('/my-soul');
@@ -115,6 +138,23 @@ export default function HomeScreen() {
           >
             {current.subtitle} {'·'} {current.durationSeconds}s
           </Text>
+        </View>
+
+        <View style={styles.recommendWrap}>
+          <Pressable
+            onPress={handleRecommendOpen}
+            style={styles.recommendCard}
+            accessibilityRole="button"
+            accessibilityLabel="Recommend a practice based on how I feel"
+          >
+            <SymbolView
+              name="sparkles"
+              tintColor={colors.textSubtitle}
+              size={15}
+              weight="medium"
+            />
+            <Text style={styles.recommendText}>Recommend me based on how I feel</Text>
+          </Pressable>
         </View>
 
         <View style={styles.beginWrap}>
@@ -191,6 +231,12 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <RecommendSheet
+        visible={recommendVisible}
+        onClose={handleRecommendClose}
+        onPick={handleRecommendPick}
+      />
     </View>
   );
 }
@@ -213,6 +259,27 @@ const styles = StyleSheet.create({
   techniqueWrap: {
     alignItems: 'center',
     paddingHorizontal: 16,
+  },
+  recommendWrap: {
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  recommendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  recommendText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
   },
   beginWrap: {
     alignItems: 'center',
