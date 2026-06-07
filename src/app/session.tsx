@@ -39,7 +39,11 @@ const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
 ];
 
 export default function SessionScreen() {
-  const { id, rounds } = useLocalSearchParams<{ id: string; rounds?: string }>();
+  const { id, rounds, feeling } = useLocalSearchParams<{
+    id: string;
+    rounds?: string;
+    feeling?: string;
+  }>();
   const technique = id ? getTechnique(id) : undefined;
 
   // Unknown id: bounce home rather than render a blank screen.
@@ -57,16 +61,24 @@ export default function SessionScreen() {
 
   if (!technique) return null;
   if (isBreathing(technique))
-    return <BreathingSession technique={technique} roundsOverride={roundsOverride} />;
-  return <MindfulnessSession technique={technique} />;
+    return (
+      <BreathingSession
+        technique={technique}
+        roundsOverride={roundsOverride}
+        feeling={feeling}
+      />
+    );
+  return <MindfulnessSession technique={technique} feeling={feeling} />;
 }
 
 function BreathingSession({
   technique,
   roundsOverride,
+  feeling,
 }: {
   technique: BreathingTechnique;
   roundsOverride?: number;
+  feeling?: string;
 }) {
   const rounds = roundsOverride ?? technique.rounds;
   // Scale the reported duration to the actual rounds run, keeping per-round
@@ -289,6 +301,7 @@ function BreathingSession({
         {showMood && (
           <PostSessionMood
             techniqueId={technique.id}
+            feeling={feeling}
             onDone={() => router.back()}
           />
         )}

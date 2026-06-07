@@ -57,6 +57,9 @@ export type Recommendation = {
   techniqueId: string;
   // Present only for the breathing path; undefined means "play as authored".
   rounds?: number;
+  // The feeling the user picked, carried through so the post-session save can
+  // close the loop (emotion -> recommendation -> impact).
+  feelingId: string;
 };
 
 // Map a feeling + chosen duration to a concrete technique (and rounds for the
@@ -69,11 +72,11 @@ export function recommend(feelingId: string, minutes: number): Recommendation | 
   // Short path: play the mindfulness practice as authored.
   if (minutes <= 1) {
     const t = getTechnique(feeling.short);
-    return t ? { techniqueId: t.id } : null;
+    return t ? { techniqueId: t.id, feelingId: feeling.id } : null;
   }
 
   // Longer path: breathing, rounds scaled to the target.
   const t = getTechnique(feeling.long);
   if (!t) return null;
-  return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60) };
+  return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60), feelingId: feeling.id };
 }

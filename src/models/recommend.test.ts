@@ -47,13 +47,14 @@ describe('getFeeling', () => {
 describe('recommend', () => {
   it('routes ~1 min to the mindfulness practice with no rounds override', () => {
     const rec = recommend('heavy', 1);
-    expect(rec).toEqual({ techniqueId: 'be-kind' });
+    expect(rec).toEqual({ techniqueId: 'be-kind', feelingId: 'heavy' });
   });
 
   it('routes longer durations to the breathing practice with scaled rounds', () => {
     const rec = recommend('tense', 5);
     expect(rec?.techniqueId).toBe('wind-down');
     expect(rec?.rounds).toBeGreaterThan(0);
+    expect(rec?.feelingId).toBe('tense');
   });
 
   it('scales rounds up with duration for the same feeling', () => {
