@@ -37,15 +37,77 @@ import { AccessibilityInfo, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
+  type SharedValue,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+// Half-ellipse arc paths around (cx, cy). SVG y is down, so sweep-flag 0 traces
+// the top (the ring's far side, drawn behind the sphere) and sweep-flag 1 the
+// bottom (the near side, drawn in front) — the Saturn front-over/back-behind cue.
+function backArc(cx: number, cy: number, rx: number, ry: number): string {
+  return `M ${cx - rx},${cy} A ${rx},${ry} 0 0 0 ${cx + rx},${cy}`;
+}
+function frontArc(cx: number, cy: number, rx: number, ry: number): string {
+  return `M ${cx - rx},${cy} A ${rx},${ry} 0 0 1 ${cx + rx},${cy}`;
+}
+
+// Half the Ramanujan ellipse perimeter — the length of one (top or bottom) arc.
+function halfArcLength(rx: number, ry: number): number {
+  const p = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+  return p / 2;
+}
+
+// One ring arc that "draws on" via strokeDashoffset as `reveal` advances.
+// `lead` delays the front halves so the band closes around the front last.
+function RingArc({
+  d,
+  length,
+  reveal,
+  lead,
+  stroke,
+  strokeWidth,
+  opacity,
+}: {
+  d: string;
+  length: number;
+  reveal: SharedValue<number>;
+  lead: number;
+  stroke: string;
+  strokeWidth: number;
+  opacity: number;
+}) {
+  const dashProps = useAnimatedProps(() => {
+    const p = Math.max(0, Math.min(1, reveal.value * 1.7 - lead));
+    return { strokeDashoffset: length * (1 - p) };
+  });
+  return (
+    <AnimatedPath
+      d={d}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      opacity={opacity}
+      strokeDasharray={length}
+      animatedProps={dashProps}
+    />
+  );
+}
 
 type OrbProps = {
   size?: number;
@@ -75,6 +137,9 @@ type OrbProps = {
 export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
+  // Ring reveal: sweeps the band in from the back and closes it around the
+  // front. 0 = hidden, 1 = fully drawn. Replays whenever the tier changes.
+  const reveal = useSharedValue(0);
   // Normalise so the breath is a clearly visible ~10px radius travel at any size
   // (the Mac stress-ball breathes ~scale 1.04; we read it a touch larger so the
   // motion is obvious on a phone, not a near-still orb).
@@ -129,6 +194,25 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     };
   }, [phase, phaseDuration, sessionMode, scale, scaleMax, haloOpacity]);
 
+  // Reveal sweep on mount (e.g. opening My Soul) and whenever the tier ring
+  // count changes. Reduce-motion shows the rings already closed.
+  useEffect(() => {
+    if (tierRingCount <= 0) return;
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        reveal.value = 1;
+      } else {
+        reveal.value = 0;
+        reveal.value = withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.cubic) });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tierRingCount, reveal]);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -142,13 +226,17 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
   const sphereRadius = size / 2;
   const center = canvas / 2;
 
-  // Ring geometry — matches Mac tierRingCount() proportions.
-  // rx wider than sphere so arcs peek out on each side (Saturn effect).
-  // Sphere body circles drawn on top occlude the ring centres.
-  const ringRx = sphereRadius * 1.45;
-  const ringRy = sphereRadius * 0.20;
-  const ringSpacing = size * 0.07;
-  const ringColor = `hsl(${tierHue}, 70%, 75%)`;
+  // Ring geometry — a tilted Saturn band. Each tier adds a concentric ring,
+  // so the band visibly widens with the tier. rx reaches past the sphere so the
+  // arcs peek out on each side; the back/front halves are drawn either side of
+  // the sphere body for a 3D wrap.
+  const baseRx = sphereRadius * 1.3;
+  const baseRy = sphereRadius * 0.34;
+  const bandStroke = Math.max(2.5, size * 0.035);
+  const rings = Array.from({ length: Math.max(0, tierRingCount) }, (_, i) => {
+    const factor = 1 + i * 0.17;
+    return { rx: baseRx * factor, ry: baseRy * factor, i };
+  });
 
   return (
     <View
@@ -253,6 +341,23 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               <Stop offset="0.14" stopColor="rgb(255, 255, 255)" stopOpacity="0.18" />
               <Stop offset="0.42" stopColor="rgb(255, 255, 255)" stopOpacity="0" />
             </RadialGradient>
+
+            {/* Tier ring band gradient: bright through the middle, fading at the
+                tips, tinted by the tier hue. Spans the widest ring. */}
+            {rings.length > 0 && (
+              <LinearGradient
+                id="ringGrad"
+                x1={center - rings[rings.length - 1].rx}
+                y1={center}
+                x2={center + rings[rings.length - 1].rx}
+                y2={center}
+                gradientUnits="userSpaceOnUse"
+              >
+                <Stop offset="0" stopColor={`hsl(${tierHue}, 68%, 78%)`} stopOpacity="0.25" />
+                <Stop offset="0.5" stopColor={`hsl(${tierHue}, 80%, 86%)`} stopOpacity="0.95" />
+                <Stop offset="1" stopColor={`hsl(${tierHue}, 68%, 78%)`} stopOpacity="0.25" />
+              </LinearGradient>
+            )}
           </Defs>
 
           {/* Halo with animated opacity swell (sits beneath everything) */}
@@ -264,26 +369,20 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             animatedProps={haloAnimProps}
           />
 
-          {/* Tier rings — drawn before sphere body so the body circles cover
-              the ring centres, leaving only the outer arcs visible (Saturn). */}
-          {tierRingCount > 0 &&
-            Array.from({ length: tierRingCount }).map((_, i) => {
-              const totalSpan = (tierRingCount - 1) * ringSpacing;
-              const yOff = i * ringSpacing - totalSpan / 2;
-              return (
-                <Ellipse
-                  key={i}
-                  cx={center}
-                  cy={center + yOff}
-                  rx={ringRx}
-                  ry={ringRy}
-                  fill="none"
-                  stroke={ringColor}
-                  strokeWidth={0.75}
-                  strokeOpacity={0.7}
-                />
-              );
-            })}
+          {/* Ring band — back halves (far side). Drawn before the sphere so the
+              body occludes their centres, leaving the arcs wrapping behind. */}
+          {rings.map(({ rx, ry, i }) => (
+            <RingArc
+              key={`back-${i}`}
+              d={backArc(center, center, rx, ry)}
+              length={halfArcLength(rx, ry)}
+              reveal={reveal}
+              lead={0}
+              stroke="url(#ringGrad)"
+              strokeWidth={bandStroke}
+              opacity={0.55 - i * 0.08}
+            />
+          ))}
 
           {/* Sphere body */}
           <Circle cx={center} cy={center} r={sphereRadius} fill="url(#body)" />
@@ -295,6 +394,21 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
 
           {/* Crescent rim highlight on top */}
           <Circle cx={center} cy={center} r={sphereRadius} fill="url(#crescent)" />
+
+          {/* Ring band — front halves (near side). Drawn on top of the sphere so
+              they pass in front, completing the 3D wrap. Brighter than the back. */}
+          {rings.map(({ rx, ry, i }) => (
+            <RingArc
+              key={`front-${i}`}
+              d={frontArc(center, center, rx, ry)}
+              length={halfArcLength(rx, ry)}
+              reveal={reveal}
+              lead={0.7}
+              stroke="url(#ringGrad)"
+              strokeWidth={bandStroke}
+              opacity={0.92 - i * 0.1}
+            />
+          ))}
         </Svg>
       </Animated.View>
     </View>
