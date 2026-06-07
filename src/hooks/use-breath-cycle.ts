@@ -89,10 +89,17 @@ export function useBreathCycle(
       const phaseT = Math.min(1, t / phase.duration);
       const sessionT = elapsed / totalSeconds;
 
-      // Gentle tick at each phase boundary (inhale -> hold -> exhale ...).
+      // Distinct cue at each phase boundary so the haptic guides the breath:
+      // a fuller tap to breathe in, a soft tap to release, a light tick to hold.
       if (phaseIndex !== lastHapticPhaseRef.current) {
         lastHapticPhaseRef.current = phaseIndex;
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        const style =
+          phase.type === 'inhale'
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : phase.type === 'exhale'
+              ? Haptics.ImpactFeedbackStyle.Soft
+              : Haptics.ImpactFeedbackStyle.Light; // hold / hold2
+        Haptics.impactAsync(style).catch(() => {});
       }
 
       setState((s) => ({ ...s, phase, phaseIndex, phaseT, sessionT, round, done: false }));
