@@ -63,29 +63,47 @@ type NiyoraSyncEvents = {
   onReminderState: (state: ReminderState) => void;
 };
 
-const NativeModule = requireNativeModule('NiyoraSync');
-const emitter = new EventEmitter<NiyoraSyncEvents>(NativeModule);
+// Load the native module defensively. If it isn't present in this binary
+// (e.g. a build where the local module didn't link), requireNativeModule throws
+// at import time — which would crash every screen that imports niyora-sync
+// (My Soul, the session screen). Catch it and fall back to a no-op so the app
+// still runs with sync simply disabled, rather than crashing.
+let NativeModule: any = null;
+let emitter: any = null;
+try {
+  NativeModule = requireNativeModule('NiyoraSync');
+  emitter = new EventEmitter<NiyoraSyncEvents>(NativeModule);
+} catch {
+  NativeModule = null;
+  emitter = null;
+}
+
+/** True when the native sync module is available in this build. */
+export const isSyncAvailable = NativeModule !== null;
+
+const NOOP_SUB: Subscription = { remove: () => {} };
 
 export const NiyoraSync = {
   startDiscovery(): void {
-    NativeModule.startDiscovery();
+    NativeModule?.startDiscovery();
   },
 
   stopDiscovery(): void {
-    NativeModule.stopDiscovery();
+    NativeModule?.stopDiscovery();
   },
 
   async pairWithQR(qrString: string): Promise<void> {
+    if (!NativeModule) return;
     return NativeModule.pairWithQR(qrString);
   },
 
   isPaired(): boolean {
-    return NativeModule.isPaired();
+    return NativeModule ? NativeModule.isPaired() : false;
   },
 
   /** Report a finished session to the Mac (no-op when not paired). */
   recordSession(session: SyncSession): void {
-    NativeModule.recordSession(
+    NativeModule?.recordSession(
       session.techniqueName,
       session.techniqueKind,
       session.durationSec,
@@ -96,21 +114,21 @@ export const NiyoraSync = {
   },
 
   addStateListener(cb: (s: SyncState) => void): Subscription {
-    return emitter.addListener('onStateChanged', cb);
+    return emitter ? emitter.addListener('onStateChanged', cb) : NOOP_SUB;
   },
 
   addServerDiscoveredListener(cb: (e: { name: string }) => void): Subscription {
-    return emitter.addListener('onServerDiscovered', cb);
+    return emitter ? emitter.addListener('onServerDiscovered', cb) : NOOP_SUB;
   },
 
   /** Mac-side tier + session count, for showing paired progression. */
   addStatusListener(cb: (s: SyncStatus) => void): Subscription {
-    return emitter.addListener('onStatusUpdate', cb);
+    return emitter ? emitter.addListener('onStatusUpdate', cb) : NOOP_SUB;
   },
 
   /** Mac situational day reading; check `ts` freshness before displaying. */
   addSoulStateListener(cb: (s: MacSoulState) => void): Subscription {
-    return emitter.addListener('onSoulStateUpdate', cb);
+    return emitter ? emitter.addListener('onSoulStateUpdate', cb) : NOOP_SUB;
   },
 
   /**
@@ -118,7 +136,7 @@ export const NiyoraSync = {
    * Returns true if the user granted access.
    */
   async requestNotificationPermission(): Promise<boolean> {
-    return NativeModule.requestNotificationPermission();
+    return NativeModule ? NativeModule.requestNotificationPermission() : false;
   },
 
   /**
@@ -128,6 +146,6 @@ export const NiyoraSync = {
    * showing an in-app countdown or suppressing its own UI prompts).
    */
   addReminderStateListener(cb: (s: ReminderState) => void): Subscription {
-    return emitter.addListener('onReminderState', cb);
+    return emitter ? emitter.addListener('onReminderState', cb) : NOOP_SUB;
   },
 };
