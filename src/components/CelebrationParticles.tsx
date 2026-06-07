@@ -93,9 +93,12 @@ const ParticleView = memo(function ParticleView({
     };
   });
 
-  const lightTop  = `hsl(${hue}, 65%, 72%)`;
-  const deepBot   = `hsl(${hue}, 58%, 54%)`;
-  const haloColor = `hsl(${hue}, 68%, 60%)`;
+  // Celebration particles are white snow falling from the top of the closing
+  // overlay; `hue` is retained for size/seed variety but no longer tints color.
+  void hue;
+  const lightTop  = 'rgba(255, 255, 255, 0.98)';
+  const deepBot   = 'rgba(232, 238, 255, 0.88)';
+  const haloColor = 'rgba(255, 255, 255, 0.85)';
 
   return (
     <Animated.View
