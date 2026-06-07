@@ -565,9 +565,18 @@ export function updateParticle(
     motion, p, ndx, ndy, dist, phaseType, phaseT, t, dt, nx, ny, roundProgress
   );
 
-  // Spring-damped integrate
-  let vx = p.vx * 0.92 + force.fx * dt * 8;
-  let vy = p.vy * 0.92 + force.fy * dt * 8;
+  // Spring-damped integrate. On a breath hold the field should settle into
+  // stillness (a held breath), not keep drifting — but several motions don't
+  // damp their own noise/drift during hold. So globally clamp down here:
+  // stronger friction bleeds off residual velocity fast, and the force (which
+  // includes the per-particle noise) is admitted at a whisper, so particles
+  // glide to a near-stop and hover. Opacity/size still pulse (set in the motion
+  // fns) so the field reads as a glowing pause rather than a dead freeze.
+  const holding = phaseType === 'hold' || phaseType === 'hold2';
+  const friction = holding ? 0.8 : 0.92;
+  const forceScale = holding ? 0.1 : 1;
+  let vx = p.vx * friction + force.fx * dt * 8 * forceScale;
+  let vy = p.vy * friction + force.fy * dt * 8 * forceScale;
 
   // Speed cap
   const maxSpeed = 1.8;
