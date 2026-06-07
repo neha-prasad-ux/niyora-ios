@@ -55,7 +55,9 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
     const r     = 40 + Math.random() * 100;
     const x     = cx + Math.cos(angle) * r;
     const y     = cy + Math.sin(angle) * r;
-    const base  = 4  + Math.random() * 6;
+    // Lift the size floor so the smallest particles still read on a phone
+    // (the Mac canvas is far larger, so its 4px dots translate too small here).
+    const base  = 6  + Math.random() * 8;
     particles.push({
       x,
       y,
@@ -88,31 +90,35 @@ interface ParticleViewProps {
   phaseColor:   SharedValue<HSL>;
 }
 
+// How much larger the soft aura disc is than the core dot.
+const AURA_SCALE = 3.4;
+
 const ParticleView = memo(function ParticleView({
   index,
   allParticles,
   phaseColor,
 }: ParticleViewProps) {
-  // Animated wrapper carries position + size + opacity + colour. The native
-  // shadow on the wrapper provides the soft outer halo.
-  const wrapperStyle = useAnimatedStyle(() => {
-    const particles = allParticles.value;
-    if (index >= particles.length) return { opacity: 0 };
-    const p = particles[index];
-    const s = p.size;
-
-    // Colour tracks the live phase/background colour, mirroring the Mac
-    // (ph = bgHue + per-particle jitter, brighter + more saturated than the
-    // dim background so the dots glow against it). Recomputed every frame, so
-    // the field shifts hue together with the gradient.
+  // Per-particle colour, tracking the live phase/background colour, mirroring
+  // the Mac (ph = bgHue + per-particle jitter, brighter + more saturated than
+  // the dim background so the dots glow against it). Recomputed every frame, so
+  // the field shifts hue together with the gradient.
+  function colorFor(p: Particle) {
+    'worklet';
     const c = phaseColor.value;
     const jitter = (p.noiseOffsetX % 20) - 10;
     const ph = Math.round(c[0] + jitter);
     const ps = Math.round(Math.min(c[1] + 50, 90));
     const pl = Math.round(Math.min(c[2] + 50, 85));
-    const body = `hsl(${ph}, ${ps}%, ${pl}%)`;
-    const halo = `hsl(${ph}, ${ps}%, ${Math.min(pl + 6, 90)}%)`;
+    return { ph, ps, pl };
+  }
 
+  // Bright core dot. The native shadow provides a tight outer halo.
+  const coreStyle = useAnimatedStyle(() => {
+    const particles = allParticles.value;
+    if (index >= particles.length) return { opacity: 0 };
+    const p = particles[index];
+    const s = p.size;
+    const { ph, ps, pl } = colorFor(p);
     return {
       transform: [
         { translateX: p.x - s * 0.5 },
@@ -122,23 +128,53 @@ const ParticleView = memo(function ParticleView({
       height: s,
       borderRadius: s * 0.5,
       opacity: Math.max(0, Math.min(1, p.opacity)),
-      backgroundColor: body,
-      shadowColor: halo,
+      backgroundColor: `hsl(${ph}, ${ps}%, ${pl}%)`,
+      shadowColor: `hsl(${ph}, ${ps}%, ${Math.min(pl + 6, 90)}%)`,
       shadowRadius: s * 1.6,
     };
   });
 
+  // Soft aura bloom behind the core — a larger, low-opacity disc with a wide
+  // blur, so each particle reads as a glowing point with a coloured halo around
+  // it (mirrors the Mac outer-glow radial gradient).
+  const auraStyle = useAnimatedStyle(() => {
+    const particles = allParticles.value;
+    if (index >= particles.length) return { opacity: 0 };
+    const p = particles[index];
+    const a = p.size * AURA_SCALE;
+    const { ph, ps, pl } = colorFor(p);
+    return {
+      transform: [
+        { translateX: p.x - a * 0.5 },
+        { translateY: p.y - a * 0.5 },
+      ],
+      width: a,
+      height: a,
+      borderRadius: a * 0.5,
+      opacity: Math.max(0, Math.min(1, p.opacity)) * 0.5,
+      backgroundColor: `hsla(${ph}, ${ps}%, ${pl}%, 0.16)`,
+      shadowColor: `hsl(${ph}, ${ps}%, ${Math.min(pl + 8, 92)}%)`,
+      shadowRadius: p.size * 2.4,
+    };
+  });
+
   return (
-    <Animated.View
-      style={[
-        particleBase,
-        {
-          shadowOpacity: 0.55,
-          shadowOffset: { width: 0, height: 0 },
-        },
-        wrapperStyle,
-      ]}
-    />
+    <>
+      <Animated.View
+        style={[
+          particleBase,
+          { shadowOpacity: 0.5, shadowOffset: { width: 0, height: 0 } },
+          auraStyle,
+        ]}
+      />
+      <Animated.View
+        style={[
+          particleBase,
+          { shadowOpacity: 0.55, shadowOffset: { width: 0, height: 0 } },
+          coreStyle,
+        ]}
+      />
+    </>
   );
 });
 
@@ -171,10 +207,15 @@ export interface BreathingParticlesProps {
   /**
    * Current phase colour [h,s,l] (the same triple driving the background
    * gradient). Particles lerp toward it so their colour shifts with the phase.
+   * Optional — defaults to a soft violet so callers that don't drive a phase
+   * colour (e.g. the mindfulness screen) still get sensible particles.
    */
-  phaseColor:     HSL;
+  phaseColor?:    HSL;
   style?:         StyleProp<ViewStyle>;
 }
+
+// Fallback particle colour when no phase colour is supplied.
+const DEFAULT_PHASE_COLOR: HSL = [260, 30, 12];
 
 // ---------------------------------------------------------------------------
 // BreathingParticles
@@ -186,7 +227,7 @@ export function BreathingParticles({
   phaseT,
   roundProgress = 0,
   active        = true,
-  phaseColor,
+  phaseColor    = DEFAULT_PHASE_COLOR,
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
