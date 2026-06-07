@@ -1,0 +1,56 @@
+// Tests for the next-phase cue derivation used in BreathingSession.
+// The logic is: nextIndex = (phaseIndex + 1) % phases.length,
+// nextLabel = `then ${phases[nextIndex].label}`.
+
+import { TECHNIQUES, isBreathing } from '@/models/techniques';
+
+function deriveNextLabel(
+  phaseIndex: number,
+  phases: readonly { label: string }[],
+): string {
+  const nextIndex = (phaseIndex + 1) % phases.length;
+  return `then ${phases[nextIndex].label}`;
+}
+
+describe('next-phase cue derivation', () => {
+  it('box: advances through all four phases and wraps', () => {
+    const box = TECHNIQUES.find((t) => t.id === 'box')!;
+    if (!isBreathing(box)) throw new Error('box is not breathing');
+    const { phases } = box;
+
+    expect(deriveNextLabel(0, phases)).toBe('then hold');
+    expect(deriveNextLabel(1, phases)).toBe('then exhale');
+    expect(deriveNextLabel(2, phases)).toBe('then hold');
+    // Last phase wraps back to inhale
+    expect(deriveNextLabel(3, phases)).toBe('then inhale');
+  });
+
+  it('ocean: two-phase technique wraps correctly', () => {
+    const ocean = TECHNIQUES.find((t) => t.id === 'ocean')!;
+    if (!isBreathing(ocean)) throw new Error('ocean is not breathing');
+    const { phases } = ocean;
+
+    expect(deriveNextLabel(0, phases)).toBe('then exhale slowly');
+    expect(deriveNextLabel(1, phases)).toBe('then inhale through nose');
+  });
+
+  it('wind-down (4-7-8): three-phase technique', () => {
+    const wd = TECHNIQUES.find((t) => t.id === 'wind-down')!;
+    if (!isBreathing(wd)) throw new Error('wind-down is not breathing');
+    const { phases } = wd;
+
+    expect(deriveNextLabel(0, phases)).toBe('then hold');
+    expect(deriveNextLabel(1, phases)).toBe('then exhale slowly');
+    expect(deriveNextLabel(2, phases)).toBe('then inhale');
+  });
+
+  it('cooling: three-phase technique with hold', () => {
+    const cooling = TECHNIQUES.find((t) => t.id === 'cooling')!;
+    if (!isBreathing(cooling)) throw new Error('cooling is not breathing');
+    const { phases } = cooling;
+
+    expect(deriveNextLabel(0, phases)).toBe('then hold');
+    expect(deriveNextLabel(1, phases)).toBe('then exhale through nose');
+    expect(deriveNextLabel(2, phases)).toBe('then inhale through mouth');
+  });
+});
