@@ -16,13 +16,15 @@ export type BreathCycleState = {
   sessionT: number;
   round: number;
   done: boolean;
+  paused: boolean;
 };
 
 const TICK_MS = 50;
 
 export function useBreathCycle(
   phases: readonly BreathPhase[],
-  rounds: number
+  rounds: number,
+  paused = false
 ): BreathCycleState {
   const [state, setState] = useState<BreathCycleState>(() => ({
     phase: phases[0],
@@ -31,15 +33,33 @@ export function useBreathCycle(
     sessionT: 0,
     round: 1,
     done: false,
+    paused: false,
   }));
 
   const startRef = useRef<number>(Date.now());
+  // Non-null while paused; holds the wall-clock time when pause began.
+  const pausedAtRef = useRef<number | null>(null);
   const phaseDurationsTotal = phases.reduce((sum, p) => sum + p.duration, 0);
   const totalSeconds = phaseDurationsTotal * rounds;
 
+  // When pausing: snapshot the wall clock. On resume: advance startRef by
+  // the gap so elapsed time never counts the pause window.
+  useEffect(() => {
+    if (paused) {
+      pausedAtRef.current = Date.now();
+    } else if (pausedAtRef.current !== null) {
+      startRef.current += Date.now() - pausedAtRef.current;
+      pausedAtRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: mirror the paused prop into cycle state when it changes
+    setState((s) => ({ ...s, paused }));
+  }, [paused]);
+
   useEffect(() => {
     startRef.current = Date.now();
+    pausedAtRef.current = null;
     const interval = setInterval(() => {
+      if (pausedAtRef.current !== null) return; // frozen while paused
       const elapsed = (Date.now() - startRef.current) / 1000;
       if (elapsed >= totalSeconds) {
         setState((s) => ({ ...s, done: true, sessionT: 1, phaseT: 1 }));
@@ -66,7 +86,7 @@ export function useBreathCycle(
       const phaseT = Math.min(1, t / phase.duration);
       const sessionT = elapsed / totalSeconds;
 
-      setState({ phase, phaseIndex, phaseT, sessionT, round, done: false });
+      setState((s) => ({ ...s, phase, phaseIndex, phaseT, sessionT, round, done: false }));
     }, TICK_MS);
     return () => clearInterval(interval);
     // The technique is fixed for the lifetime of the session screen, so

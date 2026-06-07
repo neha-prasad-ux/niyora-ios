@@ -3,7 +3,7 @@
 //
 // Differs from the Mac:
 // - Swipe-down to dismiss via react-native-gesture-handler pan gesture.
-// - No pause overlay yet (tap to pause is on the roadmap).
+// - Tap anywhere to pause/resume (pause.fill overlay when frozen).
 
 import * as Haptics from 'expo-haptics';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
@@ -55,7 +55,8 @@ export default function SessionScreen() {
 }
 
 function BreathingSession({ technique }: { technique: BreathingTechnique }) {
-  const cycle = useBreathCycle(technique.phases, technique.rounds);
+  const [paused, setPaused] = useState(false);
+  const cycle = useBreathCycle(technique.phases, technique.rounds, paused);
   const { width, height } = Dimensions.get('window');
   const { track, changeTrack, fadeOut } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -115,11 +116,26 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     router.back();
   }
 
+  function handleSessionTap() {
+    if (cycle.done) return;
+    if (pickerVisible) {
+      setPickerVisible(false);
+      return;
+    }
+    setPaused((p) => !p);
+    Haptics.selectionAsync();
+  }
+
   const musicLabel =
     track === 'mute' ? 'Music, muted' : `Music, ${track}`;
 
   return (
-    <View style={styles.root}>
+    <Pressable
+      style={styles.root}
+      onPress={handleSessionTap}
+      accessibilityRole="button"
+      accessibilityLabel={paused ? 'Resume session' : 'Pause session'}
+    >
         <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
         {/* The session visual IS the particle field, exactly like the Mac
             BreathingSession canvas: no resting sphere, the particles converge
@@ -252,7 +268,18 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
             onDone={() => router.back()}
           />
         )}
-    </View>
+
+        {paused && !cycle.done && (
+          <View style={styles.pauseOverlay} pointerEvents="none">
+            <SymbolView
+              name="pause.fill"
+              tintColor="rgba(255, 255, 255, 0.85)"
+              size={52}
+              weight="regular"
+            />
+          </View>
+        )}
+    </Pressable>
   );
 }
 
@@ -347,5 +374,15 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 1,
     backgroundColor: 'rgba(150, 110, 210, 0.72)',
+  },
+  pauseOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
