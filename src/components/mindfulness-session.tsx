@@ -18,6 +18,7 @@ import Animated, {
 import { BreathingParticles } from '@/components/BreathingParticles';
 import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { DriftingLeaf } from '@/components/DriftingLeaf';
+import { RiverStream } from '@/components/RiverStream';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
@@ -167,6 +168,9 @@ export function MindfulnessSession({
         active={!done}
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
+
+      {/* Let It Drift (river): a vertical stream channel the leaf floats down. */}
+      {showLeaf && !done && <RiverStream />}
 
       {showLeaf && (
         <DriftingLeaf
