@@ -334,7 +334,9 @@ const styles = StyleSheet.create({
   },
   bottomBlock: {
     position: 'absolute',
-    bottom: 80,
+    // Sit just below the vertical centre, clear of the converging particle
+    // bloom (which gathers at 50% height) so the cue reads without covering it.
+    top: '58%',
     left: 24,
     right: 24,
     alignItems: 'center',
