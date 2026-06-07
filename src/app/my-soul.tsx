@@ -29,6 +29,7 @@ import {
 } from '@/store/checkin-history';
 import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
+import { QRPairingModal } from '@/components/QRPairingModal';
 import { colors } from '@/theme/colors';
 
 const SOUL_FRESHNESS_MS = 90 * 60 * 1000;
@@ -74,7 +75,8 @@ export default function MySoulScreen() {
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
-  const { isPaired, macSoulState } = useNiyoraSync();
+  const [pairingVisible, setPairingVisible] = useState(false);
+  const { isPaired, macSoulState, syncState } = useNiyoraSync();
 
   useFocusEffect(
     useCallback(() => {
@@ -175,8 +177,18 @@ export default function MySoulScreen() {
             sessions={sessionsCompleted}
           />
 
-          {!isPaired && !macPromoDismissed && (
-            <MacPromoCard onDismiss={handleMacPromoDismiss} />
+          {isPaired ? (
+            <MacPairedCard />
+          ) : (
+            !macPromoDismissed && (
+              <MacPromoCard
+                onPair={() => {
+                  Haptics.selectionAsync();
+                  setPairingVisible(true);
+                }}
+                onDismiss={handleMacPromoDismiss}
+              />
+            )
           )}
 
           <CheckInCard
@@ -206,6 +218,12 @@ export default function MySoulScreen() {
       {showCheckIn && (
         <CheckInSheet onDone={handleCheckInDone} />
       )}
+
+      <QRPairingModal
+        visible={pairingVisible}
+        syncState={syncState}
+        onClose={() => setPairingVisible(false)}
+      />
     </View>
   );
 }
@@ -449,7 +467,13 @@ function ToggleCard({
   );
 }
 
-function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
+function MacPromoCard({
+  onPair,
+  onDismiss,
+}: {
+  onPair: () => void;
+  onDismiss: () => void;
+}) {
   async function handleLearnMore() {
     Haptics.selectionAsync();
     const url = 'https://niyora.com/mac';
@@ -483,16 +507,46 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
         </Pressable>
       </View>
       <Text style={[styles.cardCopy, { marginTop: 6 }]}>
-        Pair with your Mac to share session data and reflect across devices.
+        Already have Niyora on your Mac? Pair to share session data and reflect
+        across devices.
       </Text>
       <Pressable
-        onPress={handleLearnMore}
+        onPress={onPair}
         style={styles.primarySmallButton}
+        accessibilityRole="button"
+        accessibilityLabel="Pair with your Mac"
+      >
+        <Text style={styles.primarySmallButtonLabel}>Pair with Mac</Text>
+      </Pressable>
+      <Pressable
+        onPress={handleLearnMore}
+        hitSlop={8}
         accessibilityRole="link"
         accessibilityLabel="Get Niyora for Mac"
       >
-        <Text style={styles.primarySmallButtonLabel}>Get Niyora for Mac</Text>
+        <Text style={styles.macSecondaryLink}>Don&apos;t have it? Get Niyora for Mac</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function MacPairedCard() {
+  return (
+    <View style={styles.card}>
+      <View style={[styles.macPromoHeader, { justifyContent: 'flex-start', alignItems: 'center' }]}>
+        <SymbolView
+          name="checkmark.seal.fill"
+          tintColor="hsl(150, 55%, 65%)"
+          size={18}
+          weight="medium"
+        />
+        <Text style={[styles.cardTitle, { marginLeft: 8 }]}>
+          Paired with your Mac
+        </Text>
+      </View>
+      <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+        Your sessions and soul reflect across both devices.
+      </Text>
     </View>
   );
 }
@@ -745,6 +799,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textPrimary,
     letterSpacing: 0.3,
+  },
+  macSecondaryLink: {
+    fontSize: 12,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 10,
+    textDecorationLine: 'underline',
   },
   footer: {
     marginTop: 18,
