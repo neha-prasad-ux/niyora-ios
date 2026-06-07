@@ -81,7 +81,8 @@ export function GoldenFocalPoint({ visible }: GoldenFocalPointProps) {
   const outerProps = useAnimatedProps(() => ({ fillOpacity: level(pulse.value) * 0.16 }));
   const midProps = useAnimatedProps(() => ({ fillOpacity: level(pulse.value) * 0.42 }));
   const coreProps = useAnimatedProps(() => ({
-    fillOpacity: level(pulse.value) * 0.9,
+    // Mostly solid so the ball reads as a defined orb, with a gentle pulse.
+    fillOpacity: 0.7 + pulse.value * 0.25,
     r: 44 + pulse.value * 12,
   }));
   const innerProps = useAnimatedProps(() => ({ fillOpacity: level(pulse.value) * 0.88 }));
@@ -104,21 +105,26 @@ export function GoldenFocalPoint({ visible }: GoldenFocalPointProps) {
               <Stop offset="0%" stopColor="hsl(38, 55%, 60%)" stopOpacity={1} />
               <Stop offset="100%" stopColor="hsl(38, 55%, 60%)" stopOpacity={0} />
             </RadialGradient>
+            {/* Defined ball: solid through most of the radius, a quick soft rim
+                at the edge so it reads as a crisp golden orb, not a blur. */}
             <RadialGradient id="focalCore" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor="hsl(38, 62%, 70%)" stopOpacity={1} />
-              <Stop offset="70%" stopColor="hsl(38, 60%, 65%)" stopOpacity={1} />
-              <Stop offset="100%" stopColor="hsl(38, 60%, 65%)" stopOpacity={0} />
+              <Stop offset="0%" stopColor="hsl(40, 70%, 74%)" stopOpacity={1} />
+              <Stop offset="82%" stopColor="hsl(38, 64%, 64%)" stopOpacity={1} />
+              <Stop offset="94%" stopColor="hsl(38, 62%, 60%)" stopOpacity={0.85} />
+              <Stop offset="100%" stopColor="hsl(38, 60%, 58%)" stopOpacity={0} />
             </RadialGradient>
-            <RadialGradient id="focalInner" cx="50%" cy="50%" r="50%">
-              <Stop offset="0%" stopColor="hsl(42, 60%, 92%)" stopOpacity={1} />
-              <Stop offset="100%" stopColor="hsl(40, 45%, 85%)" stopOpacity={0} />
+            {/* Bright top-left highlight for a little 3D roundness. */}
+            <RadialGradient id="focalInner" cx="38%" cy="34%" r="50%">
+              <Stop offset="0%" stopColor="hsl(44, 80%, 95%)" stopOpacity={1} />
+              <Stop offset="55%" stopColor="hsl(42, 70%, 88%)" stopOpacity={0.5} />
+              <Stop offset="100%" stopColor="hsl(40, 60%, 85%)" stopOpacity={0} />
             </RadialGradient>
           </Defs>
 
-          <AnimatedCircle cx={C} cy={C} r={150} fill="url(#focalOuter)" animatedProps={outerProps} />
-          <AnimatedCircle cx={C} cy={C} r={82} fill="url(#focalMid)" animatedProps={midProps} />
+          <AnimatedCircle cx={C} cy={C} r={120} fill="url(#focalOuter)" animatedProps={outerProps} />
+          <AnimatedCircle cx={C} cy={C} r={66} fill="url(#focalMid)" animatedProps={midProps} />
           <AnimatedCircle cx={C} cy={C} fill="url(#focalCore)" animatedProps={coreProps} />
-          <AnimatedCircle cx={C} cy={C} r={16} fill="url(#focalInner)" animatedProps={innerProps} />
+          <AnimatedCircle cx={C} cy={C} r={20} fill="url(#focalInner)" animatedProps={innerProps} />
         </Svg>
       </Animated.View>
     </View>
