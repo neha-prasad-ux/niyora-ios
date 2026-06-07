@@ -38,6 +38,14 @@ export type BreathingTechnique = {
   motion: MotionType;
 };
 
+// A single guided line shown during a mindfulness session, held on screen
+// for `duration` seconds (fades in/out at the edges). Mirrors the Mac
+// MindfulPrompt.
+export type MindfulPrompt = {
+  text: string;
+  duration: number; // seconds
+};
+
 export type MindfulnessTechnique = {
   id: string;
   name: string;
@@ -45,6 +53,11 @@ export type MindfulnessTechnique = {
   durationSeconds: number;
   category: 'mindfulness';
   locked: boolean;
+  instructions: string;
+  prompts: readonly MindfulPrompt[];
+  // Background tint shifts inhale -> exhale across the prompts.
+  colors: PhaseColors;
+  motion: MotionType;
 };
 
 export type Technique = BreathingTechnique | MindfulnessTechnique;
@@ -206,25 +219,148 @@ export const TECHNIQUES: readonly Technique[] = [
     id: 'be-kind',
     name: 'Be Kind to Yourself',
     subtitle: 'softens self-criticism',
-    durationSeconds: 25,
+    durationSeconds: 24,
     category: 'mindfulness',
     locked: false,
+    instructions: 'Read each phrase slowly. Let it land.',
+    prompts: [
+      { text: 'this is a moment of difficulty', duration: 8 },
+      { text: 'difficulty is part of being human', duration: 8 },
+      { text: 'may I be kind to myself right now', duration: 8 },
+    ],
+    colors: {
+      inhale: [25, 28, 12],
+      hold: [30, 22, 11],
+      exhale: [20, 25, 11],
+    },
+    motion: 'warmPulse',
+  },
+  {
+    id: 'let-it-drift',
+    name: 'Let It Drift',
+    subtitle: 'loosens stuck thoughts',
+    durationSeconds: 33,
+    category: 'mindfulness',
+    locked: true,
+    instructions: 'Notice a thought. Place it on a leaf. Watch it float away.',
+    prompts: [
+      { text: "notice what's on your mind", duration: 6 },
+      { text: 'place the thought on a leaf', duration: 7 },
+      { text: 'watch it float gently downstream', duration: 8 },
+      { text: 'let the stream carry it away', duration: 7 },
+      { text: 'the stream flows on', duration: 5 },
+    ],
+    colors: {
+      inhale: [140, 22, 12],
+      hold: [150, 18, 11],
+      exhale: [130, 20, 10],
+    },
+    motion: 'river',
   },
   {
     id: 'bring-someone',
     name: 'Bring Someone to Mind',
     subtitle: 'warms the mood',
-    durationSeconds: 25,
+    durationSeconds: 24,
     category: 'mindfulness',
     locked: false,
+    instructions: 'Picture one person who matters. Feel the warmth.',
+    prompts: [
+      { text: 'think of one person', duration: 8 },
+      { text: 'feel that warmth', duration: 8 },
+      { text: 'let it settle', duration: 8 },
+    ],
+    colors: {
+      inhale: [35, 30, 13],
+      hold: [40, 25, 12],
+      exhale: [30, 28, 11],
+    },
+    motion: 'warmPulse',
   },
   {
     id: 'hold-yourself',
     name: 'Hold Yourself',
     subtitle: 'signals safety',
-    durationSeconds: 30,
+    durationSeconds: 28,
     category: 'mindfulness',
     locked: false,
+    instructions: 'Wrap your arms around yourself. Hold gently.',
+    prompts: [
+      { text: 'wrap your arms around yourself', duration: 6 },
+      { text: 'hold gently', duration: 8 },
+      { text: 'feel the warmth of your own care', duration: 8 },
+      { text: 'you are held', duration: 6 },
+    ],
+    colors: {
+      inhale: [20, 30, 13],
+      hold: [25, 25, 12],
+      exhale: [15, 28, 11],
+    },
+    motion: 'converge',
+  },
+  {
+    id: 'kind-words',
+    name: 'Kind Words',
+    subtitle: 'quiets the inner critic',
+    durationSeconds: 28,
+    category: 'mindfulness',
+    locked: true,
+    instructions: 'Read each line silently. Repeat it to yourself.',
+    prompts: [
+      { text: 'I am enough', duration: 7 },
+      { text: 'I am doing my best', duration: 7 },
+      { text: 'I deserve kindness', duration: 7 },
+      { text: 'I am exactly where I need to be', duration: 7 },
+    ],
+    colors: {
+      inhale: [45, 25, 12],
+      hold: [50, 20, 11],
+      exhale: [40, 22, 11],
+    },
+    motion: 'ambient',
+  },
+  {
+    id: 'five-senses',
+    name: 'Five Senses',
+    subtitle: 'grounds you in the body',
+    durationSeconds: 33,
+    category: 'mindfulness',
+    locked: false,
+    instructions: 'Notice 5 you see, 4 you touch, 3 you hear, 2 you smell, 1 you taste.',
+    prompts: [
+      { text: '5 things you can see', duration: 7 },
+      { text: '4 things you can touch', duration: 7 },
+      { text: '3 things you can hear', duration: 7 },
+      { text: '2 things you can smell', duration: 6 },
+      { text: '1 thing you can taste', duration: 6 },
+    ],
+    colors: {
+      inhale: [160, 20, 12],
+      hold: [120, 18, 11],
+      exhale: [80, 22, 11],
+    },
+    motion: 'sensory',
+  },
+  {
+    id: 'soft-gaze',
+    name: 'Soft Gaze',
+    subtitle: 'relaxes tired eyes',
+    durationSeconds: 33,
+    category: 'mindfulness',
+    locked: true,
+    instructions: 'Soften your eyes on the centre point. Let everything else blur.',
+    prompts: [
+      { text: 'soften your gaze', duration: 5 },
+      { text: 'rest your eyes on the centre', duration: 10 },
+      { text: 'let everything else blur', duration: 10 },
+      { text: 'just seeing', duration: 8 },
+    ],
+    colors: {
+      inhale: [270, 18, 12],
+      hold: [265, 15, 11],
+      exhale: [275, 12, 10],
+    },
+    motion: 'orbit',
   },
 ];
 
@@ -238,4 +374,8 @@ export function getTechnique(id: string): Technique | undefined {
 
 export function isBreathing(t: Technique): t is BreathingTechnique {
   return t.category === 'breathing';
+}
+
+export function isMindfulness(t: Technique): t is MindfulnessTechnique {
+  return t.category === 'mindfulness';
 }

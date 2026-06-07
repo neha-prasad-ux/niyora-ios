@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
 import { CelebrationParticles } from '@/components/CelebrationParticles';
+import { MindfulnessSession } from '@/components/mindfulness-session';
 import { PhaseLabel } from '@/components/phase-label';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
@@ -40,18 +41,17 @@ const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
 export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const technique = id ? getTechnique(id) : undefined;
-  const breathing = technique && isBreathing(technique) ? technique : null;
 
-  // Mindfulness sessions land in a later PR. Bounce back home so the user
-  // never sees a half-rendered screen.
+  // Unknown id: bounce home rather than render a blank screen.
   useEffect(() => {
-    if (!breathing) {
+    if (!technique) {
       router.back();
     }
-  }, [breathing]);
+  }, [technique]);
 
-  if (!breathing) return null;
-  return <BreathingSession technique={breathing} />;
+  if (!technique) return null;
+  if (isBreathing(technique)) return <BreathingSession technique={technique} />;
+  return <MindfulnessSession technique={technique} />;
 }
 
 function BreathingSession({ technique }: { technique: BreathingTechnique }) {
