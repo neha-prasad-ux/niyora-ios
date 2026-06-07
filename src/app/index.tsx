@@ -5,7 +5,15 @@
 import { useCallback, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
@@ -15,19 +23,24 @@ import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
-import { isBreathing, TECHNIQUES } from '@/models/techniques';
+import {
+  getTechnique,
+  isBreathing,
+  isMindfulness,
+  TECHNIQUES,
+  type Technique,
+} from '@/models/techniques';
 
 export default function HomeScreen() {
-  // v1: all breathing techniques are selectable (no lock gating -- Wave 4 later).
-  // Mindfulness stays hidden until its session port lands.
-  const techniques = useMemo(
-    () => TECHNIQUES.filter(isBreathing),
-    []
-  );
-  const [index, setIndex] = useState(0);
+  // v1: all techniques are selectable (no lock gating -- Wave 4 later).
+  // Grouped breathing + mindfulness, both playable.
+  const breathing = useMemo(() => TECHNIQUES.filter(isBreathing), []);
+  const mindful = useMemo(() => TECHNIQUES.filter(isMindfulness), []);
+  const [selectedId, setSelectedId] = useState(breathing[0].id);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const { height } = useWindowDimensions();
 
-  const current = techniques[index];
+  const current = getTechnique(selectedId) ?? breathing[0];
 
   const handleTryDifferent = useCallback(() => {
     Haptics.selectionAsync();
@@ -36,10 +49,9 @@ export default function HomeScreen() {
 
   const handlePickerSelect = useCallback((id: string) => {
     Haptics.selectionAsync();
-    const idx = techniques.findIndex((t) => t.id === id);
-    if (idx !== -1) setIndex(idx);
+    setSelectedId(id);
     setPickerVisible(false);
-  }, [techniques]);
+  }, []);
 
   const handlePickerClose = useCallback(() => {
     setPickerVisible(false);
@@ -52,6 +64,27 @@ export default function HomeScreen() {
   const handleProfile = useCallback(() => {
     router.push('/my-soul');
   }, []);
+
+  const renderRow = (t: Technique) => (
+    <Pressable
+      key={t.id}
+      style={styles.pickerRow}
+      onPress={() => handlePickerSelect(t.id)}
+      accessibilityRole="button"
+      accessibilityLabel={`${t.name}. ${t.subtitle}`}
+      accessibilityState={{ selected: t.id === current.id }}
+    >
+      <Text
+        style={[
+          styles.pickerRowName,
+          t.id === current.id && styles.pickerRowNameActive,
+        ]}
+      >
+        {t.name}
+      </Text>
+      <Text style={styles.pickerRowSub}>{t.subtitle}</Text>
+    </Pressable>
+  );
 
   return (
     <View style={styles.root}>
@@ -133,28 +166,17 @@ export default function HomeScreen() {
               </Pressable>
             </View>
 
-            <Text style={styles.pickerSectionLabel}>Breathing</Text>
-
-            {techniques.map((t) => (
-              <Pressable
-                key={t.id}
-                style={styles.pickerRow}
-                onPress={() => handlePickerSelect(t.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`${t.name}. ${t.subtitle}`}
-                accessibilityState={{ selected: t.id === current.id }}
-              >
-                <Text
-                  style={[
-                    styles.pickerRowName,
-                    t.id === current.id && styles.pickerRowNameActive,
-                  ]}
-                >
-                  {t.name}
-                </Text>
-                <Text style={styles.pickerRowSub}>{t.subtitle}</Text>
-              </Pressable>
-            ))}
+            <ScrollView
+              style={{ maxHeight: height * 0.6 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.pickerSectionLabel}>Breathing</Text>
+              {breathing.map(renderRow)}
+              <Text style={[styles.pickerSectionLabel, styles.pickerSectionSpaced]}>
+                Mindfulness
+              </Text>
+              {mindful.map(renderRow)}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -227,6 +249,9 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     paddingHorizontal: 24,
     marginBottom: 6,
+  },
+  pickerSectionSpaced: {
+    marginTop: 18,
   },
   pickerRow: {
     paddingHorizontal: 24,
