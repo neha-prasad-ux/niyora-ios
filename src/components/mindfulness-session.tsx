@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
+import { GoldenFocalPoint } from '@/components/GoldenFocalPoint';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
 import { SessionBackground } from '@/components/session-background';
@@ -185,6 +186,9 @@ export function MindfulnessSession({
         active={!done}
         style={{ position: 'absolute', top: 0, left: 0, width, height }}
       />
+
+      {/* Soft Gaze (orbit motion): a steady golden Trataka anchor to gaze at. */}
+      {technique.motion === 'orbit' && <GoldenFocalPoint visible={!done} />}
 
       {done && <SessionDoneBackdrop />}
 
