@@ -15,6 +15,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState } from 'react';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
@@ -74,7 +81,23 @@ export default function MySoulScreen() {
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
+  const [orbRevealKey, setOrbRevealKey] = useState(0);
   const { isPaired, macSoulState } = useNiyoraSync();
+
+  const orbTapScale = useSharedValue(1);
+  const orbTapAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: orbTapScale.value }],
+  }));
+
+  function handleOrbTap() {
+    Haptics.selectionAsync();
+    orbTapScale.value = withSequence(
+      withTiming(0.91, { duration: 80, easing: Easing.out(Easing.quad) }),
+      withTiming(1.12, { duration: 220, easing: Easing.out(Easing.sin) }),
+      withTiming(1.0, { duration: 380, easing: Easing.inOut(Easing.sin) })
+    );
+    setOrbRevealKey((k) => k + 1);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -142,13 +165,25 @@ export default function MySoulScreen() {
           contentContainerStyle={styles.scrollBody}
           showsVerticalScrollIndicator={false}
         >
-          <View style={[styles.orbWrap, !todayRecord && { marginBottom: 20 }]} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
-            <Orb
-              size={110}
-              tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
-              tierHue={tier.hue}
-            />
-          </View>
+          <Pressable
+            onPress={handleOrbTap}
+            style={[styles.orbWrap, !todayRecord && { marginBottom: 20 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Soul orb, tap to replay"
+          >
+            <Animated.View
+              style={orbTapAnimStyle}
+              accessibilityElementsHidden={true}
+              importantForAccessibility="no-hide-descendants"
+            >
+              <Orb
+                size={110}
+                tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
+                tierHue={tier.hue}
+                revealKey={orbRevealKey}
+              />
+            </Animated.View>
+          </Pressable>
           {todayRecord && (
             <Text style={styles.todayLabel}>
               Today:{' '}

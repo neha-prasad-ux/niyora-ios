@@ -4,7 +4,15 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   Modal,
   Pressable,
@@ -31,6 +39,38 @@ import {
   TECHNIQUES,
   type Technique,
 } from '@/models/techniques';
+import {
+  getCheckInRecords,
+  todayCheckIn,
+  type CheckInRecord,
+  type CheckInLevel,
+} from '@/store/checkin-history';
+
+const ORB_SIZE = 220;
+const ORB_CANVAS = Math.round(ORB_SIZE * 1.8); // 396
+const ORB_RIPPLE_INSET = (ORB_CANVAS - ORB_SIZE) / 2; // 88
+
+const LEVEL_WEIGHT: Record<CheckInLevel, number> = { light: 0, okay: 1, heavy: 2 };
+
+function yesterdayCheckIn(records: CheckInRecord[]): CheckInRecord | null {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const yStr = d.toDateString();
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (new Date(records[i].recordedAt).toDateString() === yStr) return records[i];
+  }
+  return null;
+}
+
+function soulInsight(records: CheckInRecord[]): string | null {
+  const today = todayCheckIn(records);
+  const yesterday = yesterdayCheckIn(records);
+  if (!today || !yesterday) return null;
+  const diff = LEVEL_WEIGHT[today.level] - LEVEL_WEIGHT[yesterday.level];
+  if (diff > 0) return 'carrying more than yesterday';
+  if (diff < 0) return 'lighter than yesterday, nice';
+  return 'feeling steady today';
+}
 
 export default function HomeScreen() {
   // v1: all techniques are selectable (no lock gating -- Wave 4 later).
@@ -40,6 +80,38 @@ export default function HomeScreen() {
   const [selectedId, setSelectedId] = useState(breathing[0].id);
   const [pickerVisible, setPickerVisible] = useState(false);
   const { height } = useWindowDimensions();
+
+  const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getCheckInRecords().then((r) => {
+        if (active) setCheckInRecords(r);
+      }).catch(() => {});
+      return () => { active = false; };
+    }, [])
+  );
+
+  const tapScale = useSharedValue(1);
+  const rippleScale = useSharedValue(1);
+  const rippleOpacity = useSharedValue(0);
+  const insightOpacity = useSharedValue(0);
+  const insightTranslateY = useSharedValue(6);
+
+  const tapAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: tapScale.value }],
+  }));
+  const rippleAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rippleScale.value }],
+    opacity: rippleOpacity.value,
+  }));
+  const insightAnimStyle = useAnimatedStyle(() => ({
+    opacity: insightOpacity.value,
+    transform: [{ translateY: insightTranslateY.value }],
+  }));
+
+  const insight = soulInsight(checkInRecords);
 
   const current = getTechnique(selectedId) ?? breathing[0];
 
@@ -65,6 +137,31 @@ export default function HomeScreen() {
   const handleProfile = useCallback(() => {
     router.push('/my-soul');
   }, []);
+
+  const handleOrbPress = useCallback(() => {
+    Haptics.selectionAsync();
+    tapScale.value = withSequence(
+      withTiming(0.93, { duration: 80, easing: Easing.out(Easing.quad) }),
+      withTiming(1.08, { duration: 220, easing: Easing.out(Easing.sin) }),
+      withTiming(1.0, { duration: 380, easing: Easing.inOut(Easing.sin) })
+    );
+    rippleScale.value = 1;
+    rippleOpacity.value = 0.5;
+    rippleScale.value = withTiming(1.85, { duration: 680, easing: Easing.out(Easing.cubic) });
+    rippleOpacity.value = withTiming(0, { duration: 680, easing: Easing.out(Easing.cubic) });
+    if (insight) {
+      insightOpacity.value = 0;
+      insightTranslateY.value = 6;
+      insightOpacity.value = withSequence(
+        withTiming(1, { duration: 340 }),
+        withDelay(2600, withTiming(0, { duration: 480 }))
+      );
+      insightTranslateY.value = withSequence(
+        withTiming(0, { duration: 340 }),
+        withDelay(2600, withTiming(4, { duration: 480 }))
+      );
+    }
+  }, [insight, tapScale, rippleScale, rippleOpacity, insightOpacity, insightTranslateY]);
 
   const renderRow = (t: Technique) => (
     <Pressable
@@ -95,8 +192,30 @@ export default function HomeScreen() {
           onPressProfile={handleProfile}
         />
 
-        <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
-          <Orb size={220} />
+        <Pressable
+          style={styles.orbWrap}
+          onPress={handleOrbPress}
+          accessibilityRole="button"
+          accessibilityLabel="Soul orb"
+          accessibilityHint={insight ?? undefined}
+        >
+          <Animated.View
+            style={tapAnimStyle}
+            accessibilityElementsHidden={true}
+            importantForAccessibility="no-hide-descendants"
+          >
+            <Orb size={ORB_SIZE} />
+            <Animated.View
+              style={[styles.ripple, rippleAnimStyle]}
+              pointerEvents="none"
+            />
+          </Animated.View>
+        </Pressable>
+
+        <View style={styles.insightRow} pointerEvents="none">
+          <Animated.View style={[styles.insightPill, insightAnimStyle]}>
+            <Text style={styles.insightText} numberOfLines={1}>{insight ?? ''}</Text>
+          </Animated.View>
         </View>
 
         <View
@@ -222,6 +341,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     marginBottom: 12,
+  },
+  ripple: {
+    position: 'absolute',
+    top: ORB_RIPPLE_INSET,
+    left: ORB_RIPPLE_INSET,
+    width: ORB_SIZE,
+    height: ORB_SIZE,
+    borderRadius: ORB_SIZE / 2,
+    borderWidth: 1.5,
+    borderColor: 'rgba(180, 195, 255, 0.72)',
+  },
+  insightRow: {
+    alignItems: 'center',
+    height: 36,
+    justifyContent: 'center',
+    marginTop: -4,
+  },
+  insightPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  insightText: {
+    fontSize: 13,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.72)',
+    letterSpacing: 0.2,
   },
 
   // picker overlay

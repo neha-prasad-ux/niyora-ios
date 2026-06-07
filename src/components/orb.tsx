@@ -132,9 +132,14 @@ type OrbProps = {
    * when phase changes in session mode.
    */
   phaseDuration?: number;
+  /**
+   * Increment this value to replay the ring reveal sweep (e.g. on orb tap).
+   * Has no effect when tierRingCount === 0.
+   */
+  revealKey?: number;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
@@ -211,7 +216,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     return () => {
       cancelled = true;
     };
-  }, [tierRingCount, reveal]);
+  }, [tierRingCount, revealKey, reveal]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
