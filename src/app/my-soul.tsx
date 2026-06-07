@@ -1,6 +1,7 @@
 // My Soul sheet. Ported from the Mac Settings.tsx "My Soul" panel at the
 // level of fidelity DESIGN.md asks for.
 
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { SymbolView } from 'expo-symbols';
@@ -199,7 +200,7 @@ export default function MySoulScreen() {
             Analytics are anonymous, optional, and only sent if you choose.
             Breathe easy.
           </Text>
-          <Text style={styles.version}>Version 0.1.0</Text>
+          <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
         </ScrollView>
       </SafeAreaView>
 
