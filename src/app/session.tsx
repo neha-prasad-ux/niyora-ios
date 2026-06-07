@@ -107,12 +107,6 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
 
-  const nextLabel = useMemo(() => {
-    if (cycle.done) return null;
-    const nextIndex = (cycle.phaseIndex + 1) % technique.phases.length;
-    return `then ${technique.phases[nextIndex].label}`;
-  }, [cycle.done, cycle.phaseIndex, technique.phases]);
-
   function exitSession() {
     Haptics.selectionAsync();
     fadeOut();
@@ -230,7 +224,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} nextLabel={nextLabel} />
+                <PhaseLabel label={labelText} />
                 {!cycle.done && (
                   <Text style={styles.instructions}>{technique.instructions}</Text>
                 )}
@@ -332,10 +326,12 @@ const styles = StyleSheet.create({
   },
   bottomBlock: {
     position: 'absolute',
-    bottom: 80,
+    top: 0,
+    bottom: 0,
     left: 24,
     right: 24,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   instructions: {
     marginTop: 14,

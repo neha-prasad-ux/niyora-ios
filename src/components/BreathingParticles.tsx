@@ -52,9 +52,11 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
   for (let i = 0; i < N_PARTICLES; i++) {
     // Evenly space initial angles, jittered slightly so they don't look mechanical
     const angle = (i / N_PARTICLES) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-    const r     = 40 + Math.random() * 100;
-    const x     = cx + Math.cos(angle) * r;
-    const y     = cy + Math.sin(angle) * r;
+    // Spread across most of the screen so the field fills it from the start.
+    // sqrt keeps the distribution roughly uniform by area rather than centre-heavy.
+    const t     = Math.sqrt(Math.random());
+    const x     = cx + Math.cos(angle) * t * cx * 0.92;
+    const y     = cy + Math.sin(angle) * t * cy * 0.92;
     // Lift the size floor so the smallest particles still read on a phone
     // (the Mac canvas is far larger, so its 4px dots translate too small here).
     const base  = 6  + Math.random() * 8;
@@ -64,6 +66,7 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
       vx:           0,
       vy:           0,
       homeY:        y,
+      homeAngle:    angle,
       baseSize:     base,
       size:         base,
       opacity:      0.3 + Math.random() * 0.35,
