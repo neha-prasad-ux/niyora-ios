@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
       "bundleIdentifier": "com.niyora.app",
-      "buildNumber": "5",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
