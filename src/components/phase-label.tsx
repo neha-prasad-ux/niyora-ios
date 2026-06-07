@@ -126,6 +126,10 @@ const styles = StyleSheet.create({
     // longest-word width and wrapping into a narrow vertical column.
     alignSelf: 'stretch',
     justifyContent: 'center',
+    // Breathing room so the soft white text-glow isn't cramped against the
+    // top and sides.
+    paddingTop: 12,
+    paddingHorizontal: 18,
   },
   absolute: {
     position: 'absolute',
