@@ -8,6 +8,9 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "niyora-sync": [
+        "./modules/niyora-sync/src/index"
       ]
     }
   },
