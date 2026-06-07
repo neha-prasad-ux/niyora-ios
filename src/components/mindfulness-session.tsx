@@ -66,6 +66,10 @@ export function MindfulnessSession({
   }>({ phase: 'inhale', phaseT: 0 });
 
   const promptOpacity = useSharedValue(0);
+  // Bottom progress bar: fills from 0 to 1 across the prompts, reaching 100%
+  // as the final prompt plays out. trackWidth matches the safe-area content.
+  const progress = useSharedValue(0);
+  const trackWidth = width - 48;
 
   // Background tint shifts inhale -> exhale across the prompts (Mac behaviour).
   const denom = Math.max(1, technique.prompts.length - 1);
@@ -105,6 +109,10 @@ export function MindfulnessSession({
       promptOpacity.value = withTiming(0, { duration: PROMPT_FADE_OUT_MS });
     }, fadeAt);
 
+    // Advance the bar to the fraction reached once this prompt has played out.
+    const total = technique.prompts.length;
+    progress.value = withTiming((promptIndex + 1) / total, { duration: durMs });
+
     const nextTimer = setTimeout(() => {
       if (promptIndex + 1 >= technique.prompts.length) {
         setDone(true);
@@ -117,7 +125,7 @@ export function MindfulnessSession({
       clearTimeout(fadeTimer);
       clearTimeout(nextTimer);
     };
-  }, [promptIndex, done, technique.prompts, promptOpacity]);
+  }, [promptIndex, done, technique.prompts, promptOpacity, progress]);
 
   // On completion: record the session, report to a paired Mac, then show mood.
   useEffect(() => {
@@ -145,6 +153,9 @@ export function MindfulnessSession({
   }
 
   const promptStyle = useAnimatedStyle(() => ({ opacity: promptOpacity.value }));
+  const barFillStyle = useAnimatedStyle(() => ({
+    width: progress.value * trackWidth,
+  }));
 
   return (
     <View style={styles.root}>
@@ -192,6 +203,14 @@ export function MindfulnessSession({
         )}
       </SafeAreaView>
 
+      {!done && (
+        <View style={styles.progressArea} pointerEvents="none">
+          <View style={styles.barTrack}>
+            <Animated.View style={[styles.barFill, barFillStyle]} />
+          </View>
+        </View>
+      )}
+
       {showMood && (
         <PostSessionMood techniqueId={technique.id} onDone={() => router.back()} />
       )}
@@ -229,5 +248,24 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 16,
     paddingHorizontal: 12,
+  },
+  progressArea: {
+    position: 'absolute',
+    bottom: 16,
+    left: 24,
+    right: 24,
+    alignItems: 'center',
+  },
+  barTrack: {
+    width: '100%',
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 1,
+    backgroundColor: 'rgba(150, 110, 210, 0.72)',
   },
 });
