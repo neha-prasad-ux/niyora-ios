@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type SFSymbol } from 'expo-symbols';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -22,8 +22,17 @@ import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
 import { appendSession } from '@/store/session-history';
+import type { MusicTrack } from '@/store/music-prefs';
 import { colors } from '@/theme/colors';
 import { NiyoraSync } from 'niyora-sync';
+
+// Same track set and picker behaviour as the breathing session screen.
+const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
+  { id: 'serene', label: 'Serene', icon: 'music.note' },
+  { id: 'ocean', label: 'Ocean', icon: 'waveform' },
+  { id: 'forest', label: 'Forest', icon: 'leaf' },
+  { id: 'mute', label: 'Mute', icon: 'speaker.slash' },
+];
 
 type HSL = [number, number, number];
 
@@ -55,11 +64,12 @@ export function MindfulnessSession({
   technique: MindfulnessTechnique;
 }) {
   const { width, height } = Dimensions.get('window');
-  const { fadeOut } = useSessionMusic();
+  const { track, changeTrack, fadeOut } = useSessionMusic();
 
   const [promptIndex, setPromptIndex] = useState(0);
   const [done, setDone] = useState(false);
   const [showMood, setShowMood] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [cadence, setCadence] = useState<{
     phase: 'inhale' | 'exhale';
     phaseT: number;
@@ -144,6 +154,8 @@ export function MindfulnessSession({
     router.back();
   }
 
+  const musicLabel = track === 'mute' ? 'Music, muted' : `Music, ${track}`;
+
   const promptStyle = useAnimatedStyle(() => ({ opacity: promptOpacity.value }));
 
   return (
@@ -179,7 +191,56 @@ export function MindfulnessSession({
               weight="medium"
             />
           </Pressable>
+
+          <Pressable
+            onPress={() => setPickerVisible((v) => !v)}
+            hitSlop={20}
+            accessibilityRole="button"
+            accessibilityLabel={musicLabel}
+          >
+            <SymbolView
+              name="music.note"
+              tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
+              size={22}
+              weight="medium"
+            />
+          </Pressable>
         </View>
+
+        {pickerVisible && (
+          <View style={styles.pickerCard}>
+            {TRACK_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.id}
+                style={styles.pickerRow}
+                onPress={() => {
+                  changeTrack(opt.id);
+                  setPickerVisible(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={opt.label}
+                accessibilityState={{ selected: track === opt.id }}
+              >
+                <SymbolView
+                  name={opt.icon}
+                  tintColor={
+                    track === opt.id ? colors.textPrimary : colors.textSubtitle
+                  }
+                  size={16}
+                  weight="medium"
+                />
+                <Text
+                  style={[
+                    styles.pickerLabel,
+                    track === opt.id && styles.pickerLabelActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         {!showMood && (
           <View style={styles.center} pointerEvents="none">
@@ -214,9 +275,37 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 8,
+  },
+  pickerCard: {
+    position: 'absolute',
+    top: 52,
+    right: 0,
+    backgroundColor: 'rgba(18, 14, 26, 0.94)',
+    borderRadius: 14,
+    paddingVertical: 4,
+    minWidth: 130,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  pickerLabelActive: {
+    color: colors.textPrimary,
+    fontWeight: '500',
   },
   center: {
     flex: 1,
