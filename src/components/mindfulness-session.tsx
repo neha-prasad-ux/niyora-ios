@@ -16,7 +16,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
+import { DriftingLeaf } from '@/components/DriftingLeaf';
 import { GoldenFocalPoint } from '@/components/GoldenFocalPoint';
+import { RiverStream } from '@/components/RiverStream';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
 import { SessionBackground } from '@/components/session-background';
@@ -175,6 +177,15 @@ export function MindfulnessSession({
     width: progress.value * trackWidth,
   }));
 
+  // Let It Drift (river): the leaf appears on the "place ... on a leaf" prompt
+  // and drifts downstream across the prompts that follow.
+  const leafStart = technique.prompts.findIndex((p) => p.text.includes('leaf'));
+  const showLeaf = technique.motion === 'river' && leafStart >= 0;
+  const leafProgress = showLeaf
+    ? (promptIndex - leafStart) /
+      Math.max(1, technique.prompts.length - 1 - leafStart)
+    : 0;
+
   return (
     <View style={styles.root}>
       <SessionBackground targetColor={bgColor} />
@@ -189,6 +200,16 @@ export function MindfulnessSession({
 
       {/* Soft Gaze (orbit motion): a steady golden Trataka anchor to gaze at. */}
       {technique.motion === 'orbit' && <GoldenFocalPoint visible={!done} />}
+
+      {/* Let It Drift (river): a vertical stream channel the leaf floats down. */}
+      {showLeaf && !done && <RiverStream />}
+
+      {showLeaf && (
+        <DriftingLeaf
+          visible={!done && promptIndex >= leafStart}
+          progress={Math.max(0, Math.min(1, leafProgress))}
+        />
+      )}
 
       {done && <SessionDoneBackdrop />}
 

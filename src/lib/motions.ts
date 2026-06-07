@@ -343,8 +343,10 @@ function motionSedation(
 }
 
 /**
- * Five Senses (River) — steady directional flow like a slow current.
- * Inhale draws upstream, exhale accelerates downstream.
+ * Let It Drift (River) — steady directional flow like a slow current.
+ * Vertical stream on mobile: the current runs downward (downstream = toward the
+ * bottom) so a leaf can float down the channel and out the bottom. Inhale draws
+ * upstream (up), exhale accelerates downstream (down).
  */
 function motionRiver(
   p: Particle,
@@ -354,19 +356,19 @@ function motionRiver(
   nx: number, ny: number
 ): { fx: number; fy: number } {
   'worklet';
-  // Gentle rightward current; noise adds organic turbulence
+  // Gentle downward current; noise adds organic side-to-side turbulence.
   const current = 0.18;
-  const turbulence = Math.sin(t * 0.7 + p.noiseOffsetY) * 0.08;
-  let fx = nx * 0.5 + current, fy = ny * 0.5 + turbulence;
+  const turbulence = Math.sin(t * 0.7 + p.noiseOffsetX) * 0.08;
+  let fx = nx * 0.5 + turbulence, fy = ny * 0.5 + current;
   if (phaseType === 'inhale') {
-    fx -= current * (0.6 + phaseT * 0.8); // swim upstream
+    fy -= current * (0.6 + phaseT * 0.8); // drift upstream (up)
     p.opacity = lerpVal(p.opacity, 0.6 + phaseT * 0.2, dt * 2);
     p.size    = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.18), dt * 2);
   } else if (phaseType === 'hold' || phaseType === 'hold2') {
     // Drift with current
-    p.opacity = lerpVal(p.opacity, 0.62 + Math.sin(t * 1.2 + p.noiseOffsetX) * 0.06, dt * 2);
-  } else { // exhale - flow downstream faster
-    fx += current * (0.5 + phaseT * 0.7);
+    p.opacity = lerpVal(p.opacity, 0.62 + Math.sin(t * 1.2 + p.noiseOffsetY) * 0.06, dt * 2);
+  } else { // exhale - flow downstream (down) faster
+    fy += current * (0.5 + phaseT * 0.7);
     p.opacity = lerpVal(p.opacity, 0.45 - phaseT * 0.1, dt * 2);
     p.size    = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.1), dt * 2);
   }
