@@ -67,6 +67,7 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
       vy:           0,
       homeY:        y,
       homeAngle:    angle,
+      homeR:        t,
       baseSize:     base,
       size:         base,
       opacity:      0.3 + Math.random() * 0.35,
