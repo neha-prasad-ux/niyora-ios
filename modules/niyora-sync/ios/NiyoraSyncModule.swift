@@ -77,7 +77,7 @@ public class NiyoraSyncModule: Module {
             )
         }
 
-        Function("isPaired") -> Bool {
+        Function("isPaired") { () -> Bool in
             if case .paired = self.flow.state { return true }
             return false
         }
