@@ -1,8 +1,7 @@
-// Phase cue, shown as a chip. The rounded container stays put (a stable anchor)
-// while the word inside cross-fades + scales in place when the phase changes, so
-// the swap reads as one smooth morph rather than two words sliding past each
-// other. The chip gives the cue a clear, accessible label container; a soft text
-// glow keeps the active cue feeling "lit" (mirrors the Mac canvas shadowBlur).
+// Phase cue, shown as glowing text. The word cross-fades + scales in place when
+// the phase changes, so the swap reads as one smooth morph rather than two words
+// sliding past each other. A soft text glow keeps the active cue feeling "lit"
+// (mirrors the Mac canvas shadowBlur).
 //
 // Pass nextLabel to show a dimmer sub-label below the chip.
 
@@ -160,13 +159,10 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   chip: {
+    // No pill container off-centre: the cue is just glowing text now that it no
+    // longer needs to stand apart from the bloom behind it.
     minWidth: 132,
-    paddingHorizontal: 24,
     paddingVertical: 9,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
