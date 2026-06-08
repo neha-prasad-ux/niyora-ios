@@ -1,9 +1,10 @@
-// Cross-fading phase label. When the label string changes, the old text
-// fades out while the new one fades in, both shifted by a soft text shadow
-// so the active cue feels "lit" (mirrors the Mac canvas shadowBlur on text).
+// Phase cue, shown as a chip. The rounded container stays put (a stable anchor)
+// while the word inside cross-fades + scales in place when the phase changes, so
+// the swap reads as one smooth morph rather than two words sliding past each
+// other. The chip gives the cue a clear, accessible label container; a soft text
+// glow keeps the active cue feeling "lit" (mirrors the Mac canvas shadowBlur).
 //
-// Pass nextLabel to show a dimmer sub-label ("then hold") below the current
-// phase, matching the Mac next-phase cue from niyora#78.
+// Pass nextLabel to show a dimmer sub-label below the chip.
 
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
@@ -13,6 +14,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -23,19 +25,18 @@ type PhaseLabelProps = {
   nextLabel?: string | null;
 };
 
-const FADE_MS = 360;
-// How far the cue slides horizontally as it crosses over (new in from the
-// right, old out to the left).
-const SLIDE = 22;
+const FADE_MS = 300;
 const EASE = Easing.out(Easing.cubic);
 
 export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
   const [shown, setShown] = useState(label);
   const [prev, setPrev] = useState<string | null>(null);
   const shownOpacity = useSharedValue(1);
+  const shownScale = useSharedValue(1);
   const prevOpacity = useSharedValue(0);
-  const shownTx = useSharedValue(0);
-  const prevTx = useSharedValue(0);
+  const prevScale = useSharedValue(1);
+  // Subtle pulse of the whole chip on each change, so the container feels alive.
+  const chipScale = useSharedValue(1);
   const lastLabelRef = useRef(label);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -60,8 +61,7 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
 
     // Snapshot before canceling so prev inherits exactly where shown left off,
     // avoiding a pop-to-1 flicker when a change arrives mid-animation.
-    const currentShownOpacity = shownOpacity.value;
-
+    const fromOpacity = shownOpacity.value;
     cancelAnimation(shownOpacity);
     cancelAnimation(prevOpacity);
 
@@ -71,25 +71,31 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
 
     const duration = reduceMotion ? 0 : FADE_MS;
 
-    // Old text fades + slides out to the left; new text fades + slides in from
-    // the right, for a smooth horizontal hand-off.
-    prevOpacity.value = currentShownOpacity;
-    prevTx.value = 0;
+    // Old word fades + eases down slightly; new word fades + eases up to rest.
+    // Both are centred in the same spot, so nothing slides sideways.
+    prevOpacity.value = fromOpacity;
+    prevScale.value = 1;
     shownOpacity.value = 0;
-    shownTx.value = reduceMotion ? 0 : SLIDE;
+    shownScale.value = reduceMotion ? 1 : 0.94;
+
     prevOpacity.value = withTiming(0, { duration, easing: EASE }, (finished) => {
       'worklet';
-      if (finished) {
-        runOnJS(setPrev)(null);
-      }
+      if (finished) runOnJS(setPrev)(null);
     });
-    prevTx.value = withTiming(reduceMotion ? 0 : -SLIDE, { duration, easing: EASE });
+    prevScale.value = withTiming(reduceMotion ? 1 : 0.94, { duration, easing: EASE });
     shownOpacity.value = withTiming(1, { duration, easing: EASE });
-    shownTx.value = withTiming(0, { duration, easing: EASE });
+    shownScale.value = withTiming(1, { duration, easing: EASE });
+
+    if (!reduceMotion) {
+      chipScale.value = withSequence(
+        withTiming(1.05, { duration: 150, easing: EASE }),
+        withTiming(1, { duration: 260, easing: EASE }),
+      );
+    }
 
     // Announce the new phase label for iOS VoiceOver.
     AccessibilityInfo.announceForAccessibility(label);
-  }, [label, prevOpacity, shownOpacity, prevTx, shownTx, reduceMotion]);
+  }, [label, reduceMotion]);
 
   useEffect(() => {
     if (nextLabel === lastNextRef.current) return;
@@ -106,27 +112,37 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
         if (finished) runOnJS(setShownNext)(null);
       });
     }
-  }, [nextLabel, nextOpacity, reduceMotion]);
+  }, [nextLabel, reduceMotion]);
 
+  const chipStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: chipScale.value }],
+  }));
   const shownStyle = useAnimatedStyle(() => ({
     opacity: shownOpacity.value,
-    transform: [{ translateX: shownTx.value }],
+    transform: [{ scale: shownScale.value }],
   }));
   const prevStyle = useAnimatedStyle(() => ({
     opacity: prevOpacity.value,
-    transform: [{ translateX: prevTx.value }],
+    transform: [{ scale: prevScale.value }],
   }));
   const nextStyle = useAnimatedStyle(() => ({ opacity: nextOpacity.value }));
 
   return (
     <View style={styles.wrap}>
-      {prev !== null && (
-        <Animated.View style={[styles.absolute, prevStyle]}>
-          <Text style={styles.text}>{prev}</Text>
-        </Animated.View>
-      )}
-      <Animated.View style={shownStyle}>
-        <Text style={styles.text} accessibilityLiveRegion="polite">{shown}</Text>
+      <Animated.View style={[styles.chip, chipStyle]}>
+        <View style={styles.textStack}>
+          {prev !== null && (
+            <Animated.Text style={[styles.text, styles.textAbsolute, prevStyle]}>
+              {prev}
+            </Animated.Text>
+          )}
+          <Animated.Text
+            style={[styles.text, shownStyle]}
+            accessibilityLiveRegion="polite"
+          >
+            {shown}
+          </Animated.Text>
+        </View>
       </Animated.View>
       {shownNext !== null && (
         <Animated.View style={[styles.nextWrap, nextStyle]}>
@@ -139,22 +155,36 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    minHeight: 24,
-    // Stretch to the parent's full width so a long cue ("inhale through your
-    // mouth") lays out on one line and centers, instead of collapsing to the
-    // longest-word width and wrapping into a narrow vertical column.
     alignSelf: 'stretch',
-    justifyContent: 'center',
-    // Breathing room so the soft white text-glow isn't cramped on the sides.
+    alignItems: 'center',
     paddingTop: 10,
-    paddingHorizontal: 18,
   },
-  absolute: {
+  chip: {
+    minWidth: 132,
+    paddingHorizontal: 24,
+    paddingVertical: 9,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Fixed-height stack so the outgoing (absolute) and incoming words sit in the
+  // exact same centred spot during the cross-fade.
+  textStack: {
+    height: 30,
+    minWidth: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textAbsolute: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    bottom: 0,
+    textAlignVertical: 'center',
   },
   text: {
     // Match the mindfulness prompt title (22/400) so breathing and mindfulness
@@ -169,7 +199,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 14,
   },
   nextWrap: {
-    marginTop: 8,
+    marginTop: 10,
     alignItems: 'center',
   },
   nextText: {
