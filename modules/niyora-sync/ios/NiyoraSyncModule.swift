@@ -52,8 +52,12 @@ public class NiyoraSyncModule: Module {
             self.flow.stopDiscovery()
         }
 
-        AsyncFunction("pairWithQR") { (qrString: String) throws in
-            try self.flow.initiateFromQR(qrString)
+        Function("connectToMac") { (name: String) in
+            self.flow.connectToMac(named: name)
+        }
+
+        Function("cancelPairing") {
+            self.flow.cancelPairing()
         }
 
         Function("recordSession") {
@@ -93,24 +97,12 @@ public class NiyoraSyncModule: Module {
             sendEvent("onStateChanged", ["state": "unpaired"])
         case .connecting:
             sendEvent("onStateChanged", ["state": "connecting"])
+        case .awaitingApproval(let sas):
+            sendEvent("onStateChanged", ["state": "awaiting_approval", "sas": sas])
         case .paired(let id):
             sendEvent("onStateChanged", ["state": "paired", "serverId": id])
         case .failed(let msg):
             sendEvent("onStateChanged", ["state": "failed", "message": msg])
-        }
-    }
-}
-
-public class QRScannerViewModule: Module {
-    public func definition() -> ModuleDefinition {
-        Name("QRScannerView")
-
-        View(QRScannerView.self) {
-            Events("onScan", "onError")
-
-            Prop("active") { (view: QRScannerView, active: Bool) in
-                active ? view.start() : view.stop()
-            }
         }
     }
 }

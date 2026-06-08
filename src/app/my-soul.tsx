@@ -29,6 +29,7 @@ import {
 } from '@/store/checkin-history';
 import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
+import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
 
 const SOUL_FRESHNESS_MS = 90 * 60 * 1000;
@@ -75,7 +76,14 @@ export default function MySoulScreen() {
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
-  const { isPaired, macSoulState } = useNiyoraSync();
+  const {
+    isPaired,
+    macSoulState,
+    syncState,
+    discoveredServers,
+    connectToMac,
+    cancelPairing,
+  } = useNiyoraSync();
 
   useFocusEffect(
     useCallback(() => {
@@ -180,7 +188,16 @@ export default function MySoulScreen() {
             sessionsThisWeek={sessionsThisWeek}
           />
 
-          {!isPaired && !macPromoDismissed && (
+          {!isPaired && (
+            <MacPairing
+              syncState={syncState}
+              discoveredServers={discoveredServers}
+              connectToMac={connectToMac}
+              cancelPairing={cancelPairing}
+            />
+          )}
+
+          {!isPaired && !macPromoDismissed && discoveredServers.length === 0 && (
             <MacPromoCard onDismiss={handleMacPromoDismiss} />
           )}
 
