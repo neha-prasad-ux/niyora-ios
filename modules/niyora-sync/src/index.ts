@@ -1,4 +1,4 @@
-import { EventEmitter, requireNativeModule } from 'expo-modules-core';
+import { requireNativeModule } from 'expo-modules-core';
 
 export { QRScannerView } from './QRScannerView';
 
@@ -72,7 +72,10 @@ let NativeModule: any = null;
 let emitter: any = null;
 try {
   NativeModule = requireNativeModule('NiyoraSync');
-  emitter = new EventEmitter<NiyoraSyncEvents>(NativeModule);
+  // In expo-modules-core 2.x (SDK 52+) the native module IS the event
+  // emitter; the legacy `new EventEmitter(module)` wrapper produces a
+  // JS-only emitter that never receives native events. Subscribe directly.
+  emitter = NativeModule;
 } catch {
   NativeModule = null;
   emitter = null;
