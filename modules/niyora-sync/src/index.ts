@@ -1,4 +1,4 @@
-import { EventEmitter, requireNativeModule } from 'expo-modules-core';
+import { requireNativeModule } from 'expo-modules-core';
 
 export { QRScannerView } from './QRScannerView';
 
@@ -102,11 +102,6 @@ export const NiyoraSync = {
 
   isPaired(): boolean {
     return NativeModule ? NativeModule.isPaired() : false;
-  },
-
-  /** Diagnostic: dump the native pairing-connection log buffer. */
-  debugLog(): string {
-    return NativeModule && NativeModule.debugLog ? NativeModule.debugLog() : '';
   },
 
   /** Report a finished session to the Mac (no-op when not paired). */

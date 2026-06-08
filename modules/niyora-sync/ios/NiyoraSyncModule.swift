@@ -78,10 +78,6 @@ public class NiyoraSyncModule: Module {
             return false
         }
 
-        Function("debugLog") { () -> String in
-            SyncDebug.shared.dump()
-        }
-
         AsyncFunction("requestNotificationPermission") { () async -> Bool in
             await withCheckedContinuation { continuation in
                 self.flow.requestNotificationPermission { granted in

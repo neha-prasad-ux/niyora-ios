@@ -35,34 +35,11 @@ export function QRPairingModal({ visible, syncState, onClose }: Props) {
   }, [isScanning]);
 
   function handleBarcode(result: { data: string }) {
-    console.log('[pair] barcode detected len=', result.data?.length,
-      'handled=', handledRef.current, 'isScanning=', isScanning,
-      'state=', syncState.state);
-    if (handledRef.current || !isScanning) {
-      console.log('[pair] SKIPPED scan (handled or not scanning)');
-      return;
-    }
+    if (handledRef.current || !isScanning) return;
     handledRef.current = true;
-    NiyoraSync.pairWithQR(result.data)
-      .then(() => {
-        console.log('[pair] pairWithQR resolved; polling isPaired()...');
-        let n = 0;
-        const iv = setInterval(() => {
-          n += 1;
-          let paired = false;
-          try { paired = NiyoraSync.isPaired(); } catch (e) { /* noop */ }
-          console.log(`[pair] poll ${n}: isPaired=${paired} uiState=${syncState.state}`);
-          if (paired || n >= 8) {
-            clearInterval(iv);
-            console.log(paired ? '[pair] >>> NATIVE PAIRED <<<' : '[pair] >>> not paired; native log follows <<<');
-            try { console.log('[pair] NATIVE LOG:\n' + NiyoraSync.debugLog()); } catch (e) { /* noop */ }
-          }
-        }, 1000);
-      })
-      .catch((e: unknown) => {
-        console.log('[pair] pairWithQR ERROR:', String((e as Error)?.message ?? e));
-        handledRef.current = false;
-      });
+    NiyoraSync.pairWithQR(result.data).catch(() => {
+      handledRef.current = false;
+    });
   }
 
   return (
@@ -79,7 +56,7 @@ export function QRPairingModal({ visible, syncState, onClose }: Props) {
               style={StyleSheet.absoluteFill}
               facing="back"
               barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-              onBarcodeScanned={handleBarcode}
+              onBarcodeScanned={isScanning ? handleBarcode : undefined}
             />
           ) : (
             <View style={styles.permission}>
