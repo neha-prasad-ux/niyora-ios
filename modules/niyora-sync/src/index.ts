@@ -1,10 +1,10 @@
 import { EventEmitter, requireNativeModule } from 'expo-modules-core';
 
-export { QRScannerView } from './QRScannerView';
-
 export type SyncState =
   | { state: 'unpaired' }
   | { state: 'connecting' }
+  /** Handshake done; show `sas` and wait for the Mac user to click Allow. */
+  | { state: 'awaiting_approval'; sas: string }
   | { state: 'paired'; serverId: string }
   | { state: 'failed'; message: string };
 
@@ -12,6 +12,9 @@ export type SyncState =
 export type SyncStatus = {
   soulTier: string;
   completedSessions: number;
+  /** Completed sessions practiced on the Mac itself (excludes ones this phone
+   * pushed there). Add to the phone's own count for a unified total. */
+  nativeCompleted: number;
 };
 
 export type MacSoulLabel = 'calm' | 'normal' | 'dense' | 'heavy';
@@ -92,9 +95,14 @@ export const NiyoraSync = {
     NativeModule?.stopDiscovery();
   },
 
-  async pairWithQR(qrString: string): Promise<void> {
-    if (!NativeModule) return;
-    return NativeModule.pairWithQR(qrString);
+  /** Connect to a discovered Mac (by its Bonjour name) to start pairing. */
+  connectToMac(name: string): void {
+    NativeModule?.connectToMac(name);
+  },
+
+  /** Cancel an in-flight pairing / disconnect. */
+  cancelPairing(): void {
+    NativeModule?.cancelPairing();
   },
 
   isPaired(): boolean {

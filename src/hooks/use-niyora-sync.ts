@@ -37,7 +37,8 @@ export function useNiyoraSync() {
     macStatus,
     macSoulState,
     isPaired: syncState.state === 'paired',
-    pairWithQR: NiyoraSync.pairWithQR,
+    connectToMac: NiyoraSync.connectToMac,
+    cancelPairing: NiyoraSync.cancelPairing,
     recordSession: NiyoraSync.recordSession,
   };
 }

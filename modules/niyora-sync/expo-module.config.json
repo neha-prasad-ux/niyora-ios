@@ -2,8 +2,7 @@
   "platforms": ["ios"],
   "ios": {
     "modules": [
-      "NiyoraSyncModule",
-      "QRScannerViewModule"
+      "NiyoraSyncModule"
     ]
   }
 }

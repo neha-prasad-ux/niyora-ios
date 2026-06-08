@@ -16,10 +16,11 @@ public class NiyoraSyncModule: Module {
             self.flow.onServerDiscovered = { [weak self] name, _ in
                 self?.sendEvent("onServerDiscovered", ["name": name])
             }
-            self.flow.onStatusUpdate = { [weak self] soulTier, completedSessions in
+            self.flow.onStatusUpdate = { [weak self] soulTier, completedSessions, nativeCompleted in
                 self?.sendEvent("onStatusUpdate", [
                     "soulTier": soulTier,
                     "completedSessions": completedSessions,
+                    "nativeCompleted": nativeCompleted,
                 ])
             }
             self.flow.onSoulStateUpdate = { [weak self] label, index, source, ts in
@@ -52,8 +53,12 @@ public class NiyoraSyncModule: Module {
             self.flow.stopDiscovery()
         }
 
-        AsyncFunction("pairWithQR") { (qrString: String) throws in
-            try self.flow.initiateFromQR(qrString)
+        Function("connectToMac") { (name: String) in
+            self.flow.connectToMac(named: name)
+        }
+
+        Function("cancelPairing") {
+            self.flow.cancelPairing()
         }
 
         Function("recordSession") {
@@ -73,7 +78,7 @@ public class NiyoraSyncModule: Module {
             )
         }
 
-        Function("isPaired") -> Bool {
+        Function("isPaired") { () -> Bool in
             if case .paired = self.flow.state { return true }
             return false
         }
@@ -93,24 +98,12 @@ public class NiyoraSyncModule: Module {
             sendEvent("onStateChanged", ["state": "unpaired"])
         case .connecting:
             sendEvent("onStateChanged", ["state": "connecting"])
+        case .awaitingApproval(let sas):
+            sendEvent("onStateChanged", ["state": "awaiting_approval", "sas": sas])
         case .paired(let id):
             sendEvent("onStateChanged", ["state": "paired", "serverId": id])
         case .failed(let msg):
             sendEvent("onStateChanged", ["state": "failed", "message": msg])
-        }
-    }
-}
-
-public class QRScannerViewModule: Module {
-    public func definition() -> ModuleDefinition {
-        Name("QRScannerView")
-
-        View(QRScannerView.self) {
-            Events("onScan", "onError")
-
-            Prop("active") { (view: QRScannerView, active: Bool) in
-                active ? view.start() : view.stop()
-            }
         }
     }
 }

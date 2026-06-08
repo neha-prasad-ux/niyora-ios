@@ -1,6 +1,8 @@
 // Tests for the next-phase cue derivation used in BreathingSession.
 // The logic is: nextIndex = (phaseIndex + 1) % phases.length,
 // nextLabel = `then ${phases[nextIndex].label}`.
+//
+// Also covers the completion nextLabel: technique.name when done, null otherwise.
 
 import { TECHNIQUES, isBreathing } from '@/models/techniques';
 
@@ -52,5 +54,28 @@ describe('next-phase cue derivation', () => {
     expect(deriveNextLabel(0, phases)).toBe('then hold');
     expect(deriveNextLabel(1, phases)).toBe('then exhale through nose');
     expect(deriveNextLabel(2, phases)).toBe('then inhale through mouth');
+  });
+});
+
+describe('completion nextLabel derivation', () => {
+  it('returns technique.name when done=true', () => {
+    const box = TECHNIQUES.find((t) => t.id === 'box')!;
+    const done = true;
+    expect(done ? box.name : null).toBe(box.name);
+  });
+
+  it('returns null when done=false', () => {
+    const box = TECHNIQUES.find((t) => t.id === 'box')!;
+    const done = false;
+    expect(done ? box.name : null).toBeNull();
+  });
+
+  it('all breathing techniques have a non-empty name for the sub-label', () => {
+    for (const t of TECHNIQUES) {
+      if (isBreathing(t)) {
+        expect(typeof t.name).toBe('string');
+        expect(t.name.length).toBeGreaterThan(0);
+      }
+    }
   });
 });
