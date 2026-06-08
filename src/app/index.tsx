@@ -1,8 +1,12 @@
 // Home screen. The pre-session info screen described in DESIGN.md.
-// Anatomy: header, orb, technique name + subtitle, "Try a different one",
-// Begin button anchored to the bottom safe area.
+//
+// Two states, gated on whether the user has ever completed a practice:
+// - First time (0 sessions): orb + Box Breath + Begin. One tap, no choices.
+// - Returning (>=1 session): orb + a "suggest based on how I'm feeling" card
+//   (primary Begin opens the feeling flow) + a quiet "Choose from the list".
+//   No standalone default technique, so there is exactly one Begin on screen.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import {
@@ -27,34 +31,48 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import type { Recommendation } from '@/models/recommend';
 import {
-  getTechnique,
   isBreathing,
   isMindfulness,
   TECHNIQUES,
   type Technique,
 } from '@/models/techniques';
+import { getSessionCount } from '@/store/session-history';
 
 export default function HomeScreen() {
   // v1: all techniques are selectable (no lock gating -- Wave 4 later).
-  // Grouped breathing + mindfulness, both playable.
   const breathing = useMemo(() => TECHNIQUES.filter(isBreathing), []);
   const mindful = useMemo(() => TECHNIQUES.filter(isMindfulness), []);
-  const [selectedId, setSelectedId] = useState(breathing[0].id);
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [recommendVisible, setRecommendVisible] = useState(false);
   const { height } = useWindowDimensions();
 
-  const current = getTechnique(selectedId) ?? breathing[0];
+  // The first-run default. Box Breath is the calm starting point.
+  const firstRunTechnique = breathing[0];
+
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [recommendVisible, setRecommendVisible] = useState(false);
+
+  // undefined while we read history; false = first-timer, true = returning.
+  const [practiced, setPracticed] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    getSessionCount()
+      .then((n) => alive && setPracticed(n > 0))
+      .catch(() => alive && setPracticed(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const handleTryDifferent = useCallback(() => {
     Haptics.selectionAsync();
     setPickerVisible(true);
   }, []);
 
+  // Choosing from the list starts that practice immediately -- there is no
+  // separate Begin to confirm it on the returning-user screen.
   const handlePickerSelect = useCallback((id: string) => {
     Haptics.selectionAsync();
-    setSelectedId(id);
     setPickerVisible(false);
+    router.push({ pathname: '/session', params: { id } });
   }, []);
 
   const handlePickerClose = useCallback(() => {
@@ -62,8 +80,8 @@ export default function HomeScreen() {
   }, []);
 
   const handleBegin = useCallback(() => {
-    router.push({ pathname: '/session', params: { id: current.id } });
-  }, [current.id]);
+    router.push({ pathname: '/session', params: { id: firstRunTechnique.id } });
+  }, [firstRunTechnique.id]);
 
   const handleRecommendOpen = useCallback(() => {
     Haptics.selectionAsync();
@@ -95,16 +113,8 @@ export default function HomeScreen() {
       onPress={() => handlePickerSelect(t.id)}
       accessibilityRole="button"
       accessibilityLabel={`${t.name}. ${t.subtitle}`}
-      accessibilityState={{ selected: t.id === current.id }}
     >
-      <Text
-        style={[
-          styles.pickerRowName,
-          t.id === current.id && styles.pickerRowNameActive,
-        ]}
-      >
-        {t.name}
-      </Text>
+      <Text style={styles.pickerRowName}>{t.name}</Text>
       <Text style={styles.pickerRowSub}>{t.subtitle}</Text>
     </Pressable>
   );
@@ -113,65 +123,75 @@ export default function HomeScreen() {
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <Header
-          onPressProfile={handleProfile}
-        />
+        <Header onPressProfile={handleProfile} />
 
-        <View style={styles.orbWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
+        <View
+          style={styles.orbWrap}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        >
           <Orb size={220} />
         </View>
 
-        <View
-          style={styles.techniqueWrap}
-          accessible={true}
-          accessibilityLabel={`${current.name}. ${current.subtitle}. ${current.durationSeconds} seconds.`}
-        >
-          <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
-            {current.name}
-          </Text>
-          <Text
-            style={[
-              typography.subtitle,
-              { color: colors.textSubtitle, marginTop: 6, textAlign: 'center' },
-            ]}
-          >
-            {current.subtitle} {'·'} {current.durationSeconds}s
-          </Text>
-        </View>
+        {/* First time: a single clear path -- Box Breath + Begin. */}
+        {practiced === false && (
+          <>
+            <View
+              style={styles.techniqueWrap}
+              accessible={true}
+              accessibilityLabel={`${firstRunTechnique.name}. ${firstRunTechnique.subtitle}. ${firstRunTechnique.durationSeconds} seconds.`}
+            >
+              <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
+                {firstRunTechnique.name}
+              </Text>
+              <Text
+                style={[
+                  typography.subtitle,
+                  { color: colors.textSubtitle, marginTop: 6, textAlign: 'center' },
+                ]}
+              >
+                {firstRunTechnique.subtitle} {'·'} {firstRunTechnique.durationSeconds}s
+              </Text>
+            </View>
 
-        <View style={styles.recommendWrap}>
-          <Pressable
-            onPress={handleRecommendOpen}
-            style={styles.recommendCard}
-            accessibilityRole="button"
-            accessibilityLabel="Recommend a practice based on how I feel"
-          >
-            <SymbolView
-              name="sparkles"
-              tintColor={colors.textSubtitle}
-              size={15}
-              weight="medium"
-            />
-            <Text style={styles.recommendText}>Recommend me based on how I feel</Text>
-          </Pressable>
-        </View>
+            <View style={styles.beginWrap}>
+              <BeginButton onPress={handleBegin} />
+            </View>
+          </>
+        )}
 
-        <View style={styles.beginWrap}>
-          <BeginButton onPress={handleBegin} />
-        </View>
+        {/* Returning: lead with the tailored path; browsing is the quiet option. */}
+        {practiced === true && (
+          <>
+            <View style={styles.recommendCard}>
+              <View style={styles.recommendCardHead}>
+                <SymbolView
+                  name="sparkles"
+                  tintColor={colors.textSubtitle}
+                  size={16}
+                  weight="medium"
+                />
+                <Text style={styles.recommendCardTitle}>
+                  Suggest a calming exercise based on how I&apos;m feeling
+                </Text>
+              </View>
+              <BeginButton onPress={handleRecommendOpen} />
+            </View>
 
-        <View style={styles.tryWrap}>
-          <Pressable
-            onPress={handleTryDifferent}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Choose a practice"
-          >
-            <Text style={[typography.tertiaryAction, { color: colors.textTertiary }]}>
-              Try a different one
-            </Text>
-          </Pressable>
-        </View>
+            <View style={styles.chooseWrap}>
+              <Pressable
+                onPress={handleTryDifferent}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel="Choose from the list"
+              >
+                <Text style={[typography.tertiaryAction, { color: colors.textTertiary }]}>
+                  Choose from the list
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </SafeAreaView>
 
       <Modal
@@ -259,34 +279,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
   },
-  recommendWrap: {
-    alignItems: 'center',
-    marginTop: 18,
-  },
-  recommendCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  recommendText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    color: colors.textSubtitle,
-    letterSpacing: 0.2,
-  },
   beginWrap: {
     alignItems: 'center',
     marginTop: 28,
   },
-  tryWrap: {
+
+  // returning-user recommend card
+  recommendCard: {
     alignItems: 'center',
-    marginTop: 16,
+    gap: 18,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  recommendCardHead: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  recommendCardTitle: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 17,
+    lineHeight: 24,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  chooseWrap: {
+    alignItems: 'center',
+    marginTop: 18,
     marginBottom: 12,
   },
 
@@ -341,10 +364,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
-  },
-  pickerRowNameActive: {
-    color: colors.textPrimary,
-    fontFamily: 'Poppins-Medium',
   },
   pickerRowSub: {
     fontFamily: 'Poppins-Light',
