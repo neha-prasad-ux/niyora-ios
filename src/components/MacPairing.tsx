@@ -1,7 +1,9 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
+import { Card } from '@/components/Card';
 import { colors } from '@/theme/colors';
+import { radius, spacing } from '@/theme/spacing';
 import type { SyncState } from '@/hooks/use-niyora-sync';
 
 type Props = {
@@ -30,7 +32,7 @@ export function MacPairing({
   return (
     <>
       {discoveredServers.length > 0 && (
-        <View style={styles.card}>
+        <Card style={styles.card}>
           <Text style={styles.title}>Connect to your Mac</Text>
           {discoveredServers.map((name) => (
             <View key={name} style={styles.row}>
@@ -51,7 +53,7 @@ export function MacPairing({
               </Pressable>
             </View>
           ))}
-        </View>
+        </Card>
       )}
 
       <Modal
@@ -103,13 +105,10 @@ export function MacPairing({
 }
 
 const styles = StyleSheet.create({
+  // Surface (bg, padding, radius, border, bottom margin) comes from <Card>;
+  // this only adds the inner gap between the title and the Mac rows.
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    padding: 16,
-    gap: 10,
+    gap: spacing.md,
   },
   title: {
     color: colors.textPrimary,
@@ -135,7 +134,7 @@ const styles = StyleSheet.create({
   connectBtn: {
     paddingVertical: 6,
     paddingHorizontal: 16,
-    borderRadius: 14,
+    borderRadius: radius.control,
     backgroundColor: colors.beginStart,
     borderWidth: 1,
     borderColor: colors.beginBorder,
@@ -156,7 +155,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: '#141220',
-    borderRadius: 18,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     padding: 24,
@@ -187,7 +186,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingVertical: 7,
     paddingHorizontal: 22,
-    borderRadius: 14,
+    borderRadius: radius.control,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.18)',
   },

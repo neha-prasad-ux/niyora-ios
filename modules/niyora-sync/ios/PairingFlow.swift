@@ -26,7 +26,7 @@ final class PairingFlow: MacConnectionDelegate {
 
     var onStateChange:      ((PairingState) -> Void)?
     var onServerDiscovered: ((String, NWEndpoint) -> Void)?
-    var onStatusUpdate:     ((String, Int) -> Void)?
+    var onStatusUpdate:     ((String, Int, Int) -> Void)?   // (soulTier, completedSessions, nativeCompleted)
     var onSoulStateUpdate:  ((String, Int, String, String) -> Void)?
     var onReminderState:    ((String, Bool, String, String) -> Void)?
 
@@ -136,8 +136,8 @@ final class PairingFlow: MacConnectionDelegate {
             // Only surface a failure for a user-initiated pair; a rejected
             // background reconnect just means this Mac is not ours.
             transition(isFreshPairing ? .failed(reason) : .unpaired)
-        case let .statusUpdate(soulTier, completedSessions):
-            onStatusUpdate?(soulTier, completedSessions)
+        case let .statusUpdate(soulTier, completedSessions, nativeCompleted):
+            onStatusUpdate?(soulTier, completedSessions, nativeCompleted)
         case let .soulStateUpdate(label, index, source, ts):
             onSoulStateUpdate?(label, index, source, ts)
         case let .reminderState(fireAt, macActive, title, body):

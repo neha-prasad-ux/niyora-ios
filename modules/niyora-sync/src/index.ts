@@ -12,6 +12,9 @@ export type SyncState =
 export type SyncStatus = {
   soulTier: string;
   completedSessions: number;
+  /** Completed sessions practiced on the Mac itself (excludes ones this phone
+   * pushed there). Add to the phone's own count for a unified total. */
+  nativeCompleted: number;
 };
 
 export type MacSoulLabel = 'calm' | 'normal' | 'dense' | 'heavy';

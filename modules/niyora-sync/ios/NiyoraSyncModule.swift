@@ -16,10 +16,11 @@ public class NiyoraSyncModule: Module {
             self.flow.onServerDiscovered = { [weak self] name, _ in
                 self?.sendEvent("onServerDiscovered", ["name": name])
             }
-            self.flow.onStatusUpdate = { [weak self] soulTier, completedSessions in
+            self.flow.onStatusUpdate = { [weak self] soulTier, completedSessions, nativeCompleted in
                 self?.sendEvent("onStatusUpdate", [
                     "soulTier": soulTier,
                     "completedSessions": completedSessions,
+                    "nativeCompleted": nativeCompleted,
                 ])
             }
             self.flow.onSoulStateUpdate = { [weak self] label, index, source, ts in
