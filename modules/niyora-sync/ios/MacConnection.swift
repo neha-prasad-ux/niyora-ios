@@ -55,15 +55,10 @@ final class MacConnection {
     }
 
     func connect(to endpoint: NWEndpoint) {
-        let tlsOptions = NWProtocolTLS.Options()
-        // Accept the peer's self-signed cert; the HMAC auth handshake proves the
-        // peer holds the pairing secret. TLS still encrypts against eavesdroppers.
-        sec_protocol_options_set_verify_block(
-            tlsOptions.securityProtocolOptions,
-            { _, _, completion in completion(true) },
-            queue
-        )
-        let params = NWParameters(tls: tlsOptions, tcp: NWProtocolTCP.Options())
+        // Phase 0: plain TCP so the connection plumbing can be verified e2e before
+        // the Noise crypto layer is added in Phase 1. HMAC auth still runs over
+        // the plaintext channel.
+        let params = NWParameters.tcp
         params.includePeerToPeer = true
         let c = NWConnection(to: endpoint, using: params)
         c.stateUpdateHandler = { [weak self] state in
