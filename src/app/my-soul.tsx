@@ -21,7 +21,7 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
-import { getSessionCount, getSessionsThisWeek } from '@/store/session-history';
+import { getSessionCount, getSessionsThisWeek, getSessionsToday, getCurrentStreak } from '@/store/session-history';
 import {
   getCheckInRecords,
   todayCheckIn,
@@ -75,6 +75,8 @@ export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [sessionsThisWeek, setSessionsThisWeek] = useState(0);
+  const [sessionsToday, setSessionsToday] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
@@ -96,6 +98,12 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getSessionsThisWeek().then((n) => {
         if (active) setSessionsThisWeek(n);
+      }).catch(() => {});
+      getSessionsToday().then((n) => {
+        if (active) setSessionsToday(n);
+      }).catch(() => {});
+      getCurrentStreak().then((n) => {
+        if (active) setCurrentStreak(n);
       }).catch(() => {});
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
@@ -196,6 +204,8 @@ export default function MySoulScreen() {
             accent={accent}
             sessions={combinedSessions}
             sessionsThisWeek={sessionsThisWeek}
+            sessionsToday={sessionsToday}
+            currentStreak={currentStreak}
             paired={isPaired}
             phoneSessions={sessionsCompleted}
             macSessions={macSessions}
@@ -355,6 +365,8 @@ function LevelCard({
   accent,
   sessions,
   sessionsThisWeek,
+  sessionsToday,
+  currentStreak,
   paired,
   phoneSessions,
   macSessions,
@@ -366,6 +378,8 @@ function LevelCard({
   accent: string;
   sessions: number;
   sessionsThisWeek: number;
+  sessionsToday: number;
+  currentStreak: number;
   paired: boolean;
   phoneSessions: number;
   macSessions: number;
@@ -385,7 +399,13 @@ function LevelCard({
         <Text style={styles.sessionsLabel}>sessions</Text>
       </View>
       <TierTrack sessions={sessions} accent={accent} nextThreshold={nextThreshold} />
-      <Text style={styles.weekStat}>{sessionsThisWeek} this week</Text>
+      <View style={styles.miniStatsRow}>
+        <Text style={styles.miniStat}>{sessionsToday} today</Text>
+        <Text style={styles.miniStat}>{sessionsThisWeek} this week</Text>
+        <Text style={styles.miniStat}>
+          {currentStreak} {currentStreak === 1 ? 'day' : 'days'} streak
+        </Text>
+      </View>
       {paired && (
         <View style={styles.breakdownRow}>
           <View style={styles.breakdownBox}>
@@ -807,6 +827,17 @@ const styles = StyleSheet.create({
   },
   weekStat: {
     marginTop: 12,
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+  },
+  miniStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 12,
+  },
+  miniStat: {
     fontSize: 11,
     fontWeight: '300',
     color: 'rgba(255,255,255,0.4)',
