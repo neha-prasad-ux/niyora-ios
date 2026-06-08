@@ -112,6 +112,10 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
 
+  const nextLabel = cycle.done
+    ? null
+    : `then ${technique.phases[(cycle.phaseIndex + 1) % technique.phases.length].label}`;
+
   function exitSession() {
     Haptics.selectionAsync();
     fadeOut();
@@ -226,7 +230,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} nextLabel={cycle.done ? technique.name : null} />
+                <PhaseLabel label={labelText} nextLabel={nextLabel} />
                 {!cycle.done && (
                   <Text style={styles.instructions}>{technique.instructions}</Text>
                 )}
