@@ -32,6 +32,7 @@ import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-di
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
+import { radius, spacing } from '@/theme/spacing';
 
 const SOUL_FRESHNESS_MS = 90 * 60 * 1000;
 
@@ -600,11 +601,11 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 16,
-    padding: 22,
+    borderRadius: radius.card,
+    padding: spacing.xl,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 14,
+    marginBottom: spacing.lg,
     overflow: 'hidden',
   },
   cardTitle: {
