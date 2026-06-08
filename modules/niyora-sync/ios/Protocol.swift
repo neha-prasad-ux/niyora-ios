@@ -66,7 +66,7 @@ enum ServerMessage {
     case hello(serverId: String, serverName: String)
     case authed
     case authFailed(reason: String)
-    case statusUpdate(soulTier: String, completedSessions: Int)
+    case statusUpdate(soulTier: String, completedSessions: Int, nativeCompleted: Int)
     case requestMeasurement(sessionId: String, phase: String, techniqueName: String)
     /// Mac situational day reading; `ts` is ISO 8601. Schema version 1.
     case soulStateUpdate(label: String, index: Int, source: String, ts: String)
@@ -92,7 +92,11 @@ enum ServerMessage {
         case "status_update":
             return .statusUpdate(
                 soulTier: obj["soul_tier"] as? String ?? "",
-                completedSessions: obj["completed_sessions"] as? Int ?? 0
+                completedSessions: obj["completed_sessions"] as? Int ?? 0,
+                // Mac-native count · falls back to the full count for older Macs
+                // that don't send the native-only field yet.
+                nativeCompleted: obj["native_completed_sessions"] as? Int
+                    ?? obj["completed_sessions"] as? Int ?? 0
             )
         case "request_measurement":
             return .requestMeasurement(
@@ -102,7 +106,8 @@ enum ServerMessage {
             )
         case "soul_state":
             return .soulStateUpdate(
-                label: obj["label"] as? String ?? "normal",
+                // The Mac sends `day_label` ("calm"/"normal"/"dense"/"heavy").
+                label: obj["day_label"] as? String ?? "normal",
                 index: obj["index"] as? Int ?? 50,
                 source: obj["source"] as? String ?? "mac",
                 ts: obj["ts"] as? String ?? ""

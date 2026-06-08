@@ -81,6 +81,7 @@ export default function MySoulScreen() {
   const {
     isPaired,
     macSoulState,
+    macStatus,
     syncState,
     discoveredServers,
     connectToMac,
@@ -118,9 +119,16 @@ export default function MySoulScreen() {
     setMacPromoDismissed().catch(() => {});
   }
 
-  const tier = currentTier(sessionsCompleted);
+  // Unified soul: when paired, add the Mac's own (native) completed sessions
+  // to the phone's. The Mac reports a native-only count, so this sum never
+  // double-counts sessions the phone already pushed there. Tier + track
+  // reflect the combined total; the breakdown shows each device's share.
+  const macSessions = isPaired ? macStatus?.nativeCompleted ?? 0 : 0;
+  const combinedSessions = sessionsCompleted + macSessions;
+
+  const tier = currentTier(combinedSessions);
   const next = nextTier(tier);
-  const toNext = sessionsToNext(sessionsCompleted);
+  const toNext = sessionsToNext(combinedSessions);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
   const todayRecord = todayCheckIn(checkInRecords);
   const macSoul = effectiveSoul(isPaired, macSoulState);
@@ -186,8 +194,11 @@ export default function MySoulScreen() {
             nextThreshold={next?.threshold ?? null}
             toNext={toNext}
             accent={accent}
-            sessions={sessionsCompleted}
+            sessions={combinedSessions}
             sessionsThisWeek={sessionsThisWeek}
+            paired={isPaired}
+            phoneSessions={sessionsCompleted}
+            macSessions={macSessions}
           />
 
           {!isPaired && (
@@ -344,6 +355,9 @@ function LevelCard({
   accent,
   sessions,
   sessionsThisWeek,
+  paired,
+  phoneSessions,
+  macSessions,
 }: {
   tierName: string;
   nextName: string | null;
@@ -352,6 +366,9 @@ function LevelCard({
   accent: string;
   sessions: number;
   sessionsThisWeek: number;
+  paired: boolean;
+  phoneSessions: number;
+  macSessions: number;
 }) {
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
@@ -369,6 +386,18 @@ function LevelCard({
       </View>
       <TierTrack sessions={sessions} accent={accent} nextThreshold={nextThreshold} />
       <Text style={styles.weekStat}>{sessionsThisWeek} this week</Text>
+      {paired && (
+        <View style={styles.breakdownRow}>
+          <View style={styles.breakdownBox}>
+            <Text style={styles.breakdownNum}>{phoneSessions}</Text>
+            <Text style={styles.breakdownLabel}>This iPhone</Text>
+          </View>
+          <View style={styles.breakdownBox}>
+            <Text style={styles.breakdownNum}>{macSessions}</Text>
+            <Text style={styles.breakdownLabel}>Your Mac</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -612,6 +641,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: colors.textPrimary,
+  },
+  // Unified-soul breakdown: this iPhone vs your Mac, shown when paired.
+  breakdownRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  breakdownBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  breakdownNum: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  breakdownLabel: {
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 2,
   },
   cardCopy: {
     fontSize: 12,
