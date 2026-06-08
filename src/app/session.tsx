@@ -364,13 +364,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bottomBlock: {
+    // Sits below the centre bloom rather than over it, so the cue stays legible
+    // while particles converge and disperse at the middle of the screen.
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: '62%',
     left: 24,
     right: 24,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   instructions: {
     marginTop: 14,

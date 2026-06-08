@@ -825,13 +825,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '500',
   },
-  weekStat: {
-    marginTop: 12,
-    fontSize: 11,
-    fontWeight: '300',
-    color: 'rgba(255,255,255,0.4)',
-    textAlign: 'center',
-  },
   miniStatsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
