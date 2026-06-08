@@ -1,27 +1,20 @@
 import Foundation
 import Network
-import CryptoKit
 import UIKit
 
 enum PairingState {
     case unpaired
     case connecting
+    /// Handshake done; the SAS is showing and we are waiting for the Mac user
+    /// to click Allow after confirming the number matches.
+    case awaitingApproval(sas: String)
     case paired(serverId: String)
     case failed(String)
 }
 
-enum PairingError: LocalizedError {
-    case invalidQR
-    var errorDescription: String? {
-        switch self {
-        case .invalidQR: return "QR code is not a valid Niyora pairing code."
-        }
-    }
-}
-
-/// Drives the handshake against the Mac's `companion_sync`:
-///   identify -> hello -> challenge -> auth(HMAC) -> authed,
-/// then forwards `status_update` and sends `session_recorded`.
+/// Drives the tap-and-approve pairing against the Mac's `companion_sync`:
+/// Noise XX handshake -> identify -> (SAS shown, user Allows on Mac) -> authed.
+/// A known Mac (its static key already stored) reconnects silently.
 final class PairingFlow: MacConnectionDelegate {
     private let mac         = MacConnection()
     private let keychain    = KeychainStore()
@@ -33,19 +26,22 @@ final class PairingFlow: MacConnectionDelegate {
 
     var onStateChange:      ((PairingState) -> Void)?
     var onServerDiscovered: ((String, NWEndpoint) -> Void)?
-    var onStatusUpdate:     ((String, Int) -> Void)?   // (soulTier, completedSessions)
-    var onSoulStateUpdate:  ((String, Int, String, String) -> Void)?  // (label, index, source, ts)
-    var onReminderState:    ((String, Bool, String, String) -> Void)?  // (fireAt, macActive, title, body)
+    var onStatusUpdate:     ((String, Int, Int) -> Void)?   // (soulTier, completedSessions, nativeCompleted)
+    var onSoulStateUpdate:  ((String, Int, String, String) -> Void)?
+    var onReminderState:    ((String, Bool, String, String) -> Void)?
 
-    // Handshake context: set when a connection is initiated, used when the
-    // server's challenge arrives.
-    private var pendingSecret: Data?
-    private var pendingPairingId: String?   // present only on a fresh QR pair
-    private var pendingServerId: String?
+    // Discovered Macs by Bonjour name, so a JS tap can connect to one.
+    private var endpoints: [String: NWEndpoint] = [:]
+
+    // Handshake context for the in-flight connection.
     private var isFreshPairing = false
+    private var pendingRemoteStatic: Data?
+    private var pendingServerId: String?
+    private var pendingServerName: String?
 
     init() {
         mac.delegate = self
+        mac.staticPrivate = loadOrCreateIdentity()
         notifCoord.sendToMac = { [weak self] msg in self?.mac.send(msg) }
     }
 
@@ -54,20 +50,28 @@ final class PairingFlow: MacConnectionDelegate {
     func startDiscovery() { mac.startBrowsing() }
     func stopDiscovery()  { mac.stopBrowsing() }
 
-    // MARK: QR pairing
+    // MARK: Connect (user tapped a discovered Mac)
 
-    func initiateFromQR(_ qrString: String) throws {
-        guard let qr = QrPayload.decode(qrString),
-              let secret = Data(hexString: qr.secretHex) else {
-            throw PairingError.invalidQR
+    func connectToMac(named name: String) {
+        guard let endpoint = endpoints[name] else {
+            transition(.failed("That Mac is no longer nearby."))
+            return
         }
-        pendingSecret    = secret
-        pendingPairingId = qr.pairingId
-        pendingServerId  = qr.serverId
-        isFreshPairing   = true
+        beginConnect(to: endpoint, fresh: true)
+    }
+
+    func cancelPairing() {
+        mac.disconnect()
+        if case .paired = state {} else { transition(.unpaired) }
+    }
+
+    private func beginConnect(to endpoint: NWEndpoint, fresh: Bool) {
+        isFreshPairing      = fresh
+        pendingRemoteStatic = nil
+        pendingServerId     = nil
+        pendingServerName   = nil
         transition(.connecting)
-        mac.connect(host: qr.host, port: qr.port)
-        // Identify is sent once the connection is .ready (didChangeState).
+        mac.connect(to: endpoint)
     }
 
     // MARK: Send a completed session to the Mac
@@ -81,8 +85,6 @@ final class PairingFlow: MacConnectionDelegate {
         recordedAt: String
     ) {
         guard case .paired = state else { return }
-        // A completed session resets the shared reminder clock. Cancel the pending phone
-        // notification immediately; the Mac will send updated reminder_state after ack.
         if completed { notifCoord.didCompleteSession() }
         mac.send(.sessionRecorded(
             techniqueName: techniqueName,
@@ -97,31 +99,45 @@ final class PairingFlow: MacConnectionDelegate {
     // MARK: MacConnectionDelegate
 
     func connection(_ conn: MacConnection, didDiscover name: String, endpoint: NWEndpoint) {
+        endpoints[name] = endpoint
         onServerDiscovered?(name, endpoint)
-        // Auto-reconnect to a known server (no QR) when it reappears on the wifi.
-        guard serverStore.contains(id: name), !isConnectingOrPaired() else { return }
-        pendingSecret    = keychain.get("niyora.sync.\(name)")
-        pendingPairingId = nil
-        pendingServerId  = name
-        isFreshPairing   = false
-        guard pendingSecret != nil else { return }
-        transition(.connecting)
-        mac.connect(to: endpoint)
+        // Silently reconnect a phone that has paired before: dial the Mac, and
+        // if it recognises our static key it authes us with no prompt. If it
+        // does not know us, it rejects and we quietly fall back.
+        guard !serverStore.all().isEmpty, !isConnectingOrPaired() else { return }
+        beginConnect(to: endpoint, fresh: false)
+    }
+
+    func connection(_ conn: MacConnection, didCompleteHandshake sas: String, remoteStatic: Data) {
+        pendingRemoteStatic = remoteStatic
+        mac.send(.identify(clientId: mac.deviceId, clientName: UIDevice.current.name))
+        // Fresh pair: show the number while the Mac user decides. Reconnect:
+        // stay quietly connecting; no number, no prompt.
+        if isFreshPairing { transition(.awaitingApproval(sas: sas)) }
     }
 
     func connection(_ conn: MacConnection, didReceive message: ServerMessage) {
         switch message {
-        case let .hello(serverId, _):
-            // Trust the server_id the Mac reports for keychain keying.
-            if pendingServerId == nil { pendingServerId = serverId }
-        case let .challenge(nonceHex):
-            sendAuth(nonceHex: nonceHex)
+        case let .hello(serverId, serverName):
+            pendingServerId   = serverId
+            pendingServerName = serverName
+            // On reconnect, defend against a rogue Mac reusing this serverId:
+            // the static key must match the one we stored when we paired.
+            if !isFreshPairing,
+               let stored = keychain.get(macKey(serverId)),
+               stored != pendingRemoteStatic {
+                mac.disconnect()
+                transition(.unpaired)
+            }
         case .authed:
             handleAuthed()
         case let .authFailed(reason):
-            transition(.failed(reason))
-        case let .statusUpdate(soulTier, completedSessions):
-            onStatusUpdate?(soulTier, completedSessions)
+            mac.disconnect()
+            // Only surface a failure for a user-initiated pair; a rejected
+            // background reconnect just means this Mac is not ours.
+            transition(isFreshPairing ? .failed(reason) : .unpaired)
+        case let .statusUpdate(soulTier, completedSessions, nativeCompleted):
+            onStatusUpdate?(soulTier, completedSessions, nativeCompleted)
         case let .soulStateUpdate(label, index, source, ts):
             onSoulStateUpdate?(label, index, source, ts)
         case let .reminderState(fireAt, macActive, title, body):
@@ -134,51 +150,34 @@ final class PairingFlow: MacConnectionDelegate {
 
     func connection(_ conn: MacConnection, didChangeState nwState: NWConnection.State) {
         switch nwState {
-        case .ready:
-            sendIdentify()
         case .failed(let err):
             notifCoord.stop()
-            transition(.failed(err.localizedDescription))
+            transition(isFreshPairing ? .failed(err.localizedDescription) : .unpaired)
         case .cancelled:
             if case .paired = state { /* keep paired across reconnect */ } else {
                 notifCoord.stop()
-                transition(.unpaired)
             }
         default:
             break
         }
     }
 
-    // MARK: Handshake steps
-
-    private func sendIdentify() {
-        mac.send(.identify(
-            clientId: mac.deviceId,
-            clientName: UIDevice.current.name,
-            pairingId: isFreshPairing ? pendingPairingId : nil
-        ))
-    }
-
-    private func sendAuth(nonceHex: String) {
-        guard let secret = pendingSecret,
-              let nonce  = Data(hexString: nonceHex) else {
-            transition(.failed("Missing pairing secret."))
-            return
-        }
-        let key  = SymmetricKey(data: secret)
-        let code = HMAC<SHA256>.authenticationCode(for: nonce, using: key)
-        mac.send(.auth(hmacHex: Data(code).hexString))
-    }
+    // MARK: Handshake completion
 
     private func handleAuthed() {
         guard let serverId = pendingServerId else { return }
-        if isFreshPairing, let secret = pendingSecret {
-            keychain.set("niyora.sync.\(serverId)", value: secret)
-            serverStore.upsert(KnownServer(id: serverId, name: serverId, lastSeenAt: Date()))
+        if isFreshPairing, let rs = pendingRemoteStatic {
+            keychain.set(macKey(serverId), value: rs)
+            serverStore.upsert(KnownServer(
+                id: serverId,
+                name: pendingServerName ?? serverId,
+                lastSeenAt: Date()
+            ))
         }
         isFreshPairing = false
         notifCoord.start()
         transition(.paired(serverId: serverId))
+        mac.send(.phoneActive(active: true, ts: ISO8601DateFormatter().string(from: Date())))
     }
 
     func requestNotificationPermission(_ completion: @escaping (Bool) -> Void) {
@@ -187,9 +186,22 @@ final class PairingFlow: MacConnectionDelegate {
 
     // MARK: Helpers
 
+    /// This phone's long-term Noise static private key. Created once and kept
+    /// so the Mac keeps recognising us across launches.
+    private func loadOrCreateIdentity() -> Data {
+        if let existing = keychain.get("niyora.sync.identity") { return existing }
+        let (priv, _) = Noise.generateStaticKeypair()
+        keychain.set("niyora.sync.identity", value: priv)
+        return priv
+    }
+
+    private func macKey(_ serverId: String) -> String {
+        "niyora.sync.macpub.\(serverId)"
+    }
+
     private func isConnectingOrPaired() -> Bool {
         switch state {
-        case .connecting, .paired: return true
+        case .connecting, .awaitingApproval, .paired: return true
         default: return false
         }
     }

@@ -1,22 +1,27 @@
 /**
- * BreathingParticles
+ * BreathingParticles (Skia)
  *
- * 60-particle field that runs at 60fps via react-native-reanimated's
- * useFrameCallback (UI thread worklet).  Physics are a verbatim port of the
- * Mac BreathingSession spring-damped integrator:
+ * A GPU-rendered particle field that mirrors the Mac BreathingSession canvas.
  *
- *   vx = vx * 0.92 + fx * dt * 8    (friction + force-gain)
- *   speed capped at 1.8 px/frame
+ * The previous implementation rendered 120 native <Animated.View>s (a core + an
+ * aura per particle), each with a live OS shadow and per-frame width/height
+ * changes. On a phone that meant 120 shadow recomputes + 120 relayouts every
+ * frame, fighting a 50ms React state treadmill for the same thread — the
+ * "glitch". The Mac is smooth because it draws everything into ONE canvas per
+ * frame with zero React work.
  *
- * Noise drift uses a smooth 2D value noise (src/lib/noise.ts) for organic
- * inter-phase motion; each particle samples a unique offset so they move
- * independently.
+ * This version matches the Mac's model: one Skia <Canvas> drawing all particles
+ * in a single <Atlas> call on the render thread. Each particle is one sprite —
+ * a soft radial "glow dot" baked once (src/components/.. via useTexture) — drawn
+ * with a per-particle transform (position + size) and per-particle colour
+ * (phase hue + its own opacity). No views, no shadows, no relayout.
  *
- * All 12 motion variants from the Mac are implemented in src/lib/motions.ts
- * and selected by the `motion` prop.
+ * Physics are unchanged: the same spring-damped integrator in src/lib/motions.ts
+ * runs on the UI thread via useFrameCallback and writes the particle array into a
+ * shared value; the Skia transform/colour buffers read straight from it.
  */
 
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
   AppState,
@@ -26,12 +31,19 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import Animated, {
-  SharedValue,
-  useAnimatedStyle,
-  useFrameCallback,
-  useSharedValue,
-} from 'react-native-reanimated';
+import {
+  Atlas,
+  Canvas,
+  Circle,
+  Group,
+  RadialGradient,
+  rect,
+  useColorBuffer,
+  useRSXformBuffer,
+  useTexture,
+  vec,
+} from '@shopify/react-native-skia';
+import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
 
 import { Particle, MotionType, PhaseType, updateParticle } from '../lib/motions';
 
@@ -42,6 +54,52 @@ type HSL = readonly [number, number, number];
 // ---------------------------------------------------------------------------
 
 const N_PARTICLES = 60;
+
+// The glow sprite is baked at this pixel size, then scaled per particle. Bigger
+// = softer/crisper haloes when scaled down; 96 is a good quality/perf balance.
+const SPRITE = 96;
+const SPRITE_HALF = SPRITE / 2;
+
+// A particle of logical `size` is drawn as a glow this many times wider, so the
+// soft halo extends well past the bright core (mirrors the Mac aura at r*5).
+const GLOW_SCALE = 4.2;
+
+// ---------------------------------------------------------------------------
+// Colour helper (worklet) — HSL(0-360, 0-100, 0-100) → RGB(0-1)
+// ---------------------------------------------------------------------------
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  'worklet';
+  const ss = s / 100;
+  const ll = l / 100;
+  const c = (1 - Math.abs(2 * ll - 1)) * ss;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hp < 1) {
+    r = c;
+    g = x;
+  } else if (hp < 2) {
+    r = x;
+    g = c;
+  } else if (hp < 3) {
+    g = c;
+    b = x;
+  } else if (hp < 4) {
+    g = x;
+    b = c;
+  } else if (hp < 5) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  const m = ll - c / 2;
+  return [r + m, g + m, b + m];
+}
 
 // ---------------------------------------------------------------------------
 // Particle initialisation (JS thread — Math.random() not in worklets)
@@ -54,137 +112,29 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
     const angle = (i / N_PARTICLES) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
     // Spread across most of the screen so the field fills it from the start.
     // sqrt keeps the distribution roughly uniform by area rather than centre-heavy.
-    const t     = Math.sqrt(Math.random());
-    const x     = cx + Math.cos(angle) * t * cx * 0.92;
-    const y     = cy + Math.sin(angle) * t * cy * 0.92;
-    // Lift the size floor so the smallest particles still read on a phone
-    // (the Mac canvas is far larger, so its 4px dots translate too small here).
-    const base  = 6  + Math.random() * 8;
+    const t = Math.sqrt(Math.random());
+    const x = cx + Math.cos(angle) * t * cx * 0.92;
+    const y = cy + Math.sin(angle) * t * cy * 0.92;
+    const base = 6 + Math.random() * 8;
     particles.push({
       x,
       y,
-      vx:           0,
-      vy:           0,
-      homeY:        y,
-      homeAngle:    angle,
-      homeR:        t,
-      baseSize:     base,
-      size:         base,
-      opacity:      0.3 + Math.random() * 0.35,
-      hue:          260 + Math.random() * 40, // violet, matching Mac createParticle
+      vx: 0,
+      vy: 0,
+      homeY: y,
+      homeAngle: angle,
+      homeR: t,
+      baseSize: base,
+      size: base,
+      opacity: 0.3 + Math.random() * 0.35,
+      hue: 260 + Math.random() * 40, // violet, matching Mac createParticle
       noiseOffsetX: Math.random() * 100,
       noiseOffsetY: Math.random() * 100,
-      side:         (i % 2 === 0 ? -1 : 1) as (-1 | 1),
+      side: (i % 2 === 0 ? -1 : 1) as -1 | 1,
     });
   }
   return particles;
 }
-
-// ---------------------------------------------------------------------------
-// ParticleView — one Animated.View per particle
-//
-// Defined as a sibling (not inside BreathingParticles) so that hooks are
-// called at a stable scope; memoised to avoid prop-change churn.
-// ---------------------------------------------------------------------------
-
-interface ParticleViewProps {
-  index:        number;
-  allParticles: SharedValue<Particle[]>;
-  /** Live phase colour [h,s,l], lerped on the UI thread. */
-  phaseColor:   SharedValue<HSL>;
-}
-
-// How much larger the soft aura disc is than the core dot.
-const AURA_SCALE = 3.4;
-
-const ParticleView = memo(function ParticleView({
-  index,
-  allParticles,
-  phaseColor,
-}: ParticleViewProps) {
-  // Per-particle colour, tracking the live phase/background colour, mirroring
-  // the Mac (ph = bgHue + per-particle jitter, brighter + more saturated than
-  // the dim background so the dots glow against it). Recomputed every frame, so
-  // the field shifts hue together with the gradient.
-  function colorFor(p: Particle) {
-    'worklet';
-    const c = phaseColor.value;
-    const jitter = (p.noiseOffsetX % 20) - 10;
-    const ph = Math.round(c[0] + jitter);
-    const ps = Math.round(Math.min(c[1] + 50, 90));
-    const pl = Math.round(Math.min(c[2] + 50, 85));
-    return { ph, ps, pl };
-  }
-
-  // Bright core dot. The native shadow provides a tight outer halo.
-  const coreStyle = useAnimatedStyle(() => {
-    const particles = allParticles.value;
-    if (index >= particles.length) return { opacity: 0 };
-    const p = particles[index];
-    const s = p.size;
-    const { ph, ps, pl } = colorFor(p);
-    return {
-      transform: [
-        { translateX: p.x - s * 0.5 },
-        { translateY: p.y - s * 0.5 },
-      ],
-      width: s,
-      height: s,
-      borderRadius: s * 0.5,
-      opacity: Math.max(0, Math.min(1, p.opacity)),
-      backgroundColor: `hsl(${ph}, ${ps}%, ${pl}%)`,
-      shadowColor: `hsl(${ph}, ${ps}%, ${Math.min(pl + 6, 90)}%)`,
-      shadowRadius: s * 1.6,
-    };
-  });
-
-  // Soft aura bloom behind the core — a larger, low-opacity disc with a wide
-  // blur, so each particle reads as a glowing point with a coloured halo around
-  // it (mirrors the Mac outer-glow radial gradient).
-  const auraStyle = useAnimatedStyle(() => {
-    const particles = allParticles.value;
-    if (index >= particles.length) return { opacity: 0 };
-    const p = particles[index];
-    const a = p.size * AURA_SCALE;
-    const { ph, ps, pl } = colorFor(p);
-    return {
-      transform: [
-        { translateX: p.x - a * 0.5 },
-        { translateY: p.y - a * 0.5 },
-      ],
-      width: a,
-      height: a,
-      borderRadius: a * 0.5,
-      opacity: Math.max(0, Math.min(1, p.opacity)) * 0.5,
-      backgroundColor: `hsla(${ph}, ${ps}%, ${pl}%, 0.16)`,
-      shadowColor: `hsl(${ph}, ${ps}%, ${Math.min(pl + 8, 92)}%)`,
-      shadowRadius: p.size * 2.4,
-    };
-  });
-
-  return (
-    <>
-      <Animated.View
-        style={[
-          particleBase,
-          { shadowOpacity: 0.5, shadowOffset: { width: 0, height: 0 } },
-          auraStyle,
-        ]}
-      />
-      <Animated.View
-        style={[
-          particleBase,
-          { shadowOpacity: 0.55, shadowOffset: { width: 0, height: 0 } },
-          coreStyle,
-        ]}
-      />
-    </>
-  );
-});
-
-const particleBase = StyleSheet.create({
-  root: { position: 'absolute', top: 0, left: 0 },
-}).root;
 
 // ---------------------------------------------------------------------------
 // Props
@@ -192,11 +142,11 @@ const particleBase = StyleSheet.create({
 
 export interface BreathingParticlesProps {
   /** Which motion variant to use (maps 1-to-1 with technique.visual.motion) */
-  motion:         MotionType;
+  motion: MotionType;
   /** Current breath phase */
-  phase:          PhaseType;
+  phase: PhaseType;
   /** Progress within the current phase, 0..1 */
-  phaseT:         number;
+  phaseT: number;
   /**
    * Progress within the current round, 0..1.
    * Only used by the 'sedation' (Wind Down) motion to progressively calm
@@ -207,15 +157,13 @@ export interface BreathingParticlesProps {
    * Set to false to pause the animation loop (e.g. when the screen is
    * not in focus).  Defaults to true.
    */
-  active?:        boolean;
+  active?: boolean;
   /**
    * Current phase colour [h,s,l] (the same triple driving the background
    * gradient). Particles lerp toward it so their colour shifts with the phase.
-   * Optional — defaults to a soft violet so callers that don't drive a phase
-   * colour (e.g. the mindfulness screen) still get sensible particles.
    */
-  phaseColor?:    HSL;
-  style?:         StyleProp<ViewStyle>;
+  phaseColor?: HSL;
+  style?: StyleProp<ViewStyle>;
 }
 
 // Fallback particle colour when no phase colour is supplied.
@@ -225,13 +173,13 @@ const DEFAULT_PHASE_COLOR: HSL = [260, 30, 12];
 // BreathingParticles
 // ---------------------------------------------------------------------------
 
-export function BreathingParticles({
+export const BreathingParticles = memo(function BreathingParticles({
   motion,
   phase,
   phaseT,
   roundProgress = 0,
-  active        = true,
-  phaseColor    = DEFAULT_PHASE_COLOR,
+  active = true,
+  phaseColor = DEFAULT_PHASE_COLOR,
   style,
 }: BreathingParticlesProps) {
   const [hasLayout, setHasLayout] = useState(false);
@@ -253,53 +201,61 @@ export function BreathingParticles({
   const allParticles = useSharedValue<Particle[]>([]);
 
   // Shared values for props that change during a session
-  const cxSV            = useSharedValue(0);
-  const cySV            = useSharedValue(0);
-  const motionSV        = useSharedValue<MotionType>(motion);
-  const phaseSV         = useSharedValue<PhaseType>(phase);
-  const phaseTSV        = useSharedValue(phaseT);
+  const cxSV = useSharedValue(0);
+  const cySV = useSharedValue(0);
+  const motionSV = useSharedValue<MotionType>(motion);
+  const phaseSV = useSharedValue<PhaseType>(phase);
+  const phaseTSV = useSharedValue(phaseT);
   const roundProgressSV = useSharedValue(roundProgress);
 
   // Current (lerped) particle colour and the phase target it eases toward.
-  const phaseColorSV    = useSharedValue<HSL>(phaseColor);
-  const targetColorSV   = useSharedValue<HSL>(phaseColor);
+  const phaseColorSV = useSharedValue<HSL>(phaseColor);
+  const targetColorSV = useSharedValue<HSL>(phaseColor);
 
   // Keep shared values in sync with props (JS thread → shared memory)
-  useEffect(() => { motionSV.value = motion; },               [motion]);
-  useEffect(() => { phaseSV.value  = phase; },                [phase]);
-  useEffect(() => { phaseTSV.value = phaseT; },               [phaseT]);
-  useEffect(() => { roundProgressSV.value = roundProgress; }, [roundProgress]);
-  useEffect(() => { targetColorSV.value = phaseColor; },      [phaseColor]);
+  useEffect(() => {
+    motionSV.value = motion;
+  }, [motion]);
+  useEffect(() => {
+    phaseSV.value = phase;
+  }, [phase]);
+  useEffect(() => {
+    phaseTSV.value = phaseT;
+  }, [phaseT]);
+  useEffect(() => {
+    roundProgressSV.value = roundProgress;
+  }, [roundProgress]);
+  useEffect(() => {
+    targetColorSV.value = phaseColor;
+  }, [phaseColor]);
 
   // Initialise (or re-initialise after rotation) when layout is known
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     if (width === 0 || height === 0) return;
 
-    const cx = width  / 2;
+    const cx = width / 2;
     const cy = height / 2;
     cxSV.value = cx;
     cySV.value = cy;
 
-    const particles = createInitialParticles(cx, cy);
-    allParticles.value = particles;
-
+    allParticles.value = createInitialParticles(cx, cy);
     setHasLayout(true);
   }, []);
 
-  // 60fps animation loop on the UI thread
+  // 60fps physics loop on the UI thread. Writes the particle array each frame;
+  // the Skia buffers below read straight from it.
   const frameCallback = useFrameCallback((frameInfo) => {
     'worklet';
     const current = allParticles.value;
     if (current.length === 0) return;
 
     // Clamp dt to 50ms so a long GC pause doesn't teleport particles
-    const dt          = Math.min((frameInfo.timeSincePreviousFrame ?? 16.67) / 1000, 0.05);
-    const t           = frameInfo.timestamp / 1000;
+    const dt = Math.min((frameInfo.timeSincePreviousFrame ?? 16.67) / 1000, 0.05);
+    const t = frameInfo.timestamp / 1000;
 
-    // Ease the particle colour toward the current phase colour at the same rate
-    // as the background gradient (dt * 1.2), with shortest-arc hue interpolation
-    // so the field and gradient shift together rather than snapping.
+    // Ease the particle colour toward the current phase colour (shortest-arc
+    // hue) so the field and gradient shift together rather than snapping.
     const cur = phaseColorSV.value;
     const tgt = targetColorSV.value;
     let dh = tgt[0] - cur[0];
@@ -311,18 +267,18 @@ export function BreathingParticles({
       cur[1] + (tgt[1] - cur[1]) * ck,
       cur[2] + (tgt[2] - cur[2]) * ck,
     ];
-    const cx          = cxSV.value;
-    const cy          = cySV.value;
-    const mot         = motionSV.value;
-    const phaseType   = phaseSV.value;
-    const phT         = phaseTSV.value;
-    const roundProg   = roundProgressSV.value;
+
+    const cx = cxSV.value;
+    const cy = cySV.value;
+    const mot = motionSV.value;
+    const phaseType = phaseSV.value;
+    const phT = phaseTSV.value;
+    const roundProg = roundProgressSV.value;
 
     const next: Particle[] = [];
     for (let i = 0; i < current.length; i++) {
       next[i] = updateParticle(current[i], cx, cy, mot, phaseType, phT, t, dt, roundProg);
     }
-
     allParticles.value = next;
   }, true /* autostart */);
 
@@ -346,6 +302,78 @@ export function BreathingParticles({
     };
   }, []);
 
+  // ---- Skia render layer -------------------------------------------------
+
+  // Bake the glow sprite once: a soft outer halo + a bright tight core, all in
+  // white so the per-particle colour (below) can tint it via Modulate. This is
+  // the Mac's "outer-glow aura + radial sphere with highlight", as one texture.
+  const sprite = useTexture(
+    <Group>
+      <Circle cx={SPRITE_HALF} cy={SPRITE_HALF} r={SPRITE_HALF}>
+        <RadialGradient
+          c={vec(SPRITE_HALF, SPRITE_HALF)}
+          r={SPRITE_HALF}
+          colors={['rgba(255,255,255,0.42)', 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
+          positions={[0, 0.45, 1]}
+        />
+      </Circle>
+      <Circle cx={SPRITE_HALF} cy={SPRITE_HALF} r={SPRITE_HALF * 0.42}>
+        <RadialGradient
+          // Offset the highlight up-left so the dot reads as a lit sphere, not
+          // a flat disc (mirrors the Mac sphere highlight at x - r*0.3).
+          c={vec(SPRITE_HALF * 0.86, SPRITE_HALF * 0.86)}
+          r={SPRITE_HALF * 0.5}
+          colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+          positions={[0, 0.5, 1]}
+        />
+      </Circle>
+    </Group>,
+    { width: SPRITE, height: SPRITE },
+  );
+
+  // One sprite rect per particle (all reference the full baked texture).
+  const sprites = useMemo(
+    () => Array.from({ length: N_PARTICLES }, () => rect(0, 0, SPRITE, SPRITE)),
+    [],
+  );
+
+  // Per-particle transform: place + scale the glow at the particle's position.
+  const transforms = useRSXformBuffer(N_PARTICLES, (xform, i) => {
+    'worklet';
+    const ps = allParticles.value;
+    if (i >= ps.length) {
+      xform.set(0, 0, -SPRITE, -SPRITE); // park offscreen until initialised
+      return;
+    }
+    const p = ps[i];
+    const scale = (p.size * GLOW_SCALE) / SPRITE;
+    // RSXform maps sprite (0,0); centre the SPRITE/2 anchor on the particle.
+    xform.set(scale, 0, p.x - SPRITE_HALF * scale, p.y - SPRITE_HALF * scale);
+  });
+
+  // Per-particle colour: phase hue + its own jitter, at the particle's opacity.
+  const colorsBuf = useColorBuffer(N_PARTICLES, (c, i) => {
+    'worklet';
+    const ps = allParticles.value;
+    if (i >= ps.length) {
+      c[0] = 0;
+      c[1] = 0;
+      c[2] = 0;
+      c[3] = 0;
+      return;
+    }
+    const p = ps[i];
+    const pc = phaseColorSV.value;
+    // Brighter + more saturated than the dim background so the dots glow
+    // against it (matches the Mac per-particle colour boost).
+    const jitter = (p.noiseOffsetX % 20) - 10;
+    const rgb = hslToRgb(pc[0] + jitter, Math.min(pc[1] + 50, 90), Math.min(pc[2] + 50, 85));
+    c[0] = rgb[0];
+    c[1] = rgb[1];
+    c[2] = rgb[2];
+    c[3] = Math.max(0, Math.min(1, p.opacity));
+  });
+
   return (
     <View
       style={[styles.container, style]}
@@ -353,18 +381,20 @@ export function BreathingParticles({
       accessibilityElementsHidden={true}
       importantForAccessibility="no-hide-descendants"
     >
-      {hasLayout &&
-        Array.from({ length: N_PARTICLES }, (_, i) => (
-          <ParticleView
-            key={i}
-            index={i}
-            allParticles={allParticles}
-            phaseColor={phaseColorSV}
+      {hasLayout && (
+        <Canvas style={styles.canvas}>
+          <Atlas
+            image={sprite}
+            sprites={sprites}
+            transforms={transforms}
+            colors={colorsBuf}
+            colorBlendMode="modulate"
           />
-        ))}
+        </Canvas>
+      )}
     </View>
   );
-}
+});
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -372,7 +402,10 @@ export function BreathingParticles({
 
 const styles = StyleSheet.create({
   container: {
-    flex:     1,
+    flex: 1,
     overflow: 'hidden',
+  },
+  canvas: {
+    flex: 1,
   },
 });

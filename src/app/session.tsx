@@ -39,7 +39,11 @@ const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
 ];
 
 export default function SessionScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, rounds, feeling } = useLocalSearchParams<{
+    id: string;
+    rounds?: string;
+    feeling?: string;
+  }>();
   const technique = id ? getTechnique(id) : undefined;
 
   // Unknown id: bounce home rather than render a blank screen.
@@ -49,14 +53,42 @@ export default function SessionScreen() {
     }
   }, [technique]);
 
+  // Optional rounds override from the "recommend by feeling" duration step.
+  // Only the breathing path honours it; falls back to the authored rounds.
+  const parsed = rounds != null ? Number.parseInt(rounds, 10) : NaN;
+  const roundsOverride =
+    Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+
   if (!technique) return null;
-  if (isBreathing(technique)) return <BreathingSession technique={technique} />;
-  return <MindfulnessSession technique={technique} />;
+  if (isBreathing(technique))
+    return (
+      <BreathingSession
+        technique={technique}
+        roundsOverride={roundsOverride}
+        feeling={feeling}
+      />
+    );
+  return <MindfulnessSession technique={technique} feeling={feeling} />;
 }
 
-function BreathingSession({ technique }: { technique: BreathingTechnique }) {
+function BreathingSession({
+  technique,
+  roundsOverride,
+  feeling,
+}: {
+  technique: BreathingTechnique;
+  roundsOverride?: number;
+  feeling?: string;
+}) {
+  const rounds = roundsOverride ?? technique.rounds;
+  // Scale the reported duration to the actual rounds run, keeping per-round
+  // cadence fixed so paired-device stats stay honest.
+  const durationSec =
+    technique.rounds > 0
+      ? Math.round((technique.durationSeconds / technique.rounds) * rounds)
+      : technique.durationSeconds;
   const [paused, setPaused] = useState(false);
-  const cycle = useBreathCycle(technique.phases, technique.rounds, paused);
+  const cycle = useBreathCycle(technique.phases, rounds, paused);
   const { width, height } = Dimensions.get('window');
   const { track, changeTrack, fadeOut } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -76,7 +108,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
   }, []);
 
-  const completedRounds = cycle.done ? technique.rounds : cycle.round - 1;
+  const completedRounds = cycle.done ? rounds : cycle.round - 1;
 
   // Pick the HSL triple that matches the current phase type.
   const phaseHsl =
@@ -93,8 +125,8 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
       NiyoraSync.recordSession({
         techniqueName: technique.name,
         techniqueKind: technique.category,
-        durationSec: technique.durationSeconds,
-        intendedDurationSec: technique.durationSeconds,
+        durationSec,
+        intendedDurationSec: durationSec,
         completed: true,
         recordedAt: new Date().toISOString(),
       });
@@ -111,6 +143,10 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
     if (cycle.done) return 'well done';
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
+
+  const nextLabel = cycle.done
+    ? null
+    : `then ${technique.phases[(cycle.phaseIndex + 1) % technique.phases.length].label}`;
 
   function exitSession() {
     Haptics.selectionAsync();
@@ -226,7 +262,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} />
+                <PhaseLabel label={labelText} nextLabel={nextLabel} />
                 {!cycle.done && (
                   <Text style={styles.instructions}>{technique.instructions}</Text>
                 )}
@@ -235,9 +271,9 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
               <View style={styles.progressArea}>
                 <View
                   style={styles.dotsRow}
-                  accessibilityLabel={`Round ${cycle.round} of ${technique.rounds}`}
+                  accessibilityLabel={`Round ${cycle.round} of ${rounds}`}
                 >
-                  {Array.from({ length: technique.rounds }, (_, i) => (
+                  {Array.from({ length: rounds }, (_, i) => (
                     <View
                       key={i}
                       style={[styles.dot, i < completedRounds && styles.dotFilled]}
@@ -265,6 +301,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
         {showMood && (
           <PostSessionMood
             techniqueId={technique.id}
+            feeling={feeling}
             onDone={() => router.back()}
           />
         )}
@@ -327,13 +364,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bottomBlock: {
+    // Sits below the centre bloom rather than over it, so the cue stays legible
+    // while particles converge and disperse at the middle of the screen.
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: '62%',
     left: 24,
     right: 24,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   instructions: {
     marginTop: 14,

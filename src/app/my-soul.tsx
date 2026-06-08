@@ -1,6 +1,7 @@
 // My Soul sheet. Ported from the Mac Settings.tsx "My Soul" panel at the
 // level of fidelity DESIGN.md asks for.
 
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { SymbolView } from 'expo-symbols';
@@ -27,7 +28,7 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
-import { getSessionCount } from '@/store/session-history';
+import { getSessionCount, getSessionsThisWeek, getSessionsToday, getCurrentStreak } from '@/store/session-history';
 import {
   getCheckInRecords,
   todayCheckIn,
@@ -36,7 +37,9 @@ import {
 } from '@/store/checkin-history';
 import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
+import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
+import { radius, spacing } from '@/theme/spacing';
 
 const SOUL_FRESHNESS_MS = 90 * 60 * 1000;
 
@@ -78,11 +81,22 @@ const LEVEL_LABELS: Record<CheckInLevel, string> = {
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [sessionsThisWeek, setSessionsThisWeek] = useState(0);
+  const [sessionsToday, setSessionsToday] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
   const [orbRevealKey, setOrbRevealKey] = useState(0);
-  const { isPaired, macSoulState } = useNiyoraSync();
+  const {
+    isPaired,
+    macSoulState,
+    macStatus,
+    syncState,
+    discoveredServers,
+    connectToMac,
+    cancelPairing,
+  } = useNiyoraSync();
 
   const orbTapScale = useSharedValue(1);
   const orbTapAnimStyle = useAnimatedStyle(() => ({
@@ -104,6 +118,15 @@ export default function MySoulScreen() {
       let active = true;
       getSessionCount().then((n) => {
         if (active) setSessionsCompleted(n);
+      }).catch(() => {});
+      getSessionsThisWeek().then((n) => {
+        if (active) setSessionsThisWeek(n);
+      }).catch(() => {});
+      getSessionsToday().then((n) => {
+        if (active) setSessionsToday(n);
+      }).catch(() => {});
+      getCurrentStreak().then((n) => {
+        if (active) setCurrentStreak(n);
       }).catch(() => {});
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
@@ -127,9 +150,16 @@ export default function MySoulScreen() {
     setMacPromoDismissed().catch(() => {});
   }
 
-  const tier = currentTier(sessionsCompleted);
+  // Unified soul: when paired, add the Mac's own (native) completed sessions
+  // to the phone's. The Mac reports a native-only count, so this sum never
+  // double-counts sessions the phone already pushed there. Tier + track
+  // reflect the combined total; the breakdown shows each device's share.
+  const macSessions = isPaired ? macStatus?.nativeCompleted ?? 0 : 0;
+  const combinedSessions = sessionsCompleted + macSessions;
+
+  const tier = currentTier(combinedSessions);
   const next = nextTier(tier);
-  const toNext = sessionsToNext(sessionsCompleted);
+  const toNext = sessionsToNext(combinedSessions);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
   const todayRecord = todayCheckIn(checkInRecords);
   const macSoul = effectiveSoul(isPaired, macSoulState);
@@ -207,10 +237,25 @@ export default function MySoulScreen() {
             nextThreshold={next?.threshold ?? null}
             toNext={toNext}
             accent={accent}
-            sessions={sessionsCompleted}
+            sessions={combinedSessions}
+            sessionsThisWeek={sessionsThisWeek}
+            sessionsToday={sessionsToday}
+            currentStreak={currentStreak}
+            paired={isPaired}
+            phoneSessions={sessionsCompleted}
+            macSessions={macSessions}
           />
 
-          {!isPaired && !macPromoDismissed && (
+          {!isPaired && (
+            <MacPairing
+              syncState={syncState}
+              discoveredServers={discoveredServers}
+              connectToMac={connectToMac}
+              cancelPairing={cancelPairing}
+            />
+          )}
+
+          {!isPaired && !macPromoDismissed && discoveredServers.length === 0 && (
             <MacPromoCard onDismiss={handleMacPromoDismiss} />
           )}
 
@@ -234,7 +279,7 @@ export default function MySoulScreen() {
             Analytics are anonymous, optional, and only sent if you choose.
             Breathe easy.
           </Text>
-          <Text style={styles.version}>Version 0.1.0</Text>
+          <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
         </ScrollView>
       </SafeAreaView>
 
@@ -354,6 +399,12 @@ function LevelCard({
   toNext,
   accent,
   sessions,
+  sessionsThisWeek,
+  sessionsToday,
+  currentStreak,
+  paired,
+  phoneSessions,
+  macSessions,
 }: {
   tierName: string;
   nextName: string | null;
@@ -361,6 +412,12 @@ function LevelCard({
   toNext: number;
   accent: string;
   sessions: number;
+  sessionsThisWeek: number;
+  sessionsToday: number;
+  currentStreak: number;
+  paired: boolean;
+  phoneSessions: number;
+  macSessions: number;
 }) {
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
@@ -377,6 +434,25 @@ function LevelCard({
         <Text style={styles.sessionsLabel}>sessions</Text>
       </View>
       <TierTrack sessions={sessions} accent={accent} nextThreshold={nextThreshold} />
+      <View style={styles.miniStatsRow}>
+        <Text style={styles.miniStat}>{sessionsToday} today</Text>
+        <Text style={styles.miniStat}>{sessionsThisWeek} this week</Text>
+        <Text style={styles.miniStat}>
+          {currentStreak} {currentStreak === 1 ? 'day' : 'days'} streak
+        </Text>
+      </View>
+      {paired && (
+        <View style={styles.breakdownRow}>
+          <View style={styles.breakdownBox}>
+            <Text style={styles.breakdownNum}>{phoneSessions}</Text>
+            <Text style={styles.breakdownLabel}>This iPhone</Text>
+          </View>
+          <View style={styles.breakdownBox}>
+            <Text style={styles.breakdownNum}>{macSessions}</Text>
+            <Text style={styles.breakdownLabel}>Your Mac</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -609,17 +685,43 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderRadius: 16,
-    padding: 22,
+    borderRadius: radius.card,
+    padding: spacing.xl,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.07)',
-    marginBottom: 14,
+    marginBottom: spacing.lg,
     overflow: 'hidden',
   },
   cardTitle: {
     fontSize: 15,
     fontWeight: '500',
     color: colors.textPrimary,
+  },
+  // Unified-soul breakdown: this iPhone vs your Mac, shown when paired.
+  breakdownRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  breakdownBox: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.control,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+  },
+  breakdownNum: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  breakdownLabel: {
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 2,
   },
   cardCopy: {
     fontSize: 12,
@@ -757,6 +859,17 @@ const styles = StyleSheet.create({
   markerNum: {
     fontSize: 10,
     fontWeight: '500',
+  },
+  miniStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 12,
+  },
+  miniStat: {
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
   },
   macPromoHeader: {
     flexDirection: 'row',
