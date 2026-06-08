@@ -62,8 +62,9 @@ final class MacConnection {
     // MARK: Connect / Disconnect
 
     func connect(to endpoint: NWEndpoint) {
-        // Plain TCP · the Noise XX handshake provides encryption + auth, so no
-        // TLS layer is needed (and there is no cert to manage).
+        // Phase 0: plain TCP so the connection plumbing can be verified e2e before
+        // the Noise crypto layer is added in Phase 1. HMAC auth still runs over
+        // the plaintext channel.
         let params = NWParameters.tcp
         params.includePeerToPeer = true
         let c = NWConnection(to: endpoint, using: params)

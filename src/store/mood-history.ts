@@ -5,6 +5,10 @@ export type MoodValue = 1 | 2 | 3 | 4 | 5;
 export type MoodRecord = {
   techniqueId: string;
   mood: MoodValue;
+  // The feeling the user came in with (from the "recommend by feeling" flow),
+  // if any. Closes the loop: emotion -> recommendation -> impact, so we can
+  // later rank techniques by how much they helped a given feeling. Local-only.
+  feeling?: string;
   recordedAt: string; // ISO 8601
 };
 
@@ -20,10 +24,16 @@ function parseRecords(raw: string | null): MoodRecord[] {
   }
 }
 
-export async function appendMood(techniqueId: string, mood: MoodValue): Promise<void> {
+export async function appendMood(
+  techniqueId: string,
+  mood: MoodValue,
+  feeling?: string,
+): Promise<void> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   const records = parseRecords(raw);
-  records.push({ techniqueId, mood, recordedAt: new Date().toISOString() });
+  const record: MoodRecord = { techniqueId, mood, recordedAt: new Date().toISOString() };
+  if (feeling) record.feeling = feeling;
+  records.push(record);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 }
 

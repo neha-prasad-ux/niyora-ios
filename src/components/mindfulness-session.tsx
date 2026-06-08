@@ -63,8 +63,10 @@ const CADENCE_SEC = 10;
 
 export function MindfulnessSession({
   technique,
+  feeling,
 }: {
   technique: MindfulnessTechnique;
+  feeling?: string;
 }) {
   const { width, height } = Dimensions.get('window');
   const { track, changeTrack, fadeOut } = useSessionMusic();
@@ -303,7 +305,11 @@ export function MindfulnessSession({
       )}
 
       {showMood && (
-        <PostSessionMood techniqueId={technique.id} onDone={() => router.back()} />
+        <PostSessionMood
+          techniqueId={technique.id}
+          feeling={feeling}
+          onDone={() => router.back()}
+        />
       )}
     </View>
   );

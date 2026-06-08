@@ -5,16 +5,23 @@
  * mindfulness). Sits centred over the SessionDoneBackdrop (dark-blue gradient +
  * white falling particles).
  *
- * Flow: fades in -> user taps a mood row or skip -> brief closing line
- * "take this calm with you" -> fades out -> onDone() so the screen can go back.
+ * Closes the loop: when the session was reached via the "recommend by feeling"
+ * flow, the entering `feeling` is saved alongside the resulting mood so we can
+ * later recommend better (emotion -> recommendation -> impact). Local-only.
+ *
+ * Flow: fades in -> user taps a mood chip (or skip) -> brief "saved to calm you
+ * better" with a soft pulsing dot -> "take this calm with you / come back soon"
+ * -> fades out -> onDone() so the screen can go back.
  */
 
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -24,22 +31,25 @@ import { colors } from '@/theme/colors';
 // Dot hues: cool blue -> mid violet -> warm purple across positions 1..5.
 const DOT_HUES = [215, 240, 260, 278, 295] as const;
 
-// Vertical scale, lightest feeling at the top down to heaviest at the bottom.
+// Lightest feeling first, heaviest last.
 const MOODS: { value: MoodValue; label: string }[] = [
   { value: 5, label: 'at peace' },
   { value: 4, label: 'calm' },
   { value: 3, label: 'settling' },
-  { value: 2, label: 'a little lighter' },
+  { value: 2, label: 'lighter' },
   { value: 1, label: 'still tense' },
 ];
 
+type Phase = 'picking' | 'saving' | 'closing';
+
 interface PostSessionMoodProps {
   techniqueId: string;
+  feeling?: string;
   onDone: () => void;
 }
 
-export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
-  const [phase, setPhase] = useState<'picking' | 'thanks'>('picking');
+export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoodProps) {
+  const [phase, setPhase] = useState<Phase>('picking');
   const opacity = useSharedValue(0);
 
   useEffect(() => {
@@ -51,37 +61,43 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
     setTimeout(onDone, 380);
   }
 
-  async function handleMood(mood: MoodValue) {
+  function runSavedSequence() {
+    // "saved to calm you better" (with the pulsing dot) -> closing lines -> out.
+    setPhase('saving');
+    setTimeout(() => setPhase('closing'), 1300);
+    setTimeout(dismiss, 3100);
+  }
+
+  function handleMood(mood: MoodValue) {
     if (phase !== 'picking') return;
     Haptics.selectionAsync();
-    setPhase('thanks');
-    appendMood(techniqueId, mood).catch(() => {});
-    setTimeout(dismiss, 1600);
+    appendMood(techniqueId, mood, feeling).catch(() => {});
+    runSavedSequence();
   }
 
   function handleSkip() {
     if (phase !== 'picking') return;
     Haptics.selectionAsync();
-    // Still send them off with the closing line rather than cutting straight out.
-    setPhase('thanks');
-    setTimeout(dismiss, 1600);
+    // Still send them off softly rather than cutting straight out.
+    setPhase('closing');
+    setTimeout(dismiss, 1800);
   }
 
   const wrapStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
   return (
     <Animated.View style={[styles.overlay, wrapStyle]} pointerEvents="box-none">
-      {phase === 'picking' ? (
+      {phase === 'picking' && (
         <View style={styles.card} pointerEvents="box-none">
           <Text style={styles.heading}>how does this feel?</Text>
 
-          <View style={styles.moodList} accessibilityRole="radiogroup">
+          <View style={styles.chipWrap} accessibilityRole="radiogroup">
             {MOODS.map(({ value, label }) => (
               <Pressable
                 key={value}
                 onPress={() => handleMood(value)}
-                hitSlop={10}
-                style={styles.moodRow}
+                hitSlop={6}
+                style={styles.chip}
                 accessibilityRole="radio"
                 accessibilityLabel={label}
               >
@@ -91,7 +107,7 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
                     { backgroundColor: `hsl(${DOT_HUES[value - 1]}, 60%, 66%)` },
                   ]}
                 />
-                <Text style={styles.moodLabel}>{label}</Text>
+                <Text style={styles.chipLabel}>{label}</Text>
               </Pressable>
             ))}
           </View>
@@ -100,11 +116,43 @@ export function PostSessionMood({ techniqueId, onDone }: PostSessionMoodProps) {
             <Text style={styles.skip}>skip</Text>
           </Pressable>
         </View>
-      ) : (
-        <Text style={styles.closing}>take this calm with you</Text>
+      )}
+
+      {phase === 'saving' && (
+        <View style={styles.savedWrap}>
+          <PulsingDot />
+          <Text style={styles.saved}>saved to calm you better</Text>
+        </View>
+      )}
+
+      {phase === 'closing' && (
+        <View style={styles.closingWrap}>
+          <Text style={styles.closing}>take this calm with you</Text>
+          <Text style={styles.closingSub}>come back soon</Text>
+        </View>
       )}
     </Animated.View>
   );
+}
+
+// Soft breathing dot used during the "saved" beat.
+function PulsingDot() {
+  const pulse = useSharedValue(0.4);
+
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+  }, []);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: pulse.value,
+    transform: [{ scale: 0.85 + pulse.value * 0.3 }],
+  }));
+
+  return <Animated.View style={[styles.pulseDot, dotStyle]} />;
 }
 
 const styles = StyleSheet.create({
@@ -119,36 +167,45 @@ const styles = StyleSheet.create({
   },
   card: {
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   heading: {
     fontFamily: 'Poppins-Light',
     fontSize: 20,
     color: colors.textPrimary,
-    marginBottom: 36,
+    marginBottom: 32,
     letterSpacing: 0.2,
   },
-  moodList: {
-    alignItems: 'flex-start',
-    gap: 22,
-    marginBottom: 40,
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 36,
   },
-  moodRow: {
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   dot: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     shadowColor: '#9b7fd4',
     shadowOpacity: 0.55,
-    shadowRadius: 9,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
   },
-  moodLabel: {
+  chipLabel: {
     fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
@@ -158,6 +215,31 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     letterSpacing: 0.4,
   },
+  savedWrap: {
+    alignItems: 'center',
+    gap: 20,
+  },
+  pulseDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'hsl(265, 60%, 70%)',
+    shadowColor: '#9b7fd4',
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  saved: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 18,
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+    textAlign: 'center',
+  },
+  closingWrap: {
+    alignItems: 'center',
+    gap: 10,
+  },
   closing: {
     fontFamily: 'Poppins-Light',
     fontSize: 20,
@@ -165,5 +247,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textAlign: 'center',
     paddingHorizontal: 24,
+  },
+  closingSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    color: colors.textSubtitle,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
 });
