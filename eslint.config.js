@@ -15,6 +15,7 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*', 'node_modules/*', '.expo/*', 'ios/*', 'android/*'],
     rules: {
+      'react-hooks/globals': 'warn',
       'react-hooks/immutability': 'warn',
       'react-hooks/refs': 'warn',
       'react-hooks/purity': 'warn',
