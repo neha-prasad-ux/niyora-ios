@@ -20,7 +20,7 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
-import { getSessionCount } from '@/store/session-history';
+import { getSessionCount, getSessionsThisWeek } from '@/store/session-history';
 import {
   getCheckInRecords,
   todayCheckIn,
@@ -71,6 +71,7 @@ const LEVEL_LABELS: Record<CheckInLevel, string> = {
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
+  const [sessionsThisWeek, setSessionsThisWeek] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
@@ -81,6 +82,9 @@ export default function MySoulScreen() {
       let active = true;
       getSessionCount().then((n) => {
         if (active) setSessionsCompleted(n);
+      }).catch(() => {});
+      getSessionsThisWeek().then((n) => {
+        if (active) setSessionsThisWeek(n);
       }).catch(() => {});
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
@@ -173,6 +177,7 @@ export default function MySoulScreen() {
             toNext={toNext}
             accent={accent}
             sessions={sessionsCompleted}
+            sessionsThisWeek={sessionsThisWeek}
           />
 
           {!isPaired && !macPromoDismissed && (
@@ -319,6 +324,7 @@ function LevelCard({
   toNext,
   accent,
   sessions,
+  sessionsThisWeek,
 }: {
   tierName: string;
   nextName: string | null;
@@ -326,6 +332,7 @@ function LevelCard({
   toNext: number;
   accent: string;
   sessions: number;
+  sessionsThisWeek: number;
 }) {
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
@@ -342,6 +349,7 @@ function LevelCard({
         <Text style={styles.sessionsLabel}>sessions</Text>
       </View>
       <TierTrack sessions={sessions} accent={accent} nextThreshold={nextThreshold} />
+      <Text style={styles.weekStat}>{sessionsThisWeek} this week</Text>
     </View>
   );
 }
@@ -722,6 +730,13 @@ const styles = StyleSheet.create({
   markerNum: {
     fontSize: 10,
     fontWeight: '500',
+  },
+  weekStat: {
+    marginTop: 12,
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
   },
   macPromoHeader: {
     flexDirection: 'row',
