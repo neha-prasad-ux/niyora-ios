@@ -226,7 +226,7 @@ function BreathingSession({ technique }: { technique: BreathingTechnique }) {
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} />
+                <PhaseLabel label={labelText} nextLabel={cycle.done ? technique.name : null} />
                 {!cycle.done && (
                   <Text style={styles.instructions}>{technique.instructions}</Text>
                 )}
