@@ -73,9 +73,13 @@ public class NiyoraSyncModule: Module {
             )
         }
 
-        Function("isPaired") -> Bool {
+        Function("isPaired") { () -> Bool in
             if case .paired = self.flow.state { return true }
             return false
+        }
+
+        Function("debugLog") { () -> String in
+            SyncDebug.shared.dump()
         }
 
         AsyncFunction("requestNotificationPermission") { () async -> Bool in

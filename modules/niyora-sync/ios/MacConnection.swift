@@ -2,6 +2,22 @@ import Foundation
 import Network
 import UIKit
 
+/// Lightweight ring-buffer logger for the pairing path. Native events to JS
+/// have proven unreliable, so we expose this via a synchronous module function
+/// the JS layer can poll and print. Keep the last ~120 lines.
+final class SyncDebug {
+    static let shared = SyncDebug()
+    private var lines: [String] = []
+    private let q = DispatchQueue(label: "com.niyora.sync.debug")
+    func log(_ s: String) {
+        q.sync {
+            lines.append(s)
+            if lines.count > 120 { lines.removeFirst(lines.count - 120) }
+        }
+    }
+    func dump() -> String { q.sync { lines.joined(separator: "\n") } }
+}
+
 protocol MacConnectionDelegate: AnyObject {
     func connection(_ conn: MacConnection, didDiscover name: String, endpoint: NWEndpoint)
     func connection(_ conn: MacConnection, didReceive message: ServerMessage)
@@ -60,17 +76,34 @@ final class MacConnection {
         // end to end before swapping in the Noise handshake. The HMAC handshake
         // in PairingFlow still authenticates the peer; this phase is deliberately
         // unencrypted and temporary — Noise replaces it in Phase 1.
+        //
+        // Match the retired companion's proven-good setup: plain TCP with
+        // peer-to-peer enabled. That app paired with this same Mac many times.
         let params = NWParameters.tcp
         params.includePeerToPeer = true
+        SyncDebug.shared.log("connect → \(endpoint) p2p=true")
         let c = NWConnection(to: endpoint, using: params)
         c.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
+            SyncDebug.shared.log("nwstate: \(MacConnection.describe(state))")
             self.delegate?.connection(self, didChangeState: state)
             if state == .ready { self.receiveNext() }
         }
         recvBuf.removeAll()
         c.start(queue: queue)
         conn = c
+    }
+
+    static func describe(_ state: NWConnection.State) -> String {
+        switch state {
+        case .setup: return "setup"
+        case .preparing: return "preparing"
+        case .ready: return "ready"
+        case .cancelled: return "cancelled"
+        case .waiting(let err): return "waiting(\(err))"
+        case .failed(let err): return "failed(\(err))"
+        @unknown default: return "unknown"
+        }
     }
 
     func disconnect() {
@@ -82,7 +115,8 @@ final class MacConnection {
     // MARK: Send
 
     func send(_ message: ClientMessage) {
-        guard let c = conn else { return }
+        guard let c = conn else { SyncDebug.shared.log("send dropped: no conn"); return }
+        SyncDebug.shared.log("send \(message.line().count) bytes")
         c.send(content: message.line(), completion: .idempotent)
     }
 
