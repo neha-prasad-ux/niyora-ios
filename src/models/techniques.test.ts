@@ -63,6 +63,22 @@ describe('quick-calm', () => {
     const firstBreathing = TECHNIQUES.filter(isBreathing)[0];
     expect(firstBreathing.id).toBe('quick-calm');
   });
+
+  it('opts into the swelling Soul orb via a sane breathRange', () => {
+    const t = getTechnique('quick-calm');
+    if (isBreathing(t!)) {
+      expect(t.breathRange).toBeDefined();
+      // Bigger on inhale, smaller on exhale, both positive scales.
+      expect(t.breathRange!.max).toBeGreaterThan(1);
+      expect(t.breathRange!.min).toBeGreaterThan(0);
+      expect(t.breathRange!.min).toBeLessThan(t.breathRange!.max);
+    }
+  });
+
+  it('is the only technique that swaps in the orb visual for now', () => {
+    const withOrb = TECHNIQUES.filter(isBreathing).filter((t) => t.breathRange);
+    expect(withOrb.map((t) => t.id)).toEqual(['quick-calm']);
+  });
 });
 
 describe('unlockedTechniques', () => {

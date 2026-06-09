@@ -43,6 +43,10 @@ export type BreathingTechnique = {
   rounds: number;
   colors: PhaseColors;
   motion: MotionType;
+  // When set, the session renders the swelling "My Soul" orb (the onboarding
+  // breath visual) instead of the particle field, breathing between these
+  // scales: `max` on inhale, `min` on exhale. Omit for the default particles.
+  breathRange?: { min: number; max: number };
 };
 
 // A single guided line shown during a mindfulness session, held on screen
@@ -94,6 +98,10 @@ export const TECHNIQUES: readonly Technique[] = [
       exhale: [215, 28, 11],
     },
     motion: 'wave',
+    // Quick Calm wears the swelling Soul orb (same range as the onboarding
+    // breath) instead of the particle field, so the fastest reset also feels
+    // distinct: a single bold breath you watch, not a field you sink into.
+    breathRange: { min: 0.7, max: 1.35 },
   },
   {
     id: 'box',
