@@ -62,6 +62,33 @@ function lerpVal(current: number, target: number, speed: number): number {
   return current + (target - current) * Math.min(speed, 1);
 }
 
+// Spring a particle toward a target, with the force magnitude CLAMPED to maxC.
+// The clamp is what keeps the collective breath pull from swamping each
+// particle's own noise drift, so individual motion stays visible while the
+// field still moves together. A spring (not a constant push) also lets
+// particles decelerate and settle at the target instead of piling at the edge.
+//
+// maxC is NOT eyeballed: it mirrors the Mac's own collective force range. The
+// Mac runs on a small popover canvas where its springs naturally peak around
+// 1 to 2; on the phone's large canvas the same ray-target spring would produce
+// forces ~20-50x bigger and steamroll the noise. Clamping at the Mac's ceiling
+// restores the Mac's individual-vs-collective balance.
+function clampedPull(
+  px: number, py: number,
+  tx: number, ty: number,
+  k: number, maxC: number,
+): { fx: number; fy: number } {
+  'worklet';
+  let fx = (tx - px) * k;
+  let fy = (ty - py) * k;
+  const m = Math.sqrt(fx * fx + fy * fy);
+  if (m > maxC) {
+    fx = (fx / m) * maxC;
+    fy = (fy / m) * maxC;
+  }
+  return { fx, fy };
+}
+
 // ---------------------------------------------------------------------------
 // Motion functions
 // Each receives a MUTABLE particle reference (in a worklet, object fields can
@@ -97,39 +124,61 @@ function motionConverge(
   cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  // Per-particle organic drift mixed straight into the force so every particle
-  // keeps its own restless dance (the Mac "not stable" feel) — but kept below
-  // the breath force so the gather still reads clearly.
-  let fx = nx * 0.6, fy = ny * 0.6;
+  // Personal drift at FULL weight, exactly like the Mac (nx). The collective
+  // breath force is a spring toward a phase target, but its magnitude is CLAMPED
+  // (maxC) so it leads the field without ever drowning this personal drift —
+  // every particle visibly dances on its own AND moves with the group.
+  //
+  // The earlier port sprang to absolute position with no clamp, so on the
+  // phone's large canvas the collective force was ~50x the noise and the whole
+  // field moved as one rigid blob with no individual life. The clamp restores
+  // the Mac's balance while keeping the phone-filling ray targets.
+  let fx = nx, fy = ny;
 
+  let tx = cx, ty = cy;
+  let k = 0.05, maxC = 0.7;
   if (phaseType === 'inhale') {
-    // Strong spring straight to the centre. Because the force scales with the
-    // distance from centre, the particles farthest out are pulled hardest, so
-    // the whole wide phone field rushes in fast and gathers — the Mac "suck to
-    // centre" feel, fixed for the phone's much larger spread. k ramps up over
-    // the inhale so the pull accelerates as you breathe in.
-    const k = 0.05 + phaseT * 0.12;
-    fx += (cx - p.x) * k;
-    fy += (cy - p.y) * k;
+    // Gather to centre. Far particles read as "sucked in"; the clamp keeps the
+    // pull bounded so the noise still perturbs each path.
+    k = 0.12;
+    maxC = 2.2;
     p.opacity = lerpVal(p.opacity, 0.55 + phaseT * 0.25, dt * 2);
     p.size = lerpVal(p.size, p.baseSize * (1 + phaseT * 0.35), dt * 2);
-  } else if (phaseType === 'hold' || phaseType === 'hold2') {
-    // Held breath: hover near the centre, opacity shimmers (alive, not frozen).
-    fx += (cx - p.x) * 0.025;
-    fy += (cy - p.y) * 0.025;
+  } else if (phaseType === 'hold') {
+    // Hold after the in-breath: stay sucked in at centre. The anchor pull is
+    // strong enough to beat the personal-noise drift (so the gather holds its
+    // position), while the full noise still makes each particle dance in place.
+    k = 0.09;
+    maxC = 1.3;
     p.opacity = lerpVal(p.opacity, 0.6 + Math.sin(t * 2 + p.noiseOffsetX) * 0.12, dt * 2);
+  } else if (phaseType === 'hold2') {
+    // Hold after the out-breath: stay expanded. Anchor to each particle's
+    // dispersed home (NOT centre) firmly enough to hold the spread, with the
+    // noise dancing on top — the mirror of the gather-hold above.
+    tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.92;
+    ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.88;
+    k = 0.09;
+    maxC = 1.3;
+    p.opacity = lerpVal(p.opacity, 0.55 + Math.sin(t * 2 + p.noiseOffsetX) * 0.1, dt * 2);
   } else {
     // Exhale: release back out along each particle's own ray so the field
     // disperses evenly across the whole screen instead of snapping to the edges.
+    // A soft, eased spread (gentle k + low force ceiling) reads as glitter
+    // drifting apart rather than a synchronised burst. Each particle's noise
+    // seed staggers its rate slightly so they don't move in lockstep.
+    const stagger = 0.8 + (p.noiseOffsetX % 10) / 25; // ~0.8..1.2 per particle
     const rf = 0.2 + phaseT * 0.8;
-    const tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.92 * rf;
-    const ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.88 * rf;
-    const k = 0.05 + phaseT * 0.06;
-    fx += (tx - p.x) * k;
-    fy += (ty - p.y) * k;
+    tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.92 * rf;
+    ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.88 * rf;
+    k = 0.055 * stagger;
+    maxC = 1.1;
     p.opacity = lerpVal(p.opacity, 0.5 - phaseT * 0.15, dt * 2);
     p.size = lerpVal(p.size, p.baseSize * (1 - phaseT * 0.18), dt * 2);
   }
+
+  const c = clampedPull(p.x, p.y, tx, ty, k, maxC);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -146,7 +195,8 @@ function motionWave(
   cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx * 0.3, fy = ny * 0.3;
+  // Noise weight matches the Mac (fx 0.5, fy 0.3); collective pull is clamped.
+  let fx = nx * 0.5, fy = ny * 0.3;
   // Ocean sway: gentle per-particle undulation over the breath.
   fy += Math.sin(t * 1.1 + p.homeAngle * 2) * 0.5;
   fx += Math.cos(t * 0.9 + p.homeAngle * 2) * 0.25;
@@ -165,8 +215,9 @@ function motionWave(
   }
   const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.88 * rf;
   const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.84 * rf;
-  fx += (txp - p.x) * 0.05;
-  fy += (typ - p.y) * 0.05;
+  const c = clampedPull(p.x, p.y, txp, typ, 0.05, 1.8);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -201,8 +252,9 @@ function motionSnowfall(
   }
   const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.88 * rf;
   const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.84 * rf;
-  fx += (txp - p.x) * 0.05;
-  fy += (typ - p.y) * 0.05;
+  const c = clampedPull(p.x, p.y, txp, typ, 0.05, 1.6);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -220,7 +272,8 @@ function motionAlternate(
   cx: number, cy: number
 ): { fx: number; fy: number } {
   'worklet';
-  let fx = nx * 0.3, fy = ny * 0.3;
+  // Noise weight matches the Mac (0.5); collective pull is clamped.
+  let fx = nx * 0.5, fy = ny * 0.5;
   // Breath gathers toward one side on inhale, crosses to the other on exhale.
   let rf: number;
   let cxo = cx;
@@ -239,8 +292,9 @@ function motionAlternate(
   }
   const txp = cxo + Math.cos(p.homeAngle) * p.homeR * cx * 0.55 * rf;
   const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.78 * rf;
-  fx += (txp - p.x) * 0.05;
-  fy += (typ - p.y) * 0.05;
+  const c = clampedPull(p.x, p.y, txp, typ, 0.05, 1.8);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -258,8 +312,8 @@ function motionLunar(
 ): { fx: number; fy: number } {
   'worklet';
   // Left Nostril: the field drifts to the left on the in-breath and sweeps
-  // across to the right on the out-breath.
-  let fx = nx * 0.3, fy = ny * 0.3;
+  // across to the right on the out-breath. Noise weight matches the Mac (0.4).
+  let fx = nx * 0.4, fy = ny * 0.4;
   let rf: number;
   let cxo: number;
   if (phaseType === 'inhale') {
@@ -277,8 +331,9 @@ function motionLunar(
   }
   const txp = cxo + Math.cos(p.homeAngle) * p.homeR * cx * 0.5 * rf;
   const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.62 * rf;
-  fx += (txp - p.x) * 0.05;
-  fy += (typ - p.y) * 0.05;
+  const c = clampedPull(p.x, p.y, txp, typ, 0.05, 1.5);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -313,8 +368,9 @@ function motionBelly(
   }
   const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.8 * rf;
   const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.9 * rf;
-  fx += (txp - p.x) * 0.05;
-  fy += (typ - p.y) * 0.05;
+  const c = clampedPull(p.x, p.y, txp, typ, 0.05, 1.6);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -335,7 +391,8 @@ function motionSedation(
   // Wind Down: the same breath as converge, but the dispersed extent shrinks as
   // the rounds accumulate, so the field calms inward toward stillness.
   const calm = 1 - roundProgress * 0.5;
-  let fx = nx * 0.3 * calm, fy = ny * 0.3 * calm;
+  // Noise weight matches the Mac (0.5), attenuated by calm as rounds accumulate.
+  let fx = nx * 0.5 * calm, fy = ny * 0.5 * calm;
   let rf: number;
   if (phaseType === 'inhale') {
     rf = 1 - phaseT * 0.82;
@@ -350,8 +407,10 @@ function motionSedation(
   const disp = 0.5 + 0.38 * calm;
   const txp = cx + Math.cos(p.homeAngle) * p.homeR * cx * disp * rf;
   const typ = cy + Math.sin(p.homeAngle) * p.homeR * cy * (disp - 0.04) * rf;
-  fx += (txp - p.x) * 0.05;
-  fy += (typ - p.y) * 0.05;
+  // Clamp ceiling also calms with the rounds so the field settles toward stillness.
+  const c = clampedPull(p.x, p.y, txp, typ, 0.05, 1.6 * calm);
+  fx += c.fx;
+  fy += c.fy;
   return { fx, fy };
 }
 
@@ -626,13 +685,14 @@ export function updateParticle(
   // off velocity a little faster and admit the force (incl. per-particle noise)
   // at a fraction, so particles hover and drift gently rather than locking dead.
   const friction = holding ? 0.9 : 0.92;
-  const forceScale = holding ? 0.35 : 1;
-  let vx = p.vx * friction + force.fx * dt * 8 * forceScale;
-  let vy = p.vy * friction + force.fy * dt * 8 * forceScale;
+  let vx = p.vx * friction + force.fx * dt * 8;
+  let vy = p.vy * friction + force.fy * dt * 8;
 
-  // Speed cap — higher off-hold so the field can sweep across the taller phone
-  // screen within a phase (the Mac's 1.8 was tuned to a smaller canvas).
-  const maxSpeed = holding ? 1.8 : 2.8;
+  // Speed cap — lifted off-hold so a gentle spring eases the particle out to its
+  // target and decelerates naturally, instead of clipping to a constant-velocity
+  // slide (which reads as a rigid, un-glittery slide). The softer exhale force
+  // means particles rarely approach this cap anyway; it's just a runaway guard.
+  const maxSpeed = holding ? 1.8 : 4.5;
   const spd = Math.sqrt(vx * vx + vy * vy);
   if (spd > maxSpeed) {
     vx = (vx / spd) * maxSpeed;

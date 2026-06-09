@@ -14,6 +14,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
@@ -35,6 +36,7 @@ import { BeginButton } from '@/components/begin-button';
 import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
 import { RecommendSheet } from '@/components/RecommendSheet';
+import { ShootingStar } from '@/components/ShootingStar';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 import type { Recommendation } from '@/models/recommend';
@@ -119,6 +121,25 @@ export default function HomeScreen() {
   const rippleOpacity = useSharedValue(0);
   const insightOpacity = useSharedValue(0);
   const insightTranslateY = useSharedValue(6);
+  // Whole-page reaction to the orb press: the page recoils as one and a
+  // full-screen glow washes out from the orb, so the tap impacts everything.
+  const pageScale = useSharedValue(1);
+  const flashOpacity = useSharedValue(0);
+
+  // Soft white glow that gently breathes around the recommendation card,
+  // echoing the session particle motion so the suggestion feels alive.
+  const cardGlow = useSharedValue(0);
+  useEffect(() => {
+    cardGlow.value = withRepeat(
+      withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+  }, []);
+  const cardGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.1 + cardGlow.value * 0.35,
+    shadowRadius: 12 + cardGlow.value * 18,
+  }));
 
   const tapAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: tapScale.value }],
@@ -130,6 +151,12 @@ export default function HomeScreen() {
   const insightAnimStyle = useAnimatedStyle(() => ({
     opacity: insightOpacity.value,
     transform: [{ translateY: insightTranslateY.value }],
+  }));
+  const pageAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pageScale.value }],
+  }));
+  const flashAnimStyle = useAnimatedStyle(() => ({
+    opacity: flashOpacity.value,
   }));
 
   const insight = soulInsight(checkInRecords);
@@ -179,16 +206,29 @@ export default function HomeScreen() {
   }, []);
 
   const handleOrbPress = useCallback(() => {
-    Haptics.selectionAsync();
+    // Heavy hit so the press lands in the hand as well as on screen.
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     tapScale.value = withSequence(
-      withTiming(0.93, { duration: 80, easing: Easing.out(Easing.quad) }),
-      withTiming(1.08, { duration: 220, easing: Easing.out(Easing.sin) }),
-      withTiming(1.0, { duration: 380, easing: Easing.inOut(Easing.sin) })
+      withTiming(0.9, { duration: 80, easing: Easing.out(Easing.quad) }),
+      withTiming(1.12, { duration: 220, easing: Easing.out(Easing.sin) }),
+      withTiming(1.0, { duration: 420, easing: Easing.inOut(Easing.sin) })
+    );
+    // The whole page dips and springs back, as if absorbing the press.
+    pageScale.value = withSequence(
+      withTiming(0.97, { duration: 90, easing: Easing.out(Easing.quad) }),
+      withTiming(1.012, { duration: 240, easing: Easing.out(Easing.sin) }),
+      withTiming(1.0, { duration: 340, easing: Easing.inOut(Easing.sin) })
+    );
+    // A full-screen glow flashes out from the orb, then fades.
+    flashOpacity.value = 0;
+    flashOpacity.value = withSequence(
+      withTiming(0.24, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withTiming(0, { duration: 560, easing: Easing.out(Easing.cubic) })
     );
     rippleScale.value = 1;
-    rippleOpacity.value = 0.5;
-    rippleScale.value = withTiming(1.85, { duration: 680, easing: Easing.out(Easing.cubic) });
-    rippleOpacity.value = withTiming(0, { duration: 680, easing: Easing.out(Easing.cubic) });
+    rippleOpacity.value = 0.6;
+    rippleScale.value = withTiming(2.3, { duration: 760, easing: Easing.out(Easing.cubic) });
+    rippleOpacity.value = withTiming(0, { duration: 760, easing: Easing.out(Easing.cubic) });
     if (insight) {
       insightOpacity.value = 0;
       insightTranslateY.value = 6;
@@ -201,7 +241,7 @@ export default function HomeScreen() {
         withDelay(2600, withTiming(4, { duration: 480 }))
       );
     }
-  }, [insight, tapScale, rippleScale, rippleOpacity, insightOpacity, insightTranslateY]);
+  }, [insight, tapScale, rippleScale, rippleOpacity, insightOpacity, insightTranslateY, pageScale, flashOpacity]);
 
   const renderRow = (t: Technique) => (
     <Pressable
@@ -219,6 +259,8 @@ export default function HomeScreen() {
   return (
     <View style={styles.root}>
       <BackgroundGradient />
+      <ShootingStar />
+      <Animated.View style={[styles.pageFill, pageAnimStyle]}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <Header onPressProfile={handleProfile} />
 
@@ -278,20 +320,15 @@ export default function HomeScreen() {
         {/* Returning: lead with the tailored path; browsing is the quiet option. */}
         {practiced === true && (
           <>
-            <View style={styles.recommendCard}>
+            <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
-                <SymbolView
-                  name="sparkles"
-                  tintColor={colors.textSubtitle}
-                  size={16}
-                  weight="medium"
-                />
-                <Text style={styles.recommendCardTitle}>
-                  Suggest a calming exercise based on how I&apos;m feeling
+                <Text style={styles.recommendCardTitle}>Calm, made for you</Text>
+                <Text style={styles.recommendCardSubtitle}>
+                  shaped by your stress, your mood, your minutes
                 </Text>
               </View>
               <BeginButton onPress={handleRecommendOpen} />
-            </View>
+            </Animated.View>
 
             <View style={styles.chooseWrap}>
               <Pressable
@@ -308,6 +345,12 @@ export default function HomeScreen() {
           </>
         )}
       </SafeAreaView>
+      </Animated.View>
+
+      <Animated.View
+        style={[styles.flash, flashAnimStyle]}
+        pointerEvents="none"
+      />
 
       <Modal
         visible={pickerVisible}
@@ -380,6 +423,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundBottom,
   },
+  pageFill: {
+    flex: 1,
+  },
+  // Full-screen glow that flashes out on an orb press. Opacity is animated;
+  // sits above the page content but below modals, and never blocks touches.
+  flash: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(150, 120, 235, 1)',
+  },
   safe: {
     flex: 1,
     paddingHorizontal: 24,
@@ -409,16 +465,27 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    // White glow whose opacity/radius breathe via cardGlowStyle (above).
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
   },
   recommendCardHead: {
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
   },
   recommendCardTitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
-    lineHeight: 24,
+    fontFamily: 'Poppins-Medium',
+    fontSize: 22,
+    lineHeight: 28,
     color: colors.textPrimary,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+  recommendCardSubtitle: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSubtitle,
     letterSpacing: 0.2,
     textAlign: 'center',
   },

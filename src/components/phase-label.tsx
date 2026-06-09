@@ -1,9 +1,7 @@
-// Phase cue, shown as glowing text. The word cross-fades + scales in place when
-// the phase changes, so the swap reads as one smooth morph rather than two words
-// sliding past each other. A soft text glow keeps the active cue feeling "lit"
-// (mirrors the Mac canvas shadowBlur).
-//
-// Pass nextLabel to show a dimmer sub-label below the chip.
+// Phase cue, shown as text. When the phase changes, the old word fades fully
+// out and the new word fades in (sequenced, never overlapping) so the swap reads
+// as one clean word replacing another. Long multi-word labels wrap to two lines
+// at full size rather than shrinking.
 
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
@@ -13,6 +11,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
@@ -21,13 +20,12 @@ import { colors } from '@/theme/colors';
 
 type PhaseLabelProps = {
   label: string;
-  nextLabel?: string | null;
 };
 
-const FADE_MS = 300;
-const EASE = Easing.out(Easing.cubic);
+const FADE_MS = 420;
+const EASE = Easing.inOut(Easing.cubic);
 
-export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
+export function PhaseLabel({ label }: PhaseLabelProps) {
   const [shown, setShown] = useState(label);
   const [prev, setPrev] = useState<string | null>(null);
   const shownOpacity = useSharedValue(1);
@@ -38,10 +36,6 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
   const chipScale = useSharedValue(1);
   const lastLabelRef = useRef(label);
   const [reduceMotion, setReduceMotion] = useState(false);
-
-  const [shownNext, setShownNext] = useState(nextLabel ?? null);
-  const nextOpacity = useSharedValue(nextLabel ? 1 : 0);
-  const lastNextRef = useRef(nextLabel);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,13 +71,21 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
     shownOpacity.value = 0;
     shownScale.value = reduceMotion ? 1 : 0.94;
 
-    prevOpacity.value = withTiming(0, { duration, easing: EASE }, (finished) => {
+    // Sequence rather than overlap: the old word fades fully out first, THEN the
+    // new word fades in. Two different words never share the screen at once, so
+    // the swap reads as one clean word replacing another instead of two garbled
+    // words ghosting through each other. (reduceMotion collapses to an instant
+    // swap.)
+    const outMs = reduceMotion ? 0 : Math.round(duration * 0.42);
+    const inMs = reduceMotion ? 0 : duration - outMs;
+
+    prevOpacity.value = withTiming(0, { duration: outMs, easing: EASE }, (finished) => {
       'worklet';
       if (finished) runOnJS(setPrev)(null);
     });
-    prevScale.value = withTiming(reduceMotion ? 1 : 0.94, { duration, easing: EASE });
-    shownOpacity.value = withTiming(1, { duration, easing: EASE });
-    shownScale.value = withTiming(1, { duration, easing: EASE });
+    prevScale.value = withTiming(reduceMotion ? 1 : 0.94, { duration: outMs, easing: EASE });
+    shownOpacity.value = withDelay(outMs, withTiming(1, { duration: inMs, easing: EASE }));
+    shownScale.value = withDelay(outMs, withTiming(1, { duration: inMs, easing: EASE }));
 
     if (!reduceMotion) {
       chipScale.value = withSequence(
@@ -96,23 +98,6 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
     AccessibilityInfo.announceForAccessibility(label);
   }, [label, reduceMotion]);
 
-  useEffect(() => {
-    if (nextLabel === lastNextRef.current) return;
-    lastNextRef.current = nextLabel;
-    const duration = reduceMotion ? 0 : FADE_MS;
-    if (nextLabel) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- mirrors the label cross-fade effect above; the ref guard prevents cascading renders
-      setShownNext(nextLabel);
-      nextOpacity.value = 0;
-      nextOpacity.value = withTiming(1, { duration });
-    } else {
-      nextOpacity.value = withTiming(0, { duration }, (finished) => {
-        'worklet';
-        if (finished) runOnJS(setShownNext)(null);
-      });
-    }
-  }, [nextLabel, reduceMotion]);
-
   const chipStyle = useAnimatedStyle(() => ({
     transform: [{ scale: chipScale.value }],
   }));
@@ -124,30 +109,25 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
     opacity: prevOpacity.value,
     transform: [{ scale: prevScale.value }],
   }));
-  const nextStyle = useAnimatedStyle(() => ({ opacity: nextOpacity.value }));
 
   return (
     <View style={styles.wrap}>
       <Animated.View style={[styles.chip, chipStyle]}>
         <View style={styles.textStack}>
           {prev !== null && (
-            <Animated.Text style={[styles.text, styles.textAbsolute, prevStyle]}>
-              {prev}
-            </Animated.Text>
+            <Animated.View style={[styles.layer, prevStyle]} pointerEvents="none">
+              <Text style={styles.text} numberOfLines={2}>
+                {prev}
+              </Text>
+            </Animated.View>
           )}
-          <Animated.Text
-            style={[styles.text, shownStyle]}
-            accessibilityLiveRegion="polite"
-          >
-            {shown}
-          </Animated.Text>
+          <Animated.View style={[styles.layer, shownStyle]}>
+            <Text style={styles.text} numberOfLines={2} accessibilityLiveRegion="polite">
+              {shown}
+            </Text>
+          </Animated.View>
         </View>
       </Animated.View>
-      {shownNext !== null && (
-        <Animated.View style={[styles.nextWrap, nextStyle]}>
-          <Text style={styles.nextText}>{shownNext}</Text>
-        </Animated.View>
-      )}
     </View>
   );
 }
@@ -161,48 +141,45 @@ const styles = StyleSheet.create({
   chip: {
     // No pill container off-centre: the cue is just glowing text now that it no
     // longer needs to stand apart from the bloom behind it.
-    minWidth: 132,
+    // Stretch to the full available width: the words live in an absolutely-
+    // positioned layer (below) and so give the container no intrinsic width.
+    // Without this the chip collapses to its content, forcing multi-word labels
+    // like "inhale left" to wrap and get clipped by the fixed textStack height.
+    alignSelf: 'stretch',
     paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Fixed-height stack so the outgoing (absolute) and incoming words sit in the
-  // exact same centred spot during the cross-fade.
+  // Fixed-height stack. Both words are absolutely-positioned, flex-centred
+  // layers (below), so the outgoing and incoming words occupy the exact same
+  // centred rect during the cross-fade. This avoids the iOS glitch where an
+  // absolute Text relying on textAlignVertical (Android-only) sat higher than
+  // the centred incoming word, so the two never lined up mid-transition.
   textStack: {
-    height: 30,
-    minWidth: 84,
+    // Tall enough for up to two lines so long labels ("inhale through mouth")
+    // wrap and stay at full size instead of shrinking or getting clipped.
+    height: 78,
+    alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  textAbsolute: {
+  layer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    textAlignVertical: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
-    // Match the mindfulness prompt title (22/400) so breathing and mindfulness
-    // sessions read with the same size and weight.
-    fontSize: 22,
-    fontWeight: '400',
+    fontSize: 30,
+    // Poppins SemiBold to match the rest of the app (the weight is baked into
+    // the family file, so no fontWeight — that would trigger synthetic bolding).
+    fontFamily: 'Poppins-SemiBold',
+    lineHeight: 34,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: 0.3,
-    textShadowColor: 'rgba(255, 245, 235, 0.55)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 14,
-  },
-  nextWrap: {
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  nextText: {
-    fontSize: 12,
-    fontWeight: '300',
-    color: 'rgba(255, 255, 255, 0.47)',
-    textAlign: 'center',
-    letterSpacing: 0.3,
+    letterSpacing: 0.5,
   },
 });
