@@ -53,7 +53,9 @@ type HSL = readonly [number, number, number];
 // Constants
 // ---------------------------------------------------------------------------
 
-const N_PARTICLES = 60;
+// Doubled from 60: a denser field reads as "stars / many points of light"
+// rather than a sparse handful of blobs (the Mac "oneness" feel).
+const N_PARTICLES = 120;
 
 // The glow sprite is baked at this pixel size, then scaled per particle. Bigger
 // = softer/crisper haloes when scaled down; 96 is a good quality/perf balance.
@@ -63,6 +65,11 @@ const SPRITE_HALF = SPRITE / 2;
 // A particle of logical `size` is drawn as a glow this many times wider, so the
 // soft halo extends well past the bright core (mirrors the Mac aura at r*5).
 const GLOW_SCALE = 4.2;
+
+// Global brightness knob applied to every particle's alpha. >1 lifts the whole
+// field so individual points read as bright stars against the dark gradient
+// rather than dim smudges. Tune this live to taste.
+const BRIGHTNESS = 1.35;
 
 // ---------------------------------------------------------------------------
 // Colour helper (worklet) — HSL(0-360, 0-100, 0-100) → RGB(0-1)
@@ -115,7 +122,8 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
     const t = Math.sqrt(Math.random());
     const x = cx + Math.cos(angle) * t * cx * 0.92;
     const y = cy + Math.sin(angle) * t * cy * 0.92;
-    const base = 6 + Math.random() * 8;
+    // Less than half the old 6–14px: small points of light, not blobs.
+    const base = 2.5 + Math.random() * 3;
     particles.push({
       x,
       y,
@@ -126,7 +134,7 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
       homeR: t,
       baseSize: base,
       size: base,
-      opacity: 0.3 + Math.random() * 0.35,
+      opacity: 0.5 + Math.random() * 0.4,
       hue: 260 + Math.random() * 40, // violet, matching Mac createParticle
       noiseOffsetX: Math.random() * 100,
       noiseOffsetY: Math.random() * 100,
@@ -367,11 +375,15 @@ export const BreathingParticles = memo(function BreathingParticles({
     // Brighter + more saturated than the dim background so the dots glow
     // against it (matches the Mac per-particle colour boost).
     const jitter = (p.noiseOffsetX % 20) - 10;
-    const rgb = hslToRgb(pc[0] + jitter, Math.min(pc[1] + 50, 90), Math.min(pc[2] + 50, 85));
+    // Push saturation hard and keep lightness mid, not high. The sprite is a
+    // single flat colour modulated over a soft alpha falloff (no dark saturated
+    // edge like the Mac sphere), so a high-lightness colour washes to near-white
+    // over the dark field. A richer, less-light colour reads as actual colour.
+    const rgb = hslToRgb(pc[0] + jitter, Math.min(pc[1] + 62, 95), Math.min(pc[2] + 50, 84));
     c[0] = rgb[0];
     c[1] = rgb[1];
     c[2] = rgb[2];
-    c[3] = Math.max(0, Math.min(1, p.opacity));
+    c[3] = Math.max(0, Math.min(1, p.opacity * BRIGHTNESS));
   });
 
   return (

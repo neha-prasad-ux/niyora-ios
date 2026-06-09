@@ -90,7 +90,7 @@ function BreathingSession({
   const [paused, setPaused] = useState(false);
   const cycle = useBreathCycle(technique.phases, rounds, paused);
   const { width, height } = Dimensions.get('window');
-  const { track, changeTrack, fadeOut } = useSessionMusic();
+  const { track, changeTrack, fadeOut, pause: pauseMusic, resume: resumeMusic } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [showMood, setShowMood] = useState(false);
 
@@ -139,14 +139,19 @@ function BreathingSession({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fadeOut is stable; omitting avoids double-fire on track change
   }, [cycle.done, technique.id]);
 
+  // Pause the music with the breath: tapping to pause freezes the visuals, so
+  // the soundtrack should stop too (and resume on the next tap). When the
+  // session completes, fadeOut owns the audio, so skip resuming once done.
+  useEffect(() => {
+    if (cycle.done) return;
+    if (paused) pauseMusic();
+    else resumeMusic();
+  }, [paused, cycle.done, pauseMusic, resumeMusic]);
+
   const labelText = useMemo(() => {
     if (cycle.done) return 'well done';
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
-
-  const nextLabel = cycle.done
-    ? null
-    : `then ${technique.phases[(cycle.phaseIndex + 1) % technique.phases.length].label}`;
 
   function exitSession() {
     Haptics.selectionAsync();
@@ -262,9 +267,15 @@ function BreathingSession({
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} nextLabel={nextLabel} />
+                <PhaseLabel label={labelText} />
                 {!cycle.done && (
-                  <Text style={styles.instructions}>{technique.instructions}</Text>
+                  <>
+                    <Text style={styles.techniqueName}>{technique.name}</Text>
+                    <Text style={styles.techniqueBenefit}>{technique.subtitle}</Text>
+                    {!!technique.context && (
+                      <Text style={styles.techniqueContext}>{technique.context}</Text>
+                    )}
+                  </>
                 )}
               </View>
 
@@ -372,14 +383,31 @@ const styles = StyleSheet.create({
     right: 24,
     alignItems: 'center',
   },
-  instructions: {
+  // Exercise identity under the phase word — same info as the home list:
+  // the technique name (title) and its one-line benefit (subtitle).
+  techniqueName: {
     marginTop: 14,
-    // Stretch to the block's full width so multi-word guidance centers on as
-    // few lines as fit, rather than collapsing to a narrow vertical column.
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  techniqueBenefit: {
+    marginTop: 4,
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  techniqueContext: {
+    marginTop: 10,
     alignSelf: 'stretch',
-    fontSize: 12,
-    fontWeight: '300',
-    color: 'rgba(255, 255, 255, 0.65)',
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     letterSpacing: 0.3,
   },
