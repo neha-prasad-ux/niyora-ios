@@ -43,6 +43,10 @@ export type BreathingTechnique = {
   rounds: number;
   colors: PhaseColors;
   motion: MotionType;
+  // When set, the session renders the swelling "My Soul" orb (the onboarding
+  // breath visual) instead of the particle field, breathing between these
+  // scales: `max` on inhale, `min` on exhale. Omit for the default particles.
+  breathRange?: { min: number; max: number };
 };
 
 // A single guided line shown during a mindfulness session, held on screen
@@ -71,6 +75,34 @@ export type Technique = BreathingTechnique | MindfulnessTechnique;
 
 export const TECHNIQUES: readonly Technique[] = [
   // ── Breathing ──
+  {
+    // The fastest reset: three extended-exhale breaths in 30 seconds, for the
+    // "20 seconds before this meeting" moment. The longer out-breath is the
+    // calming part (it nudges the parasympathetic side). Lowest-friction
+    // on-ramp, so it leads the breathing list.
+    id: 'quick-calm',
+    name: 'Quick Calm',
+    subtitle: 'reset in 30 seconds',
+    durationSeconds: 30,
+    category: 'breathing',
+    locked: false,
+    instructions: 'In 4, out 6. Let the exhale be the longer one.',
+    rounds: 3,
+    phases: [
+      { type: 'inhale', label: 'breathe in', duration: 4 },
+      { type: 'exhale', label: 'breathe out', duration: 6 },
+    ],
+    colors: {
+      inhale: [205, 30, 13],
+      hold: [210, 22, 11],
+      exhale: [215, 28, 11],
+    },
+    motion: 'wave',
+    // Quick Calm wears the swelling Soul orb (same range as the onboarding
+    // breath) instead of the particle field, so the fastest reset also feels
+    // distinct: a single bold breath you watch, not a field you sink into.
+    breathRange: { min: 0.7, max: 1.35 },
+  },
   {
     id: 'box',
     name: 'Box Breath',

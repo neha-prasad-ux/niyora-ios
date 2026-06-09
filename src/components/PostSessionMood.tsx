@@ -28,8 +28,9 @@ import Animated, {
 import { appendMood, type MoodValue } from '@/store/mood-history';
 import { colors } from '@/theme/colors';
 
-// Dot hues: cool blue -> mid violet -> warm purple across positions 1..5.
-const DOT_HUES = [215, 240, 260, 278, 295] as const;
+// Dot hues across positions 1..5 (still tense -> at peace): warm purple for
+// tension, cooling to calm blue at peace. Blue is the calm end everywhere.
+const DOT_HUES = [295, 278, 260, 240, 215] as const;
 
 // Lightest feeling first, heaviest last.
 const MOODS: { value: MoodValue; label: string }[] = [

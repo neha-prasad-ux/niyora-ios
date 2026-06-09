@@ -13,6 +13,7 @@ import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
+import { Orb } from '@/components/orb';
 import { MindfulnessSession } from '@/components/mindfulness-session';
 import { PhaseLabel } from '@/components/phase-label';
 import { PostSessionMood } from '@/components/PostSessionMood';
@@ -30,6 +31,10 @@ import { NiyoraSync } from 'niyora-sync';
 import { appendSession } from '@/store/session-history';
 import type { MusicTrack } from '@/store/music-prefs';
 import { colors } from '@/theme/colors';
+
+// Matches the onboarding breath orb so the Soul-orb techniques feel continuous
+// with the intro.
+const SESSION_ORB_SIZE = 220;
 
 const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
   { id: 'serene', label: 'Serene', icon: 'music.note' },
@@ -180,18 +185,31 @@ function BreathingSession({
       accessibilityLabel={paused ? 'Resume session' : 'Pause session'}
     >
         <SessionBackground targetColor={[...phaseHsl] as [number, number, number]} />
-        {/* The session visual IS the particle field, exactly like the Mac
-            BreathingSession canvas: no resting sphere, the particles converge
-            and disperse with the breath over the center bloom. */}
-        <BreathingParticles
-          motion={technique.motion}
-          phase={cycle.phase.type}
-          phaseT={cycle.phaseT}
-          roundProgress={cycle.sessionT}
-          phaseColor={phaseHsl}
-          active
-          style={{ position: 'absolute', top: 0, left: 0, width, height }}
-        />
+        {/* Two breathing visuals. Techniques carrying a `breathRange` (just
+            Quick Calm for now) wear the swelling Soul orb from onboarding so
+            the fastest reset reads as a single bold breath. Everything else
+            keeps the Mac-style particle field: the particles converge and
+            disperse with the breath over the center bloom. */}
+        {technique.breathRange ? (
+          <View style={styles.orbWrap} pointerEvents="none">
+            <Orb
+              size={SESSION_ORB_SIZE}
+              phase={cycle.phase.type === 'hold2' ? 'hold' : cycle.phase.type}
+              phaseDuration={cycle.phase.duration}
+              breathRange={technique.breathRange}
+            />
+          </View>
+        ) : (
+          <BreathingParticles
+            motion={technique.motion}
+            phase={cycle.phase.type}
+            phaseT={cycle.phaseT}
+            roundProgress={cycle.sessionT}
+            phaseColor={phaseHsl}
+            active
+            style={{ position: 'absolute', top: 0, left: 0, width, height }}
+          />
+        )}
 
         {cycle.done && <SessionDoneBackdrop />}
 
@@ -335,6 +353,18 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  // Centres the breath orb in the upper field, clear of the phase label and
+  // technique name that sit at ~62% of the screen.
+  orbWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: '28%',
   },
   safe: {
     flex: 1,
