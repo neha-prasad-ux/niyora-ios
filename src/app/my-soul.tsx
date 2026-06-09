@@ -37,6 +37,7 @@ import {
   type CheckInRecord,
 } from '@/store/checkin-history';
 import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
+import { resetOnboarding } from '@/store/onboarding-complete';
 import {
   getReminder,
   setReminder,
@@ -333,6 +334,19 @@ export default function MySoulScreen() {
           />
 
           <MessageCard accent={accent} />
+
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              resetOnboarding().finally(() => router.replace('/onboarding'));
+            }}
+            hitSlop={12}
+            style={styles.replayIntro}
+            accessibilityRole="button"
+            accessibilityLabel="Watch the intro again"
+          >
+            <Text style={styles.replayIntroText}>Watch the intro again</Text>
+          </Pressable>
 
           <Text style={styles.footer}>
             Niyora runs entirely on your iPhone. No accounts, no profiles.
@@ -1050,6 +1064,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textPrimary,
     letterSpacing: 0.3,
+  },
+  replayIntro: {
+    alignSelf: 'center',
+    marginTop: 6,
+    paddingVertical: 8,
+  },
+  replayIntroText: {
+    fontSize: 13,
+    fontWeight: '300',
+    color: colors.textTertiary,
+    letterSpacing: 0.2,
   },
   footer: {
     marginTop: 18,

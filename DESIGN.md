@@ -249,12 +249,40 @@ Smart reminders run during work hours (9am–6pm, configurable in onboarding).
 
 ## Onboarding
 
-- Single-screen first-launch flow. No multi-step quiz.
-- Asks the minimum:
-  - Reminder window (default 9am-6pm)
-  - Notification permission
-- One-tap "I'm in." Everything else has sensible defaults.
+A six-beat narrative flow on first launch, built around a single orb that stays
+mounted the whole way and transforms per step. This deliberately replaces the
+earlier "single minimal screen" spec: the orb, the privacy promise, and the
+first real breath are the product's whole pitch, and a fast-forgettable splash
+threw that away. The flow earns the same trust the architecture does by letting
+the user feel it once. The minimalist principles below still hold inside it
+(asks little, no accounts, sensible defaults, one primary action per screen).
+
+Beats, in order:
+1. **Welcome** · calm orb, "Calm in 60 seconds." / "Nothing leaves your phone."
+2. **Privacy** · the hero moment. No account. No data leaves your phone. No wearables.
+3. **First breath** · the orb becomes the session orb and runs one short guided
+   cycle (~20s, exhale longer than inhale, with a dramatic swell, big on inhale,
+   small on exhale). Then a rotating, verified science fact rewards the breath
+   just taken (see `src/lib/onboarding-facts.ts`).
+4. **My Soul** · the orb holds still and accumulates rings one by one, each in
+   its own tier colour (rose, violet, blue, cool blue) and staying as the next
+   joins, to show the soul growing with practice. "This is your Soul. It grows
+   every time you practice."
+5. **Reminders** · a nightly wind-down framing ("Slow breathing makes falling
+   asleep feel easier"), bedtime presets (9 / 10 / 11pm), then the notification
+   permission prompt. Reuses the daily-reminder infra. This is the last beat in
+   v1, so finishing it (or "Not now") completes onboarding and routes home.
+
+A sixth **Mac** beat (cross-device sync placeholder) is built but hidden behind
+`MAC_STEP_ENABLED` in `onboarding.tsx`, since sync isn't shipping in v1. Flip
+the flag to restore it as the final beat once Mac sync lands.
+
+Rules:
+- Shows once (gated on `niyora:onboarding-complete`), before the home first-run state.
+- **Skip** (top-right) finishes immediately from any step. Replayable later from My Soul.
+- **Back** chevron (top-left) on every beat after the first.
 - No account creation. No email collection. No "share with a friend" CTA.
+- `reduceMotion` respected throughout (orb pulse off, breath becomes a static cue).
 
 
 ## App icon

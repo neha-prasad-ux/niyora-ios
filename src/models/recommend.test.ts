@@ -45,9 +45,30 @@ describe('getFeeling', () => {
 });
 
 describe('recommend', () => {
-  it('routes ~1 min to the mindfulness practice with no rounds override', () => {
+  it('routes a ~1 min "short" feeling to its mindfulness practice, no rounds', () => {
     const rec = recommend('heavy', 1);
     expect(rec).toEqual({ techniqueId: 'be-kind', feelingId: 'heavy' });
+  });
+
+  it('routes a ~1 min "long" feeling to a short breath with scaled rounds', () => {
+    const rec = recommend('tense', 1);
+    expect(rec?.techniqueId).toBe('wind-down');
+    expect(rec?.rounds).toBeGreaterThan(0);
+    expect(rec?.feelingId).toBe('tense');
+  });
+
+  it('matches each feeling oneMin path: short = mindful, long = breathing', () => {
+    for (const f of FEELINGS) {
+      const rec = recommend(f.id, 1);
+      const t = getTechnique(rec!.techniqueId)!;
+      if (f.oneMin === 'short') {
+        expect(isMindfulness(t)).toBe(true);
+        expect(rec!.rounds).toBeUndefined();
+      } else {
+        expect(isBreathing(t)).toBe(true);
+        expect(rec!.rounds).toBeGreaterThan(0);
+      }
+    }
   });
 
   it('routes longer durations to the breathing practice with scaled rounds', () => {

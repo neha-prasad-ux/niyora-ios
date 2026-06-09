@@ -1,4 +1,7 @@
 import '../../global.css';
+// Design-system rule: enforce Poppins on every <Text>/<TextInput>. Side-effect
+// import — must run before any text renders.
+import '../theme/apply-poppins';
 
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -35,6 +38,13 @@ export default function RootLayout() {
         <StatusBar style="light" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
+          <Stack.Screen
+            name="onboarding"
+            options={{
+              animation: 'fade',
+              gestureEnabled: false,
+            }}
+          />
           <Stack.Screen
             name="session"
             options={{
