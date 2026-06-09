@@ -6,7 +6,10 @@ import type { MotionType } from '../lib/motions';
 
 export type Category = 'breathing' | 'mindfulness';
 
-export type PhaseType = 'inhale' | 'hold' | 'exhale';
+// 'hold2' is the hold that follows the exhale (vs 'hold' after the inhale).
+// It reads as "hold" to the user but lets the visualiser keep the field at its
+// dispersed extent instead of pulling it back toward centre.
+export type PhaseType = 'inhale' | 'hold' | 'hold2' | 'exhale';
 
 export type BreathPhase = {
   type: PhaseType;
@@ -32,6 +35,10 @@ export type BreathingTechnique = {
   category: 'breathing';
   locked: boolean;
   instructions: string;
+  // Optional one-line physical context shown under the name during a session,
+  // for techniques whose action isn't obvious from the phase words (e.g. which
+  // nostril, tongue position). Omit for self-explanatory ones like Box Breath.
+  context?: string;
   phases: readonly BreathPhase[];
   rounds: number;
   colors: PhaseColors;
@@ -77,7 +84,7 @@ export const TECHNIQUES: readonly Technique[] = [
       { type: 'inhale', label: 'inhale', duration: 4 },
       { type: 'hold', label: 'hold', duration: 4 },
       { type: 'exhale', label: 'exhale', duration: 4 },
-      { type: 'hold', label: 'hold', duration: 4 },
+      { type: 'hold2', label: 'hold', duration: 4 },
     ],
     colors: {
       inhale: [230, 28, 12],
@@ -94,6 +101,7 @@ export const TECHNIQUES: readonly Technique[] = [
     category: 'breathing',
     locked: true,
     instructions: "Soft 'haaa' sound at the back of your throat. Breathe through nose.",
+    context: 'Soft "haaa" sound at the back of your throat',
     rounds: 6,
     phases: [
       { type: 'inhale', label: 'inhale through nose', duration: 4 },
@@ -114,6 +122,7 @@ export const TECHNIQUES: readonly Technique[] = [
     category: 'breathing',
     locked: true,
     instructions: 'Curl your tongue. Inhale through it, exhale through nose.',
+    context: 'Curl your tongue and inhale through it',
     rounds: 5,
     phases: [
       { type: 'inhale', label: 'inhale through mouth', duration: 4 },
@@ -135,6 +144,7 @@ export const TECHNIQUES: readonly Technique[] = [
     category: 'breathing',
     locked: true,
     instructions: 'Inhale left, exhale right. Then inhale right, exhale left.',
+    context: 'Close one nostril, then switch each breath',
     rounds: 3,
     phases: [
       { type: 'inhale', label: 'inhale left', duration: 4 },
@@ -159,6 +169,7 @@ export const TECHNIQUES: readonly Technique[] = [
     category: 'breathing',
     locked: true,
     instructions: 'Press right nostril closed. Breathe in and out through the left.',
+    context: 'Close your right nostril, breathe through the left',
     rounds: 5,
     phases: [
       { type: 'inhale', label: 'inhale left', duration: 4 },

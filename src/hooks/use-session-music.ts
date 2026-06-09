@@ -68,6 +68,24 @@ export function useSessionMusic() {
     setMusicTrack(next).catch(() => {});
   }, []);
 
+  // Pause/resume the music with the session. Pause halts the player (and any
+  // in-flight fade); resume restores full volume and plays again — unless the
+  // user has the track muted, in which case resume is a no-op.
+  const pause = useCallback(() => {
+    if (fadeIntervalRef.current) {
+      clearInterval(fadeIntervalRef.current);
+      fadeIntervalRef.current = null;
+    }
+    player.pause();
+  }, [player]);
+
+  const resume = useCallback(() => {
+    if (trackRef.current === 'mute') return;
+    player.volume = VOLUME;
+    player.loop = true;
+    player.play();
+  }, [player]);
+
    
   const fadeOut = useCallback(() => {
     if (trackRef.current === 'mute') return;
@@ -85,5 +103,5 @@ export function useSessionMusic() {
     }, stepMs);
   }, [player]);
 
-  return { track, changeTrack, fadeOut };
+  return { track, changeTrack, fadeOut, pause, resume };
 }

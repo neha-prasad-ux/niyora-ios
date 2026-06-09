@@ -369,9 +369,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.3,
-    textShadowColor: 'rgba(255, 245, 235, 0.5)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 16,
     paddingHorizontal: 12,
   },
   progressArea: {

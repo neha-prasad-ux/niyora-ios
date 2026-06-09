@@ -15,18 +15,23 @@ import { getTechnique, isBreathing, type Technique } from './techniques';
 export type Feeling = {
   id: string;
   label: string;
-  short: string; // mindfulness technique id (~1 min path)
-  long: string; // breathing technique id (~3/~5 min path)
+  short: string; // mindfulness technique id
+  long: string; // breathing technique id
+  // Which path the ~1 min option takes for this feeling. Agitation and
+  // body-tension feelings get a fast breath even in a minute (a minute is
+  // plenty for a few rounds); scattered/heavy/good get a grounding or
+  // savouring mindful reset, where a breath would feel like a fix-it.
+  oneMin: 'short' | 'long';
 };
 
 export const FEELINGS: readonly Feeling[] = [
-  { id: 'tense', label: 'Tense', short: 'soft-gaze', long: 'wind-down' },
-  { id: 'restless', label: 'Restless', short: 'let-it-drift', long: 'box' },
-  { id: 'frustrated', label: 'Frustrated', short: 'soft-gaze', long: 'cooling' },
-  { id: 'scattered', label: 'Scattered', short: 'five-senses', long: 'alternate-nostril' },
-  { id: 'heavy', label: 'Heavy', short: 'be-kind', long: 'belly' },
-  { id: 'overwhelmed', label: 'Overwhelmed', short: 'five-senses', long: 'ocean' },
-  { id: 'good', label: 'Good', short: 'bring-someone', long: 'ocean' },
+  { id: 'tense', label: 'Tense', short: 'soft-gaze', long: 'wind-down', oneMin: 'long' },
+  { id: 'restless', label: 'Restless', short: 'let-it-drift', long: 'box', oneMin: 'long' },
+  { id: 'frustrated', label: 'Frustrated', short: 'soft-gaze', long: 'cooling', oneMin: 'long' },
+  { id: 'scattered', label: 'Scattered', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
+  { id: 'heavy', label: 'Heavy', short: 'be-kind', long: 'belly', oneMin: 'short' },
+  { id: 'overwhelmed', label: 'Overwhelmed', short: 'five-senses', long: 'ocean', oneMin: 'long' },
+  { id: 'good', label: 'Good', short: 'bring-someone', long: 'ocean', oneMin: 'short' },
 ];
 
 // Duration choices, in minutes. 1 min routes to mindfulness; longer routes to
@@ -69,10 +74,17 @@ export function recommend(feelingId: string, minutes: number): Recommendation | 
   const feeling = getFeeling(feelingId);
   if (!feeling) return null;
 
-  // Short path: play the mindfulness practice as authored.
+  // ~1 min: the path is curated per feeling. A 'short' feeling plays its
+  // mindfulness practice as authored; a 'long' feeling runs its breath, scaled
+  // down to fit the minute (a minute still holds a few rounds).
   if (minutes <= 1) {
-    const t = getTechnique(feeling.short);
-    return t ? { techniqueId: t.id, feelingId: feeling.id } : null;
+    if (feeling.oneMin === 'short') {
+      const t = getTechnique(feeling.short);
+      return t ? { techniqueId: t.id, feelingId: feeling.id } : null;
+    }
+    const t = getTechnique(feeling.long);
+    if (!t) return null;
+    return { techniqueId: t.id, rounds: scaleRounds(t, 60), feelingId: feeling.id };
   }
 
   // Longer path: breathing, rounds scaled to the target.
