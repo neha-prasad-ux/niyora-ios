@@ -39,7 +39,10 @@ import { setOnboardingComplete } from '@/store/onboarding-complete';
 import { BREATH_FACTS, pickFact } from '@/lib/onboarding-facts';
 
 const ORB_SIZE = 220;
-const STEP_COUNT = 6;
+// Cross-device sync isn't shipping in v1, so the Mac beat is hidden. Flip this
+// to true (and the step is the last beat again) once Mac sync lands.
+const MAC_STEP_ENABLED = false;
+const STEP_COUNT = MAC_STEP_ENABLED ? 6 : 5;
 const SPARK_HUE = TIERS[0].hue; // 30, the first-tier warm orange
 // How far above its resting spot the orb starts before dropping in on launch.
 const ORB_DROP_DISTANCE = 340;
@@ -175,6 +178,16 @@ export default function OnboardingScreen() {
     setStep((s) => Math.max(0, s - 1));
   }, []);
 
+  // After the reminders beat: go to the Mac beat if enabled, otherwise this is
+  // the last screen, so finish onboarding.
+  const afterReminders = useCallback(() => {
+    if (MAC_STEP_ENABLED) {
+      setStep((s) => s + 1);
+    } else {
+      finish();
+    }
+  }, [finish]);
+
   const enableReminders = useCallback(async () => {
     Haptics.selectionAsync();
     const hour = TIME_PRESETS[presetIndex].hour;
@@ -188,8 +201,8 @@ export default function OnboardingScreen() {
       // Permission/scheduling can throw (e.g. the notifications native module
       // is absent in an older dev build). Never trap the user on this step.
     }
-    setStep((s) => s + 1);
-  }, [presetIndex]);
+    afterReminders();
+  }, [presetIndex, afterReminders]);
 
   // Orb props per step: breathing on the breath step, Spark rings on My Soul,
   // calm everywhere else. The orb instance itself never unmounts.
@@ -340,7 +353,7 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {step === 5 && (
+          {MAC_STEP_ENABLED && step === 5 && (
             <View style={styles.centerBlock}>
               <Text style={styles.hero}>Niyora on your Mac, soon.</Text>
               <Text style={styles.sub}>One practice, every screen you sit at.</Text>
@@ -357,7 +370,10 @@ export default function OnboardingScreen() {
             <>
               <BeginButton label="Yes, remind me" onPress={enableReminders} />
               <Pressable
-                onPress={goNext}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  afterReminders();
+                }}
                 hitSlop={12}
                 style={styles.notNow}
                 accessibilityRole="button"
@@ -367,7 +383,7 @@ export default function OnboardingScreen() {
               </Pressable>
             </>
           )}
-          {step === 5 && <BeginButton label="I’m in." onPress={finish} />}
+          {MAC_STEP_ENABLED && step === 5 && <BeginButton label="I’m in." onPress={finish} />}
         </View>
       </SafeAreaView>
     </View>
