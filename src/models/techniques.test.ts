@@ -34,6 +34,37 @@ describe('nasal-breathing cues', () => {
   });
 });
 
+describe('quick-calm', () => {
+  it('is a 30-second unlocked breathing technique', () => {
+    const t = getTechnique('quick-calm');
+    expect(t).toBeDefined();
+    expect(isBreathing(t!)).toBe(true);
+    expect(t!.locked).toBe(false);
+    expect(t!.durationSeconds).toBe(30);
+  });
+
+  it('runs 3 rounds of a 4-in / 6-out extended exhale', () => {
+    const t = getTechnique('quick-calm');
+    if (isBreathing(t!)) {
+      expect(t.rounds).toBe(3);
+      const inhale = t.phases.find((p) => p.type === 'inhale');
+      const exhale = t.phases.find((p) => p.type === 'exhale');
+      expect(inhale?.duration).toBe(4);
+      expect(exhale?.duration).toBe(6);
+      // The longer exhale is the whole point; guard it.
+      expect(exhale!.duration).toBeGreaterThan(inhale!.duration);
+      // rounds x phase total = stated duration.
+      const perRound = t.phases.reduce((s, p) => s + p.duration, 0);
+      expect(perRound * t.rounds).toBe(t.durationSeconds);
+    }
+  });
+
+  it('leads the breathing list as the lowest-friction on-ramp', () => {
+    const firstBreathing = TECHNIQUES.filter(isBreathing)[0];
+    expect(firstBreathing.id).toBe('quick-calm');
+  });
+});
+
 describe('unlockedTechniques', () => {
   it('returns only unlocked entries', () => {
     const unlocked = unlockedTechniques();

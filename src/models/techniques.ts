@@ -72,6 +72,30 @@ export type Technique = BreathingTechnique | MindfulnessTechnique;
 export const TECHNIQUES: readonly Technique[] = [
   // ── Breathing ──
   {
+    // The fastest reset: three extended-exhale breaths in 30 seconds, for the
+    // "20 seconds before this meeting" moment. The longer out-breath is the
+    // calming part (it nudges the parasympathetic side). Lowest-friction
+    // on-ramp, so it leads the breathing list.
+    id: 'quick-calm',
+    name: 'Quick Calm',
+    subtitle: 'reset in 30 seconds',
+    durationSeconds: 30,
+    category: 'breathing',
+    locked: false,
+    instructions: 'In 4, out 6. Let the exhale be the longer one.',
+    rounds: 3,
+    phases: [
+      { type: 'inhale', label: 'breathe in', duration: 4 },
+      { type: 'exhale', label: 'breathe out', duration: 6 },
+    ],
+    colors: {
+      inhale: [205, 30, 13],
+      hold: [210, 22, 11],
+      exhale: [215, 28, 11],
+    },
+    motion: 'wave',
+  },
+  {
     id: 'box',
     name: 'Box Breath',
     subtitle: 'calms under pressure',
