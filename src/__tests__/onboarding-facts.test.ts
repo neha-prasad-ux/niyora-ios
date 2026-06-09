@@ -1,8 +1,4 @@
-import {
-  BREATH_FACT_CLOSER,
-  BREATH_FACTS,
-  pickFact,
-} from '@/lib/onboarding-facts';
+import { BREATH_FACTS, pickFact } from '@/lib/onboarding-facts';
 
 describe('onboarding facts', () => {
   it('ships the four vetted facts', () => {
@@ -23,15 +19,8 @@ describe('onboarding facts', () => {
     }
   });
 
-  it('has a two-line closer', () => {
-    expect(BREATH_FACT_CLOSER).toHaveLength(2);
-  });
-
   it('honours the voice rules: no em dashes, no exclamation points', () => {
-    const allCopy = [
-      ...BREATH_FACTS.flatMap((f) => [f.fact, f.you]),
-      ...BREATH_FACT_CLOSER,
-    ];
+    const allCopy = BREATH_FACTS.flatMap((f) => [f.fact, f.you]);
     for (const line of allCopy) {
       expect(line).not.toContain('—');
       expect(line).not.toContain('!');

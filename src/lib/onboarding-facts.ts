@@ -29,13 +29,10 @@ export const BREATH_FACTS: readonly BreathFact[] = [
     you: 'You just woke them.',
   },
   {
-    fact: 'Whales breathe six times a minute and live past 100. Mice race through a hundred breaths a minute and are gone in two years. Slow wins.',
+    fact: 'Whales breathe 6 times a minute and live past 100. Mice breathe 100 times a minute and are gone in 2 years. Slow wins.',
     you: 'You just slowed down.',
   },
 ];
-
-// Fixed closer under whichever fact shows. Two lines.
-export const BREATH_FACT_CLOSER = ['Most people wait for stress.', 'You just got in front of it.'] as const;
 
 // Pick a fact by index, wrapping so any integer is valid. Kept pure and
 // index-based so callers (and tests) stay deterministic; the screen passes a

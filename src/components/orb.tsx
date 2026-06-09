@@ -150,14 +150,33 @@ type OrbProps = {
    * passes a dramatic range so the breath is unmistakable.
    */
   breathRange?: { min: number; max: number };
+  /**
+   * Freeze the idle breath pulse so the orb holds perfectly still (e.g. while
+   * something else, like the growing tier rings, is the focus).
+   */
+  still?: boolean;
+  /**
+   * Per-ring hues (index 0 = innermost/first ring). When supplied, each ring is
+   * coloured individually so an accumulating band can keep distinct colours
+   * (e.g. pink, then pink + purple, then + blue). Falls back to tierHue.
+   */
+  ringHues?: readonly number[];
+  /**
+   * Accumulation mode: only the newest (outermost) ring draws on; earlier rings
+   * stay fully drawn. Use when the ring count grows over time so existing rings
+   * persist instead of re-sweeping. Default false (all rings sweep together).
+   */
+  accumulate?: boolean;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
   // front. 0 = hidden, 1 = fully drawn. Replays whenever the tier changes.
   const reveal = useSharedValue(0);
+  // Always-1 reveal for rings that should stay fully drawn in accumulate mode.
+  const fullReveal = useSharedValue(1);
   // Protection-ring draw-on: 0 = hidden, 1 = fully wrapped.
   const shieldReveal = useSharedValue(0);
   // Normalise so the breath is a clearly visible ~10px radius travel at any size
@@ -172,7 +191,15 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     if (sessionMode) return;
     let cancelled = false;
     AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
-      if (cancelled || reduce) return;
+      if (cancelled) return;
+      if (reduce || still) {
+        // Hold steady: stop any in-progress pulse and settle at rest.
+        cancelAnimation(scale);
+        cancelAnimation(haloOpacity);
+        scale.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.sin) });
+        haloOpacity.value = withTiming(0.8, { duration: 300, easing: Easing.out(Easing.sin) });
+        return;
+      }
       scale.value = withRepeat(
         withTiming(scaleMax, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
         -1,
@@ -187,7 +214,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     return () => {
       cancelled = true;
     };
-  }, [sessionMode, scale, scaleMax, haloOpacity]);
+  }, [sessionMode, scale, scaleMax, haloOpacity, still]);
 
   // Session mode: trigger a UI-thread withTiming whenever the phase changes so
   // the orb visually inhales and exhales with the guidance at 60fps.
@@ -395,22 +422,27 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               <Stop offset="0.42" stopColor="rgb(255, 255, 255)" stopOpacity="0" />
             </RadialGradient>
 
-            {/* Tier ring band gradient: bright through the middle, fading at the
-                tips, tinted by the tier hue. Spans the widest ring. */}
-            {rings.length > 0 && (
-              <LinearGradient
-                id="ringGrad"
-                x1={center - rings[rings.length - 1].rx}
-                y1={center}
-                x2={center + rings[rings.length - 1].rx}
-                y2={center}
-                gradientUnits="userSpaceOnUse"
-              >
-                <Stop offset="0" stopColor={`hsl(${tierHue}, 72%, 58%)`} stopOpacity="0.28" />
-                <Stop offset="0.5" stopColor={`hsl(${tierHue}, 80%, 66%)`} stopOpacity="0.97" />
-                <Stop offset="1" stopColor={`hsl(${tierHue}, 72%, 58%)`} stopOpacity="0.28" />
-              </LinearGradient>
-            )}
+            {/* Tier ring band gradients: bright through the middle, fading at
+                the tips. One per ring so each can carry its own hue (falls back
+                to tierHue when no per-ring hue is given). */}
+            {rings.map(({ rx, i }) => {
+              const hue = ringHues?.[i] ?? tierHue;
+              return (
+                <LinearGradient
+                  key={`ringGrad-${i}`}
+                  id={`ringGrad-${i}`}
+                  x1={center - rx}
+                  y1={center}
+                  x2={center + rx}
+                  y2={center}
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <Stop offset="0" stopColor={`hsl(${hue}, 72%, 58%)`} stopOpacity="0.28" />
+                  <Stop offset="0.5" stopColor={`hsl(${hue}, 80%, 66%)`} stopOpacity="0.97" />
+                  <Stop offset="1" stopColor={`hsl(${hue}, 72%, 58%)`} stopOpacity="0.28" />
+                </LinearGradient>
+              );
+            })}
           </Defs>
 
           {/* Halo with animated opacity swell (sits beneath everything) */}
@@ -429,9 +461,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               key={`back-${i}`}
               d={backArc(center, center, rx, ry)}
               length={halfArcLength(rx, ry)}
-              reveal={reveal}
+              reveal={accumulate && i !== rings.length - 1 ? fullReveal : reveal}
               lead={0}
-              stroke="url(#ringGrad)"
+              stroke={`url(#ringGrad-${i})`}
               strokeWidth={bandStroke}
               opacity={0.55 - i * 0.08}
             />
@@ -471,9 +503,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               key={`front-${i}`}
               d={frontArc(center, center, rx, ry)}
               length={halfArcLength(rx, ry)}
-              reveal={reveal}
+              reveal={accumulate && i !== rings.length - 1 ? fullReveal : reveal}
               lead={0.7}
-              stroke="url(#ringGrad)"
+              stroke={`url(#ringGrad-${i})`}
               strokeWidth={bandStroke}
               opacity={0.92 - i * 0.1}
             />

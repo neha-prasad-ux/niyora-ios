@@ -36,11 +36,7 @@ import {
 } from '@/lib/notifications';
 import { setReminder } from '@/store/reminder-prefs';
 import { setOnboardingComplete } from '@/store/onboarding-complete';
-import {
-  BREATH_FACT_CLOSER,
-  BREATH_FACTS,
-  pickFact,
-} from '@/lib/onboarding-facts';
+import { BREATH_FACTS, pickFact } from '@/lib/onboarding-facts';
 
 const ORB_SIZE = 220;
 const STEP_COUNT = 6;
@@ -58,6 +54,9 @@ const ONBOARDING_BREATH_ROUNDS = 2;
 // Dramatic breath amplitude for the first-breath beat: big on inhale, small on
 // exhale, so the swell is unmistakable and invites the user to follow along.
 const ONBOARDING_BREATH_RANGE = { min: 0.7, max: 1.35 };
+// Each accumulating soul ring keeps its own colour, in tier order: rose,
+// violet, blue, cool blue (skips Spark, which has no ring).
+const SOUL_RING_HUES = TIERS.slice(1).map((t) => t.hue);
 
 // Reminder time presets so onboarding stays one tap, not a full picker. Values
 // feed the existing daily-reminder schedule (hour, minute 0).
@@ -108,6 +107,26 @@ export default function OnboardingScreen() {
 
   // Reminder selection.
   const [presetIndex, setPresetIndex] = useState(2); // default Evening
+
+  // My Soul beat: the orb accumulates rings to show the soul growing with
+  // practice (1 -> 2 -> 3 -> 4, then holds, never resetting). Illustrative, not
+  // the real count.
+  const [soulRingCount, setSoulRingCount] = useState(1);
+  useEffect(() => {
+    if (step !== 3) return;
+    const seq = [1, 2, 3, 4];
+    let idx = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const advance = () => {
+      setSoulRingCount(seq[idx]);
+      idx += 1;
+      if (idx < seq.length) {
+        timer = setTimeout(advance, 1300);
+      }
+    };
+    timer = setTimeout(advance, 500);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   // Launch entrance: the orb drops in from above and settles into place once,
   // on first mount (the welcome beat). 1 = up high, 0 = landed.
@@ -226,8 +245,11 @@ export default function OnboardingScreen() {
             }
             phaseDuration={isBreathStep ? breathPhase?.duration : undefined}
             breathRange={isBreathStep ? ONBOARDING_BREATH_RANGE : undefined}
-            tierRingCount={isSoulStep ? 1 : 0}
+            tierRingCount={isSoulStep ? soulRingCount : 0}
             tierHue={SPARK_HUE}
+            ringHues={isSoulStep ? SOUL_RING_HUES : undefined}
+            accumulate={isSoulStep}
+            still={isSoulStep}
             shield={step === 1}
           />
           </Animated.View>
@@ -282,10 +304,6 @@ export default function OnboardingScreen() {
             <View style={styles.centerBlock}>
               <Text style={styles.fact}>{pickFact(factIndex).fact}</Text>
               <Text style={styles.factYou}>{pickFact(factIndex).you}</Text>
-              <View style={styles.closer}>
-                <Text style={styles.closerLine}>{BREATH_FACT_CLOSER[0]}</Text>
-                <Text style={styles.closerLine}>{BREATH_FACT_CLOSER[1]}</Text>
-              </View>
             </View>
           )}
 
