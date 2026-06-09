@@ -9,9 +9,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -34,9 +41,11 @@ import {
   pickFact,
 } from '@/lib/onboarding-facts';
 
-const ORB_SIZE = 160;
+const ORB_SIZE = 220;
 const STEP_COUNT = 6;
 const SPARK_HUE = TIERS[0].hue; // 30, the first-tier warm orange
+// How far above its resting spot the orb starts before dropping in on launch.
+const ORB_DROP_DISTANCE = 340;
 
 // One short guided cycle for the first breath: exhale longer than inhale, the
 // move the science reveal is about. Two rounds of 4-in / 6-out = 20s.
@@ -95,6 +104,28 @@ export default function OnboardingScreen() {
 
   // Reminder selection.
   const [presetIndex, setPresetIndex] = useState(2); // default Evening
+
+  // Launch entrance: the orb drops in from above and settles into place once,
+  // on first mount (the welcome beat). 1 = up high, 0 = landed.
+  const orbDrop = useSharedValue(1);
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        orbDrop.value = 0;
+        return;
+      }
+      orbDrop.value = withTiming(0, { duration: 1100, easing: Easing.out(Easing.cubic) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [orbDrop]);
+  const orbDropStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -orbDrop.value * ORB_DROP_DISTANCE }],
+    opacity: 1 - orbDrop.value,
+  }));
 
   const handlePhase = useCallback((phase: BreathPhase) => setBreathPhase(phase), []);
   const handleBreathDone = useCallback(() => {
@@ -157,6 +188,7 @@ export default function OnboardingScreen() {
         </View>
 
         <View style={styles.orbArea}>
+          <Animated.View style={orbDropStyle}>
           <Orb
             size={ORB_SIZE}
             phase={
@@ -169,7 +201,9 @@ export default function OnboardingScreen() {
             phaseDuration={isBreathStep ? breathPhase?.duration : undefined}
             tierRingCount={isSoulStep ? 1 : 0}
             tierHue={SPARK_HUE}
+            shield={step === 1}
           />
+          </Animated.View>
           {isBreathStep && !breathDone && (
             <BreathDriver onPhase={handlePhase} onDone={handleBreathDone} />
           )}
@@ -182,15 +216,21 @@ export default function OnboardingScreen() {
         >
           {step === 0 && (
             <View style={styles.centerBlock}>
-              <Text style={styles.wordmark}>NIYORA</Text>
-              <Text style={styles.hero}>Calm in 60 seconds.</Text>
-              <Text style={styles.sub}>Nothing leaves your phone.</Text>
+              <Animated.Text entering={FadeInDown.delay(900).duration(550)} style={styles.wordmark}>
+                NIYORA
+              </Animated.Text>
+              <Animated.Text entering={FadeInDown.delay(1150).duration(550)} style={styles.hero}>
+                Calm in 60 seconds.
+              </Animated.Text>
+              <Animated.Text entering={FadeInDown.delay(1400).duration(550)} style={styles.sub}>
+                Nothing leaves your phone.
+              </Animated.Text>
             </View>
           )}
 
           {step === 1 && (
             <View style={styles.centerBlock}>
-              <Text style={styles.hero}>Built so we can&apos;t see you, even if we wanted to.</Text>
+              <Text style={styles.hero}>You are safe.</Text>
               <View style={styles.privacyLines}>
                 <Animated.Text entering={FadeIn.delay(150).duration(500)} style={styles.privacyLine}>
                   No account.
@@ -326,14 +366,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   orbArea: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  content: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
+  },
+  content: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 24,
   },
   centerBlock: {
     alignItems: 'center',

@@ -47,6 +47,7 @@ import Animated, {
 import Svg, {
   Circle,
   Defs,
+  G,
   LinearGradient,
   Path,
   RadialGradient,
@@ -137,14 +138,22 @@ type OrbProps = {
    * Has no effect when tierRingCount === 0.
    */
   revealKey?: number;
+  /**
+   * Draw two diagonal "protection" rings that wrap the orb in 3D (back-half
+   * behind the sphere, front-half over it) and draw on once on mount. Used by
+   * the onboarding privacy beat.
+   */
+  shield?: boolean;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
   // front. 0 = hidden, 1 = fully drawn. Replays whenever the tier changes.
   const reveal = useSharedValue(0);
+  // Protection-ring draw-on: 0 = hidden, 1 = fully wrapped.
+  const shieldReveal = useSharedValue(0);
   // Normalise so the breath is a clearly visible ~10px radius travel at any size
   // (the Mac stress-ball breathes ~scale 1.04; we read it a touch larger so the
   // motion is obvious on a phone, not a near-still orb).
@@ -218,6 +227,25 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     };
   }, [tierRingCount, revealKey, reveal]);
 
+  // Shield reveal sweep on mount when shield turns on. Reduce-motion shows it
+  // already wrapped.
+  useEffect(() => {
+    if (!shield) return;
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        shieldReveal.value = 1;
+      } else {
+        shieldReveal.value = 0;
+        shieldReveal.value = withTiming(1, { duration: 1300, easing: Easing.inOut(Easing.cubic) });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shield, shieldReveal]);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -242,6 +270,18 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     const factor = 1 + i * 0.17;
     return { rx: baseRx * factor, ry: baseRy * factor, i };
   });
+
+  // Protection rings: a flattened ellipse, drawn twice on opposing diagonals so
+  // the two cross over the orb like a shield. Same back/front split as the tier
+  // band so the sphere occludes whatever passes behind it.
+  const shieldRx = sphereRadius * 1.18;
+  const shieldRy = sphereRadius * 0.5;
+  const shieldLen = halfArcLength(shieldRx, shieldRy);
+  const shieldBackD = backArc(center, center, shieldRx, shieldRy);
+  const shieldFrontD = frontArc(center, center, shieldRx, shieldRy);
+  const shieldStroke = 'hsl(208, 78%, 84%)';
+  const shieldStrokeWidth = Math.max(2.5, size * 0.022);
+  const shieldAngles = [40];
 
   return (
     <View
@@ -389,6 +429,22 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             />
           ))}
 
+          {/* Protection rings — back halves (behind the sphere). */}
+          {shield &&
+            shieldAngles.map((ang, i) => (
+              <G key={`shield-back-${i}`} transform={`rotate(${ang} ${center} ${center})`}>
+                <RingArc
+                  d={shieldBackD}
+                  length={shieldLen}
+                  reveal={shieldReveal}
+                  lead={i * 0.2}
+                  stroke={shieldStroke}
+                  strokeWidth={shieldStrokeWidth}
+                  opacity={0.45}
+                />
+              </G>
+            ))}
+
           {/* Sphere body */}
           <Circle cx={center} cy={center} r={sphereRadius} fill="url(#body)" />
 
@@ -414,6 +470,23 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               opacity={0.92 - i * 0.1}
             />
           ))}
+
+          {/* Protection rings — front halves (over the sphere), completing the
+              3D wrap. Brighter than the back. */}
+          {shield &&
+            shieldAngles.map((ang, i) => (
+              <G key={`shield-front-${i}`} transform={`rotate(${ang} ${center} ${center})`}>
+                <RingArc
+                  d={shieldFrontD}
+                  length={shieldLen}
+                  reveal={shieldReveal}
+                  lead={0.5 + i * 0.2}
+                  stroke={shieldStroke}
+                  strokeWidth={shieldStrokeWidth}
+                  opacity={0.9}
+                />
+              </G>
+            ))}
         </Svg>
       </Animated.View>
     </View>
