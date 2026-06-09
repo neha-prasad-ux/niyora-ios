@@ -4,6 +4,7 @@
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -29,6 +30,7 @@ import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getCurrentStreak } from '@/store/session-history';
+import { getMoodRecords, type MoodRecord } from '@/store/mood-history';
 import {
   getCheckInRecords,
   todayCheckIn,
@@ -99,6 +101,7 @@ export default function MySoulScreen() {
   const [sessionsToday, setSessionsToday] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
+  const [moodRecords, setMoodRecords] = useState<MoodRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
   const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
@@ -145,6 +148,9 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
+      }).catch(() => {});
+      getMoodRecords().then((r) => {
+        if (active) setMoodRecords(r);
       }).catch(() => {});
       getMacPromoDismissed().then((d) => {
         if (active) setMacPromoDismissedState(d);
@@ -314,6 +320,8 @@ export default function MySoulScreen() {
             onCheckIn={() => setShowCheckIn(true)}
           />
 
+          <MoodTrendCard records={moodRecords} />
+
           <ReminderCard
             reminder={reminder}
             onToggle={handleReminderToggle}
@@ -405,6 +413,41 @@ function CheckInSparkline({ records }: { records: CheckInRecord[] }) {
           ]}
         />
       ))}
+    </View>
+  );
+}
+
+// ---- Mood trend helpers ----
+
+// Matches DOT_HUES in PostSessionMood.tsx: mood 1 (tense) = purple, mood 5 (peace) = blue.
+const MOOD_DOT_HUES = [295, 278, 260, 240, 215] as const;
+
+// Its own card: how you felt right after recent sessions, as a soft gradient
+// ribbon (purple = tense, blue = at peace), oldest on the left. Deliberately a
+// different shape from the daily check-in dot sparkline so the two read as
+// distinct, and on-brand with the app's gradients.
+function MoodTrendCard({ records }: { records: MoodRecord[] }) {
+  const recent = records.slice(-10);
+  if (recent.length < 2) return null;
+  const stops = recent.map((r) => `hsl(${MOOD_DOT_HUES[r.mood - 1]}, 62%, 60%)`);
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Calm after practice</Text>
+      <Text style={[styles.cardCopy, { marginTop: 6, marginBottom: 14 }]}>
+        Bluer is the calmer you.
+      </Text>
+      <LinearGradient
+        colors={stops as [string, string, ...string[]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.moodRibbon}
+        accessibilityElementsHidden={true}
+        importantForAccessibility="no-hide-descendants"
+      />
+      <View style={styles.moodRibbonEnds}>
+        <Text style={styles.moodEndLabel}>older</Text>
+        <Text style={styles.moodEndLabel}>now</Text>
+      </View>
     </View>
   );
 }
@@ -985,6 +1028,21 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
+  },
+  moodRibbon: {
+    height: 16,
+    borderRadius: 8,
+  },
+  moodRibbonEnds: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  moodEndLabel: {
+    fontSize: 10,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 0.3,
   },
   macPromoHeader: {
     flexDirection: 'row',
