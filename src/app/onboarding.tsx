@@ -58,12 +58,12 @@ const ONBOARDING_BREATH_RANGE = { min: 0.7, max: 1.35 };
 // violet, blue, cool blue (skips Spark, which has no ring).
 const SOUL_RING_HUES = TIERS.slice(1).map((t) => t.hue);
 
-// Reminder time presets so onboarding stays one tap, not a full picker. Values
-// feed the existing daily-reminder schedule (hour, minute 0).
+// Bedtime presets so onboarding stays one tap, not a full picker. Values feed
+// the existing daily-reminder schedule (hour, minute 0).
 const TIME_PRESETS: readonly { label: string; hour: number }[] = [
-  { label: 'Morning', hour: 9 },
-  { label: 'Midday', hour: 13 },
-  { label: 'Evening', hour: 20 },
+  { label: '9pm', hour: 21 },
+  { label: '10pm', hour: 22 },
+  { label: '11pm', hour: 23 },
 ];
 
 // Reports the breath cadence up to the parent (which owns the shared orb) and
@@ -106,7 +106,7 @@ export default function OnboardingScreen() {
   const [factIndex, setFactIndex] = useState(0);
 
   // Reminder selection.
-  const [presetIndex, setPresetIndex] = useState(2); // default Evening
+  const [presetIndex, setPresetIndex] = useState(1); // default 10pm
 
   // My Soul beat: the orb accumulates rings to show the soul growing with
   // practice (1 -> 2 -> 3 -> 4, then holds, never resetting). Illustrative, not
@@ -316,8 +316,8 @@ export default function OnboardingScreen() {
 
           {step === 4 && (
             <View style={styles.centerBlock}>
-              <Text style={styles.hero}>A gentle nudge during your day.</Text>
-              <Text style={styles.sub}>Never a nag.</Text>
+              <Text style={styles.hero}>Slow breathing makes falling asleep feel easier.</Text>
+              <Text style={styles.sub}>Want a gentle reminder each night?</Text>
               <View style={styles.presets}>
                 {TIME_PRESETS.map((p, i) => (
                   <Pressable
@@ -355,7 +355,7 @@ export default function OnboardingScreen() {
           {step === 3 && <BeginButton label="Continue" onPress={goNext} />}
           {step === 4 && (
             <>
-              <BeginButton label="Turn on reminders" onPress={enableReminders} />
+              <BeginButton label="Yes, remind me" onPress={enableReminders} />
               <Pressable
                 onPress={goNext}
                 hitSlop={12}
