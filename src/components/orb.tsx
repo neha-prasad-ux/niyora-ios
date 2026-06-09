@@ -144,9 +144,15 @@ type OrbProps = {
    * the onboarding privacy beat.
    */
   shield?: boolean;
+  /**
+   * Session-mode breath amplitude: the scale the orb reaches on inhale (max)
+   * and shrinks to on exhale (min). Defaults to a subtle swell. Onboarding
+   * passes a dramatic range so the breath is unmistakable.
+   */
+  breathRange?: { min: number; max: number };
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
@@ -191,12 +197,14 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
       if (cancelled || reduce) return;
       const dur = (phaseDuration ?? 4) * 1000;
+      const inhaleScale = breathRange?.max ?? scaleMax;
+      const exhaleScale = breathRange?.min ?? 1;
       if (phase === 'inhale') {
-        scale.value = withTiming(scaleMax, { duration: dur, easing: Easing.out(Easing.sin) });
+        scale.value = withTiming(inhaleScale, { duration: dur, easing: Easing.out(Easing.sin) });
         haloOpacity.value = withTiming(1.0, { duration: dur, easing: Easing.out(Easing.sin) });
       } else if (phase === 'exhale') {
-        scale.value = withTiming(1, { duration: dur, easing: Easing.in(Easing.sin) });
-        haloOpacity.value = withTiming(0.7, { duration: dur, easing: Easing.in(Easing.sin) });
+        scale.value = withTiming(exhaleScale, { duration: dur, easing: Easing.in(Easing.sin) });
+        haloOpacity.value = withTiming(0.55, { duration: dur, easing: Easing.in(Easing.sin) });
       } else {
         // Hold: cancel any in-progress tween so the orb rests at its current value.
         cancelAnimation(scale);
@@ -206,7 +214,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     return () => {
       cancelled = true;
     };
-  }, [phase, phaseDuration, sessionMode, scale, scaleMax, haloOpacity]);
+  }, [phase, phaseDuration, sessionMode, scale, scaleMax, haloOpacity, breathRange]);
 
   // Reveal sweep on mount (e.g. opening My Soul) and whenever the tier ring
   // count changes. Reduce-motion shows the rings already closed.

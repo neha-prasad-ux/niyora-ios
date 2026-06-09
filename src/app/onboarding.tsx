@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
+import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,6 +55,9 @@ const ONBOARDING_BREATH: readonly BreathPhase[] = [
   { type: 'exhale', label: 'breathe out', duration: 6 },
 ];
 const ONBOARDING_BREATH_ROUNDS = 2;
+// Dramatic breath amplitude for the first-breath beat: big on inhale, small on
+// exhale, so the swell is unmistakable and invites the user to follow along.
+const ONBOARDING_BREATH_RANGE = { min: 0.7, max: 1.35 };
 
 // Reminder time presets so onboarding stays one tap, not a full picker. Values
 // feed the existing daily-reminder schedule (hour, minute 0).
@@ -143,6 +147,15 @@ export default function OnboardingScreen() {
     setStep((s) => s + 1);
   }, []);
 
+  // Step back one beat. Resets the first-breath state so returning to it replays
+  // the guided cycle rather than dropping straight into the reveal.
+  const goBack = useCallback(() => {
+    Haptics.selectionAsync();
+    setBreathPhase(undefined);
+    setBreathDone(false);
+    setStep((s) => Math.max(0, s - 1));
+  }, []);
+
   const enableReminders = useCallback(async () => {
     Haptics.selectionAsync();
     const hour = TIME_PRESETS[presetIndex].hour;
@@ -169,13 +182,26 @@ export default function OnboardingScreen() {
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.topBar}>
-          <View style={styles.dots}>
-            {Array.from({ length: STEP_COUNT }, (_, i) => (
-              <View
-                key={i}
-                style={[styles.dot, i === step && styles.dotActive]}
-              />
-            ))}
+          <View style={styles.topLeft}>
+            {step > 0 && (
+              <Pressable
+                onPress={goBack}
+                hitSlop={12}
+                style={styles.backBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <SymbolView name="chevron.left" tintColor={colors.textTagline} size={16} weight="medium" />
+              </Pressable>
+            )}
+            <View style={styles.dots}>
+              {Array.from({ length: STEP_COUNT }, (_, i) => (
+                <View
+                  key={i}
+                  style={[styles.dot, i === step && styles.dotActive]}
+                />
+              ))}
+            </View>
           </View>
           <Pressable
             onPress={finish}
@@ -199,6 +225,7 @@ export default function OnboardingScreen() {
                 : undefined
             }
             phaseDuration={isBreathStep ? breathPhase?.duration : undefined}
+            breathRange={isBreathStep ? ONBOARDING_BREATH_RANGE : undefined}
             tierRingCount={isSoulStep ? 1 : 0}
             tierHue={SPARK_HUE}
             shield={step === 1}
@@ -345,9 +372,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     height: 32,
   },
+  topLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    paddingVertical: 2,
+  },
   dots: {
     flexDirection: 'row',
     gap: 7,
+    alignItems: 'center',
   },
   dot: {
     width: 6,
