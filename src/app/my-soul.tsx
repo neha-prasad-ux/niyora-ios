@@ -29,6 +29,7 @@ import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getCurrentStreak } from '@/store/session-history';
+import { getMoodRecords, type MoodRecord } from '@/store/mood-history';
 import {
   getCheckInRecords,
   todayCheckIn,
@@ -98,6 +99,7 @@ export default function MySoulScreen() {
   const [sessionsToday, setSessionsToday] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
+  const [moodRecords, setMoodRecords] = useState<MoodRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
   const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
@@ -144,6 +146,9 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
+      }).catch(() => {});
+      getMoodRecords().then((r) => {
+        if (active) setMoodRecords(r);
       }).catch(() => {});
       getMacPromoDismissed().then((d) => {
         if (active) setMacPromoDismissedState(d);
@@ -292,6 +297,7 @@ export default function MySoulScreen() {
             paired={isPaired}
             phoneSessions={sessionsCompleted}
             macSessions={macSessions}
+            moodRecords={moodRecords}
           />
 
           {!isPaired && (
@@ -395,6 +401,33 @@ function CheckInSparkline({ records }: { records: CheckInRecord[] }) {
   );
 }
 
+// ---- Mood trend helpers ----
+
+// Matches DOT_HUES in PostSessionMood.tsx: mood 1 (tense) = purple, mood 5 (peace) = blue.
+const MOOD_DOT_HUES = [295, 278, 260, 240, 215] as const;
+
+function MoodTrendStrip({ records }: { records: MoodRecord[] }) {
+  const last7 = records.slice(-7);
+  if (last7.length < 2) return null;
+  return (
+    <View
+      style={styles.moodStrip}
+      accessibilityElementsHidden={true}
+      importantForAccessibility="no-hide-descendants"
+    >
+      {last7.map((r, i) => (
+        <View
+          key={i}
+          style={[
+            styles.moodDot,
+            { backgroundColor: `hsl(${MOOD_DOT_HUES[r.mood - 1]}, 60%, 62%)` },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 // ---- Card components ----
 
 function CheckInCard({
@@ -459,6 +492,7 @@ function LevelCard({
   paired,
   phoneSessions,
   macSessions,
+  moodRecords,
 }: {
   tierName: string;
   nextName: string | null;
@@ -472,6 +506,7 @@ function LevelCard({
   paired: boolean;
   phoneSessions: number;
   macSessions: number;
+  moodRecords: MoodRecord[];
 }) {
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
@@ -495,6 +530,7 @@ function LevelCard({
           {currentStreak} {currentStreak === 1 ? 'day' : 'days'} streak
         </Text>
       </View>
+      <MoodTrendStrip records={moodRecords} />
       {paired && (
         <View style={styles.breakdownRow}>
           <View style={styles.breakdownBox}>
@@ -971,6 +1007,17 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
+  },
+  moodStrip: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  moodDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   macPromoHeader: {
     flexDirection: 'row',
