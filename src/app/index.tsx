@@ -87,8 +87,9 @@ export default function HomeScreen() {
   const mindful = useMemo(() => TECHNIQUES.filter(isMindfulness), []);
   const { height } = useWindowDimensions();
 
-  // The first-run default. Box Breath is the calm starting point.
-  const firstRunTechnique = breathing[0];
+  // The first-run default. Box Breath is the calm starting point, so it stays
+  // pinned by id even though Quick Calm now leads the breathing list.
+  const firstRunTechnique = breathing.find((t) => t.id === 'box') ?? breathing[0];
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [recommendVisible, setRecommendVisible] = useState(false);
