@@ -36,6 +36,19 @@ import {
   type CheckInRecord,
 } from '@/store/checkin-history';
 import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
+import {
+  getReminder,
+  setReminder,
+  DEFAULT_REMINDER,
+  type ReminderPrefs,
+} from '@/store/reminder-prefs';
+import {
+  ensureNotificationPermission,
+  isPermissionBlocked,
+  scheduleDailyReminder,
+  cancelDailyReminder,
+} from '@/lib/notifications';
+import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
@@ -87,6 +100,7 @@ export default function MySoulScreen() {
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
+  const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
   const [orbRevealKey, setOrbRevealKey] = useState(0);
   const {
     isPaired,
@@ -134,6 +148,9 @@ export default function MySoulScreen() {
       getMacPromoDismissed().then((d) => {
         if (active) setMacPromoDismissedState(d);
       }).catch(() => {});
+      getReminder().then((r) => {
+        if (active) setReminderState(r);
+      }).catch(() => {});
       return () => { active = false; };
     }, [])
   );
@@ -148,6 +165,37 @@ export default function MySoulScreen() {
   function handleMacPromoDismiss() {
     setMacPromoDismissedState(true);
     setMacPromoDismissed().catch(() => {});
+  }
+
+  async function handleReminderToggle(on: boolean) {
+    if (!on) {
+      const next = { ...reminder, enabled: false };
+      setReminderState(next);
+      await setReminder(next).catch(() => {});
+      await cancelDailyReminder().catch(() => {});
+      return;
+    }
+    const granted = await ensureNotificationPermission().catch(() => false);
+    if (!granted) {
+      // Permission was denied earlier; the only way back is the iOS Settings app.
+      if (await isPermissionBlocked().catch(() => false)) {
+        Linking.openSettings().catch(() => {});
+      }
+      return; // leave the toggle off
+    }
+    const next = { ...reminder, enabled: true };
+    setReminderState(next);
+    await setReminder(next).catch(() => {});
+    await scheduleDailyReminder(next.hour, next.minute).catch(() => {});
+  }
+
+  async function handleReminderTimeChange(hour: number, minute: number) {
+    const next = { ...reminder, hour, minute };
+    setReminderState(next);
+    await setReminder(next).catch(() => {});
+    if (next.enabled) {
+      await scheduleDailyReminder(hour, minute).catch(() => {});
+    }
   }
 
   // Unified soul: when paired, add the Mac's own (native) completed sessions
@@ -263,6 +311,12 @@ export default function MySoulScreen() {
             records={checkInRecords}
             macSoul={macSoul}
             onCheckIn={() => setShowCheckIn(true)}
+          />
+
+          <ReminderCard
+            reminder={reminder}
+            onToggle={handleReminderToggle}
+            onTimeChange={handleReminderTimeChange}
           />
 
           <ToggleCard
@@ -523,6 +577,53 @@ function TierTrack({
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function ReminderCard({
+  reminder,
+  onToggle,
+  onTimeChange,
+}: {
+  reminder: ReminderPrefs;
+  onToggle: (on: boolean) => void;
+  onTimeChange: (hour: number, minute: number) => void;
+}) {
+  const selection = new Date();
+  selection.setHours(reminder.hour, reminder.minute, 0, 0);
+  return (
+    <View style={styles.card}>
+      <View style={styles.toggleRow}>
+        <View style={{ flex: 1, paddingRight: 16 }}>
+          <Text style={styles.cardTitle}>Daily reminder</Text>
+          <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+            One gentle nudge a day to take a breath. Scheduled on your iPhone, never sent anywhere.
+          </Text>
+        </View>
+        <Switch
+          value={reminder.enabled}
+          onValueChange={(v) => {
+            Haptics.selectionAsync();
+            onToggle(v);
+          }}
+          accessibilityLabel="Daily reminder"
+          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          thumbColor="#fff"
+        />
+      </View>
+      {reminder.enabled && (
+        <View style={styles.reminderTimeRow}>
+          <Text style={styles.cardCopy}>Remind me at</Text>
+          <Host matchContents>
+            <DatePicker
+              selection={selection}
+              displayedComponents={['hourAndMinute']}
+              onDateChange={(d) => onTimeChange(d.getHours(), d.getMinutes())}
+            />
+          </Host>
+        </View>
+      )}
     </View>
   );
 }
@@ -879,6 +980,15 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  reminderTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.07)',
   },
   primarySmallButton: {
     alignSelf: 'center',
