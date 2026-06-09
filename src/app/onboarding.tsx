@@ -82,8 +82,7 @@ function BreathDriver({
     }
   }, [cycle.done, onDone]);
 
-  const next = cycle.phase.type === 'inhale' ? 'then out, slowly' : null;
-  return <PhaseLabel label={cycle.phase.label} nextLabel={next} />;
+  return <PhaseLabel label={cycle.phase.label} />;
 }
 
 export default function OnboardingScreen() {
@@ -160,7 +159,13 @@ export default function OnboardingScreen() {
         <View style={styles.orbArea}>
           <Orb
             size={ORB_SIZE}
-            phase={isBreathStep ? breathPhase?.type : undefined}
+            phase={
+              isBreathStep && breathPhase
+                ? breathPhase.type === 'hold2'
+                  ? 'hold'
+                  : breathPhase.type
+                : undefined
+            }
             phaseDuration={isBreathStep ? breathPhase?.duration : undefined}
             tierRingCount={isSoulStep ? 1 : 0}
             tierHue={SPARK_HUE}
