@@ -116,10 +116,15 @@ export default function OnboardingScreen() {
   const enableReminders = useCallback(async () => {
     Haptics.selectionAsync();
     const hour = TIME_PRESETS[presetIndex].hour;
-    const granted = await ensureNotificationPermission();
-    if (granted) {
-      await setReminder({ enabled: true, hour, minute: 0 });
-      await scheduleDailyReminder(hour, 0);
+    try {
+      const granted = await ensureNotificationPermission();
+      if (granted) {
+        await setReminder({ enabled: true, hour, minute: 0 });
+        await scheduleDailyReminder(hour, 0);
+      }
+    } catch {
+      // Permission/scheduling can throw (e.g. the notifications native module
+      // is absent in an older dev build). Never trap the user on this step.
     }
     setStep((s) => s + 1);
   }, [presetIndex]);
