@@ -51,6 +51,7 @@ import {
   type CheckInLevel,
 } from '@/store/checkin-history';
 import { getSessionCount } from '@/store/session-history';
+import { getOnboardingComplete } from '@/store/onboarding-complete';
 
 const ORB_SIZE = 220;
 const ORB_CANVAS = Math.round(ORB_SIZE * 1.8); // 396
@@ -89,6 +90,23 @@ export default function HomeScreen() {
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [recommendVisible, setRecommendVisible] = useState(false);
+
+  // undefined while we read the flag; once known, false sends the user into
+  // the first-launch onboarding before the home screen ever paints.
+  const [onboarded, setOnboarded] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    getOnboardingComplete()
+      .then((done) => alive && setOnboarded(done))
+      .catch(() => alive && setOnboarded(true)); // fail open: don't trap users out of the app
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (onboarded === false) router.replace('/onboarding');
+  }, [onboarded]);
 
   // undefined while we read history; false = first-timer, true = returning.
   const [practiced, setPracticed] = useState<boolean | undefined>(undefined);
@@ -215,6 +233,16 @@ export default function HomeScreen() {
       <Text style={styles.pickerRowSub}>{t.subtitle}</Text>
     </Pressable>
   );
+
+  // Hold on the bare background until onboarding status is known (and while the
+  // redirect to onboarding is in flight) so the home screen never flashes.
+  if (onboarded !== true) {
+    return (
+      <View style={styles.root}>
+        <BackgroundGradient />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

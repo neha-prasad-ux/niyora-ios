@@ -249,12 +249,32 @@ Smart reminders run during work hours (9am–6pm, configurable in onboarding).
 
 ## Onboarding
 
-- Single-screen first-launch flow. No multi-step quiz.
-- Asks the minimum:
-  - Reminder window (default 9am-6pm)
-  - Notification permission
-- One-tap "I'm in." Everything else has sensible defaults.
+A six-beat narrative flow on first launch, built around a single orb that stays
+mounted the whole way and transforms per step. This deliberately replaces the
+earlier "single minimal screen" spec: the orb, the privacy promise, and the
+first real breath are the product's whole pitch, and a fast-forgettable splash
+threw that away. The flow earns the same trust the architecture does by letting
+the user feel it once. The minimalist principles below still hold inside it
+(asks little, no accounts, sensible defaults, one primary action per screen).
+
+Beats, in order:
+1. **Welcome** · calm orb, "Calm in 60 seconds." / "Nothing leaves your phone."
+2. **Privacy** · the hero moment. No account. No data leaves your phone. No wearables.
+3. **First breath** · the orb becomes the session orb and runs one short guided
+   cycle (~20s, exhale longer than inhale). Then a rotating science fact and a
+   fixed closer reward the breath just taken (see `src/lib/onboarding-facts.ts`).
+4. **My Soul** · the orb warms to the Spark-tier hue for the first time. "This
+   is your Soul. It grows every time you practice."
+5. **Reminders** · the "why" first, a time preset (Morning / Midday / Evening),
+   then the notification permission prompt. Reuses the daily-reminder infra.
+6. **Mac** · placeholder slot for cross-device sync. "Niyora on your Mac, soon."
+   The CTA "I'm in." completes onboarding and routes home.
+
+Rules:
+- Shows once (gated on `niyora:onboarding-complete`), before the home first-run state.
+- **Skip** (top-right) finishes immediately from any step. Replayable later from My Soul.
 - No account creation. No email collection. No "share with a friend" CTA.
+- `reduceMotion` respected throughout (orb pulse off, breath becomes a static cue).
 
 
 ## App icon
