@@ -53,6 +53,7 @@ import {
   type CheckInLevel,
 } from '@/store/checkin-history';
 import { getSessionCount, getLastSession } from '@/store/session-history';
+import { SHOW_CHECKIN } from '@/config/features';
 import { getOnboardingComplete } from '@/store/onboarding-complete';
 import { getReminder } from '@/store/reminder-prefs';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
@@ -94,6 +95,7 @@ function yesterdayCheckIn(records: CheckInRecord[]): CheckInRecord | null {
 }
 
 function soulInsight(records: CheckInRecord[]): string | null {
+  if (!SHOW_CHECKIN) return null;
   const today = todayCheckIn(records);
   const yesterday = yesterdayCheckIn(records);
   if (!today || !yesterday) return null;
