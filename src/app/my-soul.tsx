@@ -29,7 +29,7 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
-import { getSessionCount, getSessionsThisWeek, getSessionsToday, getCurrentStreak } from '@/store/session-history';
+import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
 import { getMoodRecords, type MoodRecord } from '@/store/mood-history';
 import {
   getCheckInRecords,
@@ -100,6 +100,7 @@ export default function MySoulScreen() {
   const [sessionsThisWeek, setSessionsThisWeek] = useState(0);
   const [sessionsToday, setSessionsToday] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
+  const [availableFreezes, setAvailableFreezes] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
   const [moodRecords, setMoodRecords] = useState<MoodRecord[]>([]);
   const [showCheckIn, setShowCheckIn] = useState(false);
@@ -143,8 +144,11 @@ export default function MySoulScreen() {
       getSessionsToday().then((n) => {
         if (active) setSessionsToday(n);
       }).catch(() => {});
-      getCurrentStreak().then((n) => {
-        if (active) setCurrentStreak(n);
+      getStreakInfo().then(({ streak, availableFreezes: af }) => {
+        if (active) {
+          setCurrentStreak(streak);
+          setAvailableFreezes(af);
+        }
       }).catch(() => {});
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
@@ -296,10 +300,15 @@ export default function MySoulScreen() {
             sessionsThisWeek={sessionsThisWeek}
             sessionsToday={sessionsToday}
             currentStreak={currentStreak}
+            availableFreezes={availableFreezes}
             paired={isPaired}
             phoneSessions={sessionsCompleted}
             macSessions={macSessions}
           />
+
+          {currentStreak === 0 && sessionsCompleted > 0 && (
+            <ComebackCard onPress={() => { Haptics.selectionAsync(); router.back(); }} />
+          )}
 
           {!isPaired && (
             <MacPairing
@@ -513,6 +522,7 @@ function LevelCard({
   sessionsThisWeek,
   sessionsToday,
   currentStreak,
+  availableFreezes,
   paired,
   phoneSessions,
   macSessions,
@@ -526,6 +536,7 @@ function LevelCard({
   sessionsThisWeek: number;
   sessionsToday: number;
   currentStreak: number;
+  availableFreezes: number;
   paired: boolean;
   phoneSessions: number;
   macSessions: number;
@@ -552,6 +563,11 @@ function LevelCard({
           {currentStreak} {currentStreak === 1 ? 'day' : 'days'} streak
         </Text>
       </View>
+      {availableFreezes > 0 && (
+        <Text style={styles.freezeBadge}>
+          {availableFreezes} {availableFreezes === 1 ? 'freeze' : 'freezes'} saved
+        </Text>
+      )}
       {paired && (
         <View style={styles.breakdownRow}>
           <View style={styles.breakdownBox}>
@@ -761,6 +777,24 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
         accessibilityLabel="Get Niyora for Mac"
       >
         <Text style={styles.primarySmallButtonLabel}>Get Niyora for Mac</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function ComebackCard({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={styles.card}>
+      <Text style={[styles.cardTitle, { textAlign: 'center', marginBottom: 14 }]}>
+        Take a breath.
+      </Text>
+      <Pressable
+        onPress={onPress}
+        style={styles.checkInButton}
+        accessibilityRole="button"
+        accessibilityLabel="Begin again"
+      >
+        <Text style={styles.checkInButtonLabel}>Begin again</Text>
       </Pressable>
     </View>
   );
@@ -1028,6 +1062,13 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
+  },
+  freezeBadge: {
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.35)',
+    marginTop: 6,
   },
   moodRibbon: {
     height: 16,
