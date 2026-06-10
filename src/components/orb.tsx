@@ -167,9 +167,16 @@ type OrbProps = {
    * persist instead of re-sweeping. Default false (all rings sweep together).
    */
   accumulate?: boolean;
+  /**
+   * Base HSL hue for the sphere body and halo. Defaults to the calm blue (220).
+   * The home orb passes the Mac's day hue (warming toward rose as the day gets
+   * denser) so the Soul reflects the day. Saturation/lightness stay low, so a
+   * warm hue reads as soft and warm, never an alarm.
+   */
+  hue?: number;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220 }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
@@ -354,10 +361,10 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               fy={center}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0.5" stopColor="hsl(220, 58%, 80%)" stopOpacity="0" />
-              <Stop offset="0.585" stopColor="hsl(220, 58%, 80%)" stopOpacity="0.6" />
-              <Stop offset="0.72" stopColor="hsl(220, 52%, 72%)" stopOpacity="0.24" />
-              <Stop offset="1" stopColor="hsl(220, 50%, 70%)" stopOpacity="0" />
+              <Stop offset="0.5" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0" />
+              <Stop offset="0.585" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0.6" />
+              <Stop offset="0.72" stopColor={`hsl(${hue}, 52%, 72%)`} stopOpacity="0.24" />
+              <Stop offset="1" stopColor={`hsl(${hue}, 50%, 70%)`} stopOpacity="0" />
             </RadialGradient>
 
             {/* Sphere body. radial-gradient circle at 35% 30%, three stops. */}
@@ -371,9 +378,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               gradientUnits="userSpaceOnUse"
             >
               <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
-              <Stop offset="0.42" stopColor="hsl(220, 25%, 92%)" stopOpacity="0.96" />
-              <Stop offset="0.92" stopColor="hsl(220, 38%, 78%)" stopOpacity="1" />
-              <Stop offset="1" stopColor="hsl(220, 42%, 74%)" stopOpacity="1" />
+              <Stop offset="0.42" stopColor={`hsl(${hue}, 25%, 92%)`} stopOpacity="0.96" />
+              <Stop offset="0.92" stopColor={`hsl(${hue}, 38%, 78%)`} stopOpacity="1" />
+              <Stop offset="1" stopColor={`hsl(${hue}, 42%, 74%)`} stopOpacity="1" />
             </RadialGradient>
 
             {/* Inset darkening from bottom-right. Replaces

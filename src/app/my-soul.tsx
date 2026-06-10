@@ -56,31 +56,14 @@ import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
-
-const SOUL_FRESHNESS_MS = 90 * 60 * 1000;
+import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 
 function effectiveSoul(
   isPaired: boolean,
   macSoulState: MacSoulState | null,
 ): MacSoulState | null {
-  if (!isPaired || !macSoulState || !macSoulState.ts) return null;
-  const age = Date.now() - new Date(macSoulState.ts).getTime();
-  return age < SOUL_FRESHNESS_MS ? macSoulState : null;
+  return isPaired ? freshSoul(macSoulState) : null;
 }
-
-const MAC_SOUL_HUES: Record<string, number> = {
-  calm: 215,
-  normal: 260,
-  dense: 295,
-  heavy: 335,
-};
-
-const MAC_SOUL_DISPLAY: Record<string, string> = {
-  calm: 'Calm',
-  normal: 'Normal',
-  dense: 'Dense',
-  heavy: 'Heavy',
-};
 
 // Maps tier id to the number of Saturn-style rings around the orb.
 // Matches Mac tierRingCount(): spark=0, glow=1, shine=2, radiance=3, brilliance=4.
