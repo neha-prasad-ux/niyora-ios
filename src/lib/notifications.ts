@@ -16,7 +16,25 @@ Notifications.setNotificationHandler({
 });
 
 const REMINDER_TITLE = 'Niyora';
-const REMINDER_BODY = 'A few breaths can settle the whole day.';
+
+export const BODY_VARIANTS: readonly string[] = [
+  // Research-cited entries (mechanism / timeframe / outcome)
+  'Slow breathing lowers cortisol within 90 seconds. Worth one minute.',
+  'Box breathing cuts perceived stress in under 2 minutes.',
+  '6 breaths per minute activates your rest-and-digest response.',
+  '3 long exhales can lower your heart rate in about 30 seconds.',
+  // Softer-tone entries for variety
+  'A few breaths can settle the whole day.',
+  'Pause. One minute of breathing is always available.',
+  'Your breath is always here when you need a reset.',
+  'Even one conscious breath shifts your nervous system.',
+  'Short breaks make the long stretches easier.',
+  'The next minute belongs to you.',
+];
+
+export function pickBody(): string {
+  return BODY_VARIANTS[Date.now() % BODY_VARIANTS.length];
+}
 
 // Ask the OS for permission. Returns true only if the user has granted it.
 export async function ensureNotificationPermission(): Promise<boolean> {
@@ -40,7 +58,7 @@ export async function isPermissionBlocked(): Promise<boolean> {
 export async function scheduleDailyReminder(hour: number, minute: number): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
   await Notifications.scheduleNotificationAsync({
-    content: { title: REMINDER_TITLE, body: REMINDER_BODY },
+    content: { title: REMINDER_TITLE, body: pickBody() },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour,
