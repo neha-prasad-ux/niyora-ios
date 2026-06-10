@@ -27,7 +27,7 @@ import Animated, {
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
-import { SHOW_CHECKIN } from '@/config/features';
+import { SHOW_CHECKIN, SHOW_ANALYTICS } from '@/config/features';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
@@ -340,12 +340,14 @@ export default function MySoulScreen() {
             onTimeChange={handleReminderTimeChange}
           />
 
-          <ToggleCard
-            title="Anonymous analytics"
-            description="Helps shape what to improve next. Stress scores, breath patterns, and anything that identifies you stay on your iPhone."
-            value={analyticsOn}
-            onChange={setAnalyticsOn}
-          />
+          {SHOW_ANALYTICS && (
+            <ToggleCard
+              title="Anonymous analytics"
+              description="Helps shape what to improve next. Stress scores, breath patterns, and anything that identifies you stay on your iPhone."
+              value={analyticsOn}
+              onChange={setAnalyticsOn}
+            />
+          )}
 
           <MessageCard accent={accent} />
 
@@ -364,7 +366,6 @@ export default function MySoulScreen() {
 
           <Text style={styles.footer}>
             Niyora runs entirely on your iPhone. No accounts, no profiles.
-            Analytics are anonymous, optional, and only sent if you choose.
             Breathe easy.
           </Text>
           <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
