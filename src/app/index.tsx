@@ -2,9 +2,9 @@
 //
 // Two states, gated on whether the user has ever completed a practice:
 // - First time (0 sessions): orb + Box Breath + Begin. One tap, no choices.
-// - Returning (>=1 session): orb + a "suggest based on how I'm feeling" card
-//   (primary Begin opens the feeling flow) + a quiet "Choose from the list".
-//   No standalone default technique, so there is exactly one Begin on screen.
+// - Returning (>=1 session): orb + Daily Breath card (today's technique, random
+//   from the unlocked set, fixed for the calendar day) + Begin. One tap, no
+//   picker. "Choose from the list" is the quiet secondary path.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -35,12 +35,11 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
-import { RecommendSheet } from '@/components/RecommendSheet';
 import { ShootingStar } from '@/components/ShootingStar';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
-import type { Recommendation } from '@/models/recommend';
 import {
+  getTechnique,
   isBreathing,
   isMindfulness,
   TECHNIQUES,
@@ -52,6 +51,7 @@ import {
   type CheckInRecord,
   type CheckInLevel,
 } from '@/store/checkin-history';
+import { getTodaysTechnique } from '@/store/daily-breath';
 import { getSessionCount } from '@/store/session-history';
 import { getOnboardingComplete } from '@/store/onboarding-complete';
 
@@ -92,7 +92,8 @@ export default function HomeScreen() {
   const firstRunTechnique = breathing.find((t) => t.id === 'box') ?? breathing[0];
 
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [recommendVisible, setRecommendVisible] = useState(false);
+  const [dailyTechniqueId, setDailyTechniqueId] = useState<string | null>(null);
+  const dailyTechnique = dailyTechniqueId != null ? (getTechnique(dailyTechniqueId) ?? null) : null;
 
   // undefined while we read the flag; once known, false sends the user into
   // the first-launch onboarding before the home screen ever paints.
@@ -130,6 +131,9 @@ export default function HomeScreen() {
       let active = true;
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
+      }).catch(() => {});
+      getTodaysTechnique().then((id) => {
+        if (active) setDailyTechniqueId(id);
       }).catch(() => {});
       return () => { active = false; };
     }, [])
@@ -201,24 +205,10 @@ export default function HomeScreen() {
     router.push({ pathname: '/session', params: { id: firstRunTechnique.id } });
   }, [firstRunTechnique.id]);
 
-  const handleRecommendOpen = useCallback(() => {
-    Haptics.selectionAsync();
-    setRecommendVisible(true);
-  }, []);
-
-  const handleRecommendClose = useCallback(() => {
-    setRecommendVisible(false);
-  }, []);
-
-  const handleRecommendPick = useCallback((rec: Recommendation) => {
-    setRecommendVisible(false);
-    const params: Record<string, string> = {
-      id: rec.techniqueId,
-      feeling: rec.feelingId,
-    };
-    if (rec.rounds != null) params.rounds = String(rec.rounds);
-    router.push({ pathname: '/session', params });
-  }, []);
+  const handleDailyBegin = useCallback(() => {
+    if (dailyTechniqueId == null) return;
+    router.push({ pathname: '/session', params: { id: dailyTechniqueId } });
+  }, [dailyTechniqueId]);
 
   const handleProfile = useCallback(() => {
     router.push('/my-soul');
@@ -346,17 +336,28 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Returning: lead with the tailored path; browsing is the quiet option. */}
+        {/* Returning: today's breath is the one-tap path; the list is the quiet option. */}
         {practiced === true && (
           <>
-            <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
-              <View style={styles.recommendCardHead}>
-                <Text style={styles.recommendCardTitle}>Calm, made for you</Text>
-                <Text style={styles.recommendCardSubtitle}>
-                  shaped by your stress, your mood, your minutes
-                </Text>
-              </View>
-              <BeginButton onPress={handleRecommendOpen} />
+            <Animated.View
+              style={[styles.recommendCard, cardGlowStyle]}
+              accessible={dailyTechnique != null}
+              accessibilityLabel={
+                dailyTechnique != null
+                  ? `Today's breath: ${dailyTechnique.name}. ${dailyTechnique.subtitle}. ${dailyTechnique.durationSeconds} seconds.`
+                  : undefined
+              }
+            >
+              <Text style={styles.dailyLabel}>today's breath</Text>
+              {dailyTechnique != null && (
+                <View style={styles.recommendCardHead}>
+                  <Text style={styles.recommendCardTitle}>{dailyTechnique.name}</Text>
+                  <Text style={styles.recommendCardSubtitle}>
+                    {dailyTechnique.subtitle} {'·'} {dailyTechnique.durationSeconds}s
+                  </Text>
+                </View>
+              )}
+              <BeginButton onPress={handleDailyBegin} />
             </Animated.View>
 
             <View style={styles.chooseWrap}>
@@ -438,11 +439,6 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      <RecommendSheet
-        visible={recommendVisible}
-        onClose={handleRecommendClose}
-        onPick={handleRecommendPick}
-      />
     </View>
   );
 }
@@ -595,6 +591,14 @@ const styles = StyleSheet.create({
   },
   pickerSectionSpaced: {
     marginTop: 18,
+  },
+  dailyLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textTertiary,
+    textAlign: 'center',
   },
   pickerRow: {
     paddingHorizontal: 24,
