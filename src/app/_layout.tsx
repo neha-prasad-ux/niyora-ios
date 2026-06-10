@@ -4,12 +4,14 @@ import '../../global.css';
 import '../theme/apply-poppins';
 
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ErrorBoundary } from '../components/error-boundary';
+import * as Notifications from 'expo-notifications';
+import { COMEBACK_NUDGE_ID } from '../lib/notifications';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +29,15 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      if (response.notification.request.identifier === COMEBACK_NUDGE_ID) {
+        router.push({ pathname: '/session', params: { id: 'quick-calm' } });
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!loaded) {
     return null;

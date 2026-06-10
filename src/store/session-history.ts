@@ -1,8 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import {
+  readFreezeState,
+  applyFreezesToDates,
+  awardFreezes,
+  FREEZE_INTERVAL,
+  type FreezeState,
+} from './streak-freeze';
+
 export type SessionRecord = {
   techniqueId: string;
   completedAt: string; // ISO 8601
+};
+
+export type StreakInfo = {
+  streak: number;
+  availableFreezes: number;
 };
 
 const STORAGE_KEY = 'niyora:sessions';
@@ -17,11 +30,93 @@ function parseRecords(raw: string | null): SessionRecord[] {
   }
 }
 
+// Pure computation: walk backward from now counting consecutive days that have
+// sessions, frozen dates, or can be bridged by a freeze.
+// A freeze only bridges a SINGLE missed day that has a session or frozen date
+// on the far side — preventing freezes from extending past the session history.
+function computeEffectiveStreak(
+  sessionDates: Set<string>,
+  freezeState: FreezeState,
+  now: Date,
+): { streak: number; newFrozenDates: string[] } {
+  const frozenDates = new Set(freezeState.appliedDates);
+  const todayStr = localDateStr(now);
+  let offset = sessionDates.has(todayStr) ? 0 : 1;
+  let streak = 0;
+  let remaining = freezeState.available;
+  const newFrozenDates: string[] = [];
+
+  while (true) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    const dateStr = localDateStr(d);
+
+    if (sessionDates.has(dateStr) || frozenDates.has(dateStr)) {
+      streak++;
+      offset++;
+    } else {
+      // No session here. Only bridge if the day further back (offset+1) also
+      // has a session or frozen date — ensuring a freeze spans exactly one gap.
+      const behind = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (offset + 1));
+      const behindStr = localDateStr(behind);
+      if (remaining > 0 && (sessionDates.has(behindStr) || frozenDates.has(behindStr))) {
+        remaining--;
+        newFrozenDates.push(dateStr);
+        streak++;
+        offset++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return { streak, newFrozenDates };
+}
+
 export async function appendSession(techniqueId: string): Promise<void> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  const records = parseRecords(raw);
-  records.push({ techniqueId, completedAt: new Date().toISOString() });
+  const [rawSessions, freezeState] = await Promise.all([
+    AsyncStorage.getItem(STORAGE_KEY),
+    readFreezeState(),
+  ]);
+
+  const records = parseRecords(rawSessions);
+  const now = new Date();
+
+  const sessionDatesBefore = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
+  const { streak: streakBefore } = computeEffectiveStreak(sessionDatesBefore, freezeState, now);
+
+  records.push({ techniqueId, completedAt: now.toISOString() });
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+  const sessionDatesAfter = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
+  const { streak: streakAfter } = computeEffectiveStreak(sessionDatesAfter, freezeState, now);
+
+  // Award one freeze each time the effective streak crosses a 7-day milestone.
+  const prevMilestones = Math.floor(streakBefore / FREEZE_INTERVAL);
+  const newMilestones = Math.floor(streakAfter / FREEZE_INTERVAL);
+  if (newMilestones > prevMilestones) {
+    await awardFreezes(newMilestones - prevMilestones);
+  }
+}
+
+// Reads the effective streak (with any pending freeze auto-applications) and
+// persists newly applied freezes so the UI and future reads stay consistent.
+export async function getStreakInfo(): Promise<StreakInfo> {
+  const [rawSessions, freezeState] = await Promise.all([
+    AsyncStorage.getItem(STORAGE_KEY),
+    readFreezeState(),
+  ]);
+  const records = parseRecords(rawSessions);
+  const sessionDates = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
+  const now = new Date();
+
+  const { streak, newFrozenDates } = computeEffectiveStreak(sessionDates, freezeState, now);
+
+  if (newFrozenDates.length > 0) {
+    await applyFreezesToDates(newFrozenDates);
+  }
+
+  const availableFreezes = Math.max(0, freezeState.available - newFrozenDates.length);
+  return { streak, availableFreezes };
 }
 
 export async function getSessionCount(): Promise<number> {
@@ -60,6 +155,12 @@ export async function getSessionRecordsThisWeek(): Promise<SessionRecord[]> {
   const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday);
   weekStart.setHours(0, 0, 0, 0);
   return records.filter((r) => new Date(r.completedAt) >= weekStart);
+}
+
+export async function getLastSession(): Promise<SessionRecord | null> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const records = parseRecords(raw);
+  return records.length > 0 ? records[records.length - 1] : null;
 }
 
 export async function getCurrentStreak(): Promise<number> {

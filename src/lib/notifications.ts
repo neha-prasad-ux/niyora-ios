@@ -15,8 +15,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const DAILY_REMINDER_ID = 'niyora-daily-reminder';
+export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
+
 const REMINDER_TITLE = 'Niyora';
 const REMINDER_BODY = 'A few breaths can settle the whole day.';
+const COMEBACK_NUDGE_BODY = 'When you\'re ready, a breath is here.';
 
 // Ask the OS for permission. Returns true only if the user has granted it.
 export async function ensureNotificationPermission(): Promise<boolean> {
@@ -38,8 +42,9 @@ export async function isPermissionBlocked(): Promise<boolean> {
 
 // Replace any existing reminder with one daily repeat at the given local time.
 export async function scheduleDailyReminder(hour: number, minute: number): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
   await Notifications.scheduleNotificationAsync({
+    identifier: DAILY_REMINDER_ID,
     content: { title: REMINDER_TITLE, body: REMINDER_BODY },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -50,5 +55,26 @@ export async function scheduleDailyReminder(hour: number, minute: number): Promi
 }
 
 export async function cancelDailyReminder(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
+  // Consent revoked: also cancel any pending comeback nudge.
+  await Notifications.cancelScheduledNotificationAsync(COMEBACK_NUDGE_ID).catch(() => {});
+}
+
+// Schedule a one-shot comeback nudge to fire 24 hours from now. Using the
+// fixed identifier means re-calling this replaces any previously scheduled
+// nudge, so focus events never stack up duplicates.
+export async function scheduleCombackNudge(): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    identifier: COMEBACK_NUDGE_ID,
+    content: { title: REMINDER_TITLE, body: COMEBACK_NUDGE_BODY },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 24 * 60 * 60,
+      repeats: false,
+    },
+  });
+}
+
+export async function cancelCombackNudge(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(COMEBACK_NUDGE_ID).catch(() => {});
 }
