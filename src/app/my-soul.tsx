@@ -741,7 +741,7 @@ function ToggleCard({
 function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
   async function handleLearnMore() {
     Haptics.selectionAsync();
-    const url = 'https://niyora.com/mac';
+    const url = 'https://niyora.com';
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);
