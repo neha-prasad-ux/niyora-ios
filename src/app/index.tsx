@@ -52,8 +52,30 @@ import {
   type CheckInRecord,
   type CheckInLevel,
 } from '@/store/checkin-history';
-import { getSessionCount } from '@/store/session-history';
+import { getSessionCount, getLastSession } from '@/store/session-history';
 import { getOnboardingComplete } from '@/store/onboarding-complete';
+import { getReminder } from '@/store/reminder-prefs';
+import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
+import { scheduleCombackNudge } from '@/lib/notifications';
+
+const LAPSE_DAYS = 3;
+
+async function checkAndScheduleCombackNudge(): Promise<void> {
+  const pref = await getReminder();
+  if (!pref.enabled) return;
+
+  const last = await getLastSession();
+  if (!last) return;
+
+  const daysSince = (Date.now() - new Date(last.completedAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSince < LAPSE_DAYS) return;
+
+  const lastNudgeIso = await getLastCombackNudgeSentAt();
+  if (lastNudgeIso && new Date(lastNudgeIso) > new Date(last.completedAt)) return;
+
+  await scheduleCombackNudge();
+  await setLastCombackNudgeSentAt(new Date().toISOString());
+}
 
 const ORB_SIZE = 220;
 const ORB_CANVAS = Math.round(ORB_SIZE * 1.8); // 396
@@ -132,6 +154,12 @@ export default function HomeScreen() {
         if (active) setCheckInRecords(r);
       }).catch(() => {});
       return () => { active = false; };
+    }, [])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      checkAndScheduleCombackNudge().catch(() => {});
     }, [])
   );
 
