@@ -51,6 +51,17 @@ export async function getSessionsToday(): Promise<number> {
   return records.filter((r) => localDateStr(new Date(r.completedAt)) === todayStr).length;
 }
 
+export async function getSessionRecordsThisWeek(): Promise<SessionRecord[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const records = parseRecords(raw);
+  const now = new Date();
+  const day = now.getDay();
+  const daysFromMonday = day === 0 ? 6 : day - 1;
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday);
+  weekStart.setHours(0, 0, 0, 0);
+  return records.filter((r) => new Date(r.completedAt) >= weekStart);
+}
+
 export async function getCurrentStreak(): Promise<number> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   const records = parseRecords(raw);
