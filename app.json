@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
       "bundleIdentifier": "com.niyora.app",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
@@ -37,6 +37,7 @@
       "nativeModulesDir": "./modules"
     },
     "plugins": [
+      "./plugins/withNoPushEntitlement.js",
       "expo-router",
       [
         "expo-splash-screen",
