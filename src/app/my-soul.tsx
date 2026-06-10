@@ -29,7 +29,8 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
-import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
+import { getTechnique } from '@/models/techniques';
+import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo, getSessionRecordsThisWeek, type SessionRecord } from '@/store/session-history';
 import { getMoodRecords, type MoodRecord } from '@/store/mood-history';
 import {
   getCheckInRecords,
@@ -38,6 +39,7 @@ import {
   type CheckInRecord,
 } from '@/store/checkin-history';
 import { getMacPromoDismissed, setMacPromoDismissed } from '@/store/mac-promo-dismissed';
+import { getRecapDismissedWeek, setRecapDismissedWeek, currentWeekKey } from '@/store/weekly-recap-prefs';
 import { resetOnboarding } from '@/store/onboarding-complete';
 import {
   getReminder,
@@ -54,6 +56,7 @@ import {
 import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
+import { WeeklyRecapSheet, type MoodValue as RecapMoodValue } from '@/components/WeeklyRecapSheet';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 
@@ -98,6 +101,8 @@ export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [sessionsThisWeek, setSessionsThisWeek] = useState(0);
+  const [weeklySessionRecords, setWeeklySessionRecords] = useState<SessionRecord[]>([]);
+  const [showWeeklyRecap, setShowWeeklyRecap] = useState(false);
   const [sessionsToday, setSessionsToday] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [availableFreezes, setAvailableFreezes] = useState(0);
@@ -140,6 +145,14 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getSessionsThisWeek().then((n) => {
         if (active) setSessionsThisWeek(n);
+        if (n > 0) {
+          getRecapDismissedWeek().then((dismissed) => {
+            if (active && dismissed !== currentWeekKey()) setShowWeeklyRecap(true);
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+      getSessionRecordsThisWeek().then((r) => {
+        if (active) setWeeklySessionRecords(r);
       }).catch(() => {});
       getSessionsToday().then((n) => {
         if (active) setSessionsToday(n);
@@ -171,6 +184,11 @@ export default function MySoulScreen() {
     if (recorded) {
       getCheckInRecords().then(setCheckInRecords).catch(() => {});
     }
+  }
+
+  function handleRecapDone() {
+    setShowWeeklyRecap(false);
+    setRecapDismissedWeek(currentWeekKey()).catch(() => {});
   }
 
   function handleMacPromoDismiss() {
@@ -222,6 +240,43 @@ export default function MySoulScreen() {
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
   const todayRecord = todayCheckIn(checkInRecords);
   const macSoul = effectiveSoul(isPaired, macSoulState);
+
+  // Derived values for the weekly recap sheet.
+  const weekStart = (() => {
+    const now = new Date();
+    const day = now.getDay();
+    const daysFromMonday = day === 0 ? 6 : day - 1;
+    const ws = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMonday);
+    ws.setHours(0, 0, 0, 0);
+    return ws;
+  })();
+  const weeklyMoodRecords = moodRecords.filter(
+    (r) => new Date(r.recordedAt) >= weekStart,
+  );
+  const weeklyMoods = weeklyMoodRecords.map((r) => r.mood as RecapMoodValue);
+
+  const mostUsedTechniqueName = (() => {
+    if (weeklySessionRecords.length === 0) return null;
+    const counts: Record<string, number> = {};
+    for (const r of weeklySessionRecords) {
+      counts[r.techniqueId] = (counts[r.techniqueId] ?? 0) + 1;
+    }
+    const topId = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    return getTechnique(topId)?.name ?? null;
+  })();
+
+  const calmestTechniqueName = (() => {
+    if (weeklyMoodRecords.length === 0) return null;
+    const avgs: Record<string, { sum: number; count: number }> = {};
+    for (const r of weeklyMoodRecords) {
+      if (!avgs[r.techniqueId]) avgs[r.techniqueId] = { sum: 0, count: 0 };
+      avgs[r.techniqueId].sum += r.mood;
+      avgs[r.techniqueId].count += 1;
+    }
+    const topId = Object.entries(avgs)
+      .sort((a, b) => b[1].sum / b[1].count - a[1].sum / a[1].count)[0][0];
+    return getTechnique(topId)?.name ?? null;
+  })();
 
   return (
     <View style={styles.root}>
@@ -370,6 +425,20 @@ export default function MySoulScreen() {
 
       {showCheckIn && (
         <CheckInSheet onDone={handleCheckInDone} />
+      )}
+
+      {showWeeklyRecap && (
+        <WeeklyRecapSheet
+          sessionsThisWeek={sessionsThisWeek}
+          streak={currentStreak}
+          mostUsedTechniqueName={mostUsedTechniqueName}
+          calmestTechniqueName={calmestTechniqueName}
+          weeklyMoods={weeklyMoods}
+          tierName={tier.name}
+          toNext={toNext}
+          nextTierName={next?.name ?? null}
+          onDone={handleRecapDone}
+        />
       )}
     </View>
   );
