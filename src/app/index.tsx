@@ -55,6 +55,8 @@ import {
 import { getSessionCount, getLastSession } from '@/store/session-history';
 import { getOnboardingComplete } from '@/store/onboarding-complete';
 import { getReminder } from '@/store/reminder-prefs';
+import { loadMacSoul } from '@/store/last-mac-soul';
+import { macSoulHue } from '@/lib/mac-soul';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import { scheduleCombackNudge } from '@/lib/notifications';
 
@@ -152,6 +154,20 @@ export default function HomeScreen() {
       let active = true;
       getCheckInRecords().then((r) => {
         if (active) setCheckInRecords(r);
+      }).catch(() => {});
+      return () => { active = false; };
+    }, [])
+  );
+
+  // The Soul reflects the day the Mac saw. We read the last cached reading (no
+  // network discovery here, so no permission prompt) and tint the orb when it
+  // is fresh; otherwise it stays the calm default. Undefined = calm.
+  const [orbHue, setOrbHue] = useState<number | undefined>(undefined);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      loadMacSoul().then((s) => {
+        if (active) setOrbHue(macSoulHue(s) ?? undefined);
       }).catch(() => {});
       return () => { active = false; };
     }, [])
@@ -333,7 +349,7 @@ export default function HomeScreen() {
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
           >
-            <Orb size={ORB_SIZE} />
+            <Orb size={ORB_SIZE} hue={orbHue} />
             <Animated.View
               style={[styles.ripple, rippleAnimStyle]}
               pointerEvents="none"

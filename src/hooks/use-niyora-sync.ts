@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import { NiyoraSync, SyncState, SyncStatus, MacSoulState } from 'niyora-sync';
 
+import { saveMacSoul } from '@/store/last-mac-soul';
+
 export type { SyncState, SyncStatus, MacSoulState };
 
 export function useNiyoraSync() {
@@ -18,7 +20,11 @@ export function useNiyoraSync() {
       );
     });
     const statusSub = NiyoraSync.addStatusListener(setMacStatus);
-    const soulSub   = NiyoraSync.addSoulStateListener(setMacSoulState);
+    const soulSub   = NiyoraSync.addSoulStateListener((s) => {
+      setMacSoulState(s);
+      // Cache for the home orb, which reads it without running discovery.
+      void saveMacSoul(s);
+    });
 
     NiyoraSync.startDiscovery();
 

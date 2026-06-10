@@ -7,6 +7,13 @@ import React, { act } from 'react';
 import { create } from 'react-test-renderer';
 import { useNiyoraSync } from '@/hooks/use-niyora-sync';
 
+// The hook now caches the Mac soul-state to AsyncStorage (for the home orb),
+// so the native module needs a mock here, as the store tests do.
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+}));
+
 jest.mock('niyora-sync', () => {
   let stateListener: (s: any) => void = () => {};
   return {
