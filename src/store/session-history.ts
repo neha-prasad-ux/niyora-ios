@@ -51,6 +51,12 @@ export async function getSessionsToday(): Promise<number> {
   return records.filter((r) => localDateStr(new Date(r.completedAt)) === todayStr).length;
 }
 
+export async function getLastSession(): Promise<SessionRecord | null> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const records = parseRecords(raw);
+  return records.length > 0 ? records[records.length - 1] : null;
+}
+
 export async function getCurrentStreak(): Promise<number> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   const records = parseRecords(raw);
