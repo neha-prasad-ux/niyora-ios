@@ -27,6 +27,7 @@ import Animated, {
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
+import { SHOW_CHECKIN, SHOW_ANALYTICS } from '@/config/features';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
@@ -203,7 +204,7 @@ export default function MySoulScreen() {
   const next = nextTier(tier);
   const toNext = sessionsToNext(combinedSessions);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
-  const todayRecord = todayCheckIn(checkInRecords);
+  const todayRecord = SHOW_CHECKIN ? todayCheckIn(checkInRecords) : null;
   const macSoul = effectiveSoul(isPaired, macSoulState);
 
   return (
@@ -306,11 +307,13 @@ export default function MySoulScreen() {
             <MacPromoCard onDismiss={handleMacPromoDismiss} />
           )}
 
-          <CheckInCard
-            records={checkInRecords}
-            macSoul={macSoul}
-            onCheckIn={() => setShowCheckIn(true)}
-          />
+          {SHOW_CHECKIN && (
+            <CheckInCard
+              records={checkInRecords}
+              macSoul={macSoul}
+              onCheckIn={() => setShowCheckIn(true)}
+            />
+          )}
 
           <MoodTrendCard records={moodRecords} />
 
@@ -320,12 +323,14 @@ export default function MySoulScreen() {
             onTimeChange={handleReminderTimeChange}
           />
 
-          <ToggleCard
-            title="Anonymous analytics"
-            description="Helps shape what to improve next. Stress scores, breath patterns, and anything that identifies you stay on your iPhone."
-            value={analyticsOn}
-            onChange={setAnalyticsOn}
-          />
+          {SHOW_ANALYTICS && (
+            <ToggleCard
+              title="Anonymous analytics"
+              description="Helps shape what to improve next. Stress scores, breath patterns, and anything that identifies you stay on your iPhone."
+              value={analyticsOn}
+              onChange={setAnalyticsOn}
+            />
+          )}
 
           <MessageCard accent={accent} />
 
@@ -344,14 +349,13 @@ export default function MySoulScreen() {
 
           <Text style={styles.footer}>
             Niyora runs entirely on your iPhone. No accounts, no profiles.
-            Analytics are anonymous, optional, and only sent if you choose.
             Breathe easy.
           </Text>
           <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
         </ScrollView>
       </SafeAreaView>
 
-      {showCheckIn && (
+      {SHOW_CHECKIN && showCheckIn && (
         <CheckInSheet onDone={handleCheckInDone} />
       )}
     </View>
@@ -654,7 +658,7 @@ function ReminderCard({
         <View style={{ flex: 1, paddingRight: 16 }}>
           <Text style={styles.cardTitle}>Daily reminder</Text>
           <Text style={[styles.cardCopy, { marginTop: 6 }]}>
-            One gentle nudge a day to take a breath. Scheduled on your iPhone, never sent anywhere.
+            One gentle nudge a day to take a breath.
           </Text>
         </View>
         <Switch
