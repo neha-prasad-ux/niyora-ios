@@ -682,7 +682,7 @@ function ReminderCard({
       {reminder.enabled && (
         <View style={styles.reminderTimeRow}>
           <Text style={styles.cardCopy}>Remind me at</Text>
-          <Host matchContents style={styles.reminderPicker}>
+          <Host matchContents>
             <DatePicker
               selection={selection}
               displayedComponents={['hourAndMinute']}
@@ -1096,14 +1096,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.07)',
-  },
-  // The native compact time picker's Host claims more vertical height than the
-  // visible pill and top-aligns it, so it rides up against the row's top
-  // border. Pin the Host to the pill's natural height and center its content so
-  // the row's alignItems:center lines it up with the "Remind me at" label.
-  reminderPicker: {
-    height: 36,
-    justifyContent: 'center',
   },
   primarySmallButton: {
     alignSelf: 'center',
