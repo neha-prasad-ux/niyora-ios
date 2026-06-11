@@ -53,7 +53,7 @@ describe('next-phase cue derivation', () => {
 
     expect(deriveNextLabel(0, phases)).toBe('then hold');
     expect(deriveNextLabel(1, phases)).toBe('then exhale through nose');
-    expect(deriveNextLabel(2, phases)).toBe('then inhale through mouth');
+    expect(deriveNextLabel(2, phases)).toBe('then inhale through teeth');
   });
 });
 

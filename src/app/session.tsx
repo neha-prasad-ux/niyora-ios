@@ -65,15 +65,19 @@ export default function SessionScreen() {
     Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 
   if (!technique) return null;
+  // key on the technique id so "try another" (a router.replace to the same
+  // /session route with a new id) remounts the session fresh instead of reusing
+  // the finished instance with its stale post-session overlay and breath state.
   if (isBreathing(technique))
     return (
       <BreathingSession
+        key={technique.id}
         technique={technique}
         roundsOverride={roundsOverride}
         feeling={feeling}
       />
     );
-  return <MindfulnessSession technique={technique} feeling={feeling} />;
+  return <MindfulnessSession key={technique.id} technique={technique} feeling={feeling} />;
 }
 
 function BreathingSession({

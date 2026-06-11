@@ -157,7 +157,7 @@ export const TECHNIQUES: readonly Technique[] = [
     context: 'Gently clench your teeth and inhale through them',
     rounds: 5,
     phases: [
-      { type: 'inhale', label: 'inhale through mouth', duration: 4 },
+      { type: 'inhale', label: 'inhale through teeth', duration: 4 },
       { type: 'hold', label: 'hold', duration: 2 },
       { type: 'exhale', label: 'exhale through nose', duration: 6 },
     ],

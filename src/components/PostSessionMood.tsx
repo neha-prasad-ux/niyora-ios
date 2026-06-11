@@ -12,7 +12,7 @@
 
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -34,14 +34,23 @@ interface PostSessionMoodProps {
 export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoodProps) {
   const [phase, setPhase] = useState<Phase>('asking');
   const opacity = useSharedValue(0);
+  // Track pending timers so a back-tap (unmount) during a hold cannot fire a
+  // late navigation or onDone on a dead screen.
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const wait = (fn: () => void, ms: number) => {
+    timers.current.push(setTimeout(fn, ms));
+  };
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 480 });
+    return () => {
+      timers.current.forEach(clearTimeout);
+    };
   }, []);
 
   function dismiss() {
     opacity.value = withTiming(0, { duration: 380 });
-    setTimeout(onDone, 380);
+    wait(onDone, 380);
   }
 
   function handleBetter() {
@@ -49,14 +58,14 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
     Haptics.selectionAsync();
     // Snow keeps falling behind; we just carry the calm and leave.
     setPhase('better');
-    setTimeout(dismiss, 1800);
+    wait(dismiss, 1800);
   }
 
   function handleAnother() {
     if (phase !== 'asking') return;
     Haptics.selectionAsync();
     setPhase('another');
-    setTimeout(() => {
+    wait(() => {
       const alt = alternate(feeling, techniqueId);
       if (!alt) {
         dismiss();
