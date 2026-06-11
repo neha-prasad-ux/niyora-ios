@@ -21,9 +21,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { alternate } from '@/models/recommend';
+import { getSessionCount } from '@/store/session-history';
 import { colors } from '@/theme/colors';
 
-type Phase = 'asking' | 'better' | 'another';
+type Phase = 'first' | 'asking' | 'better' | 'another';
 
 interface PostSessionMoodProps {
   techniqueId: string;
@@ -43,6 +44,17 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 480 });
+    // First-ever completion gets an aha beat before the usual close. The 500ms
+    // gap before this overlay mounts means the session is already counted, so
+    // count === 1 is reliably "their first."
+    getSessionCount()
+      .then((n) => {
+        if (n === 1) {
+          setPhase('first');
+          wait(() => setPhase('asking'), 2600);
+        }
+      })
+      .catch(() => {});
     return () => {
       timers.current.forEach(clearTimeout);
     };
@@ -82,6 +94,13 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
 
   return (
     <Animated.View style={[styles.overlay, wrapStyle]} pointerEvents="box-none">
+      {phase === 'first' && (
+        <View style={styles.card}>
+          <Text style={[styles.heading, styles.firstHeading]}>Congratulations.</Text>
+          <Text style={styles.closing}>Your first breath with Niyora.</Text>
+        </View>
+      )}
+
       {phase === 'asking' && (
         <View style={styles.card}>
           <Text style={styles.heading}>Feel better?</Text>
@@ -137,6 +156,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 32,
     letterSpacing: 0.2,
+  },
+  // The first-completion congrats sits close to its sub line, not button-spaced.
+  firstHeading: {
+    marginBottom: 12,
   },
   buttons: {
     alignItems: 'center',

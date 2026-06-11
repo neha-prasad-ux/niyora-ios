@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type MusicTrack = 'serene' | 'ocean' | 'forest' | 'mute';
 
 const STORAGE_KEY = 'niyora:music';
-const DEFAULT_TRACK: MusicTrack = 'serene';
+const DEFAULT_TRACK: MusicTrack = 'ocean';
 
 export async function getMusicTrack(): Promise<MusicTrack> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
