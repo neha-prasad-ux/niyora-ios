@@ -97,7 +97,20 @@ function BreathDriver({
     }
   }, [cycle.done, onDone]);
 
-  return <PhaseLabel label={cycle.phase.label} />;
+  // A one-line tip under the phase label so a first-timer understands why the
+  // long exhale matters (the in/out contrast). Plain text, no icon.
+  const tip =
+    cycle.phase.type === 'inhale'
+      ? 'Tip: Breathing in wakes you a little.'
+      : cycle.phase.type === 'exhale'
+        ? 'Tip: The longer you exhale, the calmer your body gets.'
+        : null;
+  return (
+    <View style={styles.breathLabelWrap}>
+      <PhaseLabel label={cycle.phase.label} />
+      {tip ? <Text style={styles.breathTip}>{tip}</Text> : null}
+    </View>
+  );
 }
 
 export default function OnboardingScreen() {
@@ -469,6 +482,19 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     textAlign: 'center',
     marginTop: 12,
+  },
+  breathLabelWrap: {
+    alignItems: 'center',
+  },
+  breathTip: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 28,
+    letterSpacing: 0.3,
   },
   privacyLines: {
     marginTop: 28,

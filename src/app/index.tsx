@@ -113,10 +113,6 @@ export default function HomeScreen() {
   const mindful = useMemo(() => TECHNIQUES.filter(isMindfulness), []);
   const { height } = useWindowDimensions();
 
-  // The first-run default. Box Breath is the calm starting point, so it stays
-  // pinned by id even though Quick Calm now leads the breathing list.
-  const firstRunTechnique = breathing.find((t) => t.id === 'box') ?? breathing[0];
-
   const [pickerVisible, setPickerVisible] = useState(false);
   const [recommendVisible, setRecommendVisible] = useState(false);
 
@@ -243,10 +239,6 @@ export default function HomeScreen() {
     setPickerVisible(false);
   }, []);
 
-  const handleBegin = useCallback(() => {
-    router.push({ pathname: '/session', params: { id: firstRunTechnique.id } });
-  }, [firstRunTechnique.id]);
-
   const handleRecommendOpen = useCallback(() => {
     Haptics.selectionAsync();
     setRecommendVisible(true);
@@ -363,35 +355,9 @@ export default function HomeScreen() {
           </Animated.View>
         </View>
 
-        {/* First time: a single clear path -- Box Breath + Begin. */}
-        {practiced === false && (
-          <>
-            <View
-              style={styles.techniqueWrap}
-              accessible={true}
-              accessibilityLabel={`${firstRunTechnique.name}. ${firstRunTechnique.subtitle}. ${firstRunTechnique.durationSeconds} seconds.`}
-            >
-              <Text style={[typography.techniqueName, { color: colors.textPrimary }]}>
-                {firstRunTechnique.name}
-              </Text>
-              <Text
-                style={[
-                  typography.subtitle,
-                  { color: colors.textSubtitle, marginTop: 6, textAlign: 'center' },
-                ]}
-              >
-                {firstRunTechnique.subtitle} {'·'} {firstRunTechnique.durationSeconds}s
-              </Text>
-            </View>
-
-            <View style={styles.beginWrap}>
-              <BeginButton onPress={handleBegin} />
-            </View>
-          </>
-        )}
-
-        {/* Returning: lead with the tailored path; browsing is the quiet option. */}
-        {practiced === true && (
+        {/* Everyone, first run included, leads with the tailored "how do you
+            want to feel" path; browsing stays the quiet option. */}
+        {practiced !== undefined && (
           <>
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
