@@ -1,5 +1,6 @@
 import { getTechnique, isBreathing, isMindfulness } from './techniques';
 import {
+  alternate,
   DURATIONS,
   FEELINGS,
   getFeeling,
@@ -37,7 +38,7 @@ describe('FEELINGS catalogue', () => {
 
 describe('getFeeling', () => {
   it('returns a known feeling', () => {
-    expect(getFeeling('tense')?.label).toBe('Tense');
+    expect(getFeeling('calm')?.label).toBe('Calm');
   });
   it('returns undefined for an unknown feeling', () => {
     expect(getFeeling('nope')).toBeUndefined();
@@ -46,15 +47,15 @@ describe('getFeeling', () => {
 
 describe('recommend', () => {
   it('routes a ~1 min "short" feeling to its mindfulness practice, no rounds', () => {
-    const rec = recommend('heavy', 1);
-    expect(rec).toEqual({ techniqueId: 'be-kind', feelingId: 'heavy' });
+    const rec = recommend('kind', 1);
+    expect(rec).toEqual({ techniqueId: 'be-kind', feelingId: 'kind' });
   });
 
   it('routes a ~1 min "long" feeling to a short breath with scaled rounds', () => {
-    const rec = recommend('tense', 1);
+    const rec = recommend('sleepy', 1);
     expect(rec?.techniqueId).toBe('wind-down');
     expect(rec?.rounds).toBeGreaterThan(0);
-    expect(rec?.feelingId).toBe('tense');
+    expect(rec?.feelingId).toBe('sleepy');
   });
 
   it('matches each feeling oneMin path: short = mindful, long = breathing', () => {
@@ -72,15 +73,15 @@ describe('recommend', () => {
   });
 
   it('routes longer durations to the breathing practice with scaled rounds', () => {
-    const rec = recommend('tense', 5);
+    const rec = recommend('sleepy', 5);
     expect(rec?.techniqueId).toBe('wind-down');
     expect(rec?.rounds).toBeGreaterThan(0);
-    expect(rec?.feelingId).toBe('tense');
+    expect(rec?.feelingId).toBe('sleepy');
   });
 
   it('scales rounds up with duration for the same feeling', () => {
-    const three = recommend('restless', 3);
-    const five = recommend('restless', 5);
+    const three = recommend('sleepy', 3);
+    const five = recommend('sleepy', 5);
     expect(five!.rounds!).toBeGreaterThanOrEqual(three!.rounds!);
   });
 
@@ -96,6 +97,34 @@ describe('recommend', () => {
         expect(getTechnique(rec!.techniqueId)).toBeDefined();
       }
     }
+  });
+});
+
+describe('alternate (wanna try another)', () => {
+  it('offers the mindful practice after the breath, for the same feeling', () => {
+    // calm: long = box (breath), short = soft-gaze (mindful)
+    const alt = alternate('calm', 'box');
+    expect(alt).toEqual({ techniqueId: 'soft-gaze', feelingId: 'calm' });
+  });
+
+  it('offers the breath after the mindful practice, with rounds', () => {
+    const alt = alternate('calm', 'soft-gaze');
+    expect(alt?.techniqueId).toBe('box');
+    expect(alt?.rounds).toBeGreaterThan(0);
+    expect(alt?.feelingId).toBe('calm');
+  });
+
+  it('falls back to a different go-to without a feeling context', () => {
+    const alt = alternate(undefined, 'box');
+    expect(alt).not.toBeNull();
+    expect(alt!.techniqueId).not.toBe('box');
+    expect(getTechnique(alt!.techniqueId)).toBeDefined();
+  });
+
+  it('falls back for an unknown feeling', () => {
+    const alt = alternate('nope', 'box');
+    expect(alt).not.toBeNull();
+    expect(alt!.techniqueId).not.toBe('box');
   });
 });
 

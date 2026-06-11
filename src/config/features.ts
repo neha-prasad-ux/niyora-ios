@@ -8,3 +8,8 @@ export const SHOW_CHECKIN = false;
 // keep the UI honest with the "No Data Collected" privacy label. Re-enable
 // alongside the analytics integration.
 export const SHOW_ANALYTICS = false;
+
+// The post-session "Feel better? / try another" flow no longer logs a 1-5 mood,
+// so the mood trend strip has no data to show in v1. Hidden until there is a
+// data source again.
+export const SHOW_MOOD_TREND = false;

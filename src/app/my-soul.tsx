@@ -27,7 +27,7 @@ import Animated, {
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
-import { SHOW_CHECKIN, SHOW_ANALYTICS } from '@/config/features';
+import { SHOW_CHECKIN, SHOW_ANALYTICS, SHOW_MOOD_TREND } from '@/config/features';
 import { Orb } from '@/components/orb';
 import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
@@ -322,7 +322,7 @@ export default function MySoulScreen() {
             />
           )}
 
-          <MoodTrendCard records={moodRecords} />
+          {SHOW_MOOD_TREND && <MoodTrendCard records={moodRecords} />}
 
           <ReminderCard
             reminder={reminder}

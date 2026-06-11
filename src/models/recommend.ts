@@ -24,14 +24,19 @@ export type Feeling = {
   oneMin: 'short' | 'long';
 };
 
+// Desired feelings ("How do you want to feel?"). Each maps to the technique
+// that produces it: `short` is a mindfulness practice, `long` a breathing one.
+// Every id below exists in TECHNIQUES.
 export const FEELINGS: readonly Feeling[] = [
-  { id: 'tense', label: 'Tense', short: 'soft-gaze', long: 'wind-down', oneMin: 'long' },
-  { id: 'restless', label: 'Restless', short: 'let-it-drift', long: 'box', oneMin: 'long' },
-  { id: 'frustrated', label: 'Frustrated', short: 'soft-gaze', long: 'cooling', oneMin: 'long' },
-  { id: 'scattered', label: 'Scattered', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
-  { id: 'heavy', label: 'Heavy', short: 'be-kind', long: 'belly', oneMin: 'short' },
-  { id: 'overwhelmed', label: 'Overwhelmed', short: 'five-senses', long: 'ocean', oneMin: 'long' },
-  { id: 'good', label: 'Good', short: 'bring-someone', long: 'ocean', oneMin: 'short' },
+  { id: 'calm', label: 'Calm', short: 'soft-gaze', long: 'box', oneMin: 'long' },
+  { id: 'grounded', label: 'Grounded', short: 'five-senses', long: 'belly', oneMin: 'short' },
+  { id: 'sleepy', label: 'Sleepy', short: 'let-it-drift', long: 'wind-down', oneMin: 'long' },
+  { id: 'focused', label: 'Focused', short: 'soft-gaze', long: 'alternate-nostril', oneMin: 'long' },
+  { id: 'clear', label: 'Clear', short: 'let-it-drift', long: 'box', oneMin: 'short' },
+  { id: 'kind', label: 'Kind to myself', short: 'be-kind', long: 'belly', oneMin: 'short' },
+  { id: 'safe', label: 'Safe', short: 'hold-yourself', long: 'box', oneMin: 'short' },
+  { id: 'connected', label: 'Connected', short: 'bring-someone', long: 'ocean', oneMin: 'short' },
+  { id: 'cool', label: 'Cool', short: 'soft-gaze', long: 'cooling', oneMin: 'long' },
 ];
 
 // Duration choices, in minutes. 1 min routes to mindfulness; longer routes to
@@ -63,8 +68,10 @@ export type Recommendation = {
   // Present only for the breathing path; undefined means "play as authored".
   rounds?: number;
   // The feeling the user picked, carried through so the post-session save can
-  // close the loop (emotion -> recommendation -> impact).
-  feelingId: string;
+  // close the loop (emotion -> recommendation -> impact). Absent when the
+  // session was not reached via a feeling (e.g. the picker or "try another"
+  // fallback).
+  feelingId?: string;
 };
 
 // Map a feeling + chosen duration to a concrete technique (and rounds for the
@@ -91,4 +98,35 @@ export function recommend(feelingId: string, minutes: number): Recommendation | 
   const t = getTechnique(feeling.long);
   if (!t) return null;
   return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60), feelingId: feeling.id };
+}
+
+// Gentle go-to practices used when "try another" has no feeling context (the
+// session came from the picker or first-run). First one that isn't the one just
+// done is offered.
+const FALLBACK_ALTERNATES = ['belly', 'five-senses', 'box'] as const;
+
+function asRecommendation(t: Technique, feelingId?: string): Recommendation {
+  return isBreathing(t)
+    ? { techniqueId: t.id, rounds: t.rounds, feelingId }
+    : { techniqueId: t.id, feelingId };
+}
+
+// "Wanna try another?" offers a DIFFERENT practice than the one just finished.
+// With a feeling, it swaps the breath for the mindful practice (or vice versa)
+// for that same feeling, so it stays on goal. Without a feeling, it falls back
+// to a gentle different go-to. Plays at the authored length.
+export function alternate(
+  feelingId: string | undefined,
+  currentTechniqueId: string,
+): Recommendation | null {
+  const feeling = feelingId ? getFeeling(feelingId) : undefined;
+  if (feeling) {
+    const otherId = currentTechniqueId === feeling.long ? feeling.short : feeling.long;
+    const t = getTechnique(otherId);
+    if (t) return asRecommendation(t, feeling.id);
+  }
+  const fallbackId =
+    FALLBACK_ALTERNATES.find((id) => id !== currentTechniqueId) ?? FALLBACK_ALTERNATES[0];
+  const t = getTechnique(fallbackId);
+  return t ? asRecommendation(t) : null;
 }

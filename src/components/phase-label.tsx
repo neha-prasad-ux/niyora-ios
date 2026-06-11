@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   // absolute Text relying on textAlignVertical (Android-only) sat higher than
   // the centred incoming word, so the two never lined up mid-transition.
   textStack: {
-    // Tall enough for up to two lines so long labels ("inhale through mouth")
+    // Tall enough for up to two lines so long labels ("inhale through teeth")
     // wrap and stay at full size instead of shrinking or getting clipped.
     height: 78,
     alignSelf: 'stretch',

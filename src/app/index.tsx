@@ -258,10 +258,8 @@ export default function HomeScreen() {
 
   const handleRecommendPick = useCallback((rec: Recommendation) => {
     setRecommendVisible(false);
-    const params: Record<string, string> = {
-      id: rec.techniqueId,
-      feeling: rec.feelingId,
-    };
+    const params: Record<string, string> = { id: rec.techniqueId };
+    if (rec.feelingId) params.feeling = rec.feelingId;
     if (rec.rounds != null) params.rounds = String(rec.rounds);
     router.push({ pathname: '/session', params });
   }, []);
