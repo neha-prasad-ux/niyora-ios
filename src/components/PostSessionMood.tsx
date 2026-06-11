@@ -58,17 +58,14 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
     setPhase('another');
     setTimeout(() => {
       const alt = alternate(feeling, techniqueId);
-      if (alt) {
-        const params: Record<string, string> = {
-          id: alt.techniqueId,
-          feeling: alt.feelingId,
-        };
-        if (alt.rounds != null) params.rounds = String(alt.rounds);
-        router.replace({ pathname: '/session', params });
-      } else {
-        // No feeling context (e.g. reached from the picker): ask it again.
-        router.replace({ pathname: '/', params: { pick: '1' } });
+      if (!alt) {
+        dismiss();
+        return;
       }
+      const params: Record<string, string> = { id: alt.techniqueId };
+      if (alt.feelingId) params.feeling = alt.feelingId;
+      if (alt.rounds != null) params.rounds = String(alt.rounds);
+      router.replace({ pathname: '/session', params });
     }, 1500);
   }
 

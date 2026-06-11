@@ -114,12 +114,17 @@ describe('alternate (wanna try another)', () => {
     expect(alt?.feelingId).toBe('calm');
   });
 
-  it('returns null without a feeling context', () => {
-    expect(alternate(undefined, 'box')).toBeNull();
+  it('falls back to a different go-to without a feeling context', () => {
+    const alt = alternate(undefined, 'box');
+    expect(alt).not.toBeNull();
+    expect(alt!.techniqueId).not.toBe('box');
+    expect(getTechnique(alt!.techniqueId)).toBeDefined();
   });
 
-  it('returns null for an unknown feeling', () => {
-    expect(alternate('nope', 'box')).toBeNull();
+  it('falls back for an unknown feeling', () => {
+    const alt = alternate('nope', 'box');
+    expect(alt).not.toBeNull();
+    expect(alt!.techniqueId).not.toBe('box');
   });
 });
 

@@ -68,8 +68,10 @@ export type Recommendation = {
   // Present only for the breathing path; undefined means "play as authored".
   rounds?: number;
   // The feeling the user picked, carried through so the post-session save can
-  // close the loop (emotion -> recommendation -> impact).
-  feelingId: string;
+  // close the loop (emotion -> recommendation -> impact). Absent when the
+  // session was not reached via a feeling (e.g. the picker or "try another"
+  // fallback).
+  feelingId?: string;
 };
 
 // Map a feeling + chosen duration to a concrete technique (and rounds for the
@@ -98,22 +100,33 @@ export function recommend(feelingId: string, minutes: number): Recommendation | 
   return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60), feelingId: feeling.id };
 }
 
-// "Wanna try another?" picks the OTHER technique for the same feeling (if they
-// just did the breath, offer the mindful one, and vice versa) so the next try
-// stays on goal but feels different. Plays at the authored length. Returns null
-// when there is no feeling context (e.g. a session reached from the picker),
-// in which case the caller should fall back to asking the feeling again.
+// Gentle go-to practices used when "try another" has no feeling context (the
+// session came from the picker or first-run). First one that isn't the one just
+// done is offered.
+const FALLBACK_ALTERNATES = ['belly', 'five-senses', 'box'] as const;
+
+function asRecommendation(t: Technique, feelingId?: string): Recommendation {
+  return isBreathing(t)
+    ? { techniqueId: t.id, rounds: t.rounds, feelingId }
+    : { techniqueId: t.id, feelingId };
+}
+
+// "Wanna try another?" offers a DIFFERENT practice than the one just finished.
+// With a feeling, it swaps the breath for the mindful practice (or vice versa)
+// for that same feeling, so it stays on goal. Without a feeling, it falls back
+// to a gentle different go-to. Plays at the authored length.
 export function alternate(
   feelingId: string | undefined,
   currentTechniqueId: string,
 ): Recommendation | null {
-  if (!feelingId) return null;
-  const feeling = getFeeling(feelingId);
-  if (!feeling) return null;
-  const otherId = currentTechniqueId === feeling.long ? feeling.short : feeling.long;
-  const t = getTechnique(otherId);
-  if (!t) return null;
-  return isBreathing(t)
-    ? { techniqueId: t.id, rounds: t.rounds, feelingId: feeling.id }
-    : { techniqueId: t.id, feelingId: feeling.id };
+  const feeling = feelingId ? getFeeling(feelingId) : undefined;
+  if (feeling) {
+    const otherId = currentTechniqueId === feeling.long ? feeling.short : feeling.long;
+    const t = getTechnique(otherId);
+    if (t) return asRecommendation(t, feeling.id);
+  }
+  const fallbackId =
+    FALLBACK_ALTERNATES.find((id) => id !== currentTechniqueId) ?? FALLBACK_ALTERNATES[0];
+  const t = getTechnique(fallbackId);
+  return t ? asRecommendation(t) : null;
 }
