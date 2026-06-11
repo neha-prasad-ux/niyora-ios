@@ -72,6 +72,11 @@ const TIER_RING_COUNTS: Record<string, number> = {
   spark: 0, glow: 1, shine: 2, radiance: 3, brilliance: 4,
 };
 
+// Per-ring hues (one per tier above spark) so the band shows each tier's own
+// colour and accumulates, the same growing-soul look as the onboarding
+// "This is your Soul. It grows every time you practice." beat.
+const SOUL_RING_HUES = TIERS.slice(1).map((t) => t.hue);
+
 const LEVEL_LABELS: Record<CheckInLevel, string> = {
   light: 'Light',
   okay: 'Okay',
@@ -253,6 +258,8 @@ export default function MySoulScreen() {
                 size={110}
                 tierRingCount={TIER_RING_COUNTS[tier.id] ?? 0}
                 tierHue={tier.hue}
+                ringHues={SOUL_RING_HUES}
+                accumulate
                 revealKey={orbRevealKey}
               />
             </Animated.View>
