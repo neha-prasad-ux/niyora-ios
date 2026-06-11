@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -119,6 +119,13 @@ export default function HomeScreen() {
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [recommendVisible, setRecommendVisible] = useState(false);
+
+  // "Wanna try another?" with no feeling context lands here with ?pick=1, so we
+  // reopen "How do you want to feel?" instead of dead-ending on the home screen.
+  const { pick } = useLocalSearchParams<{ pick?: string }>();
+  useEffect(() => {
+    if (pick) setRecommendVisible(true);
+  }, [pick]);
 
   // undefined while we read the flag; once known, false sends the user into
   // the first-launch onboarding before the home screen ever paints.

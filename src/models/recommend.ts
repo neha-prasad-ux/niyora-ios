@@ -24,14 +24,19 @@ export type Feeling = {
   oneMin: 'short' | 'long';
 };
 
+// Desired feelings ("How do you want to feel?"). Each maps to the technique
+// that produces it: `short` is a mindfulness practice, `long` a breathing one.
+// Every id below exists in TECHNIQUES.
 export const FEELINGS: readonly Feeling[] = [
-  { id: 'tense', label: 'Tense', short: 'soft-gaze', long: 'wind-down', oneMin: 'long' },
-  { id: 'restless', label: 'Restless', short: 'let-it-drift', long: 'box', oneMin: 'long' },
-  { id: 'frustrated', label: 'Frustrated', short: 'soft-gaze', long: 'cooling', oneMin: 'long' },
-  { id: 'scattered', label: 'Scattered', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
-  { id: 'heavy', label: 'Heavy', short: 'be-kind', long: 'belly', oneMin: 'short' },
-  { id: 'overwhelmed', label: 'Overwhelmed', short: 'five-senses', long: 'ocean', oneMin: 'long' },
-  { id: 'good', label: 'Good', short: 'bring-someone', long: 'ocean', oneMin: 'short' },
+  { id: 'calm', label: 'Calm', short: 'soft-gaze', long: 'box', oneMin: 'long' },
+  { id: 'grounded', label: 'Grounded', short: 'five-senses', long: 'belly', oneMin: 'short' },
+  { id: 'sleepy', label: 'Sleepy', short: 'let-it-drift', long: 'wind-down', oneMin: 'long' },
+  { id: 'focused', label: 'Focused', short: 'soft-gaze', long: 'alternate-nostril', oneMin: 'long' },
+  { id: 'clear', label: 'Clear', short: 'let-it-drift', long: 'box', oneMin: 'short' },
+  { id: 'kind', label: 'Kind to myself', short: 'be-kind', long: 'belly', oneMin: 'short' },
+  { id: 'safe', label: 'Safe', short: 'hold-yourself', long: 'box', oneMin: 'short' },
+  { id: 'connected', label: 'Connected', short: 'bring-someone', long: 'ocean', oneMin: 'short' },
+  { id: 'cool', label: 'Cool', short: 'soft-gaze', long: 'cooling', oneMin: 'long' },
 ];
 
 // Duration choices, in minutes. 1 min routes to mindfulness; longer routes to
@@ -91,4 +96,24 @@ export function recommend(feelingId: string, minutes: number): Recommendation | 
   const t = getTechnique(feeling.long);
   if (!t) return null;
   return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60), feelingId: feeling.id };
+}
+
+// "Wanna try another?" picks the OTHER technique for the same feeling (if they
+// just did the breath, offer the mindful one, and vice versa) so the next try
+// stays on goal but feels different. Plays at the authored length. Returns null
+// when there is no feeling context (e.g. a session reached from the picker),
+// in which case the caller should fall back to asking the feeling again.
+export function alternate(
+  feelingId: string | undefined,
+  currentTechniqueId: string,
+): Recommendation | null {
+  if (!feelingId) return null;
+  const feeling = getFeeling(feelingId);
+  if (!feeling) return null;
+  const otherId = currentTechniqueId === feeling.long ? feeling.short : feeling.long;
+  const t = getTechnique(otherId);
+  if (!t) return null;
+  return isBreathing(t)
+    ? { techniqueId: t.id, rounds: t.rounds, feelingId: feeling.id }
+    : { techniqueId: t.id, feelingId: feeling.id };
 }

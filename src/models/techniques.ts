@@ -153,8 +153,8 @@ export const TECHNIQUES: readonly Technique[] = [
     durationSeconds: 60,
     category: 'breathing',
     locked: true,
-    instructions: 'Curl your tongue. Inhale through it, exhale through nose.',
-    context: 'Curl your tongue and inhale through it',
+    instructions: 'Gently clench your teeth, lips apart. Inhale through your teeth, exhale through your nose.',
+    context: 'Gently clench your teeth and inhale through them',
     rounds: 5,
     phases: [
       { type: 'inhale', label: 'inhale through mouth', duration: 4 },
