@@ -15,12 +15,12 @@ const FADE_STEPS = 12;
 const FADE_MS = 600;
 
 export function useSessionMusic() {
-  const [track, setTrackState] = useState<MusicTrack>('serene');
+  const [track, setTrackState] = useState<MusicTrack>('ocean');
   // Single stable player — track switches use player.replace().
-  const player = useAudioPlayer(SOURCES.serene);
+  const player = useAudioPlayer(SOURCES.ocean);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Tracks which source is currently loaded so we avoid redundant replaces.
-  const loadedTrackRef = useRef<Exclude<MusicTrack, 'mute'>>('serene');
+  const loadedTrackRef = useRef<Exclude<MusicTrack, 'mute'>>('ocean');
   // Always-current track ref so fadeOut doesn't need track in its dep array.
   const trackRef = useRef(track);
 
