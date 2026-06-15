@@ -8,6 +8,18 @@ export type HeartRateSample = {
   date: string;
 };
 
+/** A workout overlapping the queried window. */
+export type Workout = {
+  /** Raw HKWorkoutActivityType value (e.g. 37 = running, 52 = walking). */
+  activityType: number;
+  /** ISO-8601 start. */
+  start: string;
+  /** ISO-8601 end. */
+  end: string;
+  /** True when the workout is still in progress (end is now or later). */
+  isActive: boolean;
+};
+
 // Load defensively: if the native module isn't in this binary, fall back to a
 // no-op so the app still runs with stress features simply disabled (mirrors the
 // pattern in niyora-sync).
@@ -27,7 +39,10 @@ export const NiyoraHealth = {
     return Native ? Native.isAvailable() : false;
   },
 
-  /** Show the HealthKit permission dialog for heart-rate read access. */
+  /**
+   * Show the HealthKit permission dialog for read access to heart rate,
+   * steps, active energy, and workouts.
+   */
   async requestAuthorization(): Promise<boolean> {
     return Native ? Native.requestAuthorization() : false;
   },
@@ -39,5 +54,31 @@ export const NiyoraHealth = {
    */
   async getHeartRateSamples(sinceIso?: string, limit = 200): Promise<HeartRateSample[]> {
     return Native ? Native.getHeartRateSamples(sinceIso ?? null, limit) : [];
+  },
+
+  /**
+   * Total steps over the window (activity-gating signal).
+   * @param sinceIso ISO-8601 start; defaults to 10 minutes ago.
+   */
+  async getStepCount(sinceIso?: string): Promise<number> {
+    return Native ? Native.getStepCount(sinceIso ?? null) : 0;
+  },
+
+  /**
+   * Total active energy burned in kcal over the window (activity-gating signal).
+   * @param sinceIso ISO-8601 start; defaults to 10 minutes ago.
+   */
+  async getActiveEnergy(sinceIso?: string): Promise<number> {
+    return Native ? Native.getActiveEnergy(sinceIso ?? null) : 0;
+  },
+
+  /**
+   * Workouts overlapping the window, newest first. Used to exclude exercise
+   * from the stress trigger (a running workout is not stress).
+   * @param sinceIso ISO-8601 start; defaults to one hour ago.
+   * @param limit max workouts (default 20).
+   */
+  async getRecentWorkouts(sinceIso?: string, limit = 20): Promise<Workout[]> {
+    return Native ? Native.getRecentWorkouts(sinceIso ?? null, limit) : [];
   },
 };
