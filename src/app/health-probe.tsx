@@ -14,6 +14,9 @@ import {
   type HeartRateSample,
 } from 'niyora-health';
 
+// 10-minute window matches the activity-gating window used by detection (B2).
+const TEN_MIN_AGO = () => new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
 export default function HealthProbe() {
   const [log, setLog] = useState<string[]>([
     `module linked: ${isHealthAvailable ? 'yes' : 'NO (rebuild needed)'}`,
@@ -55,6 +58,25 @@ export default function HealthProbe() {
     }
   }, [append]);
 
+  const readActivity = useCallback(async () => {
+    try {
+      const since = TEN_MIN_AGO();
+      const [steps, kcal, workouts] = await Promise.all([
+        NiyoraHealth.getStepCount(since),
+        NiyoraHealth.getActiveEnergy(since),
+        NiyoraHealth.getRecentWorkouts(),
+      ]);
+      append(`steps (10 min) → ${steps}`);
+      append(`active energy (10 min) → ${kcal.toFixed(1)} kcal`);
+      append(`recent workouts (1 hr) → ${workouts.length}`);
+      workouts.forEach((w) =>
+        append(`  type ${w.activityType}${w.isActive ? ' [active]' : ''} ${w.start}`),
+      );
+    } catch (e: any) {
+      append(`activity read error: ${e?.message ?? e}`);
+    }
+  }, [append]);
+
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -68,6 +90,9 @@ export default function HealthProbe() {
         </Pressable>
         <Pressable style={styles.btn} onPress={readHr}>
           <Text style={styles.btnText}>3. Read heart rate (last hour)</Text>
+        </Pressable>
+        <Pressable style={styles.btn} onPress={readActivity}>
+          <Text style={styles.btnText}>4. Read activity (steps / energy / workouts)</Text>
         </Pressable>
 
         <Text style={styles.section}>Log</Text>
