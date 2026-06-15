@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -382,6 +382,16 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </>
+        )}
+
+        {__DEV__ && (
+          <Pressable
+            style={{ position: 'absolute', bottom: 8, right: 8, padding: 8 }}
+            onPress={() => router.push('/health-probe' as Href)}
+            accessibilityLabel="HealthKit probe"
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>HK</Text>
+          </Pressable>
         )}
       </SafeAreaView>
       </Animated.View>

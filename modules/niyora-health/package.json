@@ -1,0 +1,12 @@
+{
+  "name": "niyora-health",
+  "version": "1.0.0",
+  "description": "HealthKit reads (heart rate) for Niyora stress detection",
+  "main": "src/index",
+  "types": "src/index",
+  "files": [
+    "src",
+    "ios",
+    "expo-module.config.json"
+  ]
+}

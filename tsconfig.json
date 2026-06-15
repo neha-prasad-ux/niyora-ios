@@ -11,6 +11,9 @@
       ],
       "niyora-sync": [
         "./modules/niyora-sync/src/index"
+      ],
+      "niyora-health": [
+        "./modules/niyora-health/src/index"
       ]
     }
   },
