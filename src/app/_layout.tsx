@@ -71,6 +71,7 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          {__DEV__ && <Stack.Screen name="health-probe" />}
         </Stack>
       </ErrorBoundary>
     </GestureHandlerRootView>
