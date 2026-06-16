@@ -128,3 +128,91 @@ export function restingForHour(model: BaselineModel, hour: number): number | nul
 export function restingAt(model: BaselineModel, at: Date = new Date()): number | null {
   return restingForHour(model, at.getHours());
 }
+
+// --- Activity-aware filtering -------------------------------------------------
+//
+// Raw HR includes plenty of movement, so a percentile of all readings drifts
+// upward in active hours (the probe showed an 8pm "resting" of 101). To get a
+// true resting baseline we keep only HR sampled while the body was still: its
+// time bucket had low steps and low active energy, and it wasn't inside a
+// workout. The remaining samples feed computeBaseline as usual.
+
+/** One activity bucket (matches niyora-health's ActivityBucket). */
+export type ActivityBucket = { start: string; steps: number; kcal: number };
+
+/** A workout span to exclude (start/end ISO-8601). */
+export type WorkoutSpan = { start: string; end: string };
+
+export type RestFilterOptions = {
+  /** Bucket size used when the buckets were fetched. Default 5. */
+  intervalMinutes?: number;
+  /** Max steps in a bucket to still count as "still". Default 10. */
+  maxStepsPerBucket?: number;
+  /** Max active energy (kcal) in a bucket to still count as "still". Default 5. */
+  maxKcalPerBucket?: number;
+};
+
+// Thresholds are deliberately lenient: we only want to exclude clear movement
+// (walking, exercise), not every waking moment. Strict values (steps<=10,
+// kcal<=5) dropped ~98% of a real week, leaving too few samples per hour. Tuned
+// further against tap ground-truth in Phase E.
+const REST_DEFAULTS = {
+  intervalMinutes: 5,
+  maxStepsPerBucket: 40, // ~8 steps/min — seated with the odd shift, not walking
+  maxKcalPerBucket: 25, // ~5 kcal/min active burn
+};
+
+/**
+ * Keep only the HR samples taken while at rest: their activity bucket was below
+ * the step/energy thresholds, and they fell outside every workout. Buckets must
+ * be contiguous and anchored at the window start (as niyora-health returns
+ * them) — a sample is matched to its bucket by index from the first bucket.
+ *
+ * Returns [] when there are no buckets (no activity context to judge rest by).
+ */
+export function filterRestingSamples(
+  samples: HrSample[],
+  buckets: ActivityBucket[],
+  workouts: WorkoutSpan[] = [],
+  options: RestFilterOptions = {},
+): HrSample[] {
+  const { intervalMinutes, maxStepsPerBucket, maxKcalPerBucket } = {
+    ...REST_DEFAULTS,
+    ...options,
+  };
+  if (buckets.length === 0) return [];
+
+  const bucketMs = intervalMinutes * 60_000;
+  const firstStartMs = new Date(buckets[0].start).getTime();
+  if (Number.isNaN(firstStartMs)) return [];
+
+  const workoutSpans = workouts
+    .map((w) => [new Date(w.start).getTime(), new Date(w.end).getTime()] as const)
+    .filter(([a, b]) => !Number.isNaN(a) && !Number.isNaN(b));
+
+  const inWorkout = (t: number) => workoutSpans.some(([a, b]) => t >= a && t <= b);
+
+  return samples.filter((s) => {
+    const t = new Date(s.date).getTime();
+    if (Number.isNaN(t)) return false;
+    if (inWorkout(t)) return false;
+    const idx = Math.floor((t - firstStartMs) / bucketMs);
+    if (idx < 0 || idx >= buckets.length) return false; // no activity context
+    const b = buckets[idx];
+    return b.steps <= maxStepsPerBucket && b.kcal <= maxKcalPerBucket;
+  });
+}
+
+/**
+ * Activity-aware baseline: filter to resting samples, then compute as usual.
+ */
+export function computeRestingBaseline(
+  samples: HrSample[],
+  buckets: ActivityBucket[],
+  workouts: WorkoutSpan[] = [],
+  baselineOptions: BaselineOptions = {},
+  restOptions: RestFilterOptions = {},
+): BaselineModel {
+  const resting = filterRestingSamples(samples, buckets, workouts, restOptions);
+  return computeBaseline(resting, baselineOptions);
+}

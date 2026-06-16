@@ -1,7 +1,7 @@
-// Dev-only probe for Phase A1: confirm the niyora-health native module can read
-// live heart rate from HealthKit on a real device. Not part of the shipping UI;
-// reached from a __DEV__-only tap on the home screen. Replaced by real detection
-// UI in Phase B.
+// Dev-only probe for stress v1: confirm the niyora-health native module reads
+// HealthKit (HR + activity), eyeball the computed resting baseline (B1), and run
+// the detection rule (B2) against live data. Not part of the shipping UI;
+// reached from a __DEV__-only tap on the home screen.
 
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -13,9 +13,16 @@ import {
   isHealthAvailable,
   type HeartRateSample,
 } from 'niyora-health';
+import { computeBaseline, computeRestingBaseline } from '@/lib/hr-baseline';
+import { saveBaseline, readBaseline } from '@/store/hr-baseline';
+import { evaluateStress } from '@/lib/stress-detect';
 
 // 10-minute window matches the activity-gating window used by detection (B2).
 const TEN_MIN_AGO = () => new Date(Date.now() - 10 * 60 * 1000).toISOString();
+const DAYS_AGO = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+
+const fmt = (n: number | null | undefined) =>
+  n === null || n === undefined || Number.isNaN(n) ? 'n/a' : n.toFixed(1);
 
 export default function HealthProbe() {
   const [log, setLog] = useState<string[]>([
@@ -77,10 +84,62 @@ export default function HealthProbe() {
     }
   }, [append]);
 
+  // B1 — read a week of HR + activity, compute + persist the activity-aware
+  // resting baseline (HR only from still, non-workout moments), and print the
+  // per-hour resting curve to eyeball against felt resting HR.
+  const buildBaseline = useCallback(async () => {
+    try {
+      const since = DAYS_AGO(7);
+      const [hr, buckets, workouts] = await Promise.all([
+        NiyoraHealth.getHeartRateSamples(since, 100000),
+        NiyoraHealth.getActivityBuckets(since, 5),
+        NiyoraHealth.getRecentWorkouts(since, 200),
+      ]);
+      append(`baseline: ${hr.length} HR, ${buckets.length} activity buckets, ${workouts.length} workouts (7 days)`);
+      const model = computeRestingBaseline(hr, buckets, workouts);
+      await saveBaseline(model);
+      const dropped = hr.length - model.sampleCount;
+      append(`baseline: ${model.sampleCount} resting samples (${dropped} dropped as active); global resting ${fmt(model.global?.resting)}`);
+      model.byHour.forEach((h, hour) => {
+        if (h) append(`  ${String(hour).padStart(2, '0')}:00 → resting ${fmt(h.resting)} (median ${fmt(h.median)}, n=${h.count})`);
+      });
+    } catch (e: any) {
+      append(`baseline error: ${e?.message ?? e}`);
+    }
+  }, [append]);
+
+  // B2 — run the detection rule against the last 10 min of HR + activity.
+  const evalStress = useCallback(async () => {
+    try {
+      const stored = await readBaseline();
+      const model = stored?.model ?? computeBaseline(
+        await NiyoraHealth.getHeartRateSamples(DAYS_AGO(7), 100000),
+      );
+      if (!stored) append('eval: no saved baseline, computed on the fly');
+      const since = TEN_MIN_AGO();
+      const [recent, steps, kcal, workouts] = await Promise.all([
+        NiyoraHealth.getHeartRateSamples(since, 1000),
+        NiyoraHealth.getStepCount(since),
+        NiyoraHealth.getActiveEnergy(since),
+        NiyoraHealth.getRecentWorkouts(),
+      ]);
+      const v = evaluateStress(recent, model, {
+        steps,
+        activeEnergyKcal: kcal,
+        hasActiveWorkout: workouts.some((w) => w.isActive),
+      });
+      append(`eval → ${v.reason.toUpperCase()} (stressed=${v.stressed})`);
+      append(`  current ${fmt(v.currentHr)} bpm vs resting ${fmt(v.resting)} (thresh ${fmt(v.threshold)})`);
+      append(`  elevated ${v.elevatedFraction === null ? 'n/a' : Math.round(v.elevatedFraction * 100) + '%'}, coverage ${Math.round(v.coverageMs / 1000)}s, steps ${steps}, ${kcal.toFixed(1)} kcal`);
+    } catch (e: any) {
+      append(`eval error: ${e?.message ?? e}`);
+    }
+  }, [append]);
+
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>HealthKit probe (A1)</Text>
+        <Text style={styles.title}>Stress probe</Text>
 
         <Pressable style={styles.btn} onPress={checkAvailable}>
           <Text style={styles.btnText}>1. Check availability</Text>
@@ -93,6 +152,12 @@ export default function HealthProbe() {
         </Pressable>
         <Pressable style={styles.btn} onPress={readActivity}>
           <Text style={styles.btnText}>4. Read activity (steps / energy / workouts)</Text>
+        </Pressable>
+        <Pressable style={styles.btn} onPress={buildBaseline}>
+          <Text style={styles.btnText}>5. Build baseline (last 7 days)</Text>
+        </Pressable>
+        <Pressable style={styles.btn} onPress={evalStress}>
+          <Text style={styles.btnText}>6. Evaluate stress now</Text>
         </Pressable>
 
         <Text style={styles.section}>Log</Text>

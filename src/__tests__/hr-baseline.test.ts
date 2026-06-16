@@ -1,8 +1,11 @@
 import {
   computeBaseline,
+  computeRestingBaseline,
+  filterRestingSamples,
   percentile,
   restingForHour,
   restingAt,
+  type ActivityBucket,
   type HrSample,
 } from '@/lib/hr-baseline';
 
@@ -133,5 +136,108 @@ describe('restingForHour / restingAt', () => {
     const m = computeBaseline(samplesAtHour(8, [60, 62, 64], 30));
     const at = new Date(2026, 0, 1, 8, 30, 0);
     expect(restingAt(m, at)).toBe(m.byHour[8]!.resting);
+  });
+});
+
+describe('filterRestingSamples', () => {
+  // 5-min buckets anchored at a fixed start; bucket i covers [start + i*5min, …).
+  const START = new Date(2026, 5, 15, 20, 0, 0); // 20:00 local
+  const startMs = START.getTime();
+  const bucketMs = 5 * 60_000;
+
+  function bucketsFrom(specs: { steps: number; kcal: number }[]): ActivityBucket[] {
+    return specs.map((s, i) => ({
+      start: new Date(startMs + i * bucketMs).toISOString(),
+      steps: s.steps,
+      kcal: s.kcal,
+    }));
+  }
+
+  // A sample inside bucket index `i`, partway through it.
+  function sampleInBucket(i: number, bpm: number): HrSample {
+    return { bpm, date: new Date(startMs + i * bucketMs + 60_000).toISOString() };
+  }
+
+  it('keeps samples whose bucket is still, drops samples in active buckets', () => {
+    const buckets = bucketsFrom([
+      { steps: 0, kcal: 0 }, // 0: still
+      { steps: 400, kcal: 30 }, // 1: walking
+      { steps: 2, kcal: 1 }, // 2: still
+    ]);
+    const samples = [
+      sampleInBucket(0, 62),
+      sampleInBucket(1, 110), // active -> dropped
+      sampleInBucket(2, 64),
+    ];
+    const kept = filterRestingSamples(samples, buckets);
+    expect(kept.map((s) => s.bpm)).toEqual([62, 64]);
+  });
+
+  it('drops samples that fall inside a workout even if the bucket is still', () => {
+    const buckets = bucketsFrom([{ steps: 0, kcal: 0 }, { steps: 0, kcal: 0 }]);
+    const workout = {
+      start: new Date(startMs).toISOString(),
+      end: new Date(startMs + bucketMs).toISOString(), // covers bucket 0
+    };
+    const samples = [sampleInBucket(0, 120), sampleInBucket(1, 63)];
+    const kept = filterRestingSamples(samples, buckets, [workout]);
+    expect(kept.map((s) => s.bpm)).toEqual([63]);
+  });
+
+  it('drops samples with no bucket context (out of range)', () => {
+    const buckets = bucketsFrom([{ steps: 0, kcal: 0 }]);
+    const before = { bpm: 60, date: new Date(startMs - bucketMs).toISOString() };
+    const after = { bpm: 60, date: new Date(startMs + 10 * bucketMs).toISOString() };
+    expect(filterRestingSamples([before, after], buckets)).toEqual([]);
+  });
+
+  it('returns [] when there are no buckets to judge by', () => {
+    expect(filterRestingSamples([sampleInBucket(0, 60)], [])).toEqual([]);
+  });
+
+  it('respects custom step/energy thresholds', () => {
+    const buckets = bucketsFrom([{ steps: 8, kcal: 4 }]);
+    expect(filterRestingSamples([sampleInBucket(0, 60)], buckets)).toHaveLength(1);
+    const strict = filterRestingSamples([sampleInBucket(0, 60)], buckets, [], {
+      maxStepsPerBucket: 5,
+    });
+    expect(strict).toHaveLength(0);
+  });
+});
+
+describe('computeRestingBaseline', () => {
+  it('lowers the estimate by excluding active readings', () => {
+    // Build one hour bucket (14:00) where calm readings (60) come from still
+    // buckets and high readings (110) come from active buckets. The naive
+    // baseline sees both; the activity-aware one sees only the calm ones.
+    const start = new Date(2026, 5, 15, 14, 0, 0);
+    const startMs = start.getTime();
+    const bMs = 5 * 60_000;
+    const buckets: ActivityBucket[] = [];
+    const samples: HrSample[] = [];
+    for (let i = 0; i < 40; i++) {
+      const active = i % 2 === 0;
+      buckets.push({
+        start: new Date(startMs + i * bMs).toISOString(),
+        steps: active ? 500 : 0,
+        kcal: active ? 40 : 0,
+      });
+      // a few samples per bucket so the hour clears the min-sample threshold
+      for (let k = 0; k < 2; k++) {
+        samples.push({
+          bpm: active ? 110 : 60,
+          date: new Date(startMs + i * bMs + k * 30_000).toISOString(),
+        });
+      }
+    }
+    const naive = computeBaseline(samples, { minSamplesPerHour: 5 });
+    const aware = computeRestingBaseline(samples, buckets, [], { minSamplesPerHour: 5 });
+    // Aware keeps only the calm (still) readings -> resting and median both 60.
+    expect(aware.byHour[14]!.resting).toBe(60);
+    expect(aware.byHour[14]!.median).toBe(60);
+    // Naive mixes in the active readings, so its median sits well above.
+    expect(naive.byHour[14]!.median).toBeGreaterThan(aware.byHour[14]!.median);
+    // Half the samples were dropped as active.
+    expect(aware.sampleCount).toBe(naive.sampleCount / 2);
   });
 });
