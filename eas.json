@@ -8,6 +8,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": { "NIYORA_HEALTHKIT": "1" },
       "ios": {
         "buildConfiguration": "Debug"
       }
@@ -21,6 +22,7 @@
     "preview": {
       "distribution": "internal",
       "autoIncrement": true,
+      "env": { "NIYORA_HEALTHKIT": "1" },
       "ios": {
         "buildConfiguration": "Release"
       }
