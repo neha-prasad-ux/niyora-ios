@@ -18,6 +18,7 @@ import {
   answerFromAction,
 } from '../lib/stress-nudge';
 import { recordAnswer } from '../store/nudge-history';
+import { useStressTick } from '../hooks/use-stress-tick';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,6 +41,9 @@ export default function RootLayout() {
   useEffect(() => {
     registerStressNudgeCategory().catch(() => {});
   }, []);
+
+  // Run a stress tick on launch and each foreground (experiment-only for now).
+  useStressTick(__DEV__);
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
