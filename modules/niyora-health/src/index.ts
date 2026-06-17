@@ -8,6 +8,16 @@ export type HeartRateSample = {
   date: string;
 };
 
+/** Steps + active energy summed over one fixed time bucket. */
+export type ActivityBucket = {
+  /** ISO-8601 bucket start. Buckets are contiguous and anchored at the window start. */
+  start: string;
+  /** Steps in this bucket. */
+  steps: number;
+  /** Active energy (kcal) in this bucket. */
+  kcal: number;
+};
+
 /** A workout overlapping the queried window. */
 export type Workout = {
   /** Raw HKWorkoutActivityType value (e.g. 37 = running, 52 = walking). */
@@ -80,5 +90,15 @@ export const NiyoraHealth = {
    */
   async getRecentWorkouts(sinceIso?: string, limit = 20): Promise<Workout[]> {
     return Native ? Native.getRecentWorkouts(sinceIso ?? null, limit) : [];
+  },
+
+  /**
+   * Steps + active energy summed into fixed time buckets across the window,
+   * for building an activity-aware resting baseline (B1).
+   * @param sinceIso ISO-8601 start; defaults to 7 days ago.
+   * @param intervalMinutes bucket size in minutes (default 5).
+   */
+  async getActivityBuckets(sinceIso?: string, intervalMinutes = 5): Promise<ActivityBucket[]> {
+    return Native ? Native.getActivityBuckets(sinceIso ?? null, intervalMinutes) : [];
   },
 };
