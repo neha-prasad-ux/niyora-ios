@@ -16,6 +16,9 @@ import {
 import { computeBaseline, computeRestingBaseline } from '@/lib/hr-baseline';
 import { saveBaseline, readBaseline } from '@/store/hr-baseline';
 import { evaluateStress } from '@/lib/stress-detect';
+import { fireStressNudge } from '@/lib/stress-nudge';
+import { getNudgeHistory, recordNudgeFired } from '@/store/nudge-history';
+import { ensureNotificationPermission } from '@/lib/notifications';
 
 // 10-minute window matches the activity-gating window used by detection (B2).
 const TEN_MIN_AGO = () => new Date(Date.now() - 10 * 60 * 1000).toISOString();
@@ -136,6 +139,42 @@ export default function HealthProbe() {
     }
   }, [append]);
 
+  // B4 — fire the interactive "Feeling tense?" nudge. Recording the fired event
+  // is the policy/background tick's job (B3); here we just exercise the
+  // notification + Yes/No/Not now buttons end to end.
+  const fireNudge = useCallback(async () => {
+    try {
+      const ok = await ensureNotificationPermission();
+      if (!ok) {
+        append('nudge: notification permission not granted');
+        return;
+      }
+      // Record the fired event so the answer has something to attach to. In
+      // production this is the background tick's job (B3); the probe stands in.
+      await recordNudgeFired({
+        firedAt: new Date().toISOString(),
+        currentHr: null,
+        resting: null,
+      });
+      await fireStressNudge();
+      append('nudge: fired — answer it, then tap "Show answers"');
+    } catch (e: any) {
+      append(`nudge error: ${e?.message ?? e}`);
+    }
+  }, [append]);
+
+  const showAnswers = useCallback(async () => {
+    try {
+      const events = await getNudgeHistory();
+      append(`nudge history: ${events.length} event(s)`);
+      events.slice(-10).forEach((e) =>
+        append(`  ${e.firedAt} → ${e.answer ?? 'unanswered'}`),
+      );
+    } catch (e: any) {
+      append(`history error: ${e?.message ?? e}`);
+    }
+  }, [append]);
+
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -158,6 +197,12 @@ export default function HealthProbe() {
         </Pressable>
         <Pressable style={styles.btn} onPress={evalStress}>
           <Text style={styles.btnText}>6. Evaluate stress now</Text>
+        </Pressable>
+        <Pressable style={styles.btn} onPress={fireNudge}>
+          <Text style={styles.btnText}>7. Fire "Feeling tense?" nudge</Text>
+        </Pressable>
+        <Pressable style={styles.btn} onPress={showAnswers}>
+          <Text style={styles.btnText}>8. Show answers (nudge history)</Text>
         </Pressable>
 
         <Text style={styles.section}>Log</Text>
