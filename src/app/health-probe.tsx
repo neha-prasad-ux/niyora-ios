@@ -19,6 +19,7 @@ import { evaluateStress } from '@/lib/stress-detect';
 import { fireStressNudge } from '@/lib/stress-nudge';
 import { getNudgeHistory, recordNudgeFired } from '@/store/nudge-history';
 import { ensureNotificationPermission } from '@/lib/notifications';
+import { liveStressTick } from '@/lib/stress-tick-live';
 
 // 10-minute window matches the activity-gating window used by detection (B2).
 const TEN_MIN_AGO = () => new Date(Date.now() - 10 * 60 * 1000).toISOString();
@@ -163,6 +164,19 @@ export default function HealthProbe() {
     }
   }, [append]);
 
+  // B3 — run one full tick (read → detect → policy → maybe nudge), the same
+  // pass the background trigger will run. Permission first so a fire can show.
+  const runTick = useCallback(async () => {
+    try {
+      await ensureNotificationPermission();
+      const r = await liveStressTick();
+      append(`tick → ${r.verdict.reason.toUpperCase()} / ${r.decision.reason} (fired=${r.fired})`);
+      append(`  current ${fmt(r.verdict.currentHr)} vs resting ${fmt(r.verdict.resting)} (thresh ${fmt(r.verdict.threshold)})`);
+    } catch (e: any) {
+      append(`tick error: ${e?.message ?? e}`);
+    }
+  }, [append]);
+
   const showAnswers = useCallback(async () => {
     try {
       const events = await getNudgeHistory();
@@ -201,8 +215,11 @@ export default function HealthProbe() {
         <Pressable style={styles.btn} onPress={fireNudge}>
           <Text style={styles.btnText}>7. Fire "Feeling tense?" nudge</Text>
         </Pressable>
+        <Pressable style={styles.btn} onPress={runTick}>
+          <Text style={styles.btnText}>8. Run detection tick now</Text>
+        </Pressable>
         <Pressable style={styles.btn} onPress={showAnswers}>
-          <Text style={styles.btnText}>8. Show answers (nudge history)</Text>
+          <Text style={styles.btnText}>9. Show answers (nudge history)</Text>
         </Pressable>
 
         <Text style={styles.section}>Log</Text>
