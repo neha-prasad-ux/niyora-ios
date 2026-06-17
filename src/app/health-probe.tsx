@@ -17,7 +17,7 @@ import { computeBaseline, computeRestingBaseline } from '@/lib/hr-baseline';
 import { saveBaseline, readBaseline } from '@/store/hr-baseline';
 import { evaluateStress } from '@/lib/stress-detect';
 import { fireStressNudge } from '@/lib/stress-nudge';
-import { getNudgeHistory } from '@/store/nudge-history';
+import { getNudgeHistory, recordNudgeFired } from '@/store/nudge-history';
 import { ensureNotificationPermission } from '@/lib/notifications';
 
 // 10-minute window matches the activity-gating window used by detection (B2).
@@ -149,6 +149,13 @@ export default function HealthProbe() {
         append('nudge: notification permission not granted');
         return;
       }
+      // Record the fired event so the answer has something to attach to. In
+      // production this is the background tick's job (B3); the probe stands in.
+      await recordNudgeFired({
+        firedAt: new Date().toISOString(),
+        currentHr: null,
+        resting: null,
+      });
       await fireStressNudge();
       append('nudge: fired — answer it, then tap "Show answers"');
     } catch (e: any) {
