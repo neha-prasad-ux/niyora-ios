@@ -12,6 +12,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ErrorBoundary } from '../components/error-boundary';
 import * as Notifications from 'expo-notifications';
 import { COMEBACK_NUDGE_ID } from '../lib/notifications';
+import {
+  STRESS_NUDGE_ID,
+  registerStressNudgeCategory,
+  answerFromAction,
+} from '../lib/stress-nudge';
+import { recordAnswer } from '../store/nudge-history';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -30,10 +36,29 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
+  // Register the stress-nudge action buttons once, before any nudge can fire.
+  useEffect(() => {
+    registerStressNudgeCategory().catch(() => {});
+  }, []);
+
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      if (response.notification.request.identifier === COMEBACK_NUDGE_ID) {
+      const id = response.notification.request.identifier;
+      if (id === COMEBACK_NUDGE_ID) {
         router.push({ pathname: '/session', params: { id: 'quick-calm' } });
+        return;
+      }
+      if (id === STRESS_NUDGE_ID) {
+        // Yes / No / Not now is the ground truth. Record it; a Yes also offers
+        // a calming session, the natural next step (the action flow is C1).
+        const answer = answerFromAction(response.actionIdentifier);
+        if (answer) {
+          recordAnswer(answer).catch(() => {});
+        }
+        if (answer === 'yes') {
+          router.push({ pathname: '/session', params: { id: 'quick-calm' } });
+        }
+        return;
       }
     });
     return () => sub.remove();
