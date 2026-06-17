@@ -4,6 +4,8 @@ import {
   readBaseline,
   saveBaseline,
   updateBaselineFromSamples,
+  isBaselineStale,
+  type StoredBaseline,
 } from '@/store/hr-baseline';
 import { computeBaseline, type HrSample } from '@/lib/hr-baseline';
 
@@ -81,5 +83,30 @@ describe('updateBaselineFromSamples', () => {
     const samples = manySamples(7, 60, 10); // below default threshold
     const model = await updateBaselineFromSamples(samples, { minSamplesPerHour: 5 });
     expect(model.byHour[7]).not.toBeNull();
+  });
+});
+
+describe('isBaselineStale', () => {
+  const now = new Date(2026, 5, 17, 12, 0, 0);
+  const DAY = 24 * 60 * 60 * 1000;
+  const stored = (iso: string): StoredBaseline => ({
+    model: { byHour: Array(24).fill(null), global: null, sampleCount: 1 },
+    updatedAt: iso,
+  });
+
+  it('is stale when there is no stored baseline', () => {
+    expect(isBaselineStale(null, now, DAY)).toBe(true);
+  });
+
+  it('is stale when older than maxAge', () => {
+    expect(isBaselineStale(stored(new Date(now.getTime() - 2 * DAY).toISOString()), now, DAY)).toBe(true);
+  });
+
+  it('is fresh when newer than maxAge', () => {
+    expect(isBaselineStale(stored(new Date(now.getTime() - 3600_000).toISOString()), now, DAY)).toBe(false);
+  });
+
+  it('is stale when the timestamp is unparseable', () => {
+    expect(isBaselineStale(stored('not-a-date'), now, DAY)).toBe(true);
   });
 });

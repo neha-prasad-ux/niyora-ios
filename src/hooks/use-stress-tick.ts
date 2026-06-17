@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import { liveStressTick } from '@/lib/stress-tick-live';
+import { liveStressCheck } from '@/lib/stress-tick-live';
 
 // Phase B3 — foreground trigger.
 //
@@ -33,13 +33,13 @@ export function useStressTick(enabled: boolean): void {
       const now = Date.now();
       if (!shouldRunTick(lastRun.current, now)) return;
       lastRun.current = now;
-      liveStressTick()
-        .then((r) => {
+      liveStressCheck()
+        .then(({ refresh, tick }) => {
           if (!cancelled) {
-            // Surfaces in the Metro logs — the tick is otherwise silent unless
-            // it fires a nudge.
+            // Surfaces in the Metro logs — otherwise silent unless it nudges.
+            const r = refresh.refreshed ? ` baseline+${refresh.samples}` : '';
             console.log(
-              `[stress-tick] ${trigger}: ${r.verdict.reason}/${r.decision.reason} fired=${r.fired}`,
+              `[stress-tick] ${trigger}: ${tick.verdict.reason}/${tick.decision.reason} fired=${tick.fired}${r}`,
             );
           }
         })

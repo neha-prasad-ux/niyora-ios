@@ -8,6 +8,10 @@ import { runStressTick, type TickDeps, type TickResult } from '@/lib/stress-tick
 import { readBaseline } from '@/store/hr-baseline';
 import { getNudgeHistory, recordNudgeFired } from '@/store/nudge-history';
 import { fireStressNudge } from '@/lib/stress-nudge';
+import {
+  refreshBaselineIfStale,
+  type BaselineRefreshResult,
+} from '@/lib/baseline-refresh';
 
 export async function liveStressTick(
   overrides: Partial<TickDeps> = {},
@@ -23,4 +27,23 @@ export async function liveStressTick(
     fireNudge: fireStressNudge,
     ...overrides,
   });
+}
+
+/** Rebuild the resting baseline from the last 14 days when it's missing/stale. */
+export async function liveRefreshBaselineIfStale(): Promise<BaselineRefreshResult> {
+  return refreshBaselineIfStale({
+    getHr: (since) => NiyoraHealth.getHeartRateSamples(since, 100000),
+    getActivityBuckets: (since, min) => NiyoraHealth.getActivityBuckets(since, min),
+    getWorkouts: (since) => NiyoraHealth.getRecentWorkouts(since, 200),
+  });
+}
+
+/** One full live pass: keep the baseline fresh, then run the detection tick. */
+export async function liveStressCheck(): Promise<{
+  refresh: BaselineRefreshResult;
+  tick: TickResult;
+}> {
+  const refresh = await liveRefreshBaselineIfStale();
+  const tick = await liveStressTick();
+  return { refresh, tick };
 }

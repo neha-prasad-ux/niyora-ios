@@ -42,6 +42,22 @@ export async function readBaseline(): Promise<StoredBaseline | null> {
   return parse(await AsyncStorage.getItem(STORAGE_KEY));
 }
 
+/**
+ * True when the baseline is missing, unparseable, or older than maxAgeMs.
+ * Resting HR drifts (fitness, sleep, the cycle), so the baseline is refreshed
+ * on this cadence rather than frozen.
+ */
+export function isBaselineStale(
+  stored: StoredBaseline | null,
+  now: Date,
+  maxAgeMs: number,
+): boolean {
+  if (!stored) return true;
+  const t = new Date(stored.updatedAt).getTime();
+  if (Number.isNaN(t)) return true;
+  return now.getTime() - t >= maxAgeMs;
+}
+
 export async function saveBaseline(model: BaselineModel, now: Date = new Date()): Promise<void> {
   const payload: StoredBaseline = { model, updatedAt: now.toISOString() };
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
