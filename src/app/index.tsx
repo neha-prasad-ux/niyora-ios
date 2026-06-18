@@ -329,25 +329,33 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <Header onPressProfile={handleProfile} />
 
-        <Pressable
-          style={styles.orbWrap}
-          onPress={handleOrbPress}
-          accessibilityRole="button"
-          accessibilityLabel="Soul orb"
-          accessibilityHint={insight ?? undefined}
-        >
+        <View style={styles.orbWrap} pointerEvents="box-none">
           <Animated.View
             style={tapAnimStyle}
+            pointerEvents="box-none"
             accessibilityElementsHidden={true}
             importantForAccessibility="no-hide-descendants"
           >
-            <Orb size={ORB_SIZE} hue={orbHue} />
+            {/* The orb art lives in a 396px canvas (halo + glow) that's far wider
+                than the visible 220px sphere. That canvas is non-interactive so it
+                can't swallow taps meant for the header sitting above it. */}
+            <View pointerEvents="none">
+              <Orb size={ORB_SIZE} hue={orbHue} />
+            </View>
             <Animated.View
               style={[styles.ripple, rippleAnimStyle]}
               pointerEvents="none"
             />
+            {/* Only the sphere itself is tappable. */}
+            <Pressable
+              onPress={handleOrbPress}
+              accessibilityRole="button"
+              accessibilityLabel="Soul orb"
+              accessibilityHint={insight ?? undefined}
+              style={styles.orbTouch}
+            />
           </Animated.View>
-        </Pressable>
+        </View>
 
         <View style={styles.insightRow} pointerEvents="none">
           <Animated.View style={[styles.insightPill, insightAnimStyle]}>
@@ -494,6 +502,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Round tap target sized to the orb sphere, centered over it (same geometry
+  // as the ripple ring). Keeps the soul press from covering the whole screen.
+  orbTouch: {
+    position: 'absolute',
+    top: ORB_RIPPLE_INSET,
+    left: ORB_RIPPLE_INSET,
+    width: ORB_SIZE,
+    height: ORB_SIZE,
+    borderRadius: ORB_SIZE / 2,
   },
   techniqueWrap: {
     alignItems: 'center',
