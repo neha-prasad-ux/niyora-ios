@@ -17,14 +17,17 @@ const HIT_SLOP = 12;
 
 export function Header({ onPressProfile }: HeaderProps) {
   function handleProfile() {
-    Haptics.selectionAsync();
     onPressProfile();
+    Haptics.selectionAsync().catch(() => {});
   }
 
   return (
     <View style={styles.row}>
       <Pressable
         onPress={handleProfile}
+        // Explicit box around the icon so the button always has a solid layout
+        // size; with hitSlop this gives a 46pt tap area centered on the glyph.
+        style={styles.iconButton}
         hitSlop={HIT_SLOP}
         accessibilityRole="button"
         accessibilityLabel="My Soul"
@@ -61,5 +64,11 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     flex: 1,
+  },
+  iconButton: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
