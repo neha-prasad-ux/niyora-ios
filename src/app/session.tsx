@@ -297,6 +297,7 @@ function BreathingSession({
                     {!!technique.context && (
                       <Text style={styles.techniqueContext}>{technique.context}</Text>
                     )}
+                    <Text style={styles.techniqueInstructions}>{technique.instructions}</Text>
                   </>
                 )}
               </View>
@@ -442,6 +443,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  // Stays visible the whole session so users never have to remember the rhythm.
+  // Matches Mac's 12px Poppins 400 at rgba(255,255,255,0.9).
+  techniqueInstructions: {
+    marginTop: 10,
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     letterSpacing: 0.3,
   },
