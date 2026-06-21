@@ -24,19 +24,15 @@ export type Feeling = {
   oneMin: 'short' | 'long';
 };
 
-// Desired feelings ("How do you want to feel?"). Each maps to the technique
-// that produces it: `short` is a mindfulness practice, `long` a breathing one.
-// Every id below exists in TECHNIQUES.
+// PMS current-state feelings ("How are you feeling?"). Each maps to the
+// technique that helps with it: `short` is a mindfulness practice, `long` a
+// breathing one. Every id below exists in TECHNIQUES.
 export const FEELINGS: readonly Feeling[] = [
-  { id: 'calm', label: 'Calm', short: 'soft-gaze', long: 'box', oneMin: 'long' },
-  { id: 'grounded', label: 'Grounded', short: 'five-senses', long: 'belly', oneMin: 'short' },
-  { id: 'sleepy', label: 'Sleepy', short: 'let-it-drift', long: 'wind-down', oneMin: 'long' },
-  { id: 'focused', label: 'Focused', short: 'soft-gaze', long: 'alternate-nostril', oneMin: 'long' },
-  { id: 'clear', label: 'Clear', short: 'let-it-drift', long: 'box', oneMin: 'short' },
-  { id: 'kind', label: 'Kind to myself', short: 'be-kind', long: 'belly', oneMin: 'short' },
-  { id: 'safe', label: 'Safe', short: 'hold-yourself', long: 'box', oneMin: 'short' },
-  { id: 'connected', label: 'Connected', short: 'bring-someone', long: 'ocean', oneMin: 'short' },
-  { id: 'cool', label: 'Cool', short: 'soft-gaze', long: 'cooling', oneMin: 'long' },
+  { id: 'irritable', label: 'Irritable', short: 'be-kind', long: 'cooling', oneMin: 'long' },
+  { id: 'anxious', label: 'Anxious', short: 'five-senses', long: 'wind-down', oneMin: 'long' },
+  { id: 'low', label: 'Low', short: 'hold-yourself', long: 'belly', oneMin: 'short' },
+  { id: 'foggy', label: 'Foggy', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
+  { id: 'overwhelmed', label: 'Overwhelmed', short: 'soft-gaze', long: 'ocean', oneMin: 'long' },
 ];
 
 // Duration choices, in minutes. 1 min routes to mindfulness; longer routes to
@@ -67,19 +63,35 @@ export type Recommendation = {
   techniqueId: string;
   // Present only for the breathing path; undefined means "play as authored".
   rounds?: number;
-  // The feeling the user picked, carried through so the post-session save can
-  // close the loop (emotion -> recommendation -> impact). Absent when the
-  // session was not reached via a feeling (e.g. the picker or "try another"
-  // fallback).
+  // The primary feeling, carried through so the post-session save can close
+  // the loop (emotion -> recommendation -> impact). Absent when the session
+  // was not reached via a feeling (e.g. the picker or "try another" fallback).
   feelingId?: string;
+  // All feelings selected in multi-select (first = primary = feelingId).
+  // Only present when the caller passed an array to recommend().
+  feelingIds?: readonly string[];
 };
 
-// Map a feeling + chosen duration to a concrete technique (and rounds for the
-// breathing path). Returns null if the feeling is unknown or the mapped
-// technique is missing from the catalogue.
-export function recommend(feelingId: string, minutes: number): Recommendation | null {
-  const feeling = getFeeling(feelingId);
+// Map a feeling (or ordered set of feelings) + chosen duration to a concrete
+// technique (and rounds for the breathing path). When an array is passed the
+// first element is the primary; extras refine ranking context but do not
+// change which technique is selected. Returns null if the primary feeling is
+// unknown, the array is empty, or the mapped technique is missing.
+export function recommend(
+  feelingIdOrIds: string | readonly string[],
+  minutes: number,
+): Recommendation | null {
+  const ids: readonly string[] =
+    typeof feelingIdOrIds === 'string' ? [feelingIdOrIds] : feelingIdOrIds;
+  const primaryId = ids[0];
+  if (!primaryId) return null;
+
+  const feeling = getFeeling(primaryId);
   if (!feeling) return null;
+
+  // Only attach feelingIds when the caller passed an array (multi-select path).
+  const multiCtx =
+    typeof feelingIdOrIds !== 'string' ? { feelingIds: ids } : undefined;
 
   // ~1 min: the path is curated per feeling. A 'short' feeling plays its
   // mindfulness practice as authored; a 'long' feeling runs its breath, scaled
@@ -87,17 +99,17 @@ export function recommend(feelingId: string, minutes: number): Recommendation | 
   if (minutes <= 1) {
     if (feeling.oneMin === 'short') {
       const t = getTechnique(feeling.short);
-      return t ? { techniqueId: t.id, feelingId: feeling.id } : null;
+      return t ? { techniqueId: t.id, feelingId: feeling.id, ...multiCtx } : null;
     }
     const t = getTechnique(feeling.long);
     if (!t) return null;
-    return { techniqueId: t.id, rounds: scaleRounds(t, 60), feelingId: feeling.id };
+    return { techniqueId: t.id, rounds: scaleRounds(t, 60), feelingId: feeling.id, ...multiCtx };
   }
 
   // Longer path: breathing, rounds scaled to the target.
   const t = getTechnique(feeling.long);
   if (!t) return null;
-  return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60), feelingId: feeling.id };
+  return { techniqueId: t.id, rounds: scaleRounds(t, minutes * 60), feelingId: feeling.id, ...multiCtx };
 }
 
 // Gentle go-to practices used when "try another" has no feeling context (the
