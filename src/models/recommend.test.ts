@@ -38,7 +38,7 @@ describe('FEELINGS catalogue', () => {
 
 describe('getFeeling', () => {
   it('returns a known feeling', () => {
-    expect(getFeeling('calm')?.label).toBe('Calm');
+    expect(getFeeling('irritable')?.label).toBe('Irritable');
   });
   it('returns undefined for an unknown feeling', () => {
     expect(getFeeling('nope')).toBeUndefined();
@@ -47,15 +47,17 @@ describe('getFeeling', () => {
 
 describe('recommend', () => {
   it('routes a ~1 min "short" feeling to its mindfulness practice, no rounds', () => {
-    const rec = recommend('kind', 1);
-    expect(rec).toEqual({ techniqueId: 'be-kind', feelingId: 'kind' });
+    // low: oneMin='short', short='hold-yourself'
+    const rec = recommend('low', 1);
+    expect(rec).toEqual({ techniqueId: 'hold-yourself', feelingId: 'low' });
   });
 
   it('routes a ~1 min "long" feeling to a short breath with scaled rounds', () => {
-    const rec = recommend('sleepy', 1);
+    // anxious: oneMin='long', long='wind-down'
+    const rec = recommend('anxious', 1);
     expect(rec?.techniqueId).toBe('wind-down');
     expect(rec?.rounds).toBeGreaterThan(0);
-    expect(rec?.feelingId).toBe('sleepy');
+    expect(rec?.feelingId).toBe('anxious');
   });
 
   it('matches each feeling oneMin path: short = mindful, long = breathing', () => {
@@ -73,15 +75,15 @@ describe('recommend', () => {
   });
 
   it('routes longer durations to the breathing practice with scaled rounds', () => {
-    const rec = recommend('sleepy', 5);
+    const rec = recommend('anxious', 5);
     expect(rec?.techniqueId).toBe('wind-down');
     expect(rec?.rounds).toBeGreaterThan(0);
-    expect(rec?.feelingId).toBe('sleepy');
+    expect(rec?.feelingId).toBe('anxious');
   });
 
   it('scales rounds up with duration for the same feeling', () => {
-    const three = recommend('sleepy', 3);
-    const five = recommend('sleepy', 5);
+    const three = recommend('anxious', 3);
+    const five = recommend('anxious', 5);
     expect(five!.rounds!).toBeGreaterThanOrEqual(three!.rounds!);
   });
 
@@ -100,18 +102,44 @@ describe('recommend', () => {
   });
 });
 
+describe('recommend with multiple feelings', () => {
+  it('uses the primary (first) feeling and attaches feelingIds', () => {
+    // anxious is primary: long='wind-down'
+    const rec = recommend(['anxious', 'low'], 5);
+    expect(rec?.techniqueId).toBe('wind-down');
+    expect(rec?.feelingId).toBe('anxious');
+    expect(rec?.feelingIds).toEqual(['anxious', 'low']);
+  });
+
+  it('accepts up to 3 feelings', () => {
+    const rec = recommend(['low', 'foggy', 'overwhelmed'], 3);
+    expect(rec?.techniqueId).toBe('belly'); // low.long
+    expect(rec?.feelingIds).toHaveLength(3);
+  });
+
+  it('returns null for an empty array', () => {
+    expect(recommend([], 3)).toBeNull();
+  });
+
+  it('single-element array behaves like string call but adds feelingIds', () => {
+    const rec = recommend(['irritable'], 3);
+    expect(rec?.feelingId).toBe('irritable');
+    expect(rec?.feelingIds).toEqual(['irritable']);
+  });
+});
+
 describe('alternate (wanna try another)', () => {
   it('offers the mindful practice after the breath, for the same feeling', () => {
-    // calm: long = box (breath), short = soft-gaze (mindful)
-    const alt = alternate('calm', 'box');
-    expect(alt).toEqual({ techniqueId: 'soft-gaze', feelingId: 'calm' });
+    // overwhelmed: long = ocean (breath), short = soft-gaze (mindful)
+    const alt = alternate('overwhelmed', 'ocean');
+    expect(alt).toEqual({ techniqueId: 'soft-gaze', feelingId: 'overwhelmed' });
   });
 
   it('offers the breath after the mindful practice, with rounds', () => {
-    const alt = alternate('calm', 'soft-gaze');
-    expect(alt?.techniqueId).toBe('box');
+    const alt = alternate('overwhelmed', 'soft-gaze');
+    expect(alt?.techniqueId).toBe('ocean');
     expect(alt?.rounds).toBeGreaterThan(0);
-    expect(alt?.feelingId).toBe('calm');
+    expect(alt?.feelingId).toBe('overwhelmed');
   });
 
   it('falls back to a different go-to without a feeling context', () => {

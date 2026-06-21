@@ -1,11 +1,12 @@
-// "Recommend me based on how I feel" sheet. Two quick steps -- feeling, then
-// duration -- both as chips. Fully on-device: it only reads the static
-// recommender map and hands a technique back to the caller. No history, no
-// soul-state, nothing leaves the phone.
+// "How are you feeling?" sheet. Two steps -- feeling (multi-select, up to 3),
+// then duration -- both as chips. Fully on-device: reads the static recommender
+// map and hands a technique back to the caller. No history, no soul-state,
+// nothing leaves the phone.
 //
-// Each step has real interaction: a tapped chip fills, scale-pops and fires a
-// haptic, holds briefly so the choice registers, then advances. A two-dot
-// indicator tracks the step, and the chip set animates in on each transition.
+// Feeling step: tap chips to toggle (first tap is primary, sets orb color and
+// need pre-fill). A Continue button appears once at least one feeling is
+// selected; tapping it advances to duration. Duration step auto-advances after
+// a brief hold so the choice registers. A two-dot indicator tracks the step.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -34,22 +35,23 @@ type Props = {
   onPick: (rec: Recommendation) => void;
 };
 
-// How long a tapped chip stays lit before the step advances.
+// How long a tapped duration chip stays lit before the sheet closes.
 const SELECT_HOLD_MS = 180;
 
 export function RecommendSheet({ visible, onClose, onPick }: Props) {
-  const [feelingId, setFeelingId] = useState<string | null>(null);
-  // The chip lit during the brief hold before the step advances / closes.
-  const [pendingFeeling, setPendingFeeling] = useState<string | null>(null);
+  // Ordered selection; first element is primary (drives orb color + need pre-fill).
+  const [selectedFeelings, setSelectedFeelings] = useState<string[]>([]);
+  // Set when the user taps Continue; drives the step transition.
+  const [confirmedFeelings, setConfirmedFeelings] = useState<readonly string[] | null>(null);
   const [pendingDuration, setPendingDuration] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const step = feelingId ? 'duration' : 'feeling';
+  const step = confirmedFeelings ? 'duration' : 'feeling';
 
   const reset = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    setFeelingId(null);
-    setPendingFeeling(null);
+    setSelectedFeelings([]);
+    setConfirmedFeelings(null);
     setPendingDuration(null);
   }, []);
 
@@ -60,35 +62,39 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
 
   const handleBack = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    setPendingFeeling(null);
     setPendingDuration(null);
-    setFeelingId(null);
+    setConfirmedFeelings(null);
+    // selectedFeelings is preserved so the user sees their choices on return
   }, []);
 
   const handleFeeling = useCallback((id: string) => {
-    if (timer.current) return; // ignore taps during the hold
     Haptics.selectionAsync();
-    setPendingFeeling(id);
-    timer.current = setTimeout(() => {
-      timer.current = null;
-      setPendingFeeling(null);
-      setFeelingId(id);
-    }, SELECT_HOLD_MS);
+    setSelectedFeelings((prev) => {
+      if (prev.includes(id)) return prev.filter((f) => f !== id);
+      if (prev.length >= 3) return prev;
+      return [...prev, id];
+    });
   }, []);
+
+  const handleContinue = useCallback(() => {
+    if (selectedFeelings.length === 0) return;
+    Haptics.selectionAsync();
+    setConfirmedFeelings(selectedFeelings);
+  }, [selectedFeelings]);
 
   const handleDuration = useCallback(
     (minutes: number) => {
-      if (timer.current || !feelingId) return;
+      if (timer.current || !confirmedFeelings || confirmedFeelings.length === 0) return;
       Haptics.selectionAsync();
       setPendingDuration(minutes);
       timer.current = setTimeout(() => {
         timer.current = null;
-        const rec = recommend(feelingId, minutes);
+        const rec = recommend(confirmedFeelings, minutes);
         reset();
         if (rec) onPick(rec);
       }, SELECT_HOLD_MS);
     },
-    [feelingId, reset, onPick],
+    [confirmedFeelings, reset, onPick],
   );
 
   // Animate the chip set in on every step change, and slide the progress.
@@ -152,7 +158,7 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
               <View style={styles.headerSpacer} />
             )}
             <Text style={styles.title}>
-              {step === 'feeling' ? 'How do you want to feel?' : 'How much time do you have?'}
+              {step === 'feeling' ? 'How are you feeling?' : 'How much time do you have?'}
             </Text>
             <Pressable
               onPress={handleClose}
@@ -180,7 +186,7 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
                   <Chip
                     key={f.id}
                     label={f.label}
-                    selected={pendingFeeling === f.id}
+                    selected={selectedFeelings.includes(f.id)}
                     onPress={() => handleFeeling(f.id)}
                   />
                 ))
@@ -193,6 +199,17 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
                   />
                 ))}
           </Animated.View>
+
+          {step === 'feeling' && selectedFeelings.length > 0 && (
+            <Pressable
+              onPress={handleContinue}
+              style={styles.continueButton}
+              accessibilityRole="button"
+              accessibilityLabel="Continue"
+            >
+              <Text style={styles.continueText}>Continue</Text>
+            </Pressable>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
@@ -316,5 +333,19 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     fontFamily: 'Poppins-Medium',
     color: '#fff',
+  },
+  continueButton: {
+    alignSelf: 'center',
+    marginTop: 20,
+    paddingHorizontal: 36,
+    paddingVertical: 13,
+    borderRadius: 24,
+    backgroundColor: 'rgba(150, 120, 235, 0.92)',
+  },
+  continueText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: '#fff',
+    letterSpacing: 0.3,
   },
 });
