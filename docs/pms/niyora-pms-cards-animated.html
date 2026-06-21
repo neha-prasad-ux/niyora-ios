@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Niyora - living cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-user-select: none; user-select: none; }
+  body {
+    font-family: 'Poppins', system-ui, sans-serif; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+    padding: 44px 20px 64px; color: rgba(255,255,255,0.95);
+    background:
+      radial-gradient(55% 45% at 30% 14%, hsla(270,50%,28%,0.7), transparent 60%),
+      radial-gradient(55% 45% at 72% 88%, hsla(220,50%,18%,0.75), transparent 60%),
+      linear-gradient(180deg, #0e0b14 0%, #070609 55%, #000 100%);
+    background-attachment: fixed;
+  }
+  .hint { color: rgba(255,255,255,0.5); font-weight: 300; font-size: 13px; text-align: center; max-width: 340px; }
+  .phone {
+    width: 320px; height: 652px; border-radius: 46px; padding: 24px 22px 26px;
+    border: 1px solid rgba(255,255,255,0.08); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center;
+    background: linear-gradient(180deg, #0e0b14 0%, #060509 60%, #000 100%);
+    box-shadow: 0 40px 90px rgba(0,0,0,0.55);
+  }
+  .ctx { color: rgba(255,255,255,0.55); font-weight: 300; font-size: 13px; }
+  .dots { display: flex; gap: 7px; margin: 8px 0 14px; }
+  .d { width: 6px; height: 6px; border-radius: 3px; background: rgba(190,170,255,0.3); transition: background .4s, width .4s; cursor: pointer; }
+  .d.on { background: rgba(190,170,255,0.95); width: 16px; }
+
+  .deck { position: relative; width: 268px; flex: 1; }
+  .swcard {
+    position: absolute; inset: 0; border-radius: 32px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 24px 54px rgba(0,0,0,0.5);
+    transition: transform .75s cubic-bezier(.22,.61,.31,1), opacity .6s ease;
+    will-change: transform; cursor: grab; touch-action: pan-y;
+  }
+  .swcard.drag { transition: transform .14s ease-out; cursor: grabbing; }
+
+  .scene { position: absolute; inset: 0; overflow: hidden; }
+  .scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,6,14,0.15) 0%, transparent 30%, rgba(9,6,16,0.72) 72%, rgba(8,5,14,0.92) 100%); }
+  .content { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 26px 30px; text-align: center; z-index: 3; }
+  .tag { font-size: 12px; font-weight: 300; letter-spacing: 1px; color: rgba(255,255,255,0.55); text-transform: uppercase; }
+  .title { font-size: 24px; font-weight: 500; margin-top: 8px; line-height: 1.25; }
+  .benefit { font-size: 14px; font-weight: 300; color: rgba(255,255,255,0.72); margin-top: 9px; line-height: 1.5; }
+  .time { font-size: 12px; font-weight: 300; color: rgba(255,255,255,0.5); margin: 14px 0 14px; }
+  .begin {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(125,64,186,1), rgba(101,54,125,1));
+    border: 1px solid rgba(150,110,187,0.5); box-shadow: 0 8px 22px rgba(104,58,172,0.5);
+    color: #fff; text-transform: uppercase; letter-spacing: 2px;
+    border-radius: 26px; padding: 13px 46px; font-weight: 500; font-size: 13px;
+  }
+
+  /* scene bases */
+  .bg-breathe { background: radial-gradient(70% 50% at 50% 34%, hsl(248,38%,24%), #0c0a16 78%); }
+  .bg-cold { background: linear-gradient(180deg, hsl(210,30%,21%) 0%, hsl(214,34%,12%) 62%, #0a0d14 100%); }
+  .bg-ground { background: radial-gradient(70% 55% at 50% 40%, hsl(168,30%,22%), #0a1110 80%); }
+  .bg-understand { background: radial-gradient(70% 55% at 50% 38%, hsl(276,40%,26%), #0e0a18 80%); }
+
+  /* breathe */
+  .borb { position: absolute; left: 50%; top: 34%; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.97) 0%, hsl(220,25%,92%) 42%, hsl(220,38%,78%) 90%, hsl(220,42%,74%) 100%);
+    box-shadow: 0 0 50px 14px hsla(220,58%,80%,0.42), inset -14px -12px 26px rgba(0,0,0,0.30), inset 10px 8px 20px rgba(255,255,255,0.12);
+    animation: breathe 5s ease-in-out infinite; }
+  .borb::after { content:''; position:absolute; inset:0; border-radius:50%; background: radial-gradient(circle at 28% 22%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.18) 14%, transparent 42%); }
+  @keyframes breathe { 0%,100%{transform:scale(0.92)} 50%{transform:scale(1.08)} }
+  .ring { position: absolute; left: 50%; top: 34%; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 1px solid hsla(220,60%,82%,0.5); animation: emit 5s ease-out infinite; }
+  @keyframes emit { 0%{transform:scale(0.6);opacity:0.55} 100%{transform:scale(2.6);opacity:0} }
+
+  /* cold water - soft drops */
+  .drop { position: absolute; top: -16px; border-radius: 50%; filter: blur(0.6px);
+    background: radial-gradient(circle at 38% 32%, hsla(205,78%,92%,0.8), hsla(205,66%,82%,0.16) 64%, transparent 78%);
+    animation: softfall linear infinite; }
+  @keyframes softfall { 0%{transform:translateY(0);opacity:0} 18%{opacity:0.55} 80%{opacity:0.45} 100%{transform:translateY(516px);opacity:0} }
+  .ripple { position: absolute; bottom: 54px; left: 50%; width: 54px; height: 15px; margin-left: -27px; border-radius: 50%; border: 1px solid hsla(200,60%,84%,0.24); animation: rip 4.6s ease-out infinite; }
+  @keyframes rip { 0%{transform:scale(0.3);opacity:0.3} 100%{transform:scale(2.0);opacity:0} }
+
+  /* ground motes */
+  .mote { position: absolute; top: -10px; border-radius: 50%; background: hsla(160,45%,80%,0.7); animation: drift linear infinite; }
+  @keyframes drift { 0%{transform:translateY(0);opacity:0} 20%{opacity:0.7} 80%{opacity:0.6} 100%{transform:translateY(470px);opacity:0} }
+
+  /* understand glow */
+  .glow { position: absolute; left: 50%; top: 36%; width: 200px; height: 200px; margin: -100px 0 0 -100px; border-radius: 50%;
+    background: radial-gradient(circle, hsla(280,60%,70%,0.45), transparent 65%); animation: pulse 6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(0.85);opacity:0.4} 50%{transform:scale(1.18);opacity:0.8} }
+  .spark { position: absolute; border-radius: 50%; background: hsla(285,60%,85%,0.8); animation: drift linear infinite; }
+</style>
+</head>
+<body>
+  <div class="hint">swipe left for next · swipe right to bring one back · each card lives its own task</div>
+  <div class="phone">
+    <div class="ctx">for the anxious feeling</div>
+    <div class="dots" id="dots"></div>
+    <div class="deck" id="deck"></div>
+  </div>
+
+<script>
+  const CARDS = [
+    { scene:'breathe', bg:'bg-breathe', tag:'breathe', title:'A long, slow exhale', benefit:'settles the surge', time:'1 min' },
+    { scene:'cold', bg:'bg-cold', tag:'soothe', title:'Cold water', benefit:'resets your whole system in seconds', time:'30 sec' },
+    { scene:'ground', bg:'bg-ground', tag:'ground', title:'Five senses', benefit:'drops you back into the room', time:'1 min' },
+    { scene:'understand', bg:'bg-understand', tag:'understand', title:'Why you feel this', benefit:'your hormones are normal, your brain just feels more', time:'read' },
+  ];
+  const deck = document.getElementById('deck');
+  const dotsEl = document.getElementById('dots');
+  let order = CARDS.map((_, i) => i);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+
+  function buildScene(el, type) {
+    if (type === 'breathe') {
+      el.insertAdjacentHTML('beforeend', '<div class="ring"></div><div class="ring" style="animation-delay:1.7s"></div><div class="ring" style="animation-delay:3.4s"></div><div class="borb"></div>');
+    } else if (type === 'cold') {
+      let h = '';
+      for (let i = 0; i < 13; i++) { const s = rnd(5,11).toFixed(1); h += '<div class="drop" style="left:' + rnd(5,95).toFixed(1) + '%;width:' + s + 'px;height:' + s + 'px;animation-duration:' + rnd(3.4,5.6).toFixed(2) + 's;animation-delay:' + (-rnd(0,5.6)).toFixed(2) + 's"></div>'; }
+      h += '<div class="ripple"></div><div class="ripple" style="animation-delay:2.2s"></div>';
+      el.insertAdjacentHTML('beforeend', h);
+    } else if (type === 'ground') {
+      let h = '';
+      for (let i = 0; i < 16; i++) { const s = rnd(3,7).toFixed(1); h += '<div class="mote" style="left:' + rnd(6,94).toFixed(1) + '%;width:' + s + 'px;height:' + s + 'px;animation-duration:' + rnd(5,9).toFixed(1) + 's;animation-delay:' + (-rnd(0,9)).toFixed(1) + 's"></div>'; }
+      el.insertAdjacentHTML('beforeend', h);
+    } else if (type === 'understand') {
+      let h = '<div class="glow"></div>';
+      for (let i = 0; i < 9; i++) { const s = rnd(2,4).toFixed(1); h += '<div class="spark" style="left:' + rnd(10,90).toFixed(1) + '%;width:' + s + 'px;height:' + s + 'px;animation-duration:' + rnd(6,11).toFixed(1) + 's;animation-delay:' + (-rnd(0,11)).toFixed(1) + 's"></div>'; }
+      el.insertAdjacentHTML('beforeend', h);
+    }
+  }
+
+  CARDS.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'swcard';
+    el.dataset.id = i;
+    el.innerHTML =
+      '<div class="scene ' + c.bg + '"></div>' +
+      '<div class="scrim"></div>' +
+      '<div class="content">' +
+        '<div class="tag">' + c.tag + '</div>' +
+        '<div class="title">' + c.title + '</div>' +
+        '<div class="benefit">' + c.benefit + '</div>' +
+        '<div class="time">' + c.time + '</div>' +
+        '<div class="begin">begin</div>' +
+      '</div>';
+    buildScene(el.querySelector('.scene'), c.scene);
+    deck.appendChild(el);
+    const dot = document.createElement('div'); dot.className = 'd';
+    dot.addEventListener('click', () => jumpTo(i));
+    dotsEl.appendChild(dot);
+  });
+
+  const cardEl = id => deck.querySelector('.swcard[data-id="' + id + '"]');
+
+  function layout(skip) {
+    order.forEach((id, pos) => {
+      const el = cardEl(id);
+      if (id === skip) return;
+      el.classList.remove('drag');
+      el.style.transform = 'translateY(' + (pos*14) + 'px) scale(' + (1 - pos*0.05) + ')';
+      el.style.opacity = pos > 2 ? '0' : '1';
+      el.style.zIndex = 100 - pos;
+      el.style.pointerEvents = pos === 0 ? 'auto' : 'none';
+    });
+    [...dotsEl.children].forEach((d, k) => d.classList.toggle('on', k === order[0]));
+  }
+  layout();
+
+  let startX = 0, dx = 0, dragging = false;
+  function down(e) {
+    if (e.target.closest('.begin')) return;
+    dragging = true; dx = 0;
+    startX = e.touches ? e.touches[0].clientX : e.clientX;
+    cardEl(order[0]).classList.add('drag');
+  }
+  function move(e) {
+    if (!dragging) return;
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    dx = x - startX;
+    cardEl(order[0]).style.transform = 'translateX(' + dx + 'px) rotate(' + (dx*0.025) + 'deg)';
+  }
+  function up() {
+    if (!dragging) return;
+    dragging = false;
+    cardEl(order[0]).classList.remove('drag');
+    if (dx < -100) advance();
+    else if (dx > 100) rewind();
+    else layout();
+  }
+  function advance() {
+    const id = order[0], el = cardEl(id);
+    el.style.transform = 'translate(-560px, 36px) rotate(-7deg)';
+    el.style.opacity = '0';
+    order.push(order.shift());
+    layout(id);
+    setTimeout(layout, 780);
+  }
+  function rewind() {
+    const backId = order[order.length - 1];
+    order.unshift(order.pop());
+    const inEl = cardEl(backId);
+    inEl.style.transition = 'none';
+    inEl.style.transform = 'translate(560px, 36px) rotate(7deg)';
+    inEl.style.opacity = '0';
+    inEl.style.zIndex = 200;
+    void inEl.offsetWidth;
+    inEl.style.transition = '';
+    layout();
+  }
+  function jumpTo(cardId) {
+    const n = CARDS.length;
+    order = Array.from({ length: n }, (_, i) => (cardId + i) % n);
+    layout();
+  }
+  deck.addEventListener('mousedown', down);
+  window.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', up);
+  deck.addEventListener('touchstart', down, { passive: true });
+  deck.addEventListener('touchmove', move, { passive: true });
+  deck.addEventListener('touchend', up);
+</script>
+</body>
+</html>
