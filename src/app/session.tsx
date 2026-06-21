@@ -162,6 +162,8 @@ function BreathingSession({
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
 
+  const nextPhase = technique.phases[(cycle.phaseIndex + 1) % technique.phases.length];
+
   function exitSession() {
     Haptics.selectionAsync();
     fadeOut();
@@ -291,6 +293,11 @@ function BreathingSession({
               <View style={styles.bottomBlock}>
                 <PhaseLabel label={labelText} />
                 {!cycle.done && (
+                  <Text style={styles.nextPhaseCue}>
+                    {'then ' + nextPhase.label.toLowerCase()}
+                  </Text>
+                )}
+                {!cycle.done && (
                   <>
                     <Text style={styles.techniqueName}>{technique.name}</Text>
                     <Text style={styles.techniqueBenefit}>{technique.subtitle}</Text>
@@ -416,6 +423,14 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     alignItems: 'center',
+  },
+  nextPhaseCue: {
+    marginTop: 6,
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.40)',
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
   // Exercise identity under the phase word — same info as the home list:
   // the technique name (title) and its one-line benefit (subtitle).
