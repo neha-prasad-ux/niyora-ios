@@ -2,15 +2,30 @@
 // recommend sheet with the chosen feelings + needs. Time is not a question and
 // not a toggle -- every option shows its own length on the card, and that is
 // what the user reads to decide. Fully on-device.
+//
+// A brief "finding what helps" loading beat (the Soul orb breathing + pulsing
+// dots) plays before the deck fades in, so the moment feels personal rather
+// than an instant cut.
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import Animated, {
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
+import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
 import { recommend, type Need, type RecCard } from '@/models/recommend';
 
@@ -24,6 +39,18 @@ const NEED_HEADER: Record<Need, string> = {
   cozy: "Let's get cozy",
   'let-it-out': "Let's let it out",
 };
+
+// Orb hue per need, matching the recommend sheet so the orb carries through.
+const NEED_HUE: Record<Need, number> = {
+  calm: 220,
+  focused: 186,
+  relaxed: 150,
+  sleepy: 250,
+  cozy: 28,
+  'let-it-out': 295,
+};
+
+const LOADING_MS = 1300;
 
 export default function ResultScreen() {
   const params = useLocalSearchParams<{ feelings?: string; needs?: string }>();
@@ -41,6 +68,13 @@ export default function ResultScreen() {
   const cards = useMemo(() => (result ? [result.hero, ...result.list] : []), [result]);
 
   const header = needs[0] ? NEED_HEADER[needs[0]] : "Let's find what helps";
+  const orbHue = needs[0] ? NEED_HUE[needs[0]] : undefined;
+
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), LOADING_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   const onBegin = useCallback((card: RecCard) => {
     if (card.techniqueId) {
@@ -70,22 +104,64 @@ export default function ResultScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.ctx}>{header}</Text>
-
-        {cards.length > 0 ? (
-          <ResultDeck cards={cards} onBegin={onBegin} />
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <Orb size={116} hue={orbHue} />
+            <View style={{ height: 26 }} />
+            <LoadingDots />
+          </View>
         ) : (
-          <View style={{ flex: 1 }} />
+          <Animated.View entering={FadeIn.duration(450)} style={styles.loaded}>
+            <Text style={styles.ctx}>{header}</Text>
+            {cards.length > 0 ? (
+              <ResultDeck cards={cards} onBegin={onBegin} />
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+          </Animated.View>
         )}
       </SafeAreaView>
     </View>
   );
 }
 
+function LoadingDots() {
+  return (
+    <View style={styles.dotsRow}>
+      {[0, 1, 2].map((i) => (
+        <LoadingDot key={i} delay={i * 200} />
+      ))}
+    </View>
+  );
+}
+
+function LoadingDot({ delay }: { delay: number }) {
+  const reduced = useReducedMotion();
+  const o = useSharedValue(reduced ? 0.6 : 0.3);
+  useEffect(() => {
+    if (reduced) return;
+    o.value = withDelay(
+      delay,
+      withRepeat(withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) }), -1, true),
+    );
+  }, [delay, reduced, o]);
+  const style = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.View style={[styles.ldot, style]} />;
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 22 },
   header: { flexDirection: 'row', justifyContent: 'flex-end', height: 24, marginBottom: 4 },
+  loaded: { flex: 1, width: '100%' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  dotsRow: { flexDirection: 'row', gap: 9 },
+  ldot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: 'rgba(190, 170, 255, 0.9)',
+  },
   ctx: {
     fontFamily: 'Poppins-Medium',
     fontSize: 23,
