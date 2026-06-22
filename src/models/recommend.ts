@@ -103,11 +103,6 @@ export type Recommendation = {
   feelingIds?: readonly string[];
 };
 
-// Default minutes used when time hasn't been chosen yet (the need step hands
-// off before the result page's time toggle exists). The result page re-runs
-// recommend() with the toggled value.
-export const DEFAULT_MINUTES = 3;
-
 // Which needs each library item serves. Activities are keyed by id; techniques
 // by id too (only the feeling-mapped ones are reachable from this flow). These
 // are the `serves`/outcome tags the need axis re-ranks against.
@@ -212,21 +207,25 @@ function buildCandidates(): RecCard[] {
   return [...techCards, ...actCards];
 }
 
-// Rank the whole library for a set of selected feelings + needs at a given
-// time, returning a hero + ordered list. Score is the UNION count: how many of
-// the selected feelings and needs the card serves (more matches rank higher).
-// Time is a filter/scaler, not a gate: activities longer than the budget drop
-// out (instant/open ones always stay), and breathing rounds scale to fit.
-// Returns null only if no primary feeling is given.
+// Rank the whole library for a set of selected feelings + needs, returning a
+// hero + ordered list. Score is the UNION count: how many of the selected
+// feelings and needs the card serves (more matches rank higher).
+//
+// `minutes` is optional. Omit it (the result page does) to show every option at
+// its own authored time -- the time on each card is what the user reads to
+// decide, so there is no time gate. Pass it to constrain by a budget: activities
+// longer than it drop out (instant/open ones always stay) and breathing scales
+// to fit. Returns null only if no primary feeling is given.
 export function recommend(
   feelings: readonly string[],
   needs: readonly Need[],
-  minutes: number = DEFAULT_MINUTES,
+  minutes?: number,
 ): RecResult | null {
   const primaryId = feelings[0];
   if (!primaryId) return null;
 
-  const budgetSeconds = Math.max(60, minutes * 60);
+  const hasBudget = typeof minutes === 'number';
+  const budgetSeconds = hasBudget ? Math.max(60, minutes * 60) : 0;
   const feelingSet = new Set(feelings);
   const needSet = new Set(needs);
 
@@ -235,20 +234,21 @@ export function recommend(
       const feelHits = c.feelings.filter((f) => feelingSet.has(f)).length;
       const needHits = c.needs.filter((n) => needSet.has(n)).length;
       const card: RecCard = { ...c, score: feelHits + needHits, feelingId: primaryId };
-      // Time handling: breathing scales to the budget; activities filter by it.
+      // Breathing carries rounds: scaled to the budget when one is set, else its
+      // authored length (which is also the time shown on the card).
       if (card.source === 'technique' && card.techniqueId) {
         const t = getTechnique(card.techniqueId);
         if (t && isBreathing(t)) {
-          card.rounds = scaleRounds(t, budgetSeconds);
-          card.timeSeconds = budgetSeconds;
+          card.rounds = hasBudget ? scaleRounds(t, budgetSeconds) : t.rounds;
+          if (hasBudget) card.timeSeconds = budgetSeconds;
         }
       }
       return card;
     })
-    // Keep relevant cards, and drop activities that can't fit the time budget
-    // (timeSeconds 0 = instant/open, always eligible).
+    // Keep relevant cards. With a budget, drop activities that can't fit it
+    // (timeSeconds 0 = instant/open, always eligible); without one, keep all.
     .filter((c) => c.score > 0)
-    .filter((c) => c.source === 'technique' || c.timeSeconds === 0 || c.timeSeconds <= budgetSeconds)
+    .filter((c) => !hasBudget || c.source === 'technique' || c.timeSeconds === 0 || c.timeSeconds <= budgetSeconds)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
       // Same score: prefer items serving the PRIMARY feeling.
@@ -272,11 +272,11 @@ export function recommend(
       title: t.name,
       feelings: techniqueFeelings(t.id),
       needs: TECHNIQUE_NEEDS[t.id] ?? [],
-      timeSeconds: budgetSeconds,
+      timeSeconds: hasBudget ? budgetSeconds : t.durationSeconds,
       fast: false,
       score: 0,
       techniqueId: t.id,
-      rounds: scaleRounds(t, budgetSeconds),
+      rounds: hasBudget ? scaleRounds(t, budgetSeconds) : isBreathing(t) ? t.rounds : undefined,
       feelingId: primaryId,
     };
     return { hero, list: [], feelingIds: feelings, needIds: needs };
