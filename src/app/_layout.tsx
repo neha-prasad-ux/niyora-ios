@@ -96,6 +96,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="activity"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
             name="session"
             options={{
               animation: 'slide_from_right',
