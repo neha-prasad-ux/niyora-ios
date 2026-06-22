@@ -59,7 +59,7 @@ export default function ResultScreen() {
           </Pressable>
         </View>
 
-        {primaryLabel ? <Text style={styles.ctx}>for the {primaryLabel} feeling</Text> : null}
+        {primaryLabel ? <Text style={styles.ctx}>Feeling {primaryLabel}</Text> : null}
 
         {cards.length > 0 ? (
           <ResultDeck cards={cards} onBegin={onBegin} />
@@ -76,10 +76,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: 22 },
   header: { flexDirection: 'row', justifyContent: 'flex-end', height: 24, marginBottom: 4 },
   ctx: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: colors.textSubtitle,
+    fontFamily: 'Poppins-Medium',
+    fontSize: 23,
+    color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 14,
+    letterSpacing: 0.2,
+    marginBottom: 18,
   },
 });
