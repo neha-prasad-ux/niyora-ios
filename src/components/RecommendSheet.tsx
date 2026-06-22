@@ -162,7 +162,7 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
               <View style={styles.headerSpacer} />
             )}
             <Text style={styles.title}>
-              {step === 'feeling' ? 'How are you feeling?' : 'What do you need?'}
+              {step === 'feeling' ? 'How are you feeling?' : 'How do you want to feel?'}
             </Text>
             <Pressable
               onPress={handleClose}

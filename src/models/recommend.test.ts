@@ -50,12 +50,13 @@ describe('getFeeling', () => {
 });
 
 describe('need axis', () => {
-  it('lists the five outcome needs', () => {
+  it('lists the six outcome needs', () => {
     expect(NEEDS.map((n) => n.id)).toEqual([
-      'settle',
-      'cool-off',
-      'lift',
-      'rest',
+      'calm',
+      'focused',
+      'relaxed',
+      'sleepy',
+      'cozy',
       'let-it-out',
     ]);
   });
@@ -64,11 +65,11 @@ describe('need axis', () => {
     for (const f of FEELINGS) {
       expect(defaultNeedFor(f.id)).toBeDefined();
     }
-    expect(FEELING_NEED_DEFAULT.anxious).toBe('settle');
-    expect(FEELING_NEED_DEFAULT.irritable).toBe('cool-off');
-    expect(FEELING_NEED_DEFAULT.low).toBe('lift');
-    expect(FEELING_NEED_DEFAULT.foggy).toBe('lift');
-    expect(FEELING_NEED_DEFAULT.overwhelmed).toBe('settle');
+    expect(FEELING_NEED_DEFAULT.anxious).toBe('calm');
+    expect(FEELING_NEED_DEFAULT.irritable).toBe('relaxed');
+    expect(FEELING_NEED_DEFAULT.low).toBe('cozy');
+    expect(FEELING_NEED_DEFAULT.foggy).toBe('focused');
+    expect(FEELING_NEED_DEFAULT.overwhelmed).toBe('calm');
   });
 
   it('returns undefined for an unknown feeling', () => {
@@ -78,26 +79,26 @@ describe('need axis', () => {
 
 describe('recommend (hero + ranked list)', () => {
   it('returns null without a primary feeling', () => {
-    expect(recommend([], ['settle'], 3)).toBeNull();
+    expect(recommend([], ['calm'], 3)).toBeNull();
   });
 
   it('returns a hero plus a list, carrying the selections through', () => {
-    const res = recommend(['anxious'], ['settle'], 3);
+    const res = recommend(['anxious'], ['calm'], 3);
     expect(res).not.toBeNull();
     expect(res!.hero).toBeDefined();
     expect(Array.isArray(res!.list)).toBe(true);
     expect(res!.feelingIds).toEqual(['anxious']);
-    expect(res!.needIds).toEqual(['settle']);
+    expect(res!.needIds).toEqual(['calm']);
   });
 
   it('carries the primary feeling on every card', () => {
-    const res = recommend(['low', 'foggy'], ['lift'], 3)!;
+    const res = recommend(['low', 'foggy'], ['cozy'], 3)!;
     expect(res.hero.feelingId).toBe('low');
     for (const c of res.list) expect(c.feelingId).toBe('low');
   });
 
   it('ranks every card by the union of selected feelings + needs (descending)', () => {
-    const res = recommend(['irritable', 'overwhelmed'], ['cool-off', 'settle'], 5)!;
+    const res = recommend(['irritable', 'overwhelmed'], ['relaxed', 'calm'], 5)!;
     const scores = [res.hero, ...res.list].map((c) => c.score);
     const sorted = [...scores].sort((a, b) => b - a);
     expect(scores).toEqual(sorted);
@@ -105,17 +106,17 @@ describe('recommend (hero + ranked list)', () => {
   });
 
   it('re-ranks against the selected need', () => {
-    const rest = recommend(['anxious'], ['rest'], 3)!;
+    const res = recommend(['anxious'], ['sleepy'], 3)!;
     // Every surfaced card serves the chosen need or the feeling (score > 0).
-    for (const c of [rest.hero, ...rest.list]) {
-      expect(c.needs.includes('rest') || c.feelings.includes('anxious')).toBe(true);
+    for (const c of [res.hero, ...res.list]) {
+      expect(c.needs.includes('sleepy') || c.feelings.includes('anxious')).toBe(true);
       expect(c.score).toBeGreaterThan(0);
     }
   });
 
   it('scales a breathing hero/card rounds up with the time budget', () => {
-    const three = recommend(['anxious'], ['settle'], 3)!;
-    const five = recommend(['anxious'], ['settle'], 5)!;
+    const three = recommend(['anxious'], ['calm'], 3)!;
+    const five = recommend(['anxious'], ['calm'], 5)!;
     const breath3 = [three.hero, ...three.list].find((c) => c.rounds != null);
     const breath5 = [five.hero, ...five.list].find((c) => c.rounds != null);
     expect(breath3?.rounds).toBeGreaterThan(0);
@@ -125,8 +126,8 @@ describe('recommend (hero + ranked list)', () => {
   it('filters out activities that cannot fit the time budget', () => {
     // slow-walk is 300s and serves cool-off; at a 1-minute budget it drops out,
     // at a 5-minute budget it is eligible.
-    const short = recommend(['irritable'], ['cool-off'], 1)!;
-    const long = recommend(['irritable'], ['cool-off'], 5)!;
+    const short = recommend(['irritable'], ['relaxed'], 1)!;
+    const long = recommend(['irritable'], ['relaxed'], 5)!;
     const ids = (r: typeof short) => [r.hero, ...r.list].map((c) => c.activityId);
     expect(ids(short)).not.toContain('slow-walk');
     expect(ids(long)).toContain('slow-walk');
@@ -134,13 +135,13 @@ describe('recommend (hero + ranked list)', () => {
 
   it('always keeps instant/open activities regardless of budget', () => {
     // cave-mode (0s) serves rest+settle; present even at a 1-minute budget.
-    const res = recommend(['overwhelmed'], ['settle'], 1)!;
+    const res = recommend(['overwhelmed'], ['calm'], 1)!;
     const ids = [res.hero, ...res.list].map((c) => c.activityId);
     expect(ids).toContain('cave-mode');
   });
 
   it('mixes techniques and activities in the ranking', () => {
-    const res = recommend(['low'], ['lift'], 5)!;
+    const res = recommend(['low'], ['cozy'], 5)!;
     const sources = new Set([res.hero, ...res.list].map((c) => c.source));
     expect(sources.has('technique')).toBe(true);
     expect(sources.has('activity')).toBe(true);

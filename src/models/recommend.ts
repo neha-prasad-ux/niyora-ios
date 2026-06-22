@@ -35,28 +35,31 @@ export const FEELINGS: readonly Feeling[] = [
   { id: 'overwhelmed', label: 'Overwhelmed', short: 'soft-gaze', long: 'ocean', oneMin: 'long' },
 ];
 
-// The need axis: the emotion-regulation direction she's after. The target
-// isn't always "calm" -- foggy wants to lift, wired-at-night wants rest.
-export type Need = 'settle' | 'cool-off' | 'lift' | 'rest' | 'let-it-out';
+// The need axis: the felt state she's reaching for ("How do you want to feel?").
+// Destinations, not clinical directions -- foggy reaches for focused, a wired
+// night reaches for sleepy, a tearful low reaches for cozy (comfort, never a
+// forced "lift").
+export type Need = 'calm' | 'focused' | 'relaxed' | 'sleepy' | 'cozy' | 'let-it-out';
 
 export type NeedOption = { id: Need; label: string };
 
 export const NEEDS: readonly NeedOption[] = [
-  { id: 'settle', label: 'settle' },
-  { id: 'cool-off', label: 'cool off' },
-  { id: 'lift', label: 'lift' },
-  { id: 'rest', label: 'rest' },
-  { id: 'let-it-out', label: 'let it out' },
+  { id: 'calm', label: 'Calm' },
+  { id: 'focused', label: 'Focused' },
+  { id: 'relaxed', label: 'Relaxed' },
+  { id: 'sleepy', label: 'Sleepy' },
+  { id: 'cozy', label: 'Cozy' },
+  { id: 'let-it-out', label: 'Let it out' },
 ];
 
 // Pre-fill the need step from the primary feeling, so it's barely a gate: the
 // default is already lit, she taps through or changes it in one tap.
 export const FEELING_NEED_DEFAULT: Record<PmsFeeling, Need> = {
-  anxious: 'settle',
-  irritable: 'cool-off',
-  low: 'lift',
-  foggy: 'lift',
-  overwhelmed: 'settle',
+  anxious: 'calm',
+  irritable: 'relaxed',
+  low: 'cozy',
+  foggy: 'focused',
+  overwhelmed: 'calm',
 };
 
 export function defaultNeedFor(feelingId: string): Need | undefined {
@@ -109,32 +112,32 @@ export const DEFAULT_MINUTES = 3;
 // by id too (only the feeling-mapped ones are reachable from this flow). These
 // are the `serves`/outcome tags the need axis re-ranks against.
 const ACTIVITY_NEEDS: Record<string, readonly Need[]> = {
-  'cold-water': ['settle', 'cool-off'],
-  'make-something-warm': ['settle', 'lift'],
-  'slow-walk': ['cool-off', 'lift'],
-  'legs-up-the-wall': ['rest', 'settle'],
-  'childs-pose': ['settle', 'rest'],
-  'slow-stretches': ['cool-off', 'settle'],
-  'warm-to-eat': ['lift'],
+  'cold-water': ['calm'],
+  'make-something-warm': ['cozy', 'calm'],
+  'slow-walk': ['relaxed', 'focused'],
+  'legs-up-the-wall': ['sleepy', 'relaxed'],
+  'childs-pose': ['relaxed', 'calm'],
+  'slow-stretches': ['relaxed'],
+  'warm-to-eat': ['cozy', 'focused'],
   'get-it-out': ['let-it-out'],
-  'park-it': ['settle', 'let-it-out'],
-  'gentle-read': ['rest', 'lift'],
-  'something-light': ['lift', 'rest'],
-  'one-tiny-thing': ['lift'],
-  'bridge-back': ['cool-off', 'let-it-out'],
-  'cave-mode': ['rest', 'settle'],
+  'park-it': ['calm', 'let-it-out'],
+  'gentle-read': ['cozy', 'calm'],
+  'something-light': ['cozy', 'relaxed'],
+  'one-tiny-thing': ['focused', 'calm'],
+  'bridge-back': ['let-it-out', 'calm'],
+  'cave-mode': ['cozy', 'sleepy'],
 };
 
 const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
-  'be-kind': ['settle', 'cool-off'],
-  cooling: ['cool-off', 'settle'],
-  'five-senses': ['settle', 'lift'],
-  'wind-down': ['settle', 'rest'],
-  'hold-yourself': ['lift', 'settle'],
-  belly: ['settle', 'lift'],
-  'alternate-nostril': ['lift', 'settle'],
-  'soft-gaze': ['settle', 'rest'],
-  ocean: ['settle', 'rest'],
+  'be-kind': ['calm', 'cozy'],
+  cooling: ['calm', 'relaxed'],
+  'five-senses': ['calm', 'focused'],
+  'wind-down': ['calm', 'sleepy'],
+  'hold-yourself': ['cozy', 'calm'],
+  belly: ['calm', 'relaxed'],
+  'alternate-nostril': ['focused', 'calm'],
+  'soft-gaze': ['calm', 'relaxed'],
+  ocean: ['calm', 'sleepy'],
 };
 
 // One library item, normalized so techniques and activities can mix in a single
