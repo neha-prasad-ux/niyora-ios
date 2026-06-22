@@ -361,11 +361,11 @@ function InkScene({ reduced }: { reduced: boolean }) {
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#inkbg)" />
       <SvgText
-        x={64}
-        y={150}
-        fill="hsl(250,34%,90%)"
-        fontSize={26}
-        fontFamily="Poppins-Medium"
+        x={56}
+        y={152}
+        fill="hsl(250,36%,91%)"
+        fontSize={32}
+        fontFamily="PatrickHand"
         opacity={0.92}
       >
         {`${shown}|`}
