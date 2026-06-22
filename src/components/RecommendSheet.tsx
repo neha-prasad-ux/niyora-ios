@@ -1,14 +1,16 @@
-// "How are you feeling?" sheet. Two steps -- feeling (multi-select, up to 3),
-// then duration -- both as chips. Fully on-device: reads the static recommender
-// map and hands a technique back to the caller. No history, no soul-state,
-// nothing leaves the phone.
+// "How are you feeling?" sheet. Two steps -- feeling, then what you need -- both
+// multi-select chips (up to 3, first tap is primary). Fully on-device: ranks the
+// static library and hands a hero + ordered list back to the caller. No history,
+// no soul-state, nothing leaves the phone.
 //
 // Feeling step: tap chips to toggle (first tap is primary, sets orb color and
-// need pre-fill). A Continue button appears once at least one feeling is
-// selected; tapping it advances to duration. Duration step auto-advances after
-// a brief hold so the choice registers. A two-dot indicator tracks the step.
+// the need pre-fill). A Continue button appears once at least one feeling is
+// selected; tapping it advances to the need step, which arrives pre-filled from
+// the primary feeling so it's barely a gate. Time is not a question here -- it
+// filters/scales downstream on the result page. A two-dot indicator tracks the
+// step.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
@@ -23,36 +25,34 @@ import Animated, {
 
 import { colors } from '@/theme/colors';
 import {
-  DURATIONS,
   FEELINGS,
+  NEEDS,
+  defaultNeedFor,
   recommend,
-  type Recommendation,
+  type Need,
+  type RecResult,
 } from '@/models/recommend';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onPick: (rec: Recommendation) => void;
+  onPick: (result: RecResult) => void;
 };
-
-// How long a tapped duration chip stays lit before the sheet closes.
-const SELECT_HOLD_MS = 180;
 
 export function RecommendSheet({ visible, onClose, onPick }: Props) {
   // Ordered selection; first element is primary (drives orb color + need pre-fill).
   const [selectedFeelings, setSelectedFeelings] = useState<string[]>([]);
   // Set when the user taps Continue; drives the step transition.
   const [confirmedFeelings, setConfirmedFeelings] = useState<readonly string[] | null>(null);
-  const [pendingDuration, setPendingDuration] = useState<number | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ordered need selection; pre-filled from the primary feeling on advance.
+  const [selectedNeeds, setSelectedNeeds] = useState<Need[]>([]);
 
-  const step = confirmedFeelings ? 'duration' : 'feeling';
+  const step = confirmedFeelings ? 'need' : 'feeling';
 
   const reset = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
     setSelectedFeelings([]);
     setConfirmedFeelings(null);
-    setPendingDuration(null);
+    setSelectedNeeds([]);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -61,9 +61,8 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
   }, [reset, onClose]);
 
   const handleBack = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    setPendingDuration(null);
     setConfirmedFeelings(null);
+    setSelectedNeeds([]);
     // selectedFeelings is preserved so the user sees their choices on return
   }, []);
 
@@ -79,23 +78,28 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
   const handleContinue = useCallback(() => {
     if (selectedFeelings.length === 0) return;
     Haptics.selectionAsync();
+    // Pre-fill the need from the primary feeling so it's barely a gate.
+    const seed = defaultNeedFor(selectedFeelings[0]);
+    setSelectedNeeds(seed ? [seed] : []);
     setConfirmedFeelings(selectedFeelings);
   }, [selectedFeelings]);
 
-  const handleDuration = useCallback(
-    (minutes: number) => {
-      if (timer.current || !confirmedFeelings || confirmedFeelings.length === 0) return;
-      Haptics.selectionAsync();
-      setPendingDuration(minutes);
-      timer.current = setTimeout(() => {
-        timer.current = null;
-        const rec = recommend(confirmedFeelings, minutes);
-        reset();
-        if (rec) onPick(rec);
-      }, SELECT_HOLD_MS);
-    },
-    [confirmedFeelings, reset, onPick],
-  );
+  const handleNeed = useCallback((id: Need) => {
+    Haptics.selectionAsync();
+    setSelectedNeeds((prev) => {
+      if (prev.includes(id)) return prev.filter((n) => n !== id);
+      if (prev.length >= 3) return prev;
+      return [...prev, id];
+    });
+  }, []);
+
+  const handleDone = useCallback(() => {
+    if (!confirmedFeelings || confirmedFeelings.length === 0) return;
+    Haptics.selectionAsync();
+    const result = recommend(confirmedFeelings, selectedNeeds);
+    reset();
+    if (result) onPick(result);
+  }, [confirmedFeelings, selectedNeeds, reset, onPick]);
 
   // Animate the chip set in on every step change, and slide the progress.
   const enter = useSharedValue(1);
@@ -103,7 +107,7 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
   useEffect(() => {
     enter.value = 0;
     enter.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
-    prog.value = withTiming(step === 'duration' ? 1 : 0, {
+    prog.value = withTiming(step === 'need' ? 1 : 0, {
       duration: 300,
       easing: Easing.out(Easing.cubic),
     });
@@ -140,7 +144,7 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
           />
 
           <View style={styles.headerRow}>
-            {step === 'duration' ? (
+            {step === 'need' ? (
               <Pressable
                 onPress={handleBack}
                 hitSlop={12}
@@ -158,7 +162,7 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
               <View style={styles.headerSpacer} />
             )}
             <Text style={styles.title}>
-              {step === 'feeling' ? 'How are you feeling?' : 'How much time do you have?'}
+              {step === 'feeling' ? 'How are you feeling?' : 'What do you need?'}
             </Text>
             <Pressable
               onPress={handleClose}
@@ -190,12 +194,12 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
                     onPress={() => handleFeeling(f.id)}
                   />
                 ))
-              : DURATIONS.map((d) => (
+              : NEEDS.map((n) => (
                   <Chip
-                    key={d.minutes}
-                    label={d.label}
-                    selected={pendingDuration === d.minutes}
-                    onPress={() => handleDuration(d.minutes)}
+                    key={n.id}
+                    label={n.label}
+                    selected={selectedNeeds.includes(n.id)}
+                    onPress={() => handleNeed(n.id)}
                   />
                 ))}
           </Animated.View>
@@ -208,6 +212,17 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
               accessibilityLabel="Continue"
             >
               <Text style={styles.continueText}>Continue</Text>
+            </Pressable>
+          )}
+
+          {step === 'need' && (
+            <Pressable
+              onPress={handleDone}
+              style={styles.continueButton}
+              accessibilityRole="button"
+              accessibilityLabel="Show what helps"
+            >
+              <Text style={styles.continueText}>Show me</Text>
             </Pressable>
           )}
         </Pressable>

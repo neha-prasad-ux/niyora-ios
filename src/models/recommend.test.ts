@@ -1,9 +1,13 @@
 import { getTechnique, isBreathing, isMindfulness } from './techniques';
 import {
   alternate,
+  defaultNeedFor,
   DURATIONS,
+  FEELING_NEED_DEFAULT,
   FEELINGS,
+  firstTechnique,
   getFeeling,
+  NEEDS,
   recommend,
   scaleRounds,
 } from './recommend';
@@ -45,86 +49,115 @@ describe('getFeeling', () => {
   });
 });
 
-describe('recommend', () => {
-  it('routes a ~1 min "short" feeling to its mindfulness practice, no rounds', () => {
-    // low: oneMin='short', short='hold-yourself'
-    const rec = recommend('low', 1);
-    expect(rec).toEqual({ techniqueId: 'hold-yourself', feelingId: 'low' });
+describe('need axis', () => {
+  it('lists the five outcome needs', () => {
+    expect(NEEDS.map((n) => n.id)).toEqual([
+      'settle',
+      'cool-off',
+      'lift',
+      'rest',
+      'let-it-out',
+    ]);
   });
 
-  it('routes a ~1 min "long" feeling to a short breath with scaled rounds', () => {
-    // anxious: oneMin='long', long='wind-down'
-    const rec = recommend('anxious', 1);
-    expect(rec?.techniqueId).toBe('wind-down');
-    expect(rec?.rounds).toBeGreaterThan(0);
-    expect(rec?.feelingId).toBe('anxious');
-  });
-
-  it('matches each feeling oneMin path: short = mindful, long = breathing', () => {
+  it('pre-fills a need default for every feeling', () => {
     for (const f of FEELINGS) {
-      const rec = recommend(f.id, 1);
-      const t = getTechnique(rec!.techniqueId)!;
-      if (f.oneMin === 'short') {
-        expect(isMindfulness(t)).toBe(true);
-        expect(rec!.rounds).toBeUndefined();
-      } else {
-        expect(isBreathing(t)).toBe(true);
-        expect(rec!.rounds).toBeGreaterThan(0);
-      }
+      expect(defaultNeedFor(f.id)).toBeDefined();
     }
+    expect(FEELING_NEED_DEFAULT.anxious).toBe('settle');
+    expect(FEELING_NEED_DEFAULT.irritable).toBe('cool-off');
+    expect(FEELING_NEED_DEFAULT.low).toBe('lift');
+    expect(FEELING_NEED_DEFAULT.foggy).toBe('lift');
+    expect(FEELING_NEED_DEFAULT.overwhelmed).toBe('settle');
   });
 
-  it('routes longer durations to the breathing practice with scaled rounds', () => {
-    const rec = recommend('anxious', 5);
-    expect(rec?.techniqueId).toBe('wind-down');
-    expect(rec?.rounds).toBeGreaterThan(0);
-    expect(rec?.feelingId).toBe('anxious');
-  });
-
-  it('scales rounds up with duration for the same feeling', () => {
-    const three = recommend('anxious', 3);
-    const five = recommend('anxious', 5);
-    expect(five!.rounds!).toBeGreaterThanOrEqual(three!.rounds!);
-  });
-
-  it('returns null for an unknown feeling', () => {
-    expect(recommend('nope', 3)).toBeNull();
-  });
-
-  it('every feeling + duration produces a valid recommendation', () => {
-    for (const f of FEELINGS) {
-      for (const d of DURATIONS) {
-        const rec = recommend(f.id, d.minutes);
-        expect(rec).not.toBeNull();
-        expect(getTechnique(rec!.techniqueId)).toBeDefined();
-      }
-    }
+  it('returns undefined for an unknown feeling', () => {
+    expect(defaultNeedFor('nope')).toBeUndefined();
   });
 });
 
-describe('recommend with multiple feelings', () => {
-  it('uses the primary (first) feeling and attaches feelingIds', () => {
-    // anxious is primary: long='wind-down'
-    const rec = recommend(['anxious', 'low'], 5);
-    expect(rec?.techniqueId).toBe('wind-down');
-    expect(rec?.feelingId).toBe('anxious');
-    expect(rec?.feelingIds).toEqual(['anxious', 'low']);
+describe('recommend (hero + ranked list)', () => {
+  it('returns null without a primary feeling', () => {
+    expect(recommend([], ['settle'], 3)).toBeNull();
   });
 
-  it('accepts up to 3 feelings', () => {
-    const rec = recommend(['low', 'foggy', 'overwhelmed'], 3);
-    expect(rec?.techniqueId).toBe('belly'); // low.long
-    expect(rec?.feelingIds).toHaveLength(3);
+  it('returns a hero plus a list, carrying the selections through', () => {
+    const res = recommend(['anxious'], ['settle'], 3);
+    expect(res).not.toBeNull();
+    expect(res!.hero).toBeDefined();
+    expect(Array.isArray(res!.list)).toBe(true);
+    expect(res!.feelingIds).toEqual(['anxious']);
+    expect(res!.needIds).toEqual(['settle']);
   });
 
-  it('returns null for an empty array', () => {
-    expect(recommend([], 3)).toBeNull();
+  it('carries the primary feeling on every card', () => {
+    const res = recommend(['low', 'foggy'], ['lift'], 3)!;
+    expect(res.hero.feelingId).toBe('low');
+    for (const c of res.list) expect(c.feelingId).toBe('low');
   });
 
-  it('single-element array behaves like string call but adds feelingIds', () => {
-    const rec = recommend(['irritable'], 3);
-    expect(rec?.feelingId).toBe('irritable');
-    expect(rec?.feelingIds).toEqual(['irritable']);
+  it('ranks every card by the union of selected feelings + needs (descending)', () => {
+    const res = recommend(['irritable', 'overwhelmed'], ['cool-off', 'settle'], 5)!;
+    const scores = [res.hero, ...res.list].map((c) => c.score);
+    const sorted = [...scores].sort((a, b) => b - a);
+    expect(scores).toEqual(sorted);
+    expect(res.hero.score).toBeGreaterThan(0);
+  });
+
+  it('re-ranks against the selected need', () => {
+    const rest = recommend(['anxious'], ['rest'], 3)!;
+    // Every surfaced card serves the chosen need or the feeling (score > 0).
+    for (const c of [rest.hero, ...rest.list]) {
+      expect(c.needs.includes('rest') || c.feelings.includes('anxious')).toBe(true);
+      expect(c.score).toBeGreaterThan(0);
+    }
+  });
+
+  it('scales a breathing hero/card rounds up with the time budget', () => {
+    const three = recommend(['anxious'], ['settle'], 3)!;
+    const five = recommend(['anxious'], ['settle'], 5)!;
+    const breath3 = [three.hero, ...three.list].find((c) => c.rounds != null);
+    const breath5 = [five.hero, ...five.list].find((c) => c.rounds != null);
+    expect(breath3?.rounds).toBeGreaterThan(0);
+    expect(breath5!.rounds!).toBeGreaterThanOrEqual(breath3!.rounds!);
+  });
+
+  it('filters out activities that cannot fit the time budget', () => {
+    // slow-walk is 300s and serves cool-off; at a 1-minute budget it drops out,
+    // at a 5-minute budget it is eligible.
+    const short = recommend(['irritable'], ['cool-off'], 1)!;
+    const long = recommend(['irritable'], ['cool-off'], 5)!;
+    const ids = (r: typeof short) => [r.hero, ...r.list].map((c) => c.activityId);
+    expect(ids(short)).not.toContain('slow-walk');
+    expect(ids(long)).toContain('slow-walk');
+  });
+
+  it('always keeps instant/open activities regardless of budget', () => {
+    // cave-mode (0s) serves rest+settle; present even at a 1-minute budget.
+    const res = recommend(['overwhelmed'], ['settle'], 1)!;
+    const ids = [res.hero, ...res.list].map((c) => c.activityId);
+    expect(ids).toContain('cave-mode');
+  });
+
+  it('mixes techniques and activities in the ranking', () => {
+    const res = recommend(['low'], ['lift'], 5)!;
+    const sources = new Set([res.hero, ...res.list].map((c) => c.source));
+    expect(sources.has('technique')).toBe(true);
+    expect(sources.has('activity')).toBe(true);
+  });
+
+  it('firstTechnique returns a launchable technique for any query', () => {
+    for (const f of FEELINGS) {
+      const need = defaultNeedFor(f.id)!;
+      for (const d of DURATIONS) {
+        const res = recommend([f.id], [need], d.minutes)!;
+        const tech = firstTechnique(res);
+        expect(tech?.techniqueId).toBeDefined();
+        const t = getTechnique(tech!.techniqueId!)!;
+        expect(t).toBeDefined();
+        expect(isBreathing(t) || isMindfulness(t)).toBe(true);
+      }
+    }
   });
 });
 
