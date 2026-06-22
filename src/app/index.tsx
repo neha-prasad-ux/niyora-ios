@@ -53,7 +53,7 @@ import {
   type CheckInLevel,
 } from '@/store/checkin-history';
 import { getSessionCount, getLastSession } from '@/store/session-history';
-import { SHOW_CHECKIN } from '@/config/features';
+import { SHOW_CHECKIN, STRESS_EXPERIMENT } from '@/config/features';
 import { getOnboardingComplete } from '@/store/onboarding-complete';
 import { getReminder } from '@/store/reminder-prefs';
 import { loadMacSoul } from '@/store/last-mac-soul';
@@ -392,7 +392,7 @@ export default function HomeScreen() {
           </>
         )}
 
-        {__DEV__ && (
+        {STRESS_EXPERIMENT && (
           <Pressable
             style={{ position: 'absolute', bottom: 8, right: 8, padding: 8 }}
             onPress={() => router.push('/health-probe' as Href)}

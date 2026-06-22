@@ -13,3 +13,12 @@ export const SHOW_ANALYTICS = false;
 // so the mood trend strip has no data to show in v1. Hidden until there is a
 // data source again.
 export const SHOW_MOOD_TREND = false;
+
+// Stress-detection experiment (Phase E). Gates the whole stress loop's auto-run
+// (the foreground tick + nudges) AND its dev surfaces (the probe screen + the
+// "HK" home entry). OFF by default so the v1 store build ships none of it; ON
+// only in builds that set EXPO_PUBLIC_STRESS_EXPERIMENT=1 (the development /
+// preview EAS profiles, the local experiment build, and Metro for dev). Pairs
+// with the NIYORA_HEALTHKIT entitlement flag. both on for the experiment build,
+// both off for the store build.
+export const STRESS_EXPERIMENT = process.env.EXPO_PUBLIC_STRESS_EXPERIMENT === '1';

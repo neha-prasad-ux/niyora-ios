@@ -19,6 +19,7 @@ import {
 } from '../lib/stress-nudge';
 import { recordAnswer } from '../store/nudge-history';
 import { useStressTick } from '../hooks/use-stress-tick';
+import { STRESS_EXPERIMENT } from '../config/features';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,8 +43,8 @@ export default function RootLayout() {
     registerStressNudgeCategory().catch(() => {});
   }, []);
 
-  // Run a stress tick on launch and each foreground (experiment-only for now).
-  useStressTick(__DEV__);
+  // Run a stress tick on launch and each foreground (experiment builds only).
+  useStressTick(STRESS_EXPERIMENT);
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -100,7 +101,7 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
-          {__DEV__ && <Stack.Screen name="health-probe" />}
+          {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
         </Stack>
       </ErrorBoundary>
     </GestureHandlerRootView>
