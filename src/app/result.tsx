@@ -92,6 +92,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
-    marginBottom: 18,
+    marginTop: 48,
+    marginBottom: 22,
   },
 });
