@@ -45,7 +45,7 @@ export type Activity = {
   mode: 'active' | 'receptive'; // do-something vs let-it-work-on-you
   benefit: string; // the card line
   why: string; // the copy behind "the science"
-  body?: string; // read: the passage that holds on screen
+  body?: string; // read: the passage that holds on screen; action: the framing/tips above the message
   template?: string; // action: the editable prefilled message
   placeholder?: string; // write: the field prompt
   activatesMode?: 'retreat'; // withdraw: toggles a system mode
@@ -65,7 +65,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: true,
     mode: 'active',
     benefit: 'Resets your whole system in seconds.',
-    why: 'Cold on your face trips a reflex that slows your heart and pulls you out of panic, fast.',
+    why: 'Cold on your face flips a built-in switch, the same reflex as splashing into cold water, that quickly slows your heart and pulls you out of a spiral.',
   },
   {
     id: 'make-something-warm',
@@ -77,7 +77,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Warmth your body reads as safe.',
-    why: 'Hands wrapped around something warm signals calm to your nervous system.',
+    why: 'Your brain reads physical warmth a lot like being held. Something warm in your hands nudges your nervous system from on-guard toward calm.',
   },
   {
     id: 'slow-walk',
@@ -89,7 +89,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Lets the tension burn off.',
-    why: "Moving clears the stress chemistry you're holding, and daylight lifts the heavy.",
+    why: "Walking burns off the stress hormones that pool when you're tense, and daylight gives your mood a real, measurable lift.",
   },
   {
     id: 'legs-up-the-wall',
@@ -101,7 +101,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'receptive',
     benefit: 'Calm without any effort.',
-    why: 'Lie down, legs up, that\'s it. It flips you into rest mode while you do nothing.',
+    why: 'Resting with your legs up tips you into rest mode with zero effort. Your heart rate eases and the held tension drains away.',
   },
   {
     id: 'childs-pose',
@@ -113,7 +113,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Eases your back and your belly.',
-    why: 'Folding forward softens cramps and quiets the body.',
+    why: "Folding forward gently presses your belly and opens your lower back, which softens cramps and tells your body it's safe to let go.",
   },
   {
     id: 'slow-stretches',
@@ -125,7 +125,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: "Loosens what's clenched.",
-    why: 'Gentle spine movement releases the tension that builds down your back and middle.',
+    why: 'Slow stretching unwinds the muscle tension that quietly stacks up across your back and middle, so your body stops bracing.',
   },
   {
     id: 'warm-to-eat',
@@ -137,7 +137,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Steady energy instead of a crash.',
-    why: 'Something warm and slow, like oats, keeps you even instead of spiking then dropping you.',
+    why: 'A warm, slow meal keeps your blood sugar steady instead of spiking and crashing, and that crash is half of what makes the low feel so sharp.',
   },
   {
     id: 'get-it-out',
@@ -149,7 +149,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: "Lighter once it's on paper.",
-    why: 'Naming what you feel takes some of its charge away.',
+    why: 'Putting a feeling into words actually turns its volume down. Naming it hands some of the load from the reacting part of your brain to the calmer, thinking part.',
     placeholder: "Whatever's loudest right now. Put it here.",
   },
   {
@@ -162,7 +162,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Set the worry down for now.',
-    why: "Drop the thought here. Pick it back up after your period, when it'll feel smaller.",
+    why: 'Writing a worry down and setting it aside frees the mental space it was taking up. You can pick it back up later, when it will feel smaller.',
     placeholder: 'The worry you\'re setting down.',
   },
   {
@@ -176,7 +176,7 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'receptive',
     benefit: 'Somewhere soft to land.',
     why: 'Something tender meets you where you are.',
-    body: "Today your body is doing something hard, and you're feeling the weight of it. That heaviness is real and physical, and it does lift. Until it does, slow is allowed.",
+    body: "There is an old story about a man walking a beach at dawn after a storm. The sand was covered with thousands of starfish, washed up and stranded by the tide, drying in the early sun. Ahead of him a young girl was picking them up one at a time and gently setting them back into the sea. He watched her for a while, then called out that the beach ran for miles and there were thousands of them, she could not possibly make a difference. The girl bent down, picked up one more, and placed it carefully back in the water. She said, it made a difference to that one. Then she reached for the next, and kept going. The man stood there a moment longer, and then he bent down and started helping.",
   },
   {
     id: 'something-light',
@@ -189,7 +189,7 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'receptive',
     benefit: 'A small lift.',
     why: "A bit of lightness, for when you've got the room for it.",
-    body: "Foggy and a little off, that's where you are right now. It has an end date you can count on. Nothing to push through today.",
+    body: "Three tired travellers came to a village at the end of a long road, hungry and with nothing to eat. The villagers had food, but it had been a hard year, and one by one they shut their doors. So the travellers built a small fire in the square, filled a big pot with water, and dropped in a single smooth stone. A curious child wandered over and asked what they were making. Stone soup, they said, the most delicious soup in the world, though it is even better with a carrot or two. The child ran home and came back with a handful of carrots. An old woman passing by offered an onion she could spare. Someone brought a few potatoes, another a bunch of herbs, a little salt, a knuckle of bone. Each person gave only the small thing they had, and into the pot it went. By evening the whole village sat together around a soup that fed everyone, warm and rich and real, made from a stone and a hundred small kindnesses.",
   },
   {
     id: 'one-tiny-thing',
@@ -201,7 +201,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Proof you can still move.',
-    why: 'Pick one small thing and finish it. Control comes from doing something small, not everything.',
+    why: 'Finishing one small thing gives your brain a genuine hit of done. A sense of control comes from doing something, not from doing everything.',
   },
   {
     id: 'bridge-back',
@@ -213,9 +213,10 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Mend it in one message.',
-    why: "Here's a soft text to send. A small repair shows a hard moment isn't the whole story.",
+    why: "A small, honest repair matters more than the moment that needed it. It tells the other person the bond is still solid.",
+    body: 'Had a fight while your body was already struggling to feel safe? First, give it some air. Step out of the room or move to a different space and let the heat drop. Most fights look smaller from the other side of ten minutes, so you do not have to sort it out right now. When you are ready, if you want to bridge it back, here is a soft message you can send.',
     template:
-      "Hey, I was short with you earlier and I'm sorry. I'm having a rough day and it came out sideways. It wasn't about you.",
+      "Hey, I was short with you earlier and I'm sorry. Today has been a rough one and it came out sideways at you. It wasn't really about you, and I didn't like how I left things. Shall we talk it through in a bit, maybe after an hour?",
   },
   {
     id: 'cave-mode',
@@ -227,7 +228,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'receptive',
     benefit: 'Permission to pull back.',
-    why: 'Dims things down and quiets notifications. Pulling back today is care, not avoidance.',
+    why: 'Lowering the noise gives your overloaded system fewer things to react to, so it can finally settle. Choosing it is care, not avoidance.',
     activatesMode: 'retreat',
   },
 ];
