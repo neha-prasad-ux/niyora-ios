@@ -176,7 +176,7 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'receptive',
     benefit: 'Somewhere soft to land.',
     why: 'Something tender meets you where you are.',
-    body: 'A small boat never fights the tide. On the heavy days it lets the water carry it, because it knows the tide always turns. You are allowed to drift today. The turn will come, and you do not have to row to make it happen.',
+    body: "There is an old story about a man walking a beach at dawn after a storm. The sand was covered with thousands of starfish, washed up and stranded by the tide, drying in the early sun. Ahead of him a young girl was picking them up one at a time and gently setting them back into the sea. He watched her for a while, then called out that the beach ran for miles and there were thousands of them, she could not possibly make a difference. The girl bent down, picked up one more, and placed it carefully back in the water. She said, it made a difference to that one. Then she reached for the next, and kept going. The man stood there a moment longer, and then he bent down and started helping.",
   },
   {
     id: 'something-light',
@@ -189,7 +189,7 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'receptive',
     benefit: 'A small lift.',
     why: "A bit of lightness, for when you've got the room for it.",
-    body: 'Somewhere right now a dog is being told it is a good boy, and it fully believes it. The world keeps a little silliness running in the background, even on the off days. Let one small daft thing make you smile. That is the whole task.',
+    body: "A lion was asleep in the sun when a tiny mouse scurried across his paw and woke him. Quick as anything, the lion pinned her under one claw, ready to make a snack of such a small thing. The mouse squeaked out a plea, let me go, and one day I will repay the kindness. The lion laughed at the idea of a mouse ever helping a lion, but he was in a generous mood, so he lifted his paw and let her run off. Weeks later he blundered into a hunter's net and lay there roaring, tangled and stuck, all his strength useless against the ropes. The little mouse heard him from across the wood. She came running, found him, and set to work with her sharp teeth, gnawing through the cords one by one until the great lion stepped free. The smallest of them, it turned out, was the one who saved him.",
   },
   {
     id: 'one-tiny-thing',
