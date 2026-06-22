@@ -20,6 +20,7 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -106,7 +107,7 @@ export default function ResultScreen() {
 
         {loading ? (
           <View style={styles.loadingWrap}>
-            <Orb size={116} hue={orbHue} />
+            <LoadingOrb hue={orbHue} />
             <View style={{ height: 26 }} />
             <LoadingDots />
           </View>
@@ -122,6 +123,26 @@ export default function ResultScreen() {
         )}
       </SafeAreaView>
     </View>
+  );
+}
+
+// One smooth swell during the loading beat: the orb grows, then settles -- a
+// single calming breath, not a repeating pulse.
+function LoadingOrb({ hue }: { hue?: number }) {
+  const reduced = useReducedMotion();
+  const scale = useSharedValue(reduced ? 1 : 0.92);
+  useEffect(() => {
+    if (reduced) return;
+    scale.value = withSequence(
+      withTiming(1.12, { duration: 680, easing: Easing.inOut(Easing.sin) }),
+      withTiming(1.0, { duration: 620, easing: Easing.inOut(Easing.sin) }),
+    );
+  }, [reduced, scale]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View style={style}>
+      <Orb size={116} hue={hue} />
+    </Animated.View>
   );
 }
 
