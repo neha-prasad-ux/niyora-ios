@@ -39,7 +39,7 @@ import { RecommendSheet } from '@/components/RecommendSheet';
 import { ShootingStar } from '@/components/ShootingStar';
 import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
-import type { Recommendation } from '@/models/recommend';
+import { firstTechnique, type RecResult } from '@/models/recommend';
 import {
   isBreathing,
   isMindfulness,
@@ -248,11 +248,16 @@ export default function HomeScreen() {
     setRecommendVisible(false);
   }, []);
 
-  const handleRecommendPick = useCallback((rec: Recommendation) => {
+  const handleRecommendPick = useCallback((result: RecResult) => {
     setRecommendVisible(false);
-    const params: Record<string, string> = { id: rec.techniqueId };
-    if (rec.feelingId) params.feeling = rec.feelingId;
-    if (rec.rounds != null) params.rounds = String(rec.rounds);
+    // Interim: the result page (hero + list + activity screens) lands in a
+    // later task, so for now launch a session from the hero when it's a
+    // technique, else the top-ranked technique in the list.
+    const tech = firstTechnique(result);
+    if (!tech?.techniqueId) return;
+    const params: Record<string, string> = { id: tech.techniqueId };
+    if (tech.feelingId) params.feeling = tech.feelingId;
+    if (tech.rounds != null) params.rounds = String(tech.rounds);
     router.push({ pathname: '/session', params });
   }, []);
 
