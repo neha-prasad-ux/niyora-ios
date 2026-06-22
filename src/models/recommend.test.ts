@@ -133,6 +133,17 @@ describe('recommend (hero + ranked list)', () => {
     expect(ids(long)).toContain('slow-walk');
   });
 
+  it('without a time budget, keeps long activities and uses authored breathing rounds', () => {
+    const res = recommend(['irritable'], ['relaxed'])!; // no minutes argument
+    const actIds = [res.hero, ...res.list].map((c) => c.activityId);
+    expect(actIds).toContain('slow-walk'); // 300s activity, not filtered out
+    const breath = [res.hero, ...res.list].find((c) => c.techniqueId && c.rounds != null);
+    if (breath) {
+      const t = getTechnique(breath.techniqueId!)!;
+      if (isBreathing(t)) expect(breath.rounds).toBe(t.rounds);
+    }
+  });
+
   it('always keeps instant/open activities regardless of budget', () => {
     // cave-mode (0s) serves rest+settle; present even at a 1-minute budget.
     const res = recommend(['overwhelmed'], ['calm'], 1)!;

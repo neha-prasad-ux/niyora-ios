@@ -87,6 +87,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="result"
+            options={{
+              animation: 'fade',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
             name="session"
             options={{
               animation: 'slide_from_right',
