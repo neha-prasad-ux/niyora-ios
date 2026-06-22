@@ -240,14 +240,26 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
                 ))}
           </Animated.View>
 
-          {step === 'feeling' && selectedFeelings.length > 0 && (
+          {step === 'feeling' && (
             <Pressable
               onPress={handleContinue}
-              style={styles.continueButton}
+              disabled={selectedFeelings.length === 0}
+              style={[
+                styles.continueButton,
+                selectedFeelings.length === 0 && styles.continueButtonDisabled,
+              ]}
               accessibilityRole="button"
+              accessibilityState={{ disabled: selectedFeelings.length === 0 }}
               accessibilityLabel="Continue"
             >
-              <Text style={styles.continueText}>Continue</Text>
+              <Text
+                style={[
+                  styles.continueText,
+                  selectedFeelings.length === 0 && styles.continueTextDisabled,
+                ]}
+              >
+                Continue
+              </Text>
             </Pressable>
           )}
 
@@ -399,10 +411,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(150, 120, 235, 0.92)',
   },
+  continueButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
   continueText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
     color: '#fff',
     letterSpacing: 0.3,
+  },
+  continueTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.35)',
   },
 });
