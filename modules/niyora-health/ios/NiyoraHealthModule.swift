@@ -1,4 +1,12 @@
 import ExpoModulesCore
+
+// HealthKit is gated behind the NIYORA_HEALTHKIT compilation condition (set by
+// the podspec only when the NIYORA_HEALTHKIT=1 env var is present, i.e. the
+// dev/preview EAS profiles). Production / launch builds compile the stub at the
+// bottom instead, with no `import HealthKit`, so the framework is never linked
+// and the binary stays clear of the HealthKit purpose-string / 5.1.1 review
+// rejections. See memory project_healthkit_not_in_launch_scope.
+#if NIYORA_HEALTHKIT
 import HealthKit
 
 /// Niyora stress v1 — HealthKit reads (heart rate + activity) on the phone.
@@ -217,3 +225,25 @@ public class NiyoraHealthModule: Module {
         }
     }
 }
+
+#else
+
+/// Stub for builds without NIYORA_HEALTHKIT (production / launch). No HealthKit
+/// import or symbols, so the framework is not linked. Registers the same module
+/// surface so the JS bridge resolves; every call reports "unavailable" and the
+/// stress features stay dormant (they are also gated off by STRESS_EXPERIMENT).
+public class NiyoraHealthModule: Module {
+    public func definition() -> ModuleDefinition {
+        Name("NiyoraHealth")
+
+        AsyncFunction("isAvailable") { () -> Bool in false }
+        AsyncFunction("requestAuthorization") { () -> Bool in false }
+        AsyncFunction("getHeartRateSamples") { (_: String?, _: Int) -> [[String: Any]] in [] }
+        AsyncFunction("getStepCount") { (_: String?) -> Double in 0 }
+        AsyncFunction("getActiveEnergy") { (_: String?) -> Double in 0 }
+        AsyncFunction("getRecentWorkouts") { (_: String?, _: Int) -> [[String: Any]] in [] }
+        AsyncFunction("getActivityBuckets") { (_: String?, _: Int) -> [[String: Any]] in [] }
+    }
+}
+
+#endif
