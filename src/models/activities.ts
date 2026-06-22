@@ -45,6 +45,7 @@ export type Activity = {
   mode: 'active' | 'receptive'; // do-something vs let-it-work-on-you
   benefit: string; // the card line
   why: string; // the copy behind "the science"
+  how?: string; // nudge: the "what to do" step shown on the tap-in screen
   body?: string; // read: the passage that holds on screen; action: the framing/tips above the message
   template?: string; // action: the editable prefilled message
   placeholder?: string; // write: the field prompt
@@ -65,6 +66,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: true,
     mode: 'active',
     benefit: 'Resets your whole system in seconds.',
+    how: 'Run the tap cold, cup it in your hands, and press it to your cheeks and under your eyes for a few slow breaths.',
     why: 'Cold on your face flips a built-in switch, the same reflex as splashing into cold water, that quickly slows your heart and pulls you out of a spiral.',
   },
   {
@@ -77,6 +79,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Warmth your body reads as safe.',
+    how: 'Put the kettle on, make a tea or cocoa, and wrap both hands around the mug before you drink it.',
     why: 'Your brain reads physical warmth a lot like being held. Something warm in your hands nudges your nervous system from on-guard toward calm.',
   },
   {
@@ -89,6 +92,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Lets the tension burn off.',
+    how: 'Head outside and walk slow, no destination. Let your eyes wander and your shoulders drop.',
     why: "Walking burns off the stress hormones that pool when you're tense, and daylight gives your mood a real, measurable lift.",
   },
   {
@@ -101,6 +105,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'receptive',
     benefit: 'Calm without any effort.',
+    how: 'Lie on your back, scoot your hips to a wall, and rest your legs up it. Let your arms fall open and breathe.',
     why: 'Resting with your legs up tips you into rest mode with zero effort. Your heart rate eases and the held tension drains away.',
   },
   {
@@ -113,6 +118,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Eases your back and your belly.',
+    how: 'Kneel, sink your hips back to your heels, and fold forward, forehead down, arms long. Let your belly go soft.',
     why: "Folding forward gently presses your belly and opens your lower back, which softens cramps and tells your body it's safe to let go.",
   },
   {
@@ -125,6 +131,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: "Loosens what's clenched.",
+    how: 'Reach your arms up, then fold gently side to side and forward. Slow, no pushing, follow whatever feels tight.',
     why: 'Slow stretching unwinds the muscle tension that quietly stacks up across your back and middle, so your body stops bracing.',
   },
   {
@@ -137,6 +144,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Steady energy instead of a crash.',
+    how: 'Make something warm and simple, oats or soup, and eat it slow somewhere comfy with your phone face down.',
     why: 'A warm, slow meal keeps your blood sugar steady instead of spiking and crashing, and that crash is half of what makes the low feel so sharp.',
   },
   {
@@ -201,6 +209,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: 'Proof you can still move.',
+    how: "Pick one tiny thing that's been nagging you, a dish, a text, and just finish that one. Leave the rest.",
     why: 'Finishing one small thing gives your brain a genuine hit of done. A sense of control comes from doing something, not from doing everything.',
   },
   {
@@ -228,6 +237,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'receptive',
     benefit: 'Permission to pull back.',
+    how: 'Find a quiet spot, dim the lights, silence your phone, and pull back from everyone for a little while.',
     why: 'Lowering the noise gives your overloaded system fewer things to react to, so it can finally settle. Choosing it is care, not avoidance.',
     activatesMode: 'retreat',
   },

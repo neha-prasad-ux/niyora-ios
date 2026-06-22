@@ -39,6 +39,7 @@ describe('activity catalogue', () => {
 
   it('carries the type-specific payload each card type needs', () => {
     for (const a of ACTIVITIES) {
+      if (a.cardType === 'nudge') expect(a.how).toBeTruthy();
       if (a.cardType === 'write') expect(a.placeholder).toBeTruthy();
       if (a.cardType === 'read') expect(a.body).toBeTruthy();
       if (a.cardType === 'action') expect(a.template).toBeTruthy();
@@ -47,7 +48,7 @@ describe('activity catalogue', () => {
 
   it('keeps copy free of em dashes', () => {
     for (const a of ACTIVITIES) {
-      const text = [a.title, a.benefit, a.why, a.body, a.template, a.placeholder]
+      const text = [a.title, a.benefit, a.why, a.how, a.body, a.template, a.placeholder]
         .filter(Boolean)
         .join(' ');
       expect(text).not.toContain('—');
