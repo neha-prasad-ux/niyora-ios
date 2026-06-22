@@ -12,7 +12,18 @@ import { SymbolView } from 'expo-symbols';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
 import { colors } from '@/theme/colors';
-import { getFeeling, recommend, type Need, type RecCard } from '@/models/recommend';
+import { recommend, type Need, type RecCard } from '@/models/recommend';
+
+// The header leads with where she's headed (the need), never the feeling she's
+// leaving. A gentle "Let's..." invitation toward feeling better.
+const NEED_HEADER: Record<Need, string> = {
+  calm: "Let's find some calm",
+  focused: "Let's clear your head",
+  relaxed: "Let's unwind",
+  sleepy: "Let's wind down",
+  cozy: "Let's get cozy",
+  'let-it-out': "Let's let it out",
+};
 
 export default function ResultScreen() {
   const params = useLocalSearchParams<{ feelings?: string; needs?: string }>();
@@ -29,7 +40,7 @@ export default function ResultScreen() {
   const result = useMemo(() => recommend(feelings, needs), [feelings, needs]);
   const cards = useMemo(() => (result ? [result.hero, ...result.list] : []), [result]);
 
-  const primaryLabel = getFeeling(feelings[0])?.label?.toLowerCase();
+  const header = needs[0] ? NEED_HEADER[needs[0]] : "Let's find what helps";
 
   const onBegin = useCallback((card: RecCard) => {
     if (card.techniqueId) {
@@ -59,7 +70,7 @@ export default function ResultScreen() {
           </Pressable>
         </View>
 
-        {primaryLabel ? <Text style={styles.ctx}>Feeling {primaryLabel}</Text> : null}
+        <Text style={styles.ctx}>{header}</Text>
 
         {cards.length > 0 ? (
           <ResultDeck cards={cards} onBegin={onBegin} />
