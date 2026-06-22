@@ -18,7 +18,10 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withDelay,
+  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -50,6 +53,24 @@ export function ResultDeck({ cards, onBegin }: Props) {
   const [order, setOrder] = useState<number[]>(() => cards.map((_, i) => i));
 
   const dragX = useSharedValue(0);
+
+  // One-time hint when the deck first appears: the front card eases to the side
+  // and settles back, revealing a peek of the next card so the swipe is
+  // discoverable without a "swipe for more" label. Skipped for reduce-motion or
+  // a single-card deck.
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (reduced || cards.length < 2) return;
+    dragX.value = withDelay(
+      650,
+      withSequence(
+        withTiming(-26, { duration: 560, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 680, easing: Easing.bezier(0.22, 0.61, 0.31, 1) }),
+      ),
+    );
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const commitAdvance = () => {
     setOrder((o) => [...o.slice(1), o[0]]);
