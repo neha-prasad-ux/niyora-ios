@@ -14,7 +14,7 @@
 // not render reliably). Motion is calm and breath-paced. It freezes for
 // reduce-motion and for cards sitting deep in the stack (a perf guard).
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -34,6 +34,7 @@ import Svg, {
   RadialGradient,
   Rect,
   Stop,
+  Text as SvgText,
 } from 'react-native-svg';
 
 import { getActivity } from '@/models/activities';
@@ -310,16 +311,46 @@ function Cloud({ cfg, reduced }: { cfg: (typeof WALK_CLOUDS)[number]; reduced: b
   );
 }
 
-// --- ink: lines writing then clearing ---
+// --- ink: a feeling being typed out, "I feel..." ---
 
-const INK_LINES = [
-  { y: 188, len: 150, dur: 5200, delay: 0 },
-  { y: 214, len: 196, dur: 6000, delay: 900 },
-  { y: 240, len: 120, dur: 4800, delay: 1900 },
-  { y: 266, len: 168, dur: 5600, delay: 2900 },
-];
+const INK_PHRASE = 'I feel...';
 
 function InkScene({ reduced }: { reduced: boolean }) {
+  // Typewriter: type the phrase, hold, erase, repeat. Trailing "|" is the
+  // cursor. Frozen (fully typed) for reduce-motion or when the card is inactive.
+  const [shown, setShown] = useState(INK_PHRASE);
+  useEffect(() => {
+    if (reduced) {
+      const t = setTimeout(() => setShown(INK_PHRASE), 0);
+      return () => clearTimeout(t);
+    }
+    let i = 0;
+    let phase: 'type' | 'hold' | 'erase' = 'type';
+    let held = 0;
+    const t0 = setTimeout(() => setShown(''), 0);
+    const id = setInterval(() => {
+      if (phase === 'type') {
+        i += 1;
+        setShown(INK_PHRASE.slice(0, i));
+        if (i >= INK_PHRASE.length) phase = 'hold';
+      } else if (phase === 'hold') {
+        held += 1;
+        if (held > 7) {
+          held = 0;
+          phase = 'erase';
+        }
+      } else {
+        i -= 1;
+        setShown(INK_PHRASE.slice(0, Math.max(0, i)));
+        if (i <= 0) phase = 'type';
+      }
+    }, 230);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(id);
+    };
+  }, [reduced]);
+
   return (
     <>
       <Defs>
@@ -329,20 +360,18 @@ function InkScene({ reduced }: { reduced: boolean }) {
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#inkbg)" />
-      {INK_LINES.map((l, i) => (
-        <InkLine key={i} cfg={l} reduced={reduced} />
-      ))}
+      <SvgText
+        x={56}
+        y={152}
+        fill="hsl(250,36%,91%)"
+        fontSize={32}
+        fontFamily="PatrickHand"
+        opacity={0.92}
+      >
+        {`${shown}|`}
+      </SvgText>
     </>
   );
-}
-
-function InkLine({ cfg, reduced }: { cfg: (typeof INK_LINES)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.45);
-  const props = useAnimatedProps(() => ({
-    width: interpolate(p.value, [0, 0.55, 0.8, 1], [0, cfg.len, cfg.len, 0]),
-    opacity: interpolate(p.value, [0, 0.1, 0.8, 1], [0, 0.42, 0.42, 0]),
-  }));
-  return <AnimatedRect x={36} y={cfg.y} height={2} rx={1} fill="hsl(250,30%,86%)" animatedProps={props} />;
 }
 
 // --- breathe: orb + emanating rings ---

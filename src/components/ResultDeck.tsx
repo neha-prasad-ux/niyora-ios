@@ -18,7 +18,10 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
+  withDelay,
+  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -29,7 +32,10 @@ import { getTechnique } from '@/models/techniques';
 import { CardScene } from '@/components/CardScene';
 import type { RecCard } from '@/models/recommend';
 
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+// Card height: a portrait card that leaves clear breathing room above + below,
+// rather than filling the whole screen.
+const DECK_H = Math.min(Math.round(SCREEN_H * 0.56), 440);
 const THRESHOLD = 100; // px past which a swipe commits
 const SETTLE = { duration: 750, easing: Easing.bezier(0.22, 0.61, 0.31, 1) };
 const FLY = { duration: 520, easing: Easing.bezier(0.22, 0.61, 0.31, 1) };
@@ -47,6 +53,24 @@ export function ResultDeck({ cards, onBegin }: Props) {
   const [order, setOrder] = useState<number[]>(() => cards.map((_, i) => i));
 
   const dragX = useSharedValue(0);
+
+  // One-time hint when the deck first appears: the front card eases to the side
+  // and settles back, revealing a peek of the next card so the swipe is
+  // discoverable without a "swipe for more" label. Skipped for reduce-motion or
+  // a single-card deck.
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (reduced || cards.length < 2) return;
+    dragX.value = withDelay(
+      650,
+      withSequence(
+        withTiming(-26, { duration: 560, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 680, easing: Easing.bezier(0.22, 0.61, 0.31, 1) }),
+      ),
+    );
+    // Run once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const commitAdvance = () => {
     setOrder((o) => [...o.slice(1), o[0]]);
@@ -223,13 +247,13 @@ function cardTag(card: RecCard): string {
 }
 
 function formatTime(seconds: number): string {
-  if (!seconds) return '';
+  if (!seconds) return 'anytime';
   if (seconds < 60) return `${seconds} sec`;
   return `${Math.round(seconds / 60)} min`;
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', width: '100%' },
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
   dots: { flexDirection: 'row', gap: 7, marginBottom: 16, height: 8, alignItems: 'center' },
   dot: {
     width: 6,
@@ -238,7 +262,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(190, 170, 255, 0.30)',
   },
   dotActive: { width: 16, backgroundColor: 'rgba(190, 170, 255, 0.95)' },
-  deck: { flex: 1, width: 300, alignSelf: 'center' },
+  deck: { height: DECK_H, width: 300, alignSelf: 'center' },
   card: {
     position: 'absolute',
     left: 0,

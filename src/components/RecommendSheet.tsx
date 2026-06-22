@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { Orb } from '@/components/orb';
 import {
   FEELINGS,
   NEEDS,
@@ -32,6 +33,24 @@ import {
   type Need,
   type RecResult,
 } from '@/models/recommend';
+
+// The Soul orb tints toward the primary selection so it reacts as she taps:
+// warm for cozy/let-it-out, cool for calm/sleepy, etc.
+const FEELING_HUE: Record<string, number> = {
+  anxious: 220,
+  irritable: 8,
+  low: 275,
+  foggy: 178,
+  overwhelmed: 285,
+};
+const NEED_HUE: Record<Need, number> = {
+  calm: 220,
+  focused: 186,
+  relaxed: 150,
+  sleepy: 250,
+  cozy: 28,
+  'let-it-out': 295,
+};
 
 type Props = {
   visible: boolean;
@@ -48,6 +67,19 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
   const [selectedNeeds, setSelectedNeeds] = useState<Need[]>([]);
 
   const step = confirmedFeelings ? 'need' : 'feeling';
+
+  // Orb hue follows the primary selection of the current step (need on step 2,
+  // else feeling), falling back to the carried feeling, then the calm default.
+  const orbHue =
+    step === 'need'
+      ? selectedNeeds[0]
+        ? NEED_HUE[selectedNeeds[0]]
+        : confirmedFeelings?.[0]
+          ? FEELING_HUE[confirmedFeelings[0]]
+          : undefined
+      : selectedFeelings[0]
+        ? FEELING_HUE[selectedFeelings[0]]
+        : undefined;
 
   const reset = useCallback(() => {
     setSelectedFeelings([]);
@@ -179,6 +211,10 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
             </Pressable>
           </View>
 
+          <View style={styles.orbWrap} pointerEvents="none">
+            <Orb size={66} hue={orbHue} />
+          </View>
+
           <View style={styles.dotsRow}>
             <Animated.View style={[styles.dot, dot1Style]} />
             <Animated.View style={[styles.dot, dot2Style]} />
@@ -204,14 +240,26 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
                 ))}
           </Animated.View>
 
-          {step === 'feeling' && selectedFeelings.length > 0 && (
+          {step === 'feeling' && (
             <Pressable
               onPress={handleContinue}
-              style={styles.continueButton}
+              disabled={selectedFeelings.length === 0}
+              style={[
+                styles.continueButton,
+                selectedFeelings.length === 0 && styles.continueButtonDisabled,
+              ]}
               accessibilityRole="button"
+              accessibilityState={{ disabled: selectedFeelings.length === 0 }}
               accessibilityLabel="Continue"
             >
-              <Text style={styles.continueText}>Continue</Text>
+              <Text
+                style={[
+                  styles.continueText,
+                  selectedFeelings.length === 0 && styles.continueTextDisabled,
+                ]}
+              >
+                Continue
+              </Text>
             </Pressable>
           )}
 
@@ -309,6 +357,12 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
+  orbWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 104,
+    marginBottom: 2,
+  },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -357,10 +411,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(150, 120, 235, 0.92)',
   },
+  continueButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
   continueText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
     color: '#fff',
     letterSpacing: 0.3,
+  },
+  continueTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.35)',
   },
 });

@@ -141,7 +141,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'get-it-out',
-    title: 'Get it out of your head',
+    title: 'Get it all out on paper',
     modality: 'express',
     cardType: 'write',
     fits: ['overwhelmed', 'irritable', 'low'],
@@ -154,7 +154,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'park-it',
-    title: 'Park it for later',
+    title: 'Park the worry for now',
     modality: 'express',
     cardType: 'write',
     fits: ['anxious', 'overwhelmed'],
@@ -167,7 +167,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'gentle-read',
-    title: 'A small, gentle read',
+    title: 'Read something comforting',
     modality: 'read',
     cardType: 'read',
     fits: ['low'],
@@ -180,7 +180,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'something-light',
-    title: 'Something light',
+    title: 'Read something easy',
     modality: 'read',
     cardType: 'read',
     fits: ['foggy', 'irritable'],
@@ -193,7 +193,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'one-tiny-thing',
-    title: 'One tiny thing',
+    title: 'Knock out one small thing',
     modality: 'smallwin',
     cardType: 'nudge',
     fits: ['overwhelmed', 'low'],
@@ -205,7 +205,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'bridge-back',
-    title: 'A bridge back',
+    title: 'Send the sorry text',
     modality: 'repair',
     cardType: 'action',
     fits: ['irritable'],
@@ -220,7 +220,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'cave-mode',
-    title: 'Cave mode',
+    title: 'Hide out for a bit',
     modality: 'withdraw',
     cardType: 'nudge',
     fits: ['overwhelmed', 'irritable'],
