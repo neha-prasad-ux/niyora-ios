@@ -26,6 +26,7 @@ import Animated, {
 import { colors } from '@/theme/colors';
 import { getActivity, type Modality } from '@/models/activities';
 import { getTechnique } from '@/models/techniques';
+import { CardScene } from '@/components/CardScene';
 import type { RecCard } from '@/models/recommend';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -150,7 +151,6 @@ function DeckCard({
     };
   });
 
-  const [c1, c2] = sceneTint(card);
   const tag = cardTag(card);
   const benefit = cardBenefit(card);
   const time = formatTime(card.timeSeconds);
@@ -160,7 +160,9 @@ function DeckCard({
       style={[styles.card, animStyle, { zIndex: 100 - pos }]}
       pointerEvents={pos === 0 ? 'auto' : 'none'}
     >
-      <LinearGradient colors={[c1, c2]} style={StyleSheet.absoluteFill} />
+      <View style={StyleSheet.absoluteFill}>
+        <CardScene card={card} active={pos <= 2} />
+      </View>
       <LinearGradient
         colors={['rgba(8,6,14,0.12)', 'transparent', 'rgba(9,6,16,0.72)', 'rgba(8,5,14,0.92)']}
         locations={[0, 0.3, 0.72, 1]}
@@ -218,33 +220,6 @@ function cardTag(card: RecCard): string {
   }
   const t = card.techniqueId ? getTechnique(card.techniqueId) : undefined;
   return t?.category === 'mindfulness' ? 'ground' : 'breathe';
-}
-
-// Placeholder scene tints by flavour. The living scenes replace these later.
-function sceneTint(card: RecCard): [string, string] {
-  if (card.techniqueId) {
-    const t = getTechnique(card.techniqueId);
-    return t?.category === 'mindfulness'
-      ? ['#1c2a26', '#0a1110']
-      : ['#241c3a', '#0c0a16'];
-  }
-  const modality = card.activityId ? getActivity(card.activityId)?.modality : undefined;
-  switch (modality) {
-    case 'sensory':
-      return ['#1b2a3a', '#0a0d14'];
-    case 'movement':
-      return ['#1c2e2a', '#0a1110'];
-    case 'nourish':
-      return ['#2e2418', '#140d0a'];
-    case 'read':
-      return ['#251c3a', '#0e0a18'];
-    case 'repair':
-      return ['#2a1d2e', '#120a14'];
-    case 'withdraw':
-      return ['#1a1726', '#08060e'];
-    default:
-      return ['#241c3a', '#0c0a16'];
-  }
 }
 
 function formatTime(seconds: number): string {
