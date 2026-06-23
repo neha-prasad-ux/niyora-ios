@@ -7,13 +7,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
@@ -34,10 +34,14 @@ export function ActionView({ activity, onComplete }: Props) {
   };
 
   const onSend = async () => {
-    const url = `sms:&body=${encodeURIComponent(text)}`;
-    const ok = await Linking.canOpenURL(url).catch(() => false);
-    if (ok) await Linking.openURL(url).catch(() => {});
-    onComplete();
+    // Open the iOS share sheet so she picks the channel (Messages, WhatsApp,
+    // AirDrop, Copy, ...). Only close once she's actually shared.
+    try {
+      const res = await Share.share({ message: text });
+      if (res.action === Share.sharedAction) onComplete();
+    } catch {
+      // dismissed or unavailable -- stay on the screen
+    }
   };
 
   return (
