@@ -101,10 +101,18 @@ export default function ActivityScreen() {
   );
 }
 
-// Closure: a soft "would you recommend this?", then "take the calm with you",
-// then home.
+// The graded felt-check we already use elsewhere, reused as the post-activity
+// beat (a positive option, "light", is what makes it a real before/after).
+const LEVELS = [
+  { label: 'light', hue: 215 },
+  { label: 'okay', hue: 260 },
+  { label: 'heavy', hue: 335 },
+];
+
+// Closure: how do you feel now? -> would you recommend this? -> take the calm
+// with you -> home. (The felt level isn't stored yet; the delta wiring is #236.)
 function Closure({ onClose }: { onClose: () => void }) {
-  const [phase, setPhase] = useState<'ask' | 'carry'>('ask');
+  const [phase, setPhase] = useState<'feel' | 'ask' | 'carry'>('feel');
   useEffect(() => {
     if (phase !== 'carry') return;
     const t = setTimeout(onClose, 1800);
@@ -113,9 +121,27 @@ function Closure({ onClose }: { onClose: () => void }) {
 
   return (
     <Animated.View entering={FadeIn.duration(500)} style={styles.closure}>
-      {phase === 'ask' ? (
+      {phase === 'feel' ? (
         <View style={styles.closeAsk}>
-          <Text style={styles.closeLead}>Hope that gave you a little room.</Text>
+          <Text style={styles.closeLead}>How are you feeling now?</Text>
+          <View style={styles.levelRow}>
+            {LEVELS.map((l) => (
+              <Pressable
+                key={l.label}
+                style={styles.levelPill}
+                onPress={() => setPhase('ask')}
+                accessibilityRole="button"
+                accessibilityLabel={l.label}
+              >
+                <Text style={[styles.levelLabel, { color: `hsl(${l.hue}, 62%, 72%)` }]}>
+                  {l.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : phase === 'ask' ? (
+        <View style={styles.closeAsk}>
           <Text style={styles.closeQ}>Would you recommend this to a friend?</Text>
           <View style={styles.closeRow}>
             <Pill label="Yes" onPress={() => setPhase('carry')} />
@@ -163,6 +189,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   closeRow: { flexDirection: 'row', gap: 12 },
+  levelRow: { flexDirection: 'row', gap: 12 },
+  levelPill: {
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  levelLabel: { fontFamily: 'Poppins-Light', fontSize: 15, letterSpacing: 0.3 },
   closeCarry: {
     fontFamily: 'Poppins-Light',
     fontSize: 22,
