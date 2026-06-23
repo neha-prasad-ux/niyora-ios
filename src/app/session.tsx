@@ -304,7 +304,6 @@ function BreathingSession({
                     {!!technique.context && (
                       <Text style={styles.techniqueContext}>{technique.context}</Text>
                     )}
-                    <Text style={styles.techniqueInstructions}>{technique.instructions}</Text>
                   </>
                 )}
               </View>

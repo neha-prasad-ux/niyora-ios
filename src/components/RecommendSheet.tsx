@@ -25,6 +25,7 @@ import Animated, {
 
 import { colors } from '@/theme/colors';
 import { Orb } from '@/components/orb';
+import { Pill } from '@/components/Pill';
 import {
   FEELINGS,
   NEEDS,
@@ -241,37 +242,19 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
           </Animated.View>
 
           {step === 'feeling' && (
-            <Pressable
-              onPress={handleContinue}
-              disabled={selectedFeelings.length === 0}
-              style={[
-                styles.continueButton,
-                selectedFeelings.length === 0 && styles.continueButtonDisabled,
-              ]}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: selectedFeelings.length === 0 }}
-              accessibilityLabel="Continue"
-            >
-              <Text
-                style={[
-                  styles.continueText,
-                  selectedFeelings.length === 0 && styles.continueTextDisabled,
-                ]}
-              >
-                Continue
-              </Text>
-            </Pressable>
+            <View style={styles.ctaRow}>
+              <Pill
+                label="Continue"
+                onPress={handleContinue}
+                disabled={selectedFeelings.length === 0}
+              />
+            </View>
           )}
 
           {step === 'need' && (
-            <Pressable
-              onPress={handleDone}
-              style={styles.continueButton}
-              accessibilityRole="button"
-              accessibilityLabel="Show what helps"
-            >
-              <Text style={styles.continueText}>Show me</Text>
-            </Pressable>
+            <View style={styles.ctaRow}>
+              <Pill label="Show me" onPress={handleDone} />
+            </View>
           )}
         </Pressable>
       </Pressable>
@@ -389,9 +372,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.18)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
+  // Selected chip is a translucent lavender toggle with a bright rim -- a clear
+  // "this is on", deliberately not the solid gradient of an action button.
   chipSelected: {
-    borderColor: 'rgba(196, 178, 255, 0.65)',
-    backgroundColor: 'rgba(150, 120, 235, 0.92)',
+    borderColor: 'rgba(196, 178, 255, 0.85)',
+    backgroundColor: 'rgba(150, 120, 235, 0.22)',
   },
   chipText: {
     fontFamily: 'Poppins-Light',
@@ -403,24 +388,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     color: '#fff',
   },
-  continueButton: {
-    alignSelf: 'center',
+  ctaRow: {
     marginTop: 20,
-    paddingHorizontal: 36,
-    paddingVertical: 13,
-    borderRadius: 24,
-    backgroundColor: 'rgba(150, 120, 235, 0.92)',
-  },
-  continueButtonDisabled: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  continueText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
-  continueTextDisabled: {
-    color: 'rgba(255, 255, 255, 0.35)',
+    alignItems: 'center',
   },
 });

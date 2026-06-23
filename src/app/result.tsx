@@ -85,9 +85,9 @@ export default function ResultScreen() {
       router.push({ pathname: '/session', params: p });
       return;
     }
-    // The activity experience screens (nudge/write/read/action) arrive in a
-    // later task. For now a nudge is a real-world action, so we dismiss home.
-    router.back();
+    if (card.activityId) {
+      router.push({ pathname: '/activity', params: { id: card.activityId } });
+    }
   }, []);
 
   return (

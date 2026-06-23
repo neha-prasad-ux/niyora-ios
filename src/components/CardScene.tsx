@@ -31,6 +31,7 @@ import Svg, {
   Defs,
   Ellipse,
   LinearGradient,
+  Path,
   RadialGradient,
   Rect,
   Stop,
@@ -43,13 +44,23 @@ import type { RecCard } from '@/models/recommend';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // Scene coordinate space; the Svg slices to fill whatever the card measures.
 const W = 300;
 const H = 440;
 
-type SceneKey = 'cold' | 'warm' | 'walk' | 'ink' | 'breathe' | 'glow' | 'dim';
+type SceneKey =
+  | 'cold'
+  | 'warm'
+  | 'walk'
+  | 'ink'
+  | 'breathe'
+  | 'glow'
+  | 'read'
+  | 'message'
+  | 'cave'
+  | 'dim';
 
 export function sceneKeyFor(card: RecCard): SceneKey {
   if (card.activityId) {
@@ -67,11 +78,15 @@ export function sceneKeyFor(card: RecCard): SceneKey {
         return 'ink';
       case 'gentle-read':
       case 'something-light':
-      case 'one-tiny-thing':
+        return 'read';
       case 'bridge-back':
+        return 'message';
+      case 'cave-mode':
+        return 'cave';
+      case 'one-tiny-thing':
         return 'glow';
       // legs-up-the-wall / childs-pose / slow-stretches are pose scenes (a
-      // separate, image-backed task) + cave-mode: a still, dim calm for now.
+      // separate, image-backed task) -> dim placeholder for now.
       default:
         return 'dim';
     }
@@ -106,15 +121,21 @@ function renderScene(key: SceneKey, reduced: boolean) {
     case 'cold':
       return <ColdScene reduced={reduced} />;
     case 'warm':
-      return <WarmScene reduced={reduced} />;
+      return <WarmScene />;
     case 'walk':
-      return <WalkScene reduced={reduced} />;
+      return <WalkScene />;
     case 'ink':
       return <InkScene reduced={reduced} />;
     case 'breathe':
       return <BreatheScene reduced={reduced} />;
     case 'glow':
       return <GlowScene reduced={reduced} />;
+    case 'read':
+      return <ReadScene />;
+    case 'message':
+      return <MessageScene reduced={reduced} />;
+    case 'cave':
+      return <CaveScene reduced={reduced} />;
     case 'dim':
     default:
       return <DimScene />;
@@ -144,15 +165,11 @@ function useLoop(duration: number, delay: number, reduced: boolean, yoyo = false
 // --- cold: droplets + ripple ---
 
 const DROPS = [
-  { x: 38, r: 4.5, dur: 4600, delay: 0 },
-  { x: 92, r: 3, dur: 5200, delay: 1400 },
-  { x: 140, r: 5, dur: 4200, delay: 2600 },
-  { x: 196, r: 3.5, dur: 5000, delay: 600 },
-  { x: 244, r: 4, dur: 4800, delay: 3200 },
-  { x: 66, r: 2.8, dur: 5400, delay: 2000 },
-  { x: 170, r: 3.2, dur: 4400, delay: 3800 },
-  { x: 220, r: 2.6, dur: 5600, delay: 1000 },
-  { x: 116, r: 3.8, dur: 4900, delay: 4200 },
+  { x: 58, r: 4, dur: 5200, delay: 0 },
+  { x: 124, r: 3, dur: 5600, delay: 2400 },
+  { x: 180, r: 4.5, dur: 4800, delay: 1200 },
+  { x: 236, r: 3.2, dur: 5400, delay: 3400 },
+  { x: 150, r: 2.8, dur: 6000, delay: 4600 },
 ];
 
 function ColdScene({ reduced }: { reduced: boolean }) {
@@ -209,66 +226,25 @@ function Ripple({ delay, reduced }: { delay: number; reduced: boolean }) {
   );
 }
 
-// --- warm: cozy mug + curling steam ---
+// --- warm: just a cozy warm colour wash (no animation) ---
 
-const SMOKE = [
-  { x: 138, dur: 5200, delay: 0 },
-  { x: 150, dur: 4600, delay: 1500 },
-  { x: 162, dur: 5600, delay: 800 },
-  { x: 144, dur: 4900, delay: 3000 },
-];
-
-function WarmScene({ reduced }: { reduced: boolean }) {
+function WarmScene() {
   return (
     <>
       <Defs>
-        <RadialGradient id="warmbg" cx="0.5" cy="0.72" r="0.85">
-          <Stop offset="0" stopColor="hsl(28,52%,28%)" />
-          <Stop offset="0.8" stopColor="#140d0a" />
+        <RadialGradient id="warmbg" cx="0.5" cy="0.66" r="0.9">
+          <Stop offset="0" stopColor="hsl(28,54%,30%)" />
+          <Stop offset="0.85" stopColor="#140d0a" />
         </RadialGradient>
-        <RadialGradient id="cupglow" cx="0.5" cy="0.5" r="0.5">
-          <Stop offset="0" stopColor="hsl(32,70%,55%)" stopOpacity="0.5" />
-          <Stop offset="1" stopColor="hsl(32,70%,55%)" stopOpacity="0" />
-        </RadialGradient>
-        <LinearGradient id="smokeg" x1="0" y1="1" x2="0" y2="0">
-          <Stop offset="0" stopColor="hsl(40,32%,96%)" stopOpacity="0" />
-          <Stop offset="0.55" stopColor="hsl(40,34%,96%)" stopOpacity="0.7" />
-          <Stop offset="1" stopColor="hsl(40,30%,96%)" stopOpacity="0" />
-        </LinearGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#warmbg)" />
-      <Ellipse cx={W / 2} cy={300} rx={78} ry={34} fill="url(#cupglow)" />
-      {SMOKE.map((s, i) => (
-        <Smoke key={i} cfg={s} reduced={reduced} />
-      ))}
-      {/* mug body + handle */}
-      <Rect x={120} y={278} width={60} height={50} rx={9} fill="hsl(26,30%,30%)" />
-      <Rect x={120} y={278} width={60} height={12} rx={6} fill="hsl(28,34%,40%)" />
-      <Circle cx={188} cy={300} r={11} fill="none" stroke="hsl(26,30%,30%)" strokeWidth={6} />
     </>
   );
 }
 
-function Smoke({ cfg, reduced }: { cfg: (typeof SMOKE)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.4);
-  const props = useAnimatedProps(() => ({
-    cy: interpolate(p.value, [0, 1], [276, 150]),
-    cx: interpolate(p.value, [0, 0.5, 1], [cfg.x, cfg.x - 10, cfg.x + 10]),
-    ry: interpolate(p.value, [0, 1], [16, 40]),
-    opacity: interpolate(p.value, [0, 0.25, 0.6, 1], [0, 0.6, 0.4, 0]),
-  }));
-  return <AnimatedEllipse rx={7} fill="url(#smokeg)" animatedProps={props} />;
-}
+// --- walk: a sunset colour wash + a low sun glow (no birds) ---
 
-// --- walk: low sun + drifting dusk clouds ---
-
-const WALK_CLOUDS = [
-  { y: 150, w: 90, h: 18, dur: 26000, delay: 0, op: 0.5 },
-  { y: 220, w: 120, h: 22, dur: 32000, delay: 6000, op: 0.42 },
-  { y: 290, w: 76, h: 16, dur: 22000, delay: 12000, op: 0.46 },
-];
-
-function WalkScene({ reduced }: { reduced: boolean }) {
+function WalkScene() {
   return (
     <>
       <Defs>
@@ -286,28 +262,7 @@ function WalkScene({ reduced }: { reduced: boolean }) {
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#walkbg)" />
       <Circle cx={W / 2} cy={300} r={86} fill="url(#sung)" />
-      {WALK_CLOUDS.map((c, i) => (
-        <Cloud key={i} cfg={c} reduced={reduced} />
-      ))}
     </>
-  );
-}
-
-function Cloud({ cfg, reduced }: { cfg: (typeof WALK_CLOUDS)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.3);
-  const props = useAnimatedProps(() => ({
-    x: interpolate(p.value, [0, 1], [-cfg.w, W]),
-  }));
-  return (
-    <AnimatedRect
-      y={cfg.y}
-      width={cfg.w}
-      height={cfg.h}
-      rx={cfg.h / 2}
-      fill="hsl(18,32%,18%)"
-      fillOpacity={cfg.op}
-      animatedProps={props}
-    />
   );
 }
 
@@ -361,12 +316,12 @@ function InkScene({ reduced }: { reduced: boolean }) {
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#inkbg)" />
       <SvgText
-        x={56}
-        y={152}
-        fill="hsl(250,36%,91%)"
-        fontSize={32}
-        fontFamily="PatrickHand"
-        opacity={0.92}
+        x={64}
+        y={150}
+        fill="hsl(250,24%,80%)"
+        fontSize={16}
+        fontFamily="Poppins-Light"
+        opacity={0.45}
       >
         {`${shown}|`}
       </SvgText>
@@ -391,36 +346,16 @@ function BreatheScene({ reduced }: { reduced: boolean }) {
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#breathebg)" />
-      <Ring delay={0} reduced={reduced} />
-      <Ring delay={1700} reduced={reduced} />
-      <Ring delay={3400} reduced={reduced} />
       <BreathOrb reduced={reduced} />
     </>
   );
 }
 
+// Just the soul, breathing big then small (no emanating rings).
 function BreathOrb({ reduced }: { reduced: boolean }) {
-  const p = useLoop(5000, 0, reduced, true, 0.5);
-  const props = useAnimatedProps(() => ({ r: interpolate(p.value, [0, 1], [54, 64]) }));
+  const p = useLoop(5200, 0, reduced, true, 0.5);
+  const props = useAnimatedProps(() => ({ r: interpolate(p.value, [0, 1], [46, 72]) }));
   return <AnimatedCircle cx={W / 2} cy={150} fill="url(#borb)" animatedProps={props} />;
-}
-
-function Ring({ delay, reduced }: { delay: number; reduced: boolean }) {
-  const p = useLoop(5000, delay, reduced, false, 0.4);
-  const props = useAnimatedProps(() => ({
-    r: interpolate(p.value, [0, 1], [36, 156]),
-    opacity: interpolate(p.value, [0, 1], [0.55, 0]),
-  }));
-  return (
-    <AnimatedCircle
-      cx={W / 2}
-      cy={150}
-      fill="none"
-      stroke="hsl(220,60%,82%)"
-      strokeWidth={1}
-      animatedProps={props}
-    />
-  );
 }
 
 // --- glow: slow violet glow + drifting sparks ---
@@ -472,6 +407,140 @@ function Spark({ cfg, reduced }: { cfg: (typeof SPARKS)[number]; reduced: boolea
     opacity: interpolate(p.value, [0, 0.2, 0.8, 1], [0, 0.8, 0.6, 0]),
   }));
   return <AnimatedCircle cx={cfg.x} r={cfg.r} fill="hsl(285,60%,85%)" animatedProps={props} />;
+}
+
+// --- read: just a soft colour wash (no animation) ---
+
+function ReadScene() {
+  return (
+    <>
+      <Defs>
+        <RadialGradient id="readbg" cx="0.5" cy="0.4" r="0.78">
+          <Stop offset="0" stopColor="hsl(32,24%,24%)" />
+          <Stop offset="0.85" stopColor="#100c0a" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={W} height={H} fill="url(#readbg)" />
+    </>
+  );
+}
+
+// --- message: chat bubbles popping into a conversation, right then left ---
+
+type Chat = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  side: 'right' | 'left';
+  dur: number;
+  delay: number;
+};
+
+const CHAT: Chat[] = [
+  { x: 118, y: 96, w: 108, h: 36, side: 'right', dur: 6200, delay: 0 },
+  { x: 56, y: 146, w: 96, h: 36, side: 'left', dur: 6200, delay: 1700 },
+];
+
+// A message bubble: three rounded corners and one sharp corner (the tail) -- on
+// the bottom-right for a sent bubble, bottom-left for a received one.
+function bubblePath(c: Chat, r: number): string {
+  const { x, y, w, h } = c;
+  if (c.side === 'right') {
+    return `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h} L ${x + r} ${y + h} Q ${x} ${y + h} ${x} ${y + h - r} L ${x} ${y + r} Q ${x} ${y} ${x + r} ${y} Z`;
+  }
+  return `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h - r} Q ${x + w} ${y + h} ${x + w - r} ${y + h} L ${x} ${y + h} L ${x} ${y + r} Q ${x} ${y} ${x + r} ${y} Z`;
+}
+
+function MessageScene({ reduced }: { reduced: boolean }) {
+  return (
+    <>
+      <Defs>
+        <RadialGradient id="msgbg" cx="0.5" cy="0.42" r="0.7">
+          <Stop offset="0" stopColor="hsl(208,30%,24%)" />
+          <Stop offset="0.82" stopColor="#0a1018" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={W} height={H} fill="url(#msgbg)" />
+      {CHAT.map((c, i) => (
+        <ChatBubble key={i} cfg={c} reduced={reduced} />
+      ))}
+    </>
+  );
+}
+
+function ChatBubble({ cfg, reduced }: { cfg: Chat; reduced: boolean }) {
+  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 1);
+  const props = useAnimatedProps(() => ({
+    opacity: interpolate(p.value, [0, 0.08, 0.8, 1], [0, 1, 1, 0]),
+  }));
+  const d = bubblePath(cfg, 13);
+  const fill = cfg.side === 'right' ? 'hsla(142,52%,52%,0.85)' : 'hsla(220,12%,72%,0.65)';
+  return <AnimatedPath d={d} fill={fill} animatedProps={props} />;
+}
+
+// --- cave: a cozy window at night, moon + a few twinkling stars ---
+
+const STARS = [
+  { x: 186, y: 126, r: 1.6, dur: 1800, delay: 0 },
+  { x: 174, y: 150, r: 1.2, dur: 2300, delay: 700 },
+  { x: 110, y: 222, r: 1.5, dur: 2000, delay: 1200 },
+  { x: 172, y: 232, r: 1.7, dur: 1700, delay: 400 },
+];
+
+function CaveScene({ reduced }: { reduced: boolean }) {
+  return (
+    <>
+      <Defs>
+        <RadialGradient id="roombg" cx="0.5" cy="0.55" r="0.92">
+          <Stop offset="0" stopColor="hsl(28,28%,18%)" />
+          <Stop offset="0.85" stopColor="#0e0a07" />
+        </RadialGradient>
+        <RadialGradient id="moonglow" cx="0.5" cy="0.5" r="0.5">
+          <Stop offset="0" stopColor="hsl(48,42%,92%)" stopOpacity="0.9" />
+          <Stop offset="1" stopColor="hsl(48,42%,92%)" stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={W} height={H} fill="url(#roombg)" />
+      {/* glass = night sky */}
+      <Rect x={84} y={92} width={132} height={176} rx={8} fill="hsl(222,42%,15%)" />
+      <Moon reduced={reduced} />
+      {STARS.map((s, i) => (
+        <Star key={i} cfg={s} reduced={reduced} />
+      ))}
+      {/* frame + mullions + sill */}
+      <Rect
+        x={84}
+        y={92}
+        width={132}
+        height={176}
+        rx={8}
+        fill="none"
+        stroke="hsl(26,30%,28%)"
+        strokeWidth={7}
+      />
+      <Rect x={147} y={92} width={6} height={176} fill="hsl(26,30%,28%)" />
+      <Rect x={84} y={177} width={132} height={6} fill="hsl(26,30%,28%)" />
+      <Rect x={74} y={266} width={152} height={13} rx={3} fill="hsl(26,28%,24%)" />
+    </>
+  );
+}
+
+function Moon({ reduced }: { reduced: boolean }) {
+  const p = useLoop(7000, 0, reduced, true, 0.5);
+  const props = useAnimatedProps(() => ({ opacity: interpolate(p.value, [0, 1], [0.5, 0.85]) }));
+  return (
+    <>
+      <AnimatedCircle cx={118} cy={134} r={34} fill="url(#moonglow)" animatedProps={props} />
+      <Circle cx={118} cy={134} r={15} fill="hsl(48,36%,90%)" />
+    </>
+  );
+}
+
+function Star({ cfg, reduced }: { cfg: (typeof STARS)[number]; reduced: boolean }) {
+  const p = useLoop(cfg.dur, cfg.delay, reduced, true, 0.6);
+  const props = useAnimatedProps(() => ({ opacity: interpolate(p.value, [0, 1], [0.2, 0.9]) }));
+  return <AnimatedCircle cx={cfg.x} cy={cfg.y} r={cfg.r} fill="hsl(48,40%,92%)" animatedProps={props} />;
 }
 
 // --- dim: a still calm gradient (retreat / neutral / pose placeholder) ---

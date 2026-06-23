@@ -223,7 +223,7 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'active',
     benefit: 'Mend it in one message.',
     why: "A small, honest repair matters more than the moment that needed it. It tells the other person the bond is still solid.",
-    body: 'Had a fight while your body was already struggling to feel safe? First, give it some air. Step out of the room or move to a different space and let the heat drop. Most fights look smaller from the other side of ten minutes, so you do not have to sort it out right now. When you are ready, if you want to bridge it back, here is a soft message you can send.',
+    body: "A few things first:\n• Step out, let the heat drop\n• Give it ten minutes, most fights shrink from the other side\n• When you're ready, sending something like this might help?",
     template:
       "Hey, I was short with you earlier and I'm sorry. Today has been a rough one and it came out sideways at you. It wasn't really about you, and I didn't like how I left things. Shall we talk it through in a bit, maybe after an hour?",
   },
