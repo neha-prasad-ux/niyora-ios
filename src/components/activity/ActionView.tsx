@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   tips: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
-    lineHeight: 24,
+    lineHeight: 27,
     color: 'rgba(255,255,255,0.74)',
     textAlign: 'left',
     marginBottom: 24,
