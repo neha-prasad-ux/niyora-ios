@@ -44,7 +44,6 @@ import type { RecCard } from '@/models/recommend';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // Scene coordinate space; the Svg slices to fill whatever the card measures.
@@ -122,9 +121,9 @@ function renderScene(key: SceneKey, reduced: boolean) {
     case 'cold':
       return <ColdScene reduced={reduced} />;
     case 'warm':
-      return <WarmScene reduced={reduced} />;
+      return <WarmScene />;
     case 'walk':
-      return <WalkScene reduced={reduced} />;
+      return <WalkScene />;
     case 'ink':
       return <InkScene reduced={reduced} />;
     case 'breathe':
@@ -132,7 +131,7 @@ function renderScene(key: SceneKey, reduced: boolean) {
     case 'glow':
       return <GlowScene reduced={reduced} />;
     case 'read':
-      return <ReadScene reduced={reduced} />;
+      return <ReadScene />;
     case 'message':
       return <MessageScene reduced={reduced} />;
     case 'cave':
@@ -227,66 +226,25 @@ function Ripple({ delay, reduced }: { delay: number; reduced: boolean }) {
   );
 }
 
-// --- warm: cozy mug + curling steam ---
+// --- warm: just a cozy warm colour wash (no animation) ---
 
-const SMOKE = [
-  { x: 138, dur: 5200, delay: 0 },
-  { x: 150, dur: 4600, delay: 1500 },
-  { x: 162, dur: 5600, delay: 800 },
-  { x: 144, dur: 4900, delay: 3000 },
-];
-
-function WarmScene({ reduced }: { reduced: boolean }) {
+function WarmScene() {
   return (
     <>
       <Defs>
-        <RadialGradient id="warmbg" cx="0.5" cy="0.72" r="0.85">
-          <Stop offset="0" stopColor="hsl(28,52%,28%)" />
-          <Stop offset="0.8" stopColor="#140d0a" />
+        <RadialGradient id="warmbg" cx="0.5" cy="0.66" r="0.9">
+          <Stop offset="0" stopColor="hsl(28,54%,30%)" />
+          <Stop offset="0.85" stopColor="#140d0a" />
         </RadialGradient>
-        <RadialGradient id="cupglow" cx="0.5" cy="0.5" r="0.5">
-          <Stop offset="0" stopColor="hsl(32,70%,55%)" stopOpacity="0.5" />
-          <Stop offset="1" stopColor="hsl(32,70%,55%)" stopOpacity="0" />
-        </RadialGradient>
-        <LinearGradient id="smokeg" x1="0" y1="1" x2="0" y2="0">
-          <Stop offset="0" stopColor="hsl(40,32%,96%)" stopOpacity="0" />
-          <Stop offset="0.55" stopColor="hsl(40,34%,96%)" stopOpacity="0.7" />
-          <Stop offset="1" stopColor="hsl(40,30%,96%)" stopOpacity="0" />
-        </LinearGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#warmbg)" />
-      <Ellipse cx={W / 2} cy={300} rx={78} ry={34} fill="url(#cupglow)" />
-      {SMOKE.map((s, i) => (
-        <Smoke key={i} cfg={s} reduced={reduced} />
-      ))}
-      {/* mug body + handle */}
-      <Rect x={120} y={278} width={60} height={50} rx={9} fill="hsl(26,30%,30%)" />
-      <Rect x={120} y={278} width={60} height={12} rx={6} fill="hsl(28,34%,40%)" />
-      <Circle cx={188} cy={300} r={11} fill="none" stroke="hsl(26,30%,30%)" strokeWidth={6} />
     </>
   );
 }
 
-function Smoke({ cfg, reduced }: { cfg: (typeof SMOKE)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.4);
-  const props = useAnimatedProps(() => ({
-    cy: interpolate(p.value, [0, 1], [276, 150]),
-    cx: interpolate(p.value, [0, 0.5, 1], [cfg.x, cfg.x - 10, cfg.x + 10]),
-    ry: interpolate(p.value, [0, 1], [16, 40]),
-    opacity: interpolate(p.value, [0, 0.25, 0.6, 1], [0, 0.6, 0.4, 0]),
-  }));
-  return <AnimatedEllipse rx={7} fill="url(#smokeg)" animatedProps={props} />;
-}
+// --- walk: a sunset colour wash + a low sun glow (no birds) ---
 
-// --- walk: low sun + birds drifting far away ---
-
-const BIRDS = [
-  { y: 116, scale: 1, dur: 9000, delay: 0 },
-  { y: 92, scale: 0.8, dur: 11000, delay: 2600 },
-  { y: 138, scale: 0.7, dur: 8000, delay: 5200 },
-];
-
-function WalkScene({ reduced }: { reduced: boolean }) {
+function WalkScene() {
   return (
     <>
       <Defs>
@@ -304,34 +262,7 @@ function WalkScene({ reduced }: { reduced: boolean }) {
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#walkbg)" />
       <Circle cx={W / 2} cy={300} r={86} fill="url(#sung)" />
-      {BIRDS.map((b, i) => (
-        <Bird key={i} cfg={b} reduced={reduced} />
-      ))}
     </>
-  );
-}
-
-function Bird({ cfg, reduced }: { cfg: (typeof BIRDS)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.3);
-  const s = cfg.scale;
-  const y = cfg.y;
-  // Animate the whole path `d` from the moving x -- driving `d` directly is the
-  // reliable way to translate an SVG path in RN-SVG (transform props did not).
-  const props = useAnimatedProps(() => {
-    const x = interpolate(p.value, [0, 1], [-24, W + 24]);
-    return {
-      d: `M ${x - 7 * s} ${y} Q ${x - 3.5 * s} ${y - 5 * s} ${x} ${y} Q ${x + 3.5 * s} ${y - 5 * s} ${x + 7 * s} ${y}`,
-    };
-  });
-  return (
-    <AnimatedPath
-      d={`M ${-7 * s} ${y} Q ${-3.5 * s} ${y - 5 * s} 0 ${y} Q ${3.5 * s} ${y - 5 * s} ${7 * s} ${y}`}
-      stroke="hsla(26,28%,84%,0.55)"
-      strokeWidth={1.6}
-      fill="none"
-      strokeLinecap="round"
-      animatedProps={props}
-    />
   );
 }
 
@@ -478,46 +409,19 @@ function Spark({ cfg, reduced }: { cfg: (typeof SPARKS)[number]; reduced: boolea
   return <AnimatedCircle cx={cfg.x} r={cfg.r} fill="hsl(285,60%,85%)" animatedProps={props} />;
 }
 
-// --- read: an open book with a page gently turning ---
+// --- read: just a soft colour wash (no animation) ---
 
-function ReadScene({ reduced }: { reduced: boolean }) {
+function ReadScene() {
   return (
     <>
       <Defs>
-        <RadialGradient id="readbg" cx="0.5" cy="0.4" r="0.74">
-          <Stop offset="0" stopColor="hsl(32,22%,22%)" />
-          <Stop offset="0.82" stopColor="#100c0a" />
+        <RadialGradient id="readbg" cx="0.5" cy="0.4" r="0.78">
+          <Stop offset="0" stopColor="hsl(32,24%,24%)" />
+          <Stop offset="0.85" stopColor="#100c0a" />
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#readbg)" />
-      {/* two open pages + spine */}
-      <Rect x={62} y={120} width={88} height={124} rx={3} fill="hsla(40,30%,90%,0.15)" />
-      <Rect x={150} y={120} width={88} height={124} rx={3} fill="hsla(40,30%,90%,0.15)" />
-      <Rect x={148} y={120} width={4} height={124} fill="hsla(30,20%,42%,0.4)" />
-      {/* faint text lines */}
-      <Rect x={72} y={142} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.22)" />
-      <Rect x={72} y={158} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.18)" />
-      <Rect x={72} y={174} width={54} height={2} rx={1} fill="hsla(40,20%,86%,0.16)" />
-      <Rect x={160} y={142} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.22)" />
-      <Rect x={160} y={158} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.18)" />
-      <Rect x={160} y={174} width={54} height={2} rx={1} fill="hsla(40,20%,86%,0.16)" />
-      <TurningPage reduced={reduced} />
     </>
-  );
-}
-
-function TurningPage({ reduced }: { reduced: boolean }) {
-  const p = useLoop(7000, 900, reduced, false, 0);
-  // A leaf flips right -> left: the right page foreshortens to the spine, then a
-  // left page opens out from the spine. Fades out before the loop resets so the
-  // jump back to the right is hidden (the static pages stay underneath).
-  const props = useAnimatedProps(() => ({
-    width: interpolate(p.value, [0, 0.2, 0.45, 0.7, 1], [88, 88, 0, 88, 88]),
-    x: interpolate(p.value, [0, 0.45, 0.7, 1], [150, 150, 62, 62]),
-    opacity: interpolate(p.value, [0, 0.04, 0.72, 0.85, 1], [0, 0.85, 0.85, 0, 0]),
-  }));
-  return (
-    <AnimatedRect y={120} height={124} rx={3} fill="hsla(42,34%,93%,0.32)" animatedProps={props} />
   );
 }
 
