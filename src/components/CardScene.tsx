@@ -391,36 +391,16 @@ function BreatheScene({ reduced }: { reduced: boolean }) {
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#breathebg)" />
-      <Ring delay={0} reduced={reduced} />
-      <Ring delay={1700} reduced={reduced} />
-      <Ring delay={3400} reduced={reduced} />
       <BreathOrb reduced={reduced} />
     </>
   );
 }
 
+// Just the soul, breathing big then small (no emanating rings).
 function BreathOrb({ reduced }: { reduced: boolean }) {
-  const p = useLoop(5000, 0, reduced, true, 0.5);
-  const props = useAnimatedProps(() => ({ r: interpolate(p.value, [0, 1], [54, 64]) }));
+  const p = useLoop(5200, 0, reduced, true, 0.5);
+  const props = useAnimatedProps(() => ({ r: interpolate(p.value, [0, 1], [46, 72]) }));
   return <AnimatedCircle cx={W / 2} cy={150} fill="url(#borb)" animatedProps={props} />;
-}
-
-function Ring({ delay, reduced }: { delay: number; reduced: boolean }) {
-  const p = useLoop(5000, delay, reduced, false, 0.4);
-  const props = useAnimatedProps(() => ({
-    r: interpolate(p.value, [0, 1], [36, 156]),
-    opacity: interpolate(p.value, [0, 1], [0.55, 0]),
-  }));
-  return (
-    <AnimatedCircle
-      cx={W / 2}
-      cy={150}
-      fill="none"
-      stroke="hsl(220,60%,82%)"
-      strokeWidth={1}
-      animatedProps={props}
-    />
-  );
 }
 
 // --- glow: slow violet glow + drifting sparks ---

@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   runOnJS,
@@ -28,6 +29,7 @@ type Props = { activity: Activity; onComplete: () => void };
 export function WriteView({ activity, onComplete }: Props) {
   const [text, setText] = useState('');
   const fade = useSharedValue(1);
+  const insets = useSafeAreaInsets();
 
   const onDisappear = () => {
     fade.value = withTiming(0, { duration: 700, easing: Easing.in(Easing.cubic) }, (done) => {
@@ -40,6 +42,7 @@ export function WriteView({ activity, onComplete }: Props) {
     <KeyboardAvoidingView
       style={styles.wrap}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={insets.top + 28}
     >
       <Text style={styles.title}>{activity.title}</Text>
       <Text style={styles.subtitle}>

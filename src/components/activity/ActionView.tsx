@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
@@ -25,6 +26,7 @@ type Props = { activity: Activity; onComplete: () => void };
 export function ActionView({ activity, onComplete }: Props) {
   const [text, setText] = useState(activity.template ?? '');
   const [copied, setCopied] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const onCopy = async () => {
     await Clipboard.setStringAsync(text);
@@ -48,6 +50,7 @@ export function ActionView({ activity, onComplete }: Props) {
     <KeyboardAvoidingView
       style={styles.wrap}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={insets.top + 28}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
