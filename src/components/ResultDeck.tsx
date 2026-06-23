@@ -101,28 +101,8 @@ export function ResultDeck({ cards, onBegin }: Props) {
       }
     });
 
-  const jumpTo = (cardIndex: number) => {
-    const n = cards.length;
-    setOrder(Array.from({ length: n }, (_, j) => (cardIndex + j) % n));
-    dragX.value = 0;
-  };
-
   return (
     <View style={styles.wrap}>
-      <View style={styles.dots}>
-        {cards.map((_, i) => (
-          <Pressable
-            key={i}
-            onPress={() => jumpTo(i)}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Jump to card ${i + 1}`}
-          >
-            <Dot active={order[0] === i} />
-          </Pressable>
-        ))}
-      </View>
-
       <GestureDetector gesture={pan}>
         <View style={styles.deck}>
           {cards.map((card, idx) => (
@@ -138,10 +118,6 @@ export function ResultDeck({ cards, onBegin }: Props) {
       </GestureDetector>
     </View>
   );
-}
-
-function Dot({ active }: { active: boolean }) {
-  return <View style={[styles.dot, active && styles.dotActive]} />;
 }
 
 function DeckCard({
@@ -254,14 +230,6 @@ function formatTime(seconds: number): string {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
-  dots: { flexDirection: 'row', gap: 7, marginBottom: 16, height: 8, alignItems: 'center' },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(190, 170, 255, 0.30)',
-  },
-  dotActive: { width: 16, backgroundColor: 'rgba(190, 170, 255, 0.95)' },
   deck: { height: DECK_H, width: 300, alignSelf: 'center' },
   card: {
     position: 'absolute',
