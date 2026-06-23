@@ -115,6 +115,7 @@ function Closure({ onClose }: { onClose: () => void }) {
     <Animated.View entering={FadeIn.duration(500)} style={styles.closure}>
       {phase === 'ask' ? (
         <View style={styles.closeAsk}>
+          <Text style={styles.closeLead}>Hope that gave you a little room.</Text>
           <Text style={styles.closeQ}>Would you recommend this to a friend?</Text>
           <View style={styles.closeRow}>
             <Pill label="Yes" onPress={() => setPhase('carry')} />
@@ -146,12 +147,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  closeAsk: { alignItems: 'center', gap: 22 },
+  closeAsk: { alignItems: 'center', gap: 18 },
+  closeLead: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 21,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
   closeQ: {
     fontFamily: 'Poppins-Light',
-    fontSize: 20,
-    lineHeight: 28,
-    color: colors.textPrimary,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textSubtitle,
     textAlign: 'center',
   },
   closeRow: { flexDirection: 'row', gap: 12 },

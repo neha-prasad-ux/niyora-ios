@@ -32,11 +32,18 @@ export function WriteView({ activity, onComplete }: Props) {
   const insets = useSafeAreaInsets();
 
   const onDisappear = () => {
-    fade.value = withTiming(0, { duration: 700, easing: Easing.in(Easing.cubic) }, (done) => {
+    fade.value = withTiming(0, { duration: 850, easing: Easing.in(Easing.cubic) }, (done) => {
       if (done) runOnJS(onComplete)();
     });
   };
-  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+  // Magic dissolve: the words lift, swell a touch, and fade into the air.
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [
+      { translateY: (1 - fade.value) * -30 },
+      { scale: 1 + (1 - fade.value) * 0.06 },
+    ],
+  }));
 
   return (
     <KeyboardAvoidingView
