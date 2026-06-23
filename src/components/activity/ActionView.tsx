@@ -19,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
 import type { Activity } from '@/models/activities';
-import { Pill } from './ui';
+import { Pill } from '@/components/Pill';
 
 type Props = { activity: Activity; onComplete: () => void };
 

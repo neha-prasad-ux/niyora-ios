@@ -16,7 +16,7 @@ import Svg, { Circle } from 'react-native-svg';
 
 import { colors } from '@/theme/colors';
 import type { Activity } from '@/models/activities';
-import { Pill } from './ui';
+import { Pill } from '@/components/Pill';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -54,7 +54,7 @@ export function NudgeView({ activity, onComplete }: Props) {
         ) : null}
         <Pill
           label={running ? "I'm done" : timed ? 'Skip' : 'Done'}
-          variant={running || timed ? 'ghost' : 'primary'}
+          variant={running || timed ? 'ghost' : 'solid'}
           onPress={onComplete}
         />
       </View>

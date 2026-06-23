@@ -16,7 +16,8 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CardScene } from '@/components/CardScene';
-import { Scrim, Pill } from '@/components/activity/ui';
+import { Scrim } from '@/components/activity/ui';
+import { Pill } from '@/components/Pill';
 import { NudgeView } from '@/components/activity/NudgeView';
 import { WriteView } from '@/components/activity/WriteView';
 import { ReadView } from '@/components/activity/ReadView';
