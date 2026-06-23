@@ -52,6 +52,7 @@ export function ActionView({ activity, onComplete }: Props) {
       >
         <Text style={styles.title}>{activity.title}</Text>
         {activity.body ? <Text style={styles.tips}>{activity.body}</Text> : null}
+        <Text style={styles.label}>your message</Text>
         <TextInput
           style={styles.input}
           value={text}
@@ -78,15 +79,23 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 14,
+    marginBottom: 18,
   },
   tips: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
-    lineHeight: 23,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginBottom: 20,
+    lineHeight: 24,
+    color: 'rgba(255,255,255,0.74)',
+    textAlign: 'left',
+    marginBottom: 24,
+  },
+  label: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.45)',
+    marginBottom: 10,
   },
   input: {
     fontFamily: 'Poppins-Light',
