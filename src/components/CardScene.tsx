@@ -31,6 +31,7 @@ import Svg, {
   Defs,
   Ellipse,
   LinearGradient,
+  Path,
   RadialGradient,
   Rect,
   Stop,
@@ -44,6 +45,7 @@ import type { RecCard } from '@/models/recommend';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // Scene coordinate space; the Svg slices to fill whatever the card measures.
 const W = 300;
@@ -144,15 +146,11 @@ function useLoop(duration: number, delay: number, reduced: boolean, yoyo = false
 // --- cold: droplets + ripple ---
 
 const DROPS = [
-  { x: 38, r: 4.5, dur: 4600, delay: 0 },
-  { x: 92, r: 3, dur: 5200, delay: 1400 },
-  { x: 140, r: 5, dur: 4200, delay: 2600 },
-  { x: 196, r: 3.5, dur: 5000, delay: 600 },
-  { x: 244, r: 4, dur: 4800, delay: 3200 },
-  { x: 66, r: 2.8, dur: 5400, delay: 2000 },
-  { x: 170, r: 3.2, dur: 4400, delay: 3800 },
-  { x: 220, r: 2.6, dur: 5600, delay: 1000 },
-  { x: 116, r: 3.8, dur: 4900, delay: 4200 },
+  { x: 58, r: 4, dur: 5200, delay: 0 },
+  { x: 124, r: 3, dur: 5600, delay: 2400 },
+  { x: 180, r: 4.5, dur: 4800, delay: 1200 },
+  { x: 236, r: 3.2, dur: 5400, delay: 3400 },
+  { x: 150, r: 2.8, dur: 6000, delay: 4600 },
 ];
 
 function ColdScene({ reduced }: { reduced: boolean }) {
@@ -260,12 +258,12 @@ function Smoke({ cfg, reduced }: { cfg: (typeof SMOKE)[number]; reduced: boolean
   return <AnimatedEllipse rx={7} fill="url(#smokeg)" animatedProps={props} />;
 }
 
-// --- walk: low sun + drifting dusk clouds ---
+// --- walk: low sun + birds drifting far away ---
 
-const WALK_CLOUDS = [
-  { y: 150, w: 90, h: 18, dur: 26000, delay: 0, op: 0.5 },
-  { y: 220, w: 120, h: 22, dur: 32000, delay: 6000, op: 0.42 },
-  { y: 290, w: 76, h: 16, dur: 22000, delay: 12000, op: 0.46 },
+const BIRDS = [
+  { y: 116, scale: 1, dur: 27000, delay: 0 },
+  { y: 92, scale: 0.8, dur: 34000, delay: 9000 },
+  { y: 138, scale: 0.7, dur: 23000, delay: 17000 },
 ];
 
 function WalkScene({ reduced }: { reduced: boolean }) {
@@ -286,26 +284,28 @@ function WalkScene({ reduced }: { reduced: boolean }) {
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#walkbg)" />
       <Circle cx={W / 2} cy={300} r={86} fill="url(#sung)" />
-      {WALK_CLOUDS.map((c, i) => (
-        <Cloud key={i} cfg={c} reduced={reduced} />
+      {BIRDS.map((b, i) => (
+        <Bird key={i} cfg={b} reduced={reduced} />
       ))}
     </>
   );
 }
 
-function Cloud({ cfg, reduced }: { cfg: (typeof WALK_CLOUDS)[number]; reduced: boolean }) {
+function Bird({ cfg, reduced }: { cfg: (typeof BIRDS)[number]; reduced: boolean }) {
   const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.3);
   const props = useAnimatedProps(() => ({
-    x: interpolate(p.value, [0, 1], [-cfg.w, W]),
+    translateX: interpolate(p.value, [0, 1], [-24, W + 24]),
   }));
+  // A faint two-arc gull silhouette, centred on the origin.
   return (
-    <AnimatedRect
-      y={cfg.y}
-      width={cfg.w}
-      height={cfg.h}
-      rx={cfg.h / 2}
-      fill="hsl(18,32%,18%)"
-      fillOpacity={cfg.op}
+    <AnimatedPath
+      d="M -7 0 Q -3.5 -5 0 0 Q 3.5 -5 7 0"
+      stroke="hsla(26,28%,84%,0.55)"
+      strokeWidth={1.6}
+      fill="none"
+      strokeLinecap="round"
+      translateY={cfg.y}
+      scale={cfg.scale}
       animatedProps={props}
     />
   );

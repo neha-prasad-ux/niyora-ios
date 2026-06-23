@@ -1,10 +1,11 @@
 // Activity experience screen. Reached from the result deck when she taps BEGIN
 // on an activity card. Shows the activity's living scene as a full-bleed
 // background, then the tap-in experience for its card type (nudge / write /
-// read / action). Ends on a brief calm closure, then back home.
+// read / action). Ends on a brief closure that asks whether she'd recommend it,
+// then sends her off with the calm, then home.
 //
-// The post-activity felt-delta + "recommend to a friend" loop is a later task;
-// this screen ends at the closure with an onComplete seam it can hook into.
+// The recommend answer isn't persisted yet -- that's the social/rating loop
+// (V2). For now it's a soft beat that closes the moment warmly.
 
 import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
+import { BackgroundGradient } from '@/components/background-gradient';
 import { CardScene } from '@/components/CardScene';
-import { Scrim } from '@/components/activity/ui';
+import { Scrim, Pill } from '@/components/activity/ui';
 import { NudgeView } from '@/components/activity/NudgeView';
 import { WriteView } from '@/components/activity/WriteView';
 import { ReadView } from '@/components/activity/ReadView';
@@ -22,8 +24,6 @@ import { ActionView } from '@/components/activity/ActionView';
 import { colors } from '@/theme/colors';
 import { getActivity } from '@/models/activities';
 import type { RecCard } from '@/models/recommend';
-
-const CLOSE_MS = 1500;
 
 export default function ActivityScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,16 +37,11 @@ export default function ActivityScreen() {
     if (!activity) router.back();
   }, [activity]);
 
-  // After the closure beat, return home.
-  useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => router.back(), CLOSE_MS);
-    return () => clearTimeout(t);
-  }, [done]);
-
   if (!activity) return <View style={styles.root} />;
 
-  // CardScene wants a RecCard; only activityId is read by sceneKeyFor.
+  // Writes get the plain ambient gradient (no "I feel..." scene competing with
+  // her own words); the rest get their living scene.
+  const isWrite = activity.cardType === 'write';
   const sceneCard: RecCard = {
     id: `act-${activity.id}`,
     source: 'activity',
@@ -61,10 +56,16 @@ export default function ActivityScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={StyleSheet.absoluteFill}>
-        <CardScene card={sceneCard} active />
-      </View>
-      <Scrim />
+      {isWrite ? (
+        <BackgroundGradient />
+      ) : (
+        <>
+          <View style={StyleSheet.absoluteFill}>
+            <CardScene card={sceneCard} active />
+          </View>
+          <Scrim />
+        </>
+      )}
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.header}>
@@ -94,16 +95,37 @@ export default function ActivityScreen() {
         </View>
       </SafeAreaView>
 
-      {done ? (
-        <Animated.View
-          entering={FadeIn.duration(500)}
-          style={styles.closure}
-          pointerEvents="none"
-        >
-          <Text style={styles.closureText}>that's it</Text>
-        </Animated.View>
-      ) : null}
+      {done ? <Closure onClose={() => router.back()} /> : null}
     </View>
+  );
+}
+
+// Closure: a soft "would you recommend this?", then "take the calm with you",
+// then home.
+function Closure({ onClose }: { onClose: () => void }) {
+  const [phase, setPhase] = useState<'ask' | 'carry'>('ask');
+  useEffect(() => {
+    if (phase !== 'carry') return;
+    const t = setTimeout(onClose, 1800);
+    return () => clearTimeout(t);
+  }, [phase, onClose]);
+
+  return (
+    <Animated.View entering={FadeIn.duration(500)} style={styles.closure}>
+      {phase === 'ask' ? (
+        <View style={styles.closeAsk}>
+          <Text style={styles.closeQ}>Would you recommend this to a friend?</Text>
+          <View style={styles.closeRow}>
+            <Pill label="Yes" onPress={() => setPhase('carry')} />
+            <Pill label="Not for me" variant="ghost" onPress={() => setPhase('carry')} />
+          </View>
+        </View>
+      ) : (
+        <Animated.Text entering={FadeIn.duration(600)} style={styles.closeCarry}>
+          Take the calm with you.
+        </Animated.Text>
+      )}
+    </Animated.View>
   );
 }
 
@@ -118,14 +140,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(8, 6, 14, 0.82)',
+    backgroundColor: 'rgba(8, 6, 14, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 32,
   },
-  closureText: {
+  closeAsk: { alignItems: 'center', gap: 22 },
+  closeQ: {
     fontFamily: 'Poppins-Light',
-    fontSize: 26,
+    fontSize: 20,
+    lineHeight: 28,
     color: colors.textPrimary,
-    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  closeRow: { flexDirection: 'row', gap: 12 },
+  closeCarry: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 22,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.3,
   },
 });
