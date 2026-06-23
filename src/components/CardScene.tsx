@@ -281,9 +281,9 @@ function Smoke({ cfg, reduced }: { cfg: (typeof SMOKE)[number]; reduced: boolean
 // --- walk: low sun + birds drifting far away ---
 
 const BIRDS = [
-  { y: 116, scale: 1, dur: 27000, delay: 0 },
-  { y: 92, scale: 0.8, dur: 34000, delay: 9000 },
-  { y: 138, scale: 0.7, dur: 23000, delay: 17000 },
+  { y: 116, scale: 1, dur: 9000, delay: 0 },
+  { y: 92, scale: 0.8, dur: 11000, delay: 2600 },
+  { y: 138, scale: 0.7, dur: 8000, delay: 5200 },
 ];
 
 function WalkScene({ reduced }: { reduced: boolean }) {
@@ -313,17 +313,19 @@ function WalkScene({ reduced }: { reduced: boolean }) {
 
 function Bird({ cfg, reduced }: { cfg: (typeof BIRDS)[number]; reduced: boolean }) {
   const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.3);
-  // Only translateX is animated; the height + size are baked into the path so a
-  // static transform can't override the motion (which kept the bird from flying).
-  const props = useAnimatedProps(() => ({
-    translateX: interpolate(p.value, [0, 1], [-24, W + 24]),
-  }));
   const s = cfg.scale;
   const y = cfg.y;
-  const d = `M ${-7 * s} ${y} Q ${-3.5 * s} ${y - 5 * s} 0 ${y} Q ${3.5 * s} ${y - 5 * s} ${7 * s} ${y}`;
+  // Animate the whole path `d` from the moving x -- driving `d` directly is the
+  // reliable way to translate an SVG path in RN-SVG (transform props did not).
+  const props = useAnimatedProps(() => {
+    const x = interpolate(p.value, [0, 1], [-24, W + 24]);
+    return {
+      d: `M ${x - 7 * s} ${y} Q ${x - 3.5 * s} ${y - 5 * s} ${x} ${y} Q ${x + 3.5 * s} ${y - 5 * s} ${x + 7 * s} ${y}`,
+    };
+  });
   return (
     <AnimatedPath
-      d={d}
+      d={`M ${-7 * s} ${y} Q ${-3.5 * s} ${y - 5 * s} 0 ${y} Q ${3.5 * s} ${y - 5 * s} ${7 * s} ${y}`}
       stroke="hsla(26,28%,84%,0.55)"
       strokeWidth={1.6}
       fill="none"
@@ -505,24 +507,47 @@ function ReadScene({ reduced }: { reduced: boolean }) {
 }
 
 function TurningPage({ reduced }: { reduced: boolean }) {
-  const p = useLoop(6500, 1200, reduced, false, 0);
-  // Right page foreshortens to the spine (turning up), then a fresh page drops.
+  const p = useLoop(7000, 900, reduced, false, 0);
+  // A leaf flips right -> left: the right page foreshortens to the spine, then a
+  // left page opens out from the spine. Fades out before the loop resets so the
+  // jump back to the right is hidden (the static pages stay underneath).
   const props = useAnimatedProps(() => ({
-    width: interpolate(p.value, [0, 0.42, 0.5, 1], [88, 3, 88, 88]),
-    opacity: interpolate(p.value, [0, 0.42, 0.5, 0.58, 1], [0.85, 0.25, 0, 0.85, 0.85]),
+    width: interpolate(p.value, [0, 0.2, 0.45, 0.7, 1], [88, 88, 0, 88, 88]),
+    x: interpolate(p.value, [0, 0.45, 0.7, 1], [150, 150, 62, 62]),
+    opacity: interpolate(p.value, [0, 0.04, 0.72, 0.85, 1], [0, 0.85, 0.85, 0, 0]),
   }));
   return (
-    <AnimatedRect x={150} y={120} height={124} rx={3} fill="hsla(42,34%,93%,0.3)" animatedProps={props} />
+    <AnimatedRect y={120} height={124} rx={3} fill="hsla(42,34%,93%,0.32)" animatedProps={props} />
   );
 }
 
-// --- message: chat bubbles drifting up, like a note sent ---
+// --- message: chat bubbles popping into a conversation, right then left ---
 
-const BUBBLES = [
-  { x: 86, w: 74, dur: 6200, delay: 0 },
-  { x: 150, w: 92, dur: 7200, delay: 2600 },
-  { x: 116, w: 58, dur: 6600, delay: 4600 },
+type Chat = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  side: 'right' | 'left';
+  dur: number;
+  delay: number;
+};
+
+const CHAT: Chat[] = [
+  { x: 118, y: 150, w: 108, h: 36, side: 'right', dur: 6200, delay: 0 },
+  { x: 56, y: 200, w: 96, h: 36, side: 'left', dur: 6200, delay: 1700 },
+  { x: 130, y: 250, w: 86, h: 36, side: 'right', dur: 6200, delay: 3400 },
 ];
+
+// A message bubble: three rounded corners and one sharp corner (the tail) -- on
+// the bottom-right for a sent bubble, bottom-left for a received one.
+function bubblePath(c: Chat, r: number): string {
+  const { x, y, w, h } = c;
+  if (c.side === 'right') {
+    return `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h} L ${x + r} ${y + h} Q ${x} ${y + h} ${x} ${y + h - r} L ${x} ${y + r} Q ${x} ${y} ${x + r} ${y} Z`;
+  }
+  return `M ${x + r} ${y} L ${x + w - r} ${y} Q ${x + w} ${y} ${x + w} ${y + r} L ${x + w} ${y + h - r} Q ${x + w} ${y + h} ${x + w - r} ${y + h} L ${x} ${y + h} L ${x} ${y + r} Q ${x} ${y} ${x + r} ${y} Z`;
+}
 
 function MessageScene({ reduced }: { reduced: boolean }) {
   return (
@@ -534,78 +559,85 @@ function MessageScene({ reduced }: { reduced: boolean }) {
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#msgbg)" />
-      {BUBBLES.map((b, i) => (
-        <Bubble key={i} cfg={b} reduced={reduced} />
+      {CHAT.map((c, i) => (
+        <ChatBubble key={i} cfg={c} reduced={reduced} />
       ))}
     </>
   );
 }
 
-function Bubble({ cfg, reduced }: { cfg: (typeof BUBBLES)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.4);
+function ChatBubble({ cfg, reduced }: { cfg: Chat; reduced: boolean }) {
+  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 1);
   const props = useAnimatedProps(() => ({
-    y: interpolate(p.value, [0, 1], [300, 116]),
-    opacity: interpolate(p.value, [0, 0.25, 0.7, 1], [0, 0.6, 0.45, 0]),
+    opacity: interpolate(p.value, [0, 0.08, 0.8, 1], [0, 1, 1, 0]),
   }));
-  return (
-    <AnimatedRect x={cfg.x} width={cfg.w} height={30} rx={15} fill="hsla(206,60%,78%,0.5)" animatedProps={props} />
-  );
+  const d = bubblePath(cfg, 13);
+  const fill = cfg.side === 'right' ? 'hsla(142,52%,52%,0.85)' : 'hsla(220,12%,72%,0.65)';
+  return <AnimatedPath d={d} fill={fill} animatedProps={props} />;
 }
 
-// --- cave: a cozy fire flickering, a sofa in the foreground ---
+// --- cave: a cozy window at night, moon + a few twinkling stars ---
 
-const FLAMES = [
-  { x: 134, dur: 900, delay: 0, scale: 1 },
-  { x: 150, dur: 1100, delay: 300, scale: 1.3 },
-  { x: 166, dur: 820, delay: 600, scale: 0.9 },
+const STARS = [
+  { x: 186, y: 126, r: 1.6, dur: 1800, delay: 0 },
+  { x: 174, y: 150, r: 1.2, dur: 2300, delay: 700 },
+  { x: 110, y: 222, r: 1.5, dur: 2000, delay: 1200 },
+  { x: 172, y: 232, r: 1.7, dur: 1700, delay: 400 },
 ];
 
 function CaveScene({ reduced }: { reduced: boolean }) {
   return (
     <>
       <Defs>
-        <RadialGradient id="cavebg" cx="0.5" cy="0.82" r="0.95">
-          <Stop offset="0" stopColor="hsl(24,42%,22%)" />
-          <Stop offset="0.85" stopColor="#0e0805" />
+        <RadialGradient id="roombg" cx="0.5" cy="0.55" r="0.92">
+          <Stop offset="0" stopColor="hsl(28,28%,18%)" />
+          <Stop offset="0.85" stopColor="#0e0a07" />
         </RadialGradient>
-        <RadialGradient id="fireglow" cx="0.5" cy="0.5" r="0.5">
-          <Stop offset="0" stopColor="hsl(30,92%,62%)" stopOpacity="0.75" />
-          <Stop offset="1" stopColor="hsl(20,84%,50%)" stopOpacity="0" />
+        <RadialGradient id="moonglow" cx="0.5" cy="0.5" r="0.5">
+          <Stop offset="0" stopColor="hsl(48,42%,92%)" stopOpacity="0.9" />
+          <Stop offset="1" stopColor="hsl(48,42%,92%)" stopOpacity="0" />
         </RadialGradient>
       </Defs>
-      <Rect x="0" y="0" width={W} height={H} fill="url(#cavebg)" />
-      <FireGlow reduced={reduced} />
-      {FLAMES.map((f, i) => (
-        <Flame key={i} cfg={f} reduced={reduced} />
+      <Rect x="0" y="0" width={W} height={H} fill="url(#roombg)" />
+      {/* glass = night sky */}
+      <Rect x={84} y={92} width={132} height={176} rx={8} fill="hsl(222,42%,15%)" />
+      <Moon reduced={reduced} />
+      {STARS.map((s, i) => (
+        <Star key={i} cfg={s} reduced={reduced} />
       ))}
-      {/* sofa silhouette in the foreground */}
-      <Rect x={70} y={306} width={160} height={54} rx={16} fill="hsl(20,18%,13%)" />
-      <Rect x={62} y={282} width={30} height={60} rx={13} fill="hsl(20,18%,13%)" />
-      <Rect x={208} y={282} width={30} height={60} rx={13} fill="hsl(20,18%,13%)" />
-      <Rect x={86} y={276} width={128} height={36} rx={14} fill="hsl(20,18%,16%)" />
+      {/* frame + mullions + sill */}
+      <Rect
+        x={84}
+        y={92}
+        width={132}
+        height={176}
+        rx={8}
+        fill="none"
+        stroke="hsl(26,30%,28%)"
+        strokeWidth={7}
+      />
+      <Rect x={147} y={92} width={6} height={176} fill="hsl(26,30%,28%)" />
+      <Rect x={84} y={177} width={132} height={6} fill="hsl(26,30%,28%)" />
+      <Rect x={74} y={266} width={152} height={13} rx={3} fill="hsl(26,28%,24%)" />
     </>
   );
 }
 
-function FireGlow({ reduced }: { reduced: boolean }) {
-  const p = useLoop(1300, 0, reduced, true, 0.6);
-  const props = useAnimatedProps(() => ({
-    r: interpolate(p.value, [0, 1], [70, 86]),
-    opacity: interpolate(p.value, [0, 1], [0.55, 0.85]),
-  }));
-  return <AnimatedCircle cx={150} cy={216} fill="url(#fireglow)" animatedProps={props} />;
+function Moon({ reduced }: { reduced: boolean }) {
+  const p = useLoop(7000, 0, reduced, true, 0.5);
+  const props = useAnimatedProps(() => ({ opacity: interpolate(p.value, [0, 1], [0.5, 0.85]) }));
+  return (
+    <>
+      <AnimatedCircle cx={118} cy={134} r={34} fill="url(#moonglow)" animatedProps={props} />
+      <Circle cx={118} cy={134} r={15} fill="hsl(48,36%,90%)" />
+    </>
+  );
 }
 
-function Flame({ cfg, reduced }: { cfg: (typeof FLAMES)[number]; reduced: boolean }) {
-  const p = useLoop(cfg.dur, cfg.delay, reduced, true, 0.5);
-  const props = useAnimatedProps(() => ({
-    opacity: interpolate(p.value, [0, 1], [0.45, 0.9]),
-  }));
-  // A small teardrop flame, baked to position + size so motion stays in opacity.
-  const s = cfg.scale;
-  const y = 230;
-  const d = `M ${cfg.x} ${y} C ${cfg.x - 7 * s} ${y - 12 * s} ${cfg.x - 4 * s} ${y - 26 * s} ${cfg.x} ${y - 34 * s} C ${cfg.x + 4 * s} ${y - 26 * s} ${cfg.x + 7 * s} ${y - 12 * s} ${cfg.x} ${y} Z`;
-  return <AnimatedPath d={d} fill="hsl(34,95%,64%)" animatedProps={props} />;
+function Star({ cfg, reduced }: { cfg: (typeof STARS)[number]; reduced: boolean }) {
+  const p = useLoop(cfg.dur, cfg.delay, reduced, true, 0.6);
+  const props = useAnimatedProps(() => ({ opacity: interpolate(p.value, [0, 1], [0.2, 0.9]) }));
+  return <AnimatedCircle cx={cfg.x} cy={cfg.y} r={cfg.r} fill="hsl(48,40%,92%)" animatedProps={props} />;
 }
 
 // --- dim: a still calm gradient (retreat / neutral / pose placeholder) ---
