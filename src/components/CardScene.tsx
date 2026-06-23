@@ -293,19 +293,21 @@ function WalkScene({ reduced }: { reduced: boolean }) {
 
 function Bird({ cfg, reduced }: { cfg: (typeof BIRDS)[number]; reduced: boolean }) {
   const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.3);
+  // Only translateX is animated; the height + size are baked into the path so a
+  // static transform can't override the motion (which kept the bird from flying).
   const props = useAnimatedProps(() => ({
     translateX: interpolate(p.value, [0, 1], [-24, W + 24]),
   }));
-  // A faint two-arc gull silhouette, centred on the origin.
+  const s = cfg.scale;
+  const y = cfg.y;
+  const d = `M ${-7 * s} ${y} Q ${-3.5 * s} ${y - 5 * s} 0 ${y} Q ${3.5 * s} ${y - 5 * s} ${7 * s} ${y}`;
   return (
     <AnimatedPath
-      d="M -7 0 Q -3.5 -5 0 0 Q 3.5 -5 7 0"
+      d={d}
       stroke="hsla(26,28%,84%,0.55)"
       strokeWidth={1.6}
       fill="none"
       strokeLinecap="round"
-      translateY={cfg.y}
-      scale={cfg.scale}
       animatedProps={props}
     />
   );
@@ -363,10 +365,10 @@ function InkScene({ reduced }: { reduced: boolean }) {
       <SvgText
         x={56}
         y={152}
-        fill="hsl(250,36%,91%)"
+        fill="hsl(250,28%,78%)"
         fontSize={32}
         fontFamily="PatrickHand"
-        opacity={0.92}
+        opacity={0.5}
       >
         {`${shown}|`}
       </SvgText>
