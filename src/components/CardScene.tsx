@@ -51,7 +51,17 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 const W = 300;
 const H = 440;
 
-type SceneKey = 'cold' | 'warm' | 'walk' | 'ink' | 'breathe' | 'glow' | 'dim';
+type SceneKey =
+  | 'cold'
+  | 'warm'
+  | 'walk'
+  | 'ink'
+  | 'breathe'
+  | 'glow'
+  | 'read'
+  | 'message'
+  | 'cave'
+  | 'dim';
 
 export function sceneKeyFor(card: RecCard): SceneKey {
   if (card.activityId) {
@@ -69,11 +79,15 @@ export function sceneKeyFor(card: RecCard): SceneKey {
         return 'ink';
       case 'gentle-read':
       case 'something-light':
-      case 'one-tiny-thing':
+        return 'read';
       case 'bridge-back':
+        return 'message';
+      case 'cave-mode':
+        return 'cave';
+      case 'one-tiny-thing':
         return 'glow';
       // legs-up-the-wall / childs-pose / slow-stretches are pose scenes (a
-      // separate, image-backed task) + cave-mode: a still, dim calm for now.
+      // separate, image-backed task) -> dim placeholder for now.
       default:
         return 'dim';
     }
@@ -117,6 +131,12 @@ function renderScene(key: SceneKey, reduced: boolean) {
       return <BreatheScene reduced={reduced} />;
     case 'glow':
       return <GlowScene reduced={reduced} />;
+    case 'read':
+      return <ReadScene reduced={reduced} />;
+    case 'message':
+      return <MessageScene reduced={reduced} />;
+    case 'cave':
+      return <CaveScene reduced={reduced} />;
     case 'dim':
     default:
       return <DimScene />;
@@ -363,12 +383,12 @@ function InkScene({ reduced }: { reduced: boolean }) {
       </Defs>
       <Rect x="0" y="0" width={W} height={H} fill="url(#inkbg)" />
       <SvgText
-        x={56}
-        y={152}
-        fill="hsl(250,28%,78%)"
-        fontSize={32}
-        fontFamily="PatrickHand"
-        opacity={0.5}
+        x={64}
+        y={150}
+        fill="hsl(250,24%,80%)"
+        fontSize={16}
+        fontFamily="Poppins-Light"
+        opacity={0.45}
       >
         {`${shown}|`}
       </SvgText>
@@ -454,6 +474,138 @@ function Spark({ cfg, reduced }: { cfg: (typeof SPARKS)[number]; reduced: boolea
     opacity: interpolate(p.value, [0, 0.2, 0.8, 1], [0, 0.8, 0.6, 0]),
   }));
   return <AnimatedCircle cx={cfg.x} r={cfg.r} fill="hsl(285,60%,85%)" animatedProps={props} />;
+}
+
+// --- read: an open book with a page gently turning ---
+
+function ReadScene({ reduced }: { reduced: boolean }) {
+  return (
+    <>
+      <Defs>
+        <RadialGradient id="readbg" cx="0.5" cy="0.4" r="0.74">
+          <Stop offset="0" stopColor="hsl(32,22%,22%)" />
+          <Stop offset="0.82" stopColor="#100c0a" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={W} height={H} fill="url(#readbg)" />
+      {/* two open pages + spine */}
+      <Rect x={62} y={120} width={88} height={124} rx={3} fill="hsla(40,30%,90%,0.15)" />
+      <Rect x={150} y={120} width={88} height={124} rx={3} fill="hsla(40,30%,90%,0.15)" />
+      <Rect x={148} y={120} width={4} height={124} fill="hsla(30,20%,42%,0.4)" />
+      {/* faint text lines */}
+      <Rect x={72} y={142} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.22)" />
+      <Rect x={72} y={158} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.18)" />
+      <Rect x={72} y={174} width={54} height={2} rx={1} fill="hsla(40,20%,86%,0.16)" />
+      <Rect x={160} y={142} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.22)" />
+      <Rect x={160} y={158} width={68} height={2} rx={1} fill="hsla(40,20%,86%,0.18)" />
+      <Rect x={160} y={174} width={54} height={2} rx={1} fill="hsla(40,20%,86%,0.16)" />
+      <TurningPage reduced={reduced} />
+    </>
+  );
+}
+
+function TurningPage({ reduced }: { reduced: boolean }) {
+  const p = useLoop(6500, 1200, reduced, false, 0);
+  // Right page foreshortens to the spine (turning up), then a fresh page drops.
+  const props = useAnimatedProps(() => ({
+    width: interpolate(p.value, [0, 0.42, 0.5, 1], [88, 3, 88, 88]),
+    opacity: interpolate(p.value, [0, 0.42, 0.5, 0.58, 1], [0.85, 0.25, 0, 0.85, 0.85]),
+  }));
+  return (
+    <AnimatedRect x={150} y={120} height={124} rx={3} fill="hsla(42,34%,93%,0.3)" animatedProps={props} />
+  );
+}
+
+// --- message: chat bubbles drifting up, like a note sent ---
+
+const BUBBLES = [
+  { x: 86, w: 74, dur: 6200, delay: 0 },
+  { x: 150, w: 92, dur: 7200, delay: 2600 },
+  { x: 116, w: 58, dur: 6600, delay: 4600 },
+];
+
+function MessageScene({ reduced }: { reduced: boolean }) {
+  return (
+    <>
+      <Defs>
+        <RadialGradient id="msgbg" cx="0.5" cy="0.42" r="0.7">
+          <Stop offset="0" stopColor="hsl(208,30%,24%)" />
+          <Stop offset="0.82" stopColor="#0a1018" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={W} height={H} fill="url(#msgbg)" />
+      {BUBBLES.map((b, i) => (
+        <Bubble key={i} cfg={b} reduced={reduced} />
+      ))}
+    </>
+  );
+}
+
+function Bubble({ cfg, reduced }: { cfg: (typeof BUBBLES)[number]; reduced: boolean }) {
+  const p = useLoop(cfg.dur, cfg.delay, reduced, false, 0.4);
+  const props = useAnimatedProps(() => ({
+    y: interpolate(p.value, [0, 1], [300, 116]),
+    opacity: interpolate(p.value, [0, 0.25, 0.7, 1], [0, 0.6, 0.45, 0]),
+  }));
+  return (
+    <AnimatedRect x={cfg.x} width={cfg.w} height={30} rx={15} fill="hsla(206,60%,78%,0.5)" animatedProps={props} />
+  );
+}
+
+// --- cave: a cozy fire flickering, a sofa in the foreground ---
+
+const FLAMES = [
+  { x: 134, dur: 900, delay: 0, scale: 1 },
+  { x: 150, dur: 1100, delay: 300, scale: 1.3 },
+  { x: 166, dur: 820, delay: 600, scale: 0.9 },
+];
+
+function CaveScene({ reduced }: { reduced: boolean }) {
+  return (
+    <>
+      <Defs>
+        <RadialGradient id="cavebg" cx="0.5" cy="0.82" r="0.95">
+          <Stop offset="0" stopColor="hsl(24,42%,22%)" />
+          <Stop offset="0.85" stopColor="#0e0805" />
+        </RadialGradient>
+        <RadialGradient id="fireglow" cx="0.5" cy="0.5" r="0.5">
+          <Stop offset="0" stopColor="hsl(30,92%,62%)" stopOpacity="0.75" />
+          <Stop offset="1" stopColor="hsl(20,84%,50%)" stopOpacity="0" />
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width={W} height={H} fill="url(#cavebg)" />
+      <FireGlow reduced={reduced} />
+      {FLAMES.map((f, i) => (
+        <Flame key={i} cfg={f} reduced={reduced} />
+      ))}
+      {/* sofa silhouette in the foreground */}
+      <Rect x={70} y={306} width={160} height={54} rx={16} fill="hsl(20,18%,13%)" />
+      <Rect x={62} y={282} width={30} height={60} rx={13} fill="hsl(20,18%,13%)" />
+      <Rect x={208} y={282} width={30} height={60} rx={13} fill="hsl(20,18%,13%)" />
+      <Rect x={86} y={276} width={128} height={36} rx={14} fill="hsl(20,18%,16%)" />
+    </>
+  );
+}
+
+function FireGlow({ reduced }: { reduced: boolean }) {
+  const p = useLoop(1300, 0, reduced, true, 0.6);
+  const props = useAnimatedProps(() => ({
+    r: interpolate(p.value, [0, 1], [70, 86]),
+    opacity: interpolate(p.value, [0, 1], [0.55, 0.85]),
+  }));
+  return <AnimatedCircle cx={150} cy={216} fill="url(#fireglow)" animatedProps={props} />;
+}
+
+function Flame({ cfg, reduced }: { cfg: (typeof FLAMES)[number]; reduced: boolean }) {
+  const p = useLoop(cfg.dur, cfg.delay, reduced, true, 0.5);
+  const props = useAnimatedProps(() => ({
+    opacity: interpolate(p.value, [0, 1], [0.45, 0.9]),
+  }));
+  // A small teardrop flame, baked to position + size so motion stays in opacity.
+  const s = cfg.scale;
+  const y = 230;
+  const d = `M ${cfg.x} ${y} C ${cfg.x - 7 * s} ${y - 12 * s} ${cfg.x - 4 * s} ${y - 26 * s} ${cfg.x} ${y - 34 * s} C ${cfg.x + 4 * s} ${y - 26 * s} ${cfg.x + 7 * s} ${y - 12 * s} ${cfg.x} ${y} Z`;
+  return <AnimatedPath d={d} fill="hsl(34,95%,64%)" animatedProps={props} />;
 }
 
 // --- dim: a still calm gradient (retreat / neutral / pose placeholder) ---
