@@ -438,8 +438,8 @@ type Chat = {
 };
 
 const CHAT: Chat[] = [
-  { x: 118, y: 168, w: 108, h: 36, side: 'right', dur: 6200, delay: 0 },
-  { x: 56, y: 218, w: 96, h: 36, side: 'left', dur: 6200, delay: 1700 },
+  { x: 118, y: 96, w: 108, h: 36, side: 'right', dur: 6200, delay: 0 },
+  { x: 56, y: 146, w: 96, h: 36, side: 'left', dur: 6200, delay: 1700 },
 ];
 
 // A message bubble: three rounded corners and one sharp corner (the tail) -- on
