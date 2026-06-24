@@ -40,6 +40,10 @@ export function useBreathCycle(
   const startRef = useRef<number>(Date.now());
   // Non-null while paused; holds the wall-clock time when pause began.
   const pausedAtRef = useRef<number | null>(null);
+  // Latest paused prop, so the interval's mount setup can start frozen when the
+  // session opens paused (e.g. while a voice intro plays before the breath).
+  const pausedPropRef = useRef(paused);
+  pausedPropRef.current = paused;
   // Last phase index a haptic fired for, so we tick once per phase change.
   const lastHapticPhaseRef = useRef<number>(0);
   const phaseDurationsTotal = phases.reduce((sum, p) => sum + p.duration, 0);
@@ -60,7 +64,8 @@ export function useBreathCycle(
 
   useEffect(() => {
     startRef.current = Date.now();
-    pausedAtRef.current = null;
+    // Start frozen if the session opened paused; otherwise run immediately.
+    pausedAtRef.current = pausedPropRef.current ? Date.now() : null;
     const interval = setInterval(() => {
       if (pausedAtRef.current !== null) return; // frozen while paused
       const elapsed = (Date.now() - startRef.current) / 1000;
