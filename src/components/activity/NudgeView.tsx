@@ -34,15 +34,19 @@ export function NudgeView({ activity, onComplete }: Props) {
         {activity.how ? <Text style={styles.how}>{activity.how}</Text> : null}
         <Text style={styles.benefit}>{activity.benefit}</Text>
 
-        <Pressable
-          onPress={() => setShowWhy((s) => !s)}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="The science"
-        >
-          <Text style={styles.science}>the science {showWhy ? '–' : '+'}</Text>
-        </Pressable>
-        {showWhy ? <Text style={styles.why}>{activity.why}</Text> : null}
+        {activity.why ? (
+          <>
+            <Pressable
+              onPress={() => setShowWhy((s) => !s)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="The science"
+            >
+              <Text style={styles.science}>the science {showWhy ? '–' : '+'}</Text>
+            </Pressable>
+            {showWhy ? <Text style={styles.why}>{activity.why}</Text> : null}
+          </>
+        ) : null}
       </View>
 
       <View style={styles.actions}>
