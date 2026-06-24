@@ -50,7 +50,7 @@ export type Activity = {
   fast: boolean; // the spec's ⚡ -- under a minute, hero-eligible for "a minute"
   mode: 'active' | 'receptive'; // do-something vs let-it-work-on-you
   benefit: string; // the card line
-  why: string; // the copy behind "the science"
+  why?: string; // the copy behind "the science"; omit when no solid research backs the mechanism
   how?: string; // nudge: the "what to do" step shown on the tap-in screen
   body?: string; // read: the passage that holds on screen; action: the framing/tips above the message
   template?: string; // action: the editable prefilled message
@@ -86,7 +86,6 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'active',
     benefit: 'Warmth your body reads as safe.',
     how: 'Put the kettle on, make a tea or cocoa, and wrap both hands around the mug before you drink it.',
-    why: 'Your brain reads physical warmth a lot like being held. Something warm in your hands nudges your nervous system from on-guard toward calm.',
   },
   {
     id: 'om-chant',
@@ -125,7 +124,6 @@ export const ACTIVITIES: readonly Activity[] = [
     mode: 'receptive',
     benefit: 'Calm without any effort.',
     how: 'Lie on your back, scoot your hips to a wall, and rest your legs up it. Let your arms fall open and breathe.',
-    why: 'Resting with your legs up tips you into rest mode with zero effort. Your heart rate eases and the held tension drains away.',
   },
   {
     id: 'childs-pose',
