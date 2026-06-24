@@ -47,6 +47,15 @@ import {
   type ReminderPrefs,
 } from '@/store/reminder-prefs';
 import {
+  getPmsPrefs,
+  setPmsPrefs,
+  DEFAULT_PMS_PREFS,
+  MIN_CYCLE_LENGTH,
+  MAX_CYCLE_LENGTH,
+  type PmsPrefs,
+} from '@/store/pms-prefs';
+import { isInPmsWindow, daysUntilPmsWindow } from '@/lib/pms-window';
+import {
   ensureNotificationPermission,
   isPermissionBlocked,
   scheduleDailyReminder,
@@ -95,6 +104,7 @@ export default function MySoulScreen() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
   const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
+  const [pmsPrefs, setPmsPrefsState] = useState<PmsPrefs>(DEFAULT_PMS_PREFS);
   const [orbRevealKey, setOrbRevealKey] = useState(0);
   const {
     isPaired,
@@ -151,6 +161,9 @@ export default function MySoulScreen() {
       getReminder().then((r) => {
         if (active) setReminderState(r);
       }).catch(() => {});
+      getPmsPrefs().then((p) => {
+        if (active) setPmsPrefsState(p);
+      }).catch(() => {});
       return () => { active = false; };
     }, [])
   );
@@ -197,6 +210,34 @@ export default function MySoulScreen() {
       await scheduleDailyReminder(hour, minute).catch(() => {});
     }
   }
+
+  async function persistPms(next: PmsPrefs) {
+    setPmsPrefsState(next);
+    await setPmsPrefs(next).catch(() => {});
+  }
+
+  async function handlePmsToggle(on: boolean) {
+    if (!on) {
+      await persistPms({ ...pmsPrefs, pmsMode: false });
+      return;
+    }
+    // Turning it on needs a date to predict from. Keep an existing one, else
+    // seed today so the feature has something to work with; she can adjust it
+    // right below.
+    const lastPeriodStart = pmsPrefs.lastPeriodStart ?? toYmdLocal(new Date());
+    await persistPms({ ...pmsPrefs, pmsMode: true, lastPeriodStart });
+  }
+
+  async function handlePmsDateChange(dt: Date) {
+    await persistPms({ ...pmsPrefs, lastPeriodStart: toYmdLocal(dt) });
+  }
+
+  async function handlePmsCycleLengthChange(delta: number) {
+    const next = Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, pmsPrefs.cycleLength + delta));
+    await persistPms({ ...pmsPrefs, cycleLength: next });
+  }
+
+  const pmsStatus = pmsStatusLine(pmsPrefs);
 
   // Unified soul: when paired, add the Mac's own (native) completed sessions
   // to the phone's. The Mac reports a native-only count, so this sum never
@@ -297,9 +338,6 @@ export default function MySoulScreen() {
             macSessions={macSessions}
           />
 
-          {currentStreak === 0 && sessionsCompleted > 0 && (
-            <ComebackCard onPress={() => { Haptics.selectionAsync(); router.back(); }} />
-          )}
 
           {!isPaired && (
             <MacPairing
@@ -328,6 +366,14 @@ export default function MySoulScreen() {
             reminder={reminder}
             onToggle={handleReminderToggle}
             onTimeChange={handleReminderTimeChange}
+          />
+
+          <PmsCard
+            prefs={pmsPrefs}
+            status={pmsStatus}
+            onToggle={handlePmsToggle}
+            onDateChange={handlePmsDateChange}
+            onCycleLengthChange={handlePmsCycleLengthChange}
           />
 
           {SHOW_ANALYTICS && (
@@ -728,6 +774,111 @@ function ToggleCard({
   );
 }
 
+function toYmdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function fromYmdLocal(iso: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return new Date();
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+// Status line under the toggle. Claims only where she is in her cycle (an
+// estimate), never how she feels, matching the onboarding closer's voice.
+function pmsStatusLine(prefs: PmsPrefs): string | null {
+  if (!prefs.pmsMode || !prefs.lastPeriodStart) return null;
+  const now = new Date();
+  if (isInPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, now)) {
+    return "Looks like you're in your window now.";
+  }
+  const days = daysUntilPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, now);
+  if (days == null) return null;
+  if (days <= 0) return 'Your rough week is about to start.';
+  if (days === 1) return 'Your rough week starts tomorrow.';
+  return `Your rough week is about ${days} days away.`;
+}
+
+function PmsCard({
+  prefs,
+  status,
+  onToggle,
+  onDateChange,
+  onCycleLengthChange,
+}: {
+  prefs: PmsPrefs;
+  status: string | null;
+  onToggle: (on: boolean) => void;
+  onDateChange: (d: Date) => void;
+  onCycleLengthChange: (delta: number) => void;
+}) {
+  const dateSelection = prefs.lastPeriodStart ? fromYmdLocal(prefs.lastPeriodStart) : new Date();
+  return (
+    <View style={styles.card}>
+      <View style={styles.toggleRow}>
+        <View style={{ flex: 1, paddingRight: 16 }}>
+          <Text style={styles.cardTitle}>Smart PMS mode</Text>
+          <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+            Niyora tracks your cycle so it can reach you before your rough week, and stay quiet the rest of the month.
+          </Text>
+        </View>
+        <Switch
+          value={prefs.pmsMode}
+          onValueChange={(v) => {
+            Haptics.selectionAsync();
+            onToggle(v);
+          }}
+          accessibilityLabel="Smart PMS mode"
+          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          thumbColor="#fff"
+        />
+      </View>
+      {prefs.pmsMode && (
+        <>
+          {status && <Text style={styles.pmsStatus}>{status}</Text>}
+          <View style={styles.pmsEditRow}>
+            <Text style={styles.cardCopy}>Last period started</Text>
+            <Host matchContents>
+              <DatePicker
+                selection={dateSelection}
+                displayedComponents={['date']}
+                onDateChange={(d) => onDateChange(d)}
+              />
+            </Host>
+          </View>
+          <View style={styles.pmsEditRow}>
+            <Text style={styles.cardCopy}>Cycle length</Text>
+            <View style={styles.pmsStepperRow}>
+              <Pressable
+                onPress={() => onCycleLengthChange(-1)}
+                hitSlop={8}
+                style={styles.pmsStepperBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Shorter cycle"
+              >
+                <SymbolView name="minus" tintColor={colors.textPrimary} size={14} weight="medium" />
+              </Pressable>
+              <Text style={styles.pmsStepperValue}>{prefs.cycleLength} days</Text>
+              <Pressable
+                onPress={() => onCycleLengthChange(1)}
+                hitSlop={8}
+                style={styles.pmsStepperBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Longer cycle"
+              >
+                <SymbolView name="plus" tintColor={colors.textPrimary} size={14} weight="medium" />
+              </Pressable>
+            </View>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
   async function handleLearnMore() {
     Haptics.selectionAsync();
@@ -1096,6 +1247,46 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  pmsStatus: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    marginTop: spacing.lg,
+  },
+  pmsEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  pmsStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  pmsStepperBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pmsStepperValue: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textPrimary,
+    minWidth: 64,
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
   primarySmallButton: {
     alignSelf: 'center',

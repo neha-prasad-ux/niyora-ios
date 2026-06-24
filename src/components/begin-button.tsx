@@ -24,6 +24,9 @@ import { typography } from '@/theme/typography';
 type BeginButtonProps = {
   label?: string;
   onPress: () => void;
+  // When true the button dims and ignores presses. Used to hold the user on a
+  // step until a required choice is made (e.g. picking the period date).
+  disabled?: boolean;
 };
 
 type Burst = {
@@ -39,7 +42,7 @@ type Burst = {
 const BURST_COUNT = 18;
 const BURST_DELAY_MS = 360;
 
-export function BeginButton({ label = 'Begin', onPress }: BeginButtonProps) {
+export function BeginButton({ label = 'Begin', onPress, disabled = false }: BeginButtonProps) {
   const pressed = useSharedValue(0);
   const [particles, setParticles] = useState<Burst[]>([]);
   const idRef = useRef(0);
@@ -113,6 +116,7 @@ export function BeginButton({ label = 'Begin', onPress }: BeginButtonProps) {
   }, []);
 
   const handlePress = useCallback(() => {
+    if (disabled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
     if (reduceMotion) {
       onPress();
@@ -121,18 +125,20 @@ export function BeginButton({ label = 'Begin', onPress }: BeginButtonProps) {
     fireBurst();
     // Let the burst breathe for a moment before the screen changes.
     setTimeout(onPress, BURST_DELAY_MS);
-  }, [reduceMotion, fireBurst, onPress]);
+  }, [disabled, reduceMotion, fireBurst, onPress]);
 
   return (
     <View style={styles.shadowWrap}>
       <Pressable
         onPress={handlePress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        onPressIn={disabled ? undefined : handlePressIn}
+        onPressOut={disabled ? undefined : handlePressOut}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityState={{ disabled }}
       >
-        <Animated.View style={animatedStyle}>
+        <Animated.View style={[animatedStyle, disabled && styles.disabled]}>
           <LinearGradient
             colors={[colors.beginStart, colors.beginEnd]}
             start={{ x: 0, y: 0 }}
@@ -188,6 +194,9 @@ const styles = StyleSheet.create({
   },
   label: {
     color: colors.textPrimary,
+  },
+  disabled: {
+    opacity: 0.4,
   },
   // Particles radiate from the button centre; this layer never blocks touches.
   burstLayer: {
