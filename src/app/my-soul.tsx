@@ -29,7 +29,14 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { SHOW_CHECKIN, SHOW_ANALYTICS, SHOW_MOOD_TREND } from '@/config/features';
 import { Orb } from '@/components/orb';
-import { TIERS, currentTier, nextTier, sessionsToNext } from '@/models/tiers';
+import {
+  TIERS,
+  currentTier,
+  nextTier,
+  sessionsToNext,
+  TIER_RING_COUNTS,
+  SOUL_RING_HUES,
+} from '@/models/tiers';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
 import { getMoodRecords, type MoodRecord } from '@/store/mood-history';
 import {
@@ -74,17 +81,6 @@ function effectiveSoul(
 ): MacSoulState | null {
   return isPaired ? freshSoul(macSoulState) : null;
 }
-
-// Maps tier id to the number of Saturn-style rings around the orb.
-// Matches Mac tierRingCount(): spark=0, glow=1, shine=2, radiance=3, brilliance=4.
-const TIER_RING_COUNTS: Record<string, number> = {
-  spark: 0, glow: 1, shine: 2, radiance: 3, brilliance: 4,
-};
-
-// Per-ring hues (one per tier above spark) so the band shows each tier's own
-// colour and accumulates, the same growing-soul look as the onboarding
-// "This is your Soul. It grows every time you practice." beat.
-const SOUL_RING_HUES = TIERS.slice(1).map((t) => t.hue);
 
 const LEVEL_LABELS: Record<CheckInLevel, string> = {
   light: 'Light',

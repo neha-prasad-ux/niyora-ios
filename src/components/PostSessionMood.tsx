@@ -20,20 +20,31 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { Orb } from '@/components/orb';
 import { alternate } from '@/models/recommend';
+import { TIER_RING_COUNTS, SOUL_RING_HUES, type Tier } from '@/models/tiers';
 import { getSessionCount } from '@/store/session-history';
 import { colors } from '@/theme/colors';
 
-type Phase = 'first' | 'asking' | 'better' | 'another';
+type Phase = 'first' | 'asking' | 'better' | 'another' | 'ring' | 'ringClosing';
 
 interface PostSessionMoodProps {
   techniqueId: string;
   feeling?: string;
+  /**
+   * The tier newly reached by the session that just finished, if it crossed a
+   * threshold (5/15/40/80). When set, the close becomes the ring-earned
+   * celebration instead of the usual "Feel better?" beat.
+   */
+  earnedTier?: Tier | null;
   onDone: () => void;
 }
 
-export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoodProps) {
-  const [phase, setPhase] = useState<Phase>('asking');
+export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: PostSessionMoodProps) {
+  // Crossing a tier opens straight into the ring celebration; everyone else
+  // starts on the usual "Feel better?" beat. Set at mount so we never flip
+  // phase synchronously inside an effect.
+  const [phase, setPhase] = useState<Phase>(() => (earnedTier ? 'ring' : 'asking'));
   const opacity = useSharedValue(0);
   // Track pending timers so a back-tap (unmount) during a hold cannot fire a
   // late navigation or onDone on a dead screen.
@@ -44,6 +55,15 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 480 });
+    // Crossing a tier (earning a ring) owns the close: the phase already opened
+    // on 'ring', so here we just mark it with a warm, affirming pulse. It
+    // replaces the usual "Feel better?" question on that rare session.
+    if (earnedTier) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      return () => {
+        timers.current.forEach(clearTimeout);
+      };
+    }
     // First-ever completion gets an aha beat before the usual close. The 500ms
     // gap before this overlay mounts means the session is already counted, so
     // count === 1 is reliably "their first."
@@ -73,6 +93,14 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
     wait(dismiss, 1800);
   }
 
+  function handleRingContinue() {
+    if (phase !== 'ring') return;
+    Haptics.selectionAsync();
+    // "I'm in" is a warm close, not a commitment screen: acknowledge, then home.
+    setPhase('ringClosing');
+    wait(dismiss, 1500);
+  }
+
   function handleAnother() {
     if (phase !== 'asking') return;
     Haptics.selectionAsync();
@@ -94,6 +122,36 @@ export function PostSessionMood({ techniqueId, feeling, onDone }: PostSessionMoo
 
   return (
     <Animated.View style={[styles.overlay, wrapStyle]} pointerEvents="box-none">
+      {phase === 'ring' && earnedTier && (
+        <View style={styles.ringCard}>
+          <Orb
+            size={132}
+            tierRingCount={TIER_RING_COUNTS[earnedTier.id] ?? 0}
+            tierHue={earnedTier.hue}
+            ringHues={SOUL_RING_HUES}
+            accumulate
+          />
+          <Text style={styles.ringHeading}>You earned a new ring.</Text>
+          <Text style={[styles.ringTier, { color: `hsl(${earnedTier.hue}, 70%, 75%)` }]}>
+            {earnedTier.name}
+          </Text>
+          <Text style={styles.ringQuestion}>Keep helping your body?</Text>
+          <Pressable
+            onPress={handleRingContinue}
+            hitSlop={8}
+            style={[styles.btn, styles.btnPrimary, styles.ringButton]}
+            accessibilityRole="button"
+            accessibilityLabel="I'm in"
+          >
+            <Text style={styles.btnPrimaryText}>I&apos;m in</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {phase === 'ringClosing' && (
+        <Text style={styles.closing}>Carry this calm with you.</Text>
+      )}
+
       {phase === 'first' && (
         <View style={styles.card}>
           <Text style={[styles.heading, styles.firstHeading]}>Congratulations.</Text>
@@ -149,6 +207,35 @@ const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  ringCard: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  ringHeading: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 22,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    marginTop: 4,
+  },
+  ringTier: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 26,
+    letterSpacing: 0.4,
+    marginTop: 6,
+  },
+  ringQuestion: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    color: colors.textSubtitle,
+    letterSpacing: 0.3,
+    marginTop: 18,
+    marginBottom: 26,
+    textAlign: 'center',
+  },
+  ringButton: {
+    minWidth: 200,
   },
   heading: {
     fontFamily: 'Poppins-Light',

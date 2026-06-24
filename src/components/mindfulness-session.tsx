@@ -25,6 +25,7 @@ import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
 import { appendSession } from '@/store/session-history';
+import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
 import { colors } from '@/theme/colors';
 import { NiyoraSync } from 'niyora-sync';
@@ -74,6 +75,7 @@ export function MindfulnessSession({
   const [promptIndex, setPromptIndex] = useState(0);
   const [done, setDone] = useState(false);
   const [showMood, setShowMood] = useState(false);
+  const [earnedTier, setEarnedTier] = useState<Tier | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [cadence, setCadence] = useState<{
     phase: 'inhale' | 'exhale';
@@ -150,7 +152,8 @@ export function MindfulnessSession({
   // On completion: record the session, report to a paired Mac, then show mood.
   useEffect(() => {
     if (!done) return;
-    appendSession(technique.id).catch(() => {});
+    let cancelled = false;
+    let moodTimer: ReturnType<typeof setTimeout> | undefined;
     NiyoraSync.recordSession({
       techniqueName: technique.name,
       techniqueKind: technique.category,
@@ -161,8 +164,22 @@ export function MindfulnessSession({
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     fadeOut();
-    const t = setTimeout(() => setShowMood(true), 800);
-    return () => clearTimeout(t);
+    // Record first so any earned ring is known before the mood overlay mounts.
+    appendSession(technique.id)
+      .then((r) => {
+        if (!cancelled) setEarnedTier(r.earnedTier);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return;
+        moodTimer = setTimeout(() => {
+          if (!cancelled) setShowMood(true);
+        }, 800);
+      });
+    return () => {
+      cancelled = true;
+      if (moodTimer) clearTimeout(moodTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fadeOut is stable; run once when done flips true
   }, [done, technique.id]);
 
@@ -308,6 +325,7 @@ export function MindfulnessSession({
         <PostSessionMood
           techniqueId={technique.id}
           feeling={feeling}
+          earnedTier={earnedTier}
           onDone={() => router.back()}
         />
       )}
