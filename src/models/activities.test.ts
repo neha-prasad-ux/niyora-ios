@@ -2,6 +2,8 @@ import {
   ACTIVITIES,
   getActivity,
   activitiesForFeeling,
+  isPmsFeeling,
+  PMS_FEELINGS,
   type PmsFeeling,
 } from './activities';
 
@@ -12,6 +14,19 @@ const ALL_FEELINGS: readonly PmsFeeling[] = [
   'foggy',
   'overwhelmed',
 ];
+
+describe('isPmsFeeling', () => {
+  it('accepts every known feeling', () => {
+    for (const f of PMS_FEELINGS) expect(isPmsFeeling(f)).toBe(true);
+  });
+
+  it('rejects unknown, empty, and nullish values', () => {
+    expect(isPmsFeeling('happy')).toBe(false);
+    expect(isPmsFeeling('')).toBe(false);
+    expect(isPmsFeeling(undefined)).toBe(false);
+    expect(isPmsFeeling(null)).toBe(false);
+  });
+});
 
 describe('activity catalogue', () => {
   it('ships exactly the 14 spec activities', () => {
