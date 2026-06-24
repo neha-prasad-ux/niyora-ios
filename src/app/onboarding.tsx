@@ -244,7 +244,8 @@ export default function OnboardingScreen() {
   const lastHueRef = useRef(CALM_HUE);
   useEffect(() => {
     if (step !== STEP.pms) {
-      setPmsHue(CALM_HUE);
+      // Off the PMS step the orb uses the calm default hue (pmsHue is unread),
+      // so no reset is needed here; the drift restarts from calm on re-entry.
       lastHueRef.current = CALM_HUE;
       return;
     }
@@ -290,10 +291,9 @@ export default function OnboardingScreen() {
   // estimate), never how she feels. Declined path skips this, nothing to read.
   const [closerReady, setCloserReady] = useState(false);
   useEffect(() => {
-    if (step !== STEP.done || !pmsActivated) {
-      setCloserReady(false);
-      return;
-    }
+    if (step !== STEP.done || !pmsActivated) return;
+    // closerReady is reset to false in confirmLength before we land here, so the
+    // loading beat always plays; here we just reveal the message after it.
     const t = setTimeout(() => setCloserReady(true), CLOSER_LOADING_MS);
     return () => clearTimeout(t);
   }, [step, pmsActivated]);
@@ -458,6 +458,7 @@ export default function OnboardingScreen() {
       // Storage can throw; never trap the user.
     }
     setCycleSheet('closed');
+    setCloserReady(false); // restart the loading beat each time she reaches the closer
     setPmsActivated(true);
     setStep(STEP.done);
   }, [cycleDate, cycleLength]);
