@@ -131,7 +131,11 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
             ringHues={SOUL_RING_HUES}
             accumulate
           />
-          <Text style={styles.ringHeading}>You earned a new ring.</Text>
+          <Text style={styles.ringHeading}>
+            {(TIER_RING_COUNTS[earnedTier.id] ?? 0) <= 1
+              ? 'You earned your first ring.'
+              : 'You earned a new ring.'}
+          </Text>
           <Text style={[styles.ringTier, { color: `hsl(${earnedTier.hue}, 70%, 75%)` }]}>
             {earnedTier.name}
           </Text>

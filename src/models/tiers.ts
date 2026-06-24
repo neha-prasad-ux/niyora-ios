@@ -14,12 +14,15 @@ export type Tier = {
   hue: number;
 };
 
+// Thresholds front-load the reward: the first ring lands after a single
+// session so a new user has something to be excited about right away, then the
+// climb stretches out (5 / 15 / 40) so later rings still feel earned.
 export const TIERS: readonly Tier[] = [
   { id: 'spark', name: 'Spark', threshold: 0, hue: 30 },
-  { id: 'glow', name: 'Glow', threshold: 5, hue: 335 },
-  { id: 'shine', name: 'Shine', threshold: 15, hue: 280 },
-  { id: 'radiance', name: 'Radiance', threshold: 40, hue: 230 },
-  { id: 'brilliance', name: 'Brilliance', threshold: 80, hue: 210 },
+  { id: 'glow', name: 'Glow', threshold: 1, hue: 335 },
+  { id: 'shine', name: 'Shine', threshold: 5, hue: 280 },
+  { id: 'radiance', name: 'Radiance', threshold: 15, hue: 230 },
+  { id: 'brilliance', name: 'Brilliance', threshold: 40, hue: 210 },
 ];
 
 export function currentTier(completedSessions: number): Tier {
