@@ -14,8 +14,8 @@ const ALL_FEELINGS: readonly PmsFeeling[] = [
 ];
 
 describe('activity catalogue', () => {
-  it('ships exactly the 14 spec activities', () => {
-    expect(ACTIVITIES).toHaveLength(14);
+  it('ships exactly the 15 spec activities', () => {
+    expect(ACTIVITIES).toHaveLength(15);
   });
 
   it('has unique ids', () => {
@@ -88,9 +88,9 @@ describe('activitiesForFeeling', () => {
   it('matches the spec fit counts per feeling', () => {
     // Hand-counted from docs/pms/niyora-pms-activities.md.
     expect(activitiesForFeeling('irritable')).toHaveLength(8);
-    expect(activitiesForFeeling('anxious')).toHaveLength(5);
-    expect(activitiesForFeeling('low')).toHaveLength(7);
+    expect(activitiesForFeeling('anxious')).toHaveLength(6);
+    expect(activitiesForFeeling('low')).toHaveLength(8);
     expect(activitiesForFeeling('foggy')).toHaveLength(4);
-    expect(activitiesForFeeling('overwhelmed')).toHaveLength(7);
+    expect(activitiesForFeeling('overwhelmed')).toHaveLength(8);
   });
 });

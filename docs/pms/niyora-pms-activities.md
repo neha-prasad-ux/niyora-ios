@@ -9,7 +9,7 @@ The non-session activities that sit alongside the existing breath + mindfulness 
 - **Read** — a short passage holds on screen (like the Understand cards).
 - **Action** — an editable pre-written message she can copy or send.
 
-## Activity inventory (14)
+## Activity inventory (15)
 
 Feeling key: IRR irritable · ANX anxious · LOW low/tearful · FOG foggy · OVW overwhelmed. ⚡ = under a minute, hero-eligible.
 
@@ -17,6 +17,7 @@ Feeling key: IRR irritable · ANX anxious · LOW low/tearful · FOG foggy · OVW
 |---|---|---|---|---|---|
 | Sensory | Cold water on your face | nudge | ANX OVW IRR | ⚡ | Resets your whole system in seconds. *Cold on your face trips a reflex that slows your heart and pulls you out of panic, fast.* |
 | Sensory | Make something warm | nudge | LOW ANX | 2m | Warmth your body reads as safe. *Hands wrapped around something warm signals calm to your nervous system.* |
+| Sensory | Chant a low ommm | nudge | ANX OVW LOW | 2m | Hums your nervous system quiet. *A long humming exhale vibrates through the chest and triggers the vagus nerve into rest mode; fMRI also shows the ommm sound quiets the amygdala.* |
 | Movement | A slow walk outside | nudge | IRR FOG LOW | 5–10m | Lets the tension burn off. *Moving clears the stress chemistry you're holding, and daylight lifts the heavy.* |
 | Movement | Legs up the wall | nudge (receptive) | ANX OVW FOG LOW | 3m | Calm without any effort. *Lie down, legs up, that's it. It flips you into rest mode while you do nothing.* |
 | Movement | Curl into child's pose | nudge | IRR ANX | 2m | Eases your back and your belly. *Folding forward softens cramps and quiets the body.* |
