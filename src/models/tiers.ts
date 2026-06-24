@@ -15,13 +15,13 @@ export type Tier = {
 };
 
 // The orb starts bare (the 'base' tier has no name and no ring) and earns its
-// first ring — amber Spark — after a single session, so a new user has
+// first ring — teal Spark — after a single session, so a new user has
 // something to be excited about right away. The climb then stretches out
-// (5 / 15 / 40) so later rings still feel earned. Ring colours run warm-to-cool
-// as the Soul grows: amber, pink, purple, violet.
+// (5 / 15 / 40) so later rings still feel earned. Ring colours stay distinct as
+// the Soul grows: teal, pink, purple, violet.
 export const TIERS: readonly Tier[] = [
-  { id: 'base', name: '', threshold: 0, hue: 30 },
-  { id: 'spark', name: 'Spark', threshold: 1, hue: 30 },
+  { id: 'base', name: '', threshold: 0, hue: 180 },
+  { id: 'spark', name: 'Spark', threshold: 1, hue: 180 },
   { id: 'glow', name: 'Glow', threshold: 5, hue: 335 },
   { id: 'shine', name: 'Shine', threshold: 15, hue: 280 },
   { id: 'radiance', name: 'Radiance', threshold: 40, hue: 230 },
