@@ -53,6 +53,7 @@ import {
   type CheckInLevel,
 } from '@/store/checkin-history';
 import { getSessionCount, getLastSession } from '@/store/session-history';
+import { currentTier, TIER_RING_COUNTS, SOUL_RING_HUES } from '@/models/tiers';
 import { SHOW_CHECKIN, STRESS_EXPERIMENT } from '@/config/features';
 import { getOnboardingComplete } from '@/store/onboarding-complete';
 import { getReminder } from '@/store/reminder-prefs';
@@ -135,15 +136,22 @@ export default function HomeScreen() {
 
   // undefined while we read history; false = first-timer, true = returning.
   const [practiced, setPracticed] = useState<boolean | undefined>(undefined);
-  useEffect(() => {
-    let alive = true;
-    getSessionCount()
-      .then((n) => alive && setPracticed(n > 0))
-      .catch(() => alive && setPracticed(false));
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // Session count drives the Soul's rings on the home orb. Refreshed on focus so
+  // a ring earned mid-session is already wrapping the orb on the way back home.
+  const [sessionCount, setSessionCount] = useState(0);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getSessionCount()
+        .then((n) => {
+          if (!active) return;
+          setPracticed(n > 0);
+          setSessionCount(n);
+        })
+        .catch(() => active && setPracticed(false));
+      return () => { active = false; };
+    }, [])
+  );
 
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
 
@@ -176,6 +184,10 @@ export default function HomeScreen() {
       checkAndScheduleCombackNudge().catch(() => {});
     }, [])
   );
+
+  // Bumped on each orb press to replay the ring draw-on sweep, so tapping the
+  // Soul makes its rings glide back on alongside the existing tap reaction.
+  const [orbRevealKey, setOrbRevealKey] = useState(0);
 
   const tapScale = useSharedValue(1);
   const rippleScale = useSharedValue(1);
@@ -222,6 +234,11 @@ export default function HomeScreen() {
 
   const insight = soulInsight(checkInRecords);
 
+  // The home Soul now wears the rings it has earned (one per tier crossed), so
+  // progress is visible the moment you open the app, not only inside My Soul.
+  const homeTier = currentTier(sessionCount);
+  const homeRingCount = TIER_RING_COUNTS[homeTier.id] ?? 0;
+
   const handleTryDifferent = useCallback(() => {
     Haptics.selectionAsync();
     setPickerVisible(true);
@@ -265,6 +282,8 @@ export default function HomeScreen() {
   const handleOrbPress = useCallback(() => {
     // Heavy hit so the press lands in the hand as well as on screen.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    // Replay the Soul's rings drawing back on with the tap.
+    setOrbRevealKey((k) => k + 1);
     tapScale.value = withSequence(
       withTiming(0.9, { duration: 80, easing: Easing.out(Easing.quad) }),
       withTiming(1.12, { duration: 220, easing: Easing.out(Easing.sin) }),
@@ -342,7 +361,15 @@ export default function HomeScreen() {
                 than the visible 220px sphere. That canvas is non-interactive so it
                 can't swallow taps meant for the header sitting above it. */}
             <View pointerEvents="none">
-              <Orb size={ORB_SIZE} hue={orbHue} />
+              <Orb
+                size={ORB_SIZE}
+                hue={orbHue}
+                tierRingCount={homeRingCount}
+                tierHue={homeTier.hue}
+                ringHues={SOUL_RING_HUES}
+                accumulate
+                revealKey={orbRevealKey}
+              />
             </View>
             <Animated.View
               style={[styles.ripple, rippleAnimStyle]}

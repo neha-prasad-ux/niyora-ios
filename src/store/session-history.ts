@@ -7,6 +7,7 @@ import {
   FREEZE_INTERVAL,
   type FreezeState,
 } from './streak-freeze';
+import { earnedTierBetween, type Tier } from '@/models/tiers';
 
 export type SessionRecord = {
   techniqueId: string;
@@ -72,7 +73,14 @@ function computeEffectiveStreak(
   return { streak, newFrozenDates };
 }
 
-export async function appendSession(techniqueId: string): Promise<void> {
+export type AppendResult = {
+  /** Total sessions ever, after this one was recorded. */
+  sessionCount: number;
+  /** The tier newly reached by this session, or null if no threshold crossed. */
+  earnedTier: Tier | null;
+};
+
+export async function appendSession(techniqueId: string): Promise<AppendResult> {
   const [rawSessions, freezeState] = await Promise.all([
     AsyncStorage.getItem(STORAGE_KEY),
     readFreezeState(),
@@ -80,12 +88,14 @@ export async function appendSession(techniqueId: string): Promise<void> {
 
   const records = parseRecords(rawSessions);
   const now = new Date();
+  const countBefore = records.length;
 
   const sessionDatesBefore = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
   const { streak: streakBefore } = computeEffectiveStreak(sessionDatesBefore, freezeState, now);
 
   records.push({ techniqueId, completedAt: now.toISOString() });
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  const countAfter = records.length;
 
   const sessionDatesAfter = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
   const { streak: streakAfter } = computeEffectiveStreak(sessionDatesAfter, freezeState, now);
@@ -96,6 +106,11 @@ export async function appendSession(techniqueId: string): Promise<void> {
   if (newMilestones > prevMilestones) {
     await awardFreezes(newMilestones - prevMilestones);
   }
+
+  return {
+    sessionCount: countAfter,
+    earnedTier: earnedTierBetween(countBefore, countAfter),
+  };
 }
 
 // Reads the effective streak (with any pending freeze auto-applications) and

@@ -19,6 +19,7 @@ import { PhaseLabel } from '@/components/phase-label';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
 import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
+import { RingCelebration } from '@/components/RingCelebration';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import {
@@ -34,6 +35,7 @@ import {
 import { NiyoraSync } from 'niyora-sync';
 
 import { appendSession } from '@/store/session-history';
+import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
 import { getVoiceGuidance, setVoiceGuidance } from '@/store/voice-prefs';
 import { colors } from '@/theme/colors';
@@ -116,6 +118,7 @@ function BreathingSession({
   const { track, changeTrack, fadeOut, pause: pauseMusic, resume: resumeMusic } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [showMood, setShowMood] = useState(false);
+  const [earnedTier, setEarnedTier] = useState<Tier | null>(null);
 
   // Resolve the voice preference once, then either play the opening sequence
   // (settle → optional Ocean haaa intro → begin) and release the breath when it
@@ -193,24 +196,38 @@ function BreathingSession({
         : technique.colors.hold;
 
   useEffect(() => {
-    if (cycle.done) {
-      appendSession(technique.id).catch(() => {});
-      // Report to the paired Mac (no-op when not paired).
-      NiyoraSync.recordSession({
-        techniqueName: technique.name,
-        techniqueKind: technique.category,
-        durationSec,
-        intendedDurationSec: durationSec,
-        completed: true,
-        recordedAt: new Date().toISOString(),
+    if (!cycle.done) return;
+    let cancelled = false;
+    let moodTimer: ReturnType<typeof setTimeout> | undefined;
+    // Report to the paired Mac (no-op when not paired).
+    NiyoraSync.recordSession({
+      techniqueName: technique.name,
+      techniqueKind: technique.category,
+      durationSec,
+      intendedDurationSec: durationSec,
+      completed: true,
+      recordedAt: new Date().toISOString(),
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    voice.playEnd('well-done');
+    fadeOut();
+    // Record first so any earned ring is known before the mood overlay mounts;
+    // the "well done" label still gets a 500ms beat before it fades in.
+    appendSession(technique.id)
+      .then((r) => {
+        if (!cancelled) setEarnedTier(r.earnedTier);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return;
+        moodTimer = setTimeout(() => {
+          if (!cancelled) setShowMood(true);
+        }, 500);
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      voice.playEnd('well-done');
-      fadeOut();
-      // Give the "well done" label a moment to appear before the mood overlay fades in
-      const t = setTimeout(() => setShowMood(true), 500);
-      return () => clearTimeout(t);
-    }
+    return () => {
+      cancelled = true;
+      if (moodTimer) clearTimeout(moodTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fadeOut is stable; omitting avoids double-fire on track change
   }, [cycle.done, technique.id]);
 
@@ -284,7 +301,12 @@ function BreathingSession({
           />
         )}
 
-        {cycle.done && <SessionDoneBackdrop />}
+        {cycle.done &&
+          (earnedTier ? (
+            <RingCelebration hue={earnedTier.hue} />
+          ) : (
+            <SessionDoneBackdrop />
+          ))}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
@@ -438,6 +460,7 @@ function BreathingSession({
           <PostSessionMood
             techniqueId={technique.id}
             feeling={feeling}
+            earnedTier={earnedTier}
             onDone={() => router.back()}
           />
         )}
