@@ -15,7 +15,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
-        "NSBonjourServices": ["_niyora._tcp"]
+        "NSBonjourServices": [
+          "_niyora._tcp"
+        ]
       }
     },
     "android": {
@@ -31,9 +33,6 @@
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
-    },
-    "autolinking": {
-      "nativeModulesDir": "./modules"
     },
     "plugins": [
       "./plugins/withNoPushEntitlement.js",
@@ -61,7 +60,9 @@
         {
           "color": "#0a0712"
         }
-      ]
+      ],
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
