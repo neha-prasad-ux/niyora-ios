@@ -85,6 +85,10 @@ export function sceneKeyFor(card: RecCard): SceneKey {
         return 'cave';
       case 'one-tiny-thing':
         return 'glow';
+      case 'om-chant':
+        // The breathe scene's orb + emanating rings reads as the chant's
+        // resonance spreading out.
+        return 'breathe';
       // legs-up-the-wall / childs-pose / slow-stretches are pose scenes (a
       // separate, image-backed task) -> dim placeholder for now.
       default:

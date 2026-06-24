@@ -52,7 +52,7 @@ export type Activity = {
   activatesMode?: 'retreat'; // withdraw: toggles a system mode
 };
 
-// The 14 activities, in the spec's table order. `mode` is 'receptive' only for
+// The 15 activities, in the spec's table order. `mode` is 'receptive' only for
 // the things you let work on you (legs up the wall -- the one the spec flags --
 // the two reads, and cave mode); everything else is something you actively do.
 export const ACTIVITIES: readonly Activity[] = [
@@ -81,6 +81,19 @@ export const ACTIVITIES: readonly Activity[] = [
     benefit: 'Warmth your body reads as safe.',
     how: 'Put the kettle on, make a tea or cocoa, and wrap both hands around the mug before you drink it.',
     why: 'Your brain reads physical warmth a lot like being held. Something warm in your hands nudges your nervous system from on-guard toward calm.',
+  },
+  {
+    id: 'om-chant',
+    title: 'Chant a low ommm',
+    modality: 'sensory',
+    cardType: 'nudge',
+    fits: ['anxious', 'overwhelmed', 'low'],
+    timeSeconds: 120,
+    fast: false,
+    mode: 'active',
+    benefit: 'Hums your nervous system quiet.',
+    how: 'Breathe in slow through your nose, then chant a long, low ommm on the way out, letting the mmm trail until your breath runs out. Five or six rounds, feeling the buzz in your chest and face.',
+    why: 'A long, humming out-breath stretches your exhale and vibrates through your throat and chest, which switches on the vagus nerve and tips you toward rest. Brain scans show the ommm sound also quiets the amygdala, the part of the brain that runs your stress response.',
   },
   {
     id: 'slow-walk',

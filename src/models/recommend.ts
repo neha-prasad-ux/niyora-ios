@@ -109,6 +109,7 @@ export type Recommendation = {
 const ACTIVITY_NEEDS: Record<string, readonly Need[]> = {
   'cold-water': ['calm'],
   'make-something-warm': ['cozy', 'calm'],
+  'om-chant': ['calm', 'relaxed'],
   'slow-walk': ['relaxed', 'focused'],
   'legs-up-the-wall': ['sleepy', 'relaxed'],
   'childs-pose': ['relaxed', 'calm'],
