@@ -17,7 +17,13 @@ export type CardType = 'nudge' | 'write' | 'read' | 'action';
 // The five PMS current-state feelings. These ids match the FEELINGS catalogue
 // in ./recommend.ts exactly, so an activity's `fits` can be cross-referenced
 // against a chosen feeling.
-export type PmsFeeling = 'irritable' | 'anxious' | 'low' | 'foggy' | 'overwhelmed';
+export const PMS_FEELINGS = ['irritable', 'anxious', 'low', 'foggy', 'overwhelmed'] as const;
+export type PmsFeeling = (typeof PMS_FEELINGS)[number];
+
+// Narrow a raw string (e.g. a navigation param) to a known feeling.
+export function isPmsFeeling(value: string | undefined | null): value is PmsFeeling {
+  return value != null && (PMS_FEELINGS as readonly string[]).includes(value);
+}
 
 // The activity's flavour. Drives grouping/labelling, distinct from cardType.
 // 'breath' and 'mind' are reserved for when the existing Technique catalogue is

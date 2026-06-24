@@ -86,9 +86,16 @@ export default function ResultScreen() {
       return;
     }
     if (card.activityId) {
-      router.push({ pathname: '/activity', params: { id: card.activityId } });
+      // Carry the primary feeling so the post-activity "why this happens" read
+      // can show the matching Understand reframe.
+      router.push({
+        pathname: '/activity',
+        params: feelings[0]
+          ? { id: card.activityId, feeling: feelings[0] }
+          : { id: card.activityId },
+      });
     }
-  }, []);
+  }, [feelings]);
 
   return (
     <View style={styles.root}>
