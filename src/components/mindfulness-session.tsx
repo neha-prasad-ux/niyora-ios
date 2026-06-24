@@ -21,6 +21,7 @@ import { GoldenFocalPoint } from '@/components/GoldenFocalPoint';
 import { RiverStream } from '@/components/RiverStream';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
+import { RingCelebration } from '@/components/RingCelebration';
 import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
@@ -230,7 +231,12 @@ export function MindfulnessSession({
         />
       )}
 
-      {done && <SessionDoneBackdrop />}
+      {done &&
+        (earnedTier ? (
+          <RingCelebration hue={earnedTier.hue} />
+        ) : (
+          <SessionDoneBackdrop />
+        ))}
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.topRow}>

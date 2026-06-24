@@ -19,6 +19,7 @@ import { PhaseLabel } from '@/components/phase-label';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
 import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
+import { RingCelebration } from '@/components/RingCelebration';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import {
@@ -233,7 +234,12 @@ function BreathingSession({
           />
         )}
 
-        {cycle.done && <SessionDoneBackdrop />}
+        {cycle.done &&
+          (earnedTier ? (
+            <RingCelebration hue={earnedTier.hue} />
+          ) : (
+            <SessionDoneBackdrop />
+          ))}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
