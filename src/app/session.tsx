@@ -8,7 +8,7 @@
 import * as Haptics from 'expo-haptics';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,6 +22,11 @@ import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import {
+  clipForLabel,
+  introClipsFor,
+  useSessionVoice,
+} from '@/hooks/use-session-voice';
+import {
   type BreathingTechnique,
   getTechnique,
   isBreathing,
@@ -30,6 +35,7 @@ import { NiyoraSync } from 'niyora-sync';
 
 import { appendSession } from '@/store/session-history';
 import type { MusicTrack } from '@/store/music-prefs';
+import { getVoiceGuidance, setVoiceGuidance } from '@/store/voice-prefs';
 import { colors } from '@/theme/colors';
 
 // Matches the onboarding breath orb so the Soul-orb techniques feel continuous
@@ -97,11 +103,70 @@ function BreathingSession({
       ? Math.round((technique.durationSeconds / technique.rounds) * rounds)
       : technique.durationSeconds;
   const [paused, setPaused] = useState(false);
-  const cycle = useBreathCycle(technique.phases, rounds, paused);
+  // Voice guidance: null while the stored preference loads, then on/off.
+  const [voiceOn, setVoiceOn] = useState<boolean | null>(null);
+  // Holds the breath frozen until the preference resolves and any opening voice
+  // sequence has played, so "begin" lands on the first inhale.
+  const [gateReleased, setGateReleased] = useState(false);
+  const voice = useSessionVoice(voiceOn === true);
+
+  const introGated = !gateReleased;
+  const cycle = useBreathCycle(technique.phases, rounds, paused || introGated);
   const { width, height } = Dimensions.get('window');
   const { track, changeTrack, fadeOut, pause: pauseMusic, resume: resumeMusic } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [showMood, setShowMood] = useState(false);
+
+  // Resolve the voice preference once, then either play the opening sequence
+  // (settle → optional Ocean haaa intro → begin) and release the breath when it
+  // ends, or release immediately when voice is off. All state lands in async
+  // callbacks, never synchronously in the effect body.
+  useEffect(() => {
+    let cancelled = false;
+    getVoiceGuidance()
+      .then((on) => {
+        if (cancelled) return;
+        setVoiceOn(on);
+        if (on) {
+          voice.playIntro(introClipsFor(technique.id), () => {
+            if (!cancelled) setGateReleased(true);
+          });
+        } else {
+          setGateReleased(true);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setVoiceOn(false);
+        setGateReleased(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount; voice/technique are stable for the session
+  }, []);
+
+  // The first inhale shares its moment with the intro's "begin", so cue it the
+  // instant the breath is released rather than waiting for the next boundary.
+  useEffect(() => {
+    if (gateReleased && voiceOn) {
+      voice.playCue(clipForLabel(technique.phases[0].label));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once when the gate lifts
+  }, [gateReleased]);
+
+  // Speak each new breath phase's cue (playCue holds off while the intro plays).
+  useEffect(() => {
+    voice.playCue(clipForLabel(cycle.phase.label));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire only on phase boundaries
+  }, [cycle.phaseIndex]);
+
+  const toggleVoice = useCallback(() => {
+    const next = !(voiceOn === true);
+    setVoiceOn(next);
+    setVoiceGuidance(next).catch(() => {});
+    if (!next) voice.stop();
+  }, [voiceOn, voice]);
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -140,6 +205,7 @@ function BreathingSession({
         recordedAt: new Date().toISOString(),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      voice.playEnd('well-done');
       fadeOut();
       // Give the "well done" label a moment to appear before the mood overlay fades in
       const t = setTimeout(() => setShowMood(true), 500);
@@ -166,6 +232,7 @@ function BreathingSession({
 
   function exitSession() {
     Haptics.selectionAsync();
+    voice.stop();
     fadeOut();
     router.back();
   }
@@ -285,6 +352,35 @@ function BreathingSession({
                   </Text>
                 </Pressable>
               ))}
+
+              <View style={styles.pickerDivider} />
+              <Pressable
+                style={styles.pickerRow}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  toggleVoice();
+                }}
+                accessibilityRole="switch"
+                accessibilityLabel="Voice guidance"
+                accessibilityState={{ checked: voiceOn === true }}
+              >
+                <SymbolView
+                  name={voiceOn === true ? 'speaker.wave.2.fill' : 'speaker.wave.2'}
+                  tintColor={
+                    voiceOn === true ? colors.textPrimary : colors.textSubtitle
+                  }
+                  size={16}
+                  weight="medium"
+                />
+                <Text
+                  style={[
+                    styles.pickerLabel,
+                    voiceOn === true && styles.pickerLabelActive,
+                  ]}
+                >
+                  Voice
+                </Text>
+              </Pressable>
             </View>
           )}
 
@@ -404,6 +500,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 10,
+  },
+  pickerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    marginVertical: 4,
+    marginHorizontal: 14,
   },
   pickerLabel: {
     fontSize: 14,
