@@ -1,25 +1,40 @@
-// First-launch onboarding. Six beats, narrated around a single orb that stays
-// mounted the whole way through and transforms per step (calm -> breathing ->
-// Spark-tier rings -> calm). See DESIGN.md "Onboarding".
+// First-launch onboarding, PMS-first. A single orb stays mounted the whole way
+// through and transforms per step. See DESIGN.md "Onboarding".
 //
-// Flow: Welcome -> Privacy -> First breath (one ~20s guided cycle + a science
-// reveal) -> My Soul -> Reminders (reuses the daily-reminder infra) -> Mac
-// (placeholder slot). Skip (top-right) finishes immediately from any step.
+// Flow: Hook -> Privacy -> First breath (one ~20s guided cycle + a science
+// reveal) -> My Soul -> Daily nudge -> Smart PMS mode (opt-in) -> [Cycle setup]
+// -> You're set. The cycle-setup screen is only reached if she activates PMS
+// mode; declining skips straight to the closer. PMS framing never leads: the
+// hook speaks to everyone, and the period-specific offer comes near the end so
+// non-PMS users are never shown the door. Skip (top-right) finishes from any
+// step. Everything is on-device.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
+  FadeOut,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -37,12 +52,49 @@ import {
 import { setReminder } from '@/store/reminder-prefs';
 import { setOnboardingComplete } from '@/store/onboarding-complete';
 import { BREATH_FACTS, pickFact } from '@/lib/onboarding-facts';
+import {
+  setPmsPrefs,
+  DEFAULT_CYCLE_LENGTH,
+  MIN_CYCLE_LENGTH,
+  MAX_CYCLE_LENGTH,
+} from '@/store/pms-prefs';
+import { isInPmsWindow } from '@/lib/pms-window';
 
 const ORB_SIZE = 220;
-// Cross-device sync isn't shipping in v1, so the Mac beat is hidden. Flip this
-// to true (and the step is the last beat again) once Mac sync lands.
-const MAC_STEP_ENABLED = false;
-const STEP_COUNT = MAC_STEP_ENABLED ? 6 : 5;
+const PMS_ORB_SIZE = 150; // large on the PMS offer: the orb is the emotional hero
+
+// PMS offer orb behaviour: the orb drifts through soft cool shades (the moods of
+// the week) and settles back to calm, never landing on an alarming colour, so
+// the motion reinforces "feel safe" instead of agitating. Hues stay in the
+// blue/violet/magenta band on purpose, no reds.
+const CALM_HUE = 220;
+const PMS_HUE_KEYFRAMES = [220, 275, 320, 250, 220];
+const PMS_DRIFT_MS = 7000;
+
+// The "reading your cycle" beat on the closer (PMS path only). Long enough to
+// register as the app doing something personal, short enough not to drag, with
+// the orb pulsing and the line + message cross-fading so nothing snaps.
+const CLOSER_LOADING_MS = 2200;
+
+// The dotted spine: hook, privacy, breath, soul, nudge, PMS, done. The
+// cycle-setup screen is part of the PMS beat, so it shares the PMS dot rather
+// than adding its own.
+const STEP = {
+  hook: 0,
+  privacy: 1,
+  breath: 2,
+  soul: 3,
+  nudge: 4,
+  pms: 5,
+  done: 6,
+} as const;
+// Cycle setup (date + length) is done in sheets over the PMS screen, so the
+// steps map 1:1 to the dotted spine.
+const TOTAL_DOTS = 7;
+function dotIndex(step: number): number {
+  return step;
+}
+
 const SPARK_HUE = TIERS[0].hue; // 30, the first-tier warm orange
 // How far above its resting spot the orb starts before dropping in on launch.
 const ORB_DROP_DISTANCE = 340;
@@ -61,13 +113,22 @@ const ONBOARDING_BREATH_RANGE = { min: 0.7, max: 1.35 };
 // violet, blue, cool blue (skips Spark, which has no ring).
 const SOUL_RING_HUES = TIERS.slice(1).map((t) => t.hue);
 
-// Bedtime presets so onboarding stays one tap, not a full picker. Values feed
-// the existing daily-reminder schedule (hour, minute 0).
+// Reminder time presets so onboarding stays one tap, not a full picker. Values
+// feed the existing daily-reminder schedule (hour, minute 0).
 const TIME_PRESETS: readonly { label: string; hour: number }[] = [
   { label: '9pm', hour: 21 },
   { label: '10pm', hour: 22 },
   { label: '11pm', hour: 23 },
 ];
+
+// Local YYYY-MM-DD for the chosen period start. Calendar-day only, no clock, so
+// it lines up with the day math in lib/pms-window.
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 // Reports the breath cadence up to the parent (which owns the shared orb) and
 // fires onDone once when the cycle completes. Mounted only during the breath
@@ -108,9 +169,32 @@ function BreathDriver({
   return (
     <View style={styles.breathLabelWrap}>
       <PhaseLabel label={cycle.phase.label} />
-      {tip ? <Text style={styles.breathTip}>{tip}</Text> : null}
+      {/* Fixed two-line slot so the layout never jumps when the tip switches
+          between a one-line (inhale) and two-line (exhale) message. */}
+      <View style={styles.breathTipSlot}>
+        {tip ? (
+          <Text style={styles.breathTip} numberOfLines={2}>
+            {tip}
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
+}
+
+// The closer's "reading your cycle" line, gently pulsing so the brief pause
+// reads as the app working. The orb above is the visual; no separate dots.
+function CloserReading() {
+  const o = useSharedValue(0.45);
+  useEffect(() => {
+    o.value = withRepeat(
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+  }, [o]);
+  const style = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.Text style={[styles.closerLoadingText, style]}>Reading your cycle</Animated.Text>;
 }
 
 export default function OnboardingScreen() {
@@ -124,12 +208,122 @@ export default function OnboardingScreen() {
   // Reminder selection.
   const [presetIndex, setPresetIndex] = useState(1); // default 10pm
 
+  // Smart PMS mode selection. cycleDate starts empty on purpose: pre-filling
+  // today would silently corrupt the prediction if she taps Continue without
+  // changing it, so Continue stays disabled until she picks a real day.
+  const [pmsActivated, setPmsActivated] = useState(false);
+  const [cycleDate, setCycleDate] = useState<Date | null>(null);
+  const [cycleSheet, setCycleSheet] = useState<'closed' | 'date' | 'length'>('closed');
+  const [cycleLength, setCycleLength] = useState(DEFAULT_CYCLE_LENGTH);
+  const today = useMemo(() => new Date(), []);
+  const basePickerStyles = useDefaultStyles('dark');
+  const pickerStyles = useMemo(
+    () => ({
+      ...basePickerStyles,
+      // No marker on today: the outline read as a pre-selection and confused
+      // people about what was chosen.
+      today: { borderWidth: 0, backgroundColor: 'transparent' },
+      // The chosen day is a small glowing moon (a full moon, echoing the orb),
+      // not a flat square.
+      selected: {
+        backgroundColor: 'rgba(228, 233, 255, 0.96)',
+        borderRadius: 999,
+        shadowColor: 'rgb(206, 214, 255)',
+        shadowOpacity: 0.9,
+        shadowRadius: 9,
+        shadowOffset: { width: 0, height: 0 },
+      },
+      selected_label: { color: '#1b1430', fontWeight: '600' as const },
+    }),
+    [basePickerStyles],
+  );
+
+  // PMS offer beat: the orb drifts through the week's shades and settles to
+  // calm. One pass when the screen appears; reduce-motion holds it at calm.
+  const [pmsHue, setPmsHue] = useState(CALM_HUE);
+  const lastHueRef = useRef(CALM_HUE);
+  useEffect(() => {
+    if (step !== STEP.pms) {
+      setPmsHue(CALM_HUE);
+      lastHueRef.current = CALM_HUE;
+      return;
+    }
+    let raf = 0;
+    let start: number | null = null;
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (cancelled) return;
+      if (reduce) {
+        setPmsHue(CALM_HUE);
+        return;
+      }
+      const seg = PMS_DRIFT_MS / (PMS_HUE_KEYFRAMES.length - 1);
+      const tick = (t: number) => {
+        if (cancelled) return;
+        if (start === null) start = t;
+        const elapsed = t - start;
+        if (elapsed >= PMS_DRIFT_MS) {
+          setPmsHue(CALM_HUE);
+          return;
+        }
+        const i = Math.min(PMS_HUE_KEYFRAMES.length - 2, Math.floor(elapsed / seg));
+        const localT = (elapsed - i * seg) / seg;
+        const eased = 0.5 - 0.5 * Math.cos(Math.PI * localT); // smooth in/out
+        const h = PMS_HUE_KEYFRAMES[i] + (PMS_HUE_KEYFRAMES[i + 1] - PMS_HUE_KEYFRAMES[i]) * eased;
+        // Throttle re-renders: only push a visibly different hue.
+        if (Math.abs(h - lastHueRef.current) > 1.5) {
+          lastHueRef.current = h;
+          setPmsHue(h);
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    });
+    return () => {
+      cancelled = true;
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [step]);
+
+  // Closer beat (PMS path): a short loading pause "reads" her cycle, then the
+  // tailored line fades in. We only claim where she is in her cycle (an
+  // estimate), never how she feels. Declined path skips this, nothing to read.
+  const [closerReady, setCloserReady] = useState(false);
+  useEffect(() => {
+    if (step !== STEP.done || !pmsActivated) {
+      setCloserReady(false);
+      return;
+    }
+    const t = setTimeout(() => setCloserReady(true), CLOSER_LOADING_MS);
+    return () => clearTimeout(t);
+  }, [step, pmsActivated]);
+  const inPmsNow = useMemo(
+    () => (cycleDate ? isInPmsWindow(toYmd(cycleDate), cycleLength, new Date()) : false),
+    [cycleDate, cycleLength],
+  );
+
+  // Gentle orb breath during the closer's reading beat, so the wait feels alive
+  // rather than frozen. Settles back to rest once the message appears.
+  const closerPulse = useSharedValue(1);
+  useEffect(() => {
+    if (step === STEP.done && pmsActivated && !closerReady) {
+      closerPulse.value = withRepeat(
+        withTiming(1.05, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      );
+    } else {
+      closerPulse.value = withTiming(1, { duration: 300 });
+    }
+  }, [step, pmsActivated, closerReady, closerPulse]);
+  const closerPulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: closerPulse.value }] }));
+
   // My Soul beat: the orb accumulates rings to show the soul growing with
   // practice (1 -> 2 -> 3 -> 4, then holds, never resetting). Illustrative, not
   // the real count.
   const [soulRingCount, setSoulRingCount] = useState(1);
   useEffect(() => {
-    if (step !== 3) return;
+    if (step !== STEP.soul) return;
     const seq = [1, 2, 3, 4];
     let idx = 0;
     let timer: ReturnType<typeof setTimeout>;
@@ -145,7 +339,7 @@ export default function OnboardingScreen() {
   }, [step]);
 
   // Launch entrance: the orb drops in from above and settles into place once,
-  // on first mount (the welcome beat). 1 = up high, 0 = landed.
+  // on first mount (the hook beat). 1 = up high, 0 = landed.
   const orbDrop = useSharedValue(1);
   useEffect(() => {
     let cancelled = false;
@@ -183,23 +377,22 @@ export default function OnboardingScreen() {
   }, []);
 
   // Step back one beat. Resets the first-breath state so returning to it replays
-  // the guided cycle rather than dropping straight into the reveal.
+  // the guided cycle. From the closer, if PMS mode was declined, the cycle-setup
+  // screen was skipped, so back lands on the PMS offer instead.
   const goBack = useCallback(() => {
     Haptics.selectionAsync();
     setBreathPhase(undefined);
     setBreathDone(false);
-    setStep((s) => Math.max(0, s - 1));
-  }, []);
+    setStep((s) => {
+      if (s === STEP.done && !pmsActivated) return STEP.pms;
+      return Math.max(0, s - 1);
+    });
+  }, [pmsActivated]);
 
-  // After the reminders beat: go to the Mac beat if enabled, otherwise this is
-  // the last screen, so finish onboarding.
-  const afterReminders = useCallback(() => {
-    if (MAC_STEP_ENABLED) {
-      setStep((s) => s + 1);
-    } else {
-      finish();
-    }
-  }, [finish]);
+  // After the nudge beat, on to the Smart PMS mode offer.
+  const afterNudge = useCallback(() => {
+    setStep(STEP.pms);
+  }, []);
 
   const enableReminders = useCallback(async () => {
     Haptics.selectionAsync();
@@ -214,13 +407,67 @@ export default function OnboardingScreen() {
       // Permission/scheduling can throw (e.g. the notifications native module
       // is absent in an older dev build). Never trap the user on this step.
     }
-    afterReminders();
-  }, [presetIndex, afterReminders]);
+    afterNudge();
+  }, [presetIndex, afterNudge]);
+
+  const activatePms = useCallback(() => {
+    Haptics.selectionAsync();
+    setCycleSheet('date');
+  }, []);
+
+  // Backing out of the sheets leaves her on the PMS offer, not activated.
+  const cancelCycleSheet = useCallback(() => {
+    setCycleSheet('closed');
+  }, []);
+
+  // Date sheet -> length sheet (both over the PMS screen).
+  const goToLengthSheet = useCallback(() => {
+    Haptics.selectionAsync();
+    setCycleSheet('length');
+  }, []);
+
+  const declinePms = useCallback(async () => {
+    Haptics.selectionAsync();
+    setPmsActivated(false);
+    try {
+      await setPmsPrefs({
+        pmsMode: false,
+        lastPeriodStart: null,
+        cycleLength: DEFAULT_CYCLE_LENGTH,
+      });
+    } catch {
+      // Storage can throw; never trap the user. Defaults are general mode anyway.
+    }
+    setStep(STEP.done);
+  }, []);
+
+  const adjustLength = useCallback((delta: number) => {
+    Haptics.selectionAsync();
+    setCycleLength((v) => Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, v + delta)));
+  }, []);
+
+  const confirmLength = useCallback(async () => {
+    Haptics.selectionAsync();
+    try {
+      await setPmsPrefs({
+        pmsMode: true,
+        lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
+        cycleLength,
+      });
+    } catch {
+      // Storage can throw; never trap the user.
+    }
+    setCycleSheet('closed');
+    setPmsActivated(true);
+    setStep(STEP.done);
+  }, [cycleDate, cycleLength]);
 
   // Orb props per step: breathing on the breath step, Spark rings on My Soul,
-  // calm everywhere else. The orb instance itself never unmounts.
-  const isBreathStep = step === 2;
-  const isSoulStep = step === 3;
+  // calm everywhere else. The orb shrinks aside on the cycle-setup screen to
+  // make room for the calendar. The orb instance itself never unmounts.
+  const isBreathStep = step === STEP.breath;
+  const isSoulStep = step === STEP.soul;
+  const isPmsStep = step === STEP.pms;
 
   return (
     <View style={styles.root}>
@@ -240,10 +487,10 @@ export default function OnboardingScreen() {
               </Pressable>
             )}
             <View style={styles.dots}>
-              {Array.from({ length: STEP_COUNT }, (_, i) => (
+              {Array.from({ length: TOTAL_DOTS }, (_, i) => (
                 <View
                   key={i}
-                  style={[styles.dot, i === step && styles.dotActive]}
+                  style={[styles.dot, i === dotIndex(step) && styles.dotActive]}
                 />
               ))}
             </View>
@@ -258,26 +505,29 @@ export default function OnboardingScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.orbArea}>
+        <View style={[styles.orbArea, isPmsStep && styles.orbAreaPms]}>
           <Animated.View style={orbDropStyle}>
-          <Orb
-            size={ORB_SIZE}
-            phase={
-              isBreathStep && breathPhase
-                ? breathPhase.type === 'hold2'
-                  ? 'hold'
-                  : breathPhase.type
-                : undefined
-            }
-            phaseDuration={isBreathStep ? breathPhase?.duration : undefined}
-            breathRange={isBreathStep ? ONBOARDING_BREATH_RANGE : undefined}
-            tierRingCount={isSoulStep ? soulRingCount : 0}
-            tierHue={SPARK_HUE}
-            ringHues={isSoulStep ? SOUL_RING_HUES : undefined}
-            accumulate={isSoulStep}
-            still={isSoulStep}
-            shield={step === 1}
-          />
+            <Animated.View style={closerPulseStyle}>
+            <Orb
+              size={isPmsStep ? PMS_ORB_SIZE : ORB_SIZE}
+              hue={isPmsStep ? pmsHue : undefined}
+              phase={
+                isBreathStep && breathPhase
+                  ? breathPhase.type === 'hold2'
+                    ? 'hold'
+                    : breathPhase.type
+                  : undefined
+              }
+              phaseDuration={isBreathStep ? breathPhase?.duration : undefined}
+              breathRange={isBreathStep ? ONBOARDING_BREATH_RANGE : undefined}
+              tierRingCount={isSoulStep ? soulRingCount : 0}
+              tierHue={SPARK_HUE}
+              ringHues={isSoulStep ? SOUL_RING_HUES : undefined}
+              accumulate={isSoulStep}
+              still={isSoulStep}
+              shield={step === STEP.privacy}
+            />
+            </Animated.View>
           </Animated.View>
           {isBreathStep && !breathDone && (
             <BreathDriver onPhase={handlePhase} onDone={handleBreathDone} />
@@ -287,9 +537,9 @@ export default function OnboardingScreen() {
         <Animated.View
           key={`${step}-${breathDone}`}
           entering={FadeIn.duration(450)}
-          style={styles.content}
+          style={[styles.content, isPmsStep && styles.contentCycle]}
         >
-          {step === 0 && (
+          {step === STEP.hook && (
             <View style={styles.centerBlock}>
               <Animated.Text entering={FadeInDown.delay(900).duration(550)} style={styles.wordmark}>
                 NIYORA
@@ -297,13 +547,10 @@ export default function OnboardingScreen() {
               <Animated.Text entering={FadeInDown.delay(1150).duration(550)} style={styles.hero}>
                 Calm in 60 seconds.
               </Animated.Text>
-              <Animated.Text entering={FadeInDown.delay(1400).duration(550)} style={styles.sub}>
-                Nothing leaves your phone.
-              </Animated.Text>
             </View>
           )}
 
-          {step === 1 && (
+          {step === STEP.privacy && (
             <View style={styles.centerBlock}>
               <Text style={styles.hero}>You are safe.</Text>
               <View style={styles.privacyLines}>
@@ -320,30 +567,30 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {step === 2 && !breathDone && (
+          {step === STEP.breath && !breathDone && (
             <View style={styles.centerBlock}>
               <Text style={styles.sub}>Follow the orb.</Text>
             </View>
           )}
 
-          {step === 2 && breathDone && (
+          {step === STEP.breath && breathDone && (
             <View style={styles.centerBlock}>
               <Text style={styles.fact}>{pickFact(factIndex).fact}</Text>
               <Text style={styles.factYou}>{pickFact(factIndex).you}</Text>
             </View>
           )}
 
-          {step === 3 && (
+          {step === STEP.soul && (
             <View style={styles.centerBlock}>
               <Text style={styles.hero}>This is your Soul.</Text>
               <Text style={styles.sub}>It grows every time you practice.</Text>
             </View>
           )}
 
-          {step === 4 && (
+          {step === STEP.nudge && (
             <View style={styles.centerBlock}>
-              <Text style={styles.hero}>Slow breathing makes falling asleep feel easier.</Text>
-              <Text style={styles.sub}>Want a gentle reminder each night?</Text>
+              <Text style={styles.hero}>A minute a day keeps you steady.</Text>
+              <Text style={styles.sub}>Want a gentle daily reminder?</Text>
               <View style={styles.presets}>
                 {TIME_PRESETS.map((p, i) => (
                   <Pressable
@@ -366,26 +613,83 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {MAC_STEP_ENABLED && step === 5 && (
+          {isPmsStep && (
+            <ScrollView
+              style={styles.cycleScroll}
+              contentContainerStyle={styles.pmsScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.hero}>Feel safe through PMS</Text>
+              <View style={styles.pmsCard}>
+                <Text style={styles.pmsScience}>
+                  In studies, women with and without PMS had the same hormone levels. The only difference was how strongly the brain responds to them.
+                </Text>
+              </View>
+              <Text style={styles.pmsBenefitsTitle}>Niyora PMS mode helps you:</Text>
+              <View style={styles.pmsList}>
+                {[
+                  'A heads-up before PMS hits',
+                  'Understand why you feel this way',
+                  'Makes you feel better',
+                ].map((point, i) => (
+                  <Animated.View
+                    key={point}
+                    entering={FadeInDown.delay(150 + i * 220).duration(500)}
+                    style={styles.pmsPointRow}
+                  >
+                    <SymbolView
+                      name="checkmark"
+                      tintColor={colors.textPrimary}
+                      size={15}
+                      weight="semibold"
+                      style={styles.pmsCheck}
+                    />
+                    <Text style={styles.pmsPointText}>{point}</Text>
+                  </Animated.View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+
+          {step === STEP.done && !pmsActivated && (
             <View style={styles.centerBlock}>
-              <Text style={styles.hero}>Niyora on your Mac, soon.</Text>
-              <Text style={styles.sub}>One practice, every screen you sit at.</Text>
+              <Text style={styles.hero}>You&apos;re set.</Text>
+              <Text style={styles.sub}>Calm is one tap away.</Text>
             </View>
+          )}
+          {step === STEP.done && pmsActivated && !closerReady && (
+            <Animated.View
+              entering={FadeIn.duration(400)}
+              exiting={FadeOut.duration(400)}
+              style={styles.centerBlock}
+            >
+              <CloserReading />
+            </Animated.View>
+          )}
+          {step === STEP.done && pmsActivated && closerReady && (
+            <Animated.View entering={FadeIn.duration(450)} style={styles.centerBlock}>
+              <Text style={styles.hero}>
+                {inPmsNow ? "Looks like you're going through PMS right now." : 'Got it.'}
+              </Text>
+              <Text style={styles.sub}>
+                {inPmsNow ? "We've got you. Let's start." : "We'll ping you when you need care."}
+              </Text>
+            </Animated.View>
           )}
         </Animated.View>
 
         <View style={styles.footer}>
-          {step === 0 && <BeginButton label="Continue" onPress={goNext} />}
-          {step === 1 && <BeginButton label="Continue" onPress={goNext} />}
-          {step === 2 && breathDone && <BeginButton label="Continue" onPress={goNext} />}
-          {step === 3 && <BeginButton label="Continue" onPress={goNext} />}
-          {step === 4 && (
+          {step === STEP.hook && <BeginButton label="Continue" onPress={goNext} />}
+          {step === STEP.privacy && <BeginButton label="Continue" onPress={goNext} />}
+          {step === STEP.breath && breathDone && <BeginButton label="Continue" onPress={goNext} />}
+          {step === STEP.soul && <BeginButton label="Continue" onPress={goNext} />}
+          {step === STEP.nudge && (
             <>
               <BeginButton label="Yes, remind me" onPress={enableReminders} />
               <Pressable
                 onPress={() => {
                   Haptics.selectionAsync();
-                  afterReminders();
+                  afterNudge();
                 }}
                 hitSlop={12}
                 style={styles.notNow}
@@ -396,9 +700,108 @@ export default function OnboardingScreen() {
               </Pressable>
             </>
           )}
-          {MAC_STEP_ENABLED && step === 5 && <BeginButton label="I’m in." onPress={finish} />}
+          {step === STEP.pms && (
+            <>
+              <BeginButton label="Activate Smart PMS mode" onPress={activatePms} />
+              <Pressable
+                onPress={declinePms}
+                hitSlop={12}
+                style={styles.notNow}
+                accessibilityRole="button"
+                accessibilityLabel="No, not for me"
+              >
+                <Text style={styles.notNowText}>No, not for me</Text>
+              </Pressable>
+            </>
+          )}
+          {step === STEP.done && (!pmsActivated || closerReady) && (
+            <BeginButton label="Begin" onPress={finish} />
+          )}
         </View>
       </SafeAreaView>
+
+      {/* Cycle setup: bottom sheets that slide up over the (dimmed) PMS screen,
+          first the date, then the cycle length. Backing out (backdrop tap)
+          leaves her on the offer, not activated. */}
+      <Modal
+        visible={cycleSheet !== 'closed'}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={cancelCycleSheet}
+      >
+        <Pressable
+          style={styles.sheetBackdrop}
+          onPress={cancelCycleSheet}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <LinearGradient
+              colors={['#2b2142', '#181226', '#0e0b14']}
+              locations={[0, 0.6, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.sheetHandle} />
+            {cycleSheet === 'length' ? (
+              <>
+                <Text style={styles.sheetTitle}>How long is your cycle, usually?</Text>
+                <Text style={styles.cycleHint}>An estimate is fine. You can change it later.</Text>
+                <View style={styles.stepperRow}>
+                  <Pressable
+                    onPress={() => adjustLength(-1)}
+                    hitSlop={10}
+                    style={styles.stepperBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Shorter cycle"
+                  >
+                    <SymbolView name="minus" tintColor={colors.textPrimary} size={16} weight="medium" />
+                  </Pressable>
+                  <Text style={styles.stepperValue}>{cycleLength} days</Text>
+                  <Pressable
+                    onPress={() => adjustLength(1)}
+                    hitSlop={10}
+                    style={styles.stepperBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Longer cycle"
+                  >
+                    <SymbolView name="plus" tintColor={colors.textPrimary} size={16} weight="medium" />
+                  </Pressable>
+                </View>
+                <View style={styles.sheetFooter}>
+                  <BeginButton label="Continue" onPress={confirmLength} />
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sheetTitle}>When did your last period start?</Text>
+                <View style={styles.calendarWrap}>
+                  <DateTimePicker
+                    mode="single"
+                    date={cycleDate ?? undefined}
+                    maxDate={today}
+                    onChange={({ date }) => {
+                      if (date) {
+                        setCycleDate(new Date(date as string | number | Date));
+                        Haptics.selectionAsync();
+                      }
+                    }}
+                    styles={pickerStyles}
+                  />
+                </View>
+                <Text style={styles.cycleNote}>
+                  Stays on your phone. It&apos;s just how we know when to show up.
+                </Text>
+                <View style={styles.sheetFooter}>
+                  <BeginButton label="Continue" onPress={goToLengthSheet} disabled={!cycleDate} />
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -453,10 +856,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  orbAreaCompact: {
+    flex: 0,
+    height: 96,
+    marginTop: 4,
+  },
+  orbAreaPms: {
+    flex: 0,
+    height: 200,
+    marginTop: 4,
+  },
   content: {
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingBottom: 24,
+  },
+  contentCycle: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    paddingBottom: 0,
+    width: '100%',
   },
   centerBlock: {
     alignItems: 'center',
@@ -467,10 +886,12 @@ const styles = StyleSheet.create({
     color: colors.textWordmark,
     marginBottom: 18,
   },
+  // Onboarding type scale: one title size (hero, 26), one body size (sub, 15),
+  // one caption size (13). Screen titles all use hero; captions all use 13/19.
   hero: {
     fontFamily: 'Poppins-Light',
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 26,
+    lineHeight: 34,
     letterSpacing: 0.3,
     color: colors.textPrimary,
     textAlign: 'center',
@@ -478,7 +899,7 @@ const styles = StyleSheet.create({
   sub: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     color: colors.textSubtitle,
     textAlign: 'center',
     marginTop: 12,
@@ -486,13 +907,18 @@ const styles = StyleSheet.create({
   breathLabelWrap: {
     alignItems: 'center',
   },
+  breathTipSlot: {
+    height: 40, // two lines at lineHeight 19, kept constant so nothing jumps
+    marginTop: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'flex-start',
+  },
   breathTip: {
     fontFamily: 'Poppins-Light',
     fontSize: 13,
     lineHeight: 19,
     color: colors.textSubtitle,
     textAlign: 'center',
-    marginTop: 10,
     paddingHorizontal: 28,
     letterSpacing: 0.3,
   },
@@ -524,16 +950,160 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
-  closer: {
-    marginTop: 28,
+  pmsScrollContent: {
     alignItems: 'center',
+    paddingTop: 4,
+    paddingBottom: 16,
   },
-  closerLine: {
+  pmsCard: {
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    marginTop: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  pmsScience: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 23,
+    color: colors.textPrimary, // full-contrast: the card bg is too faint for muted text
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  pmsBenefitsTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
+    lineHeight: 24,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 26,
+  },
+  pmsList: {
+    width: '100%',
+    maxWidth: 320,
+    alignSelf: 'center',
+    marginTop: 16,
+    gap: 18,
+  },
+  pmsPointRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  pmsCheck: {
+    width: 16,
+    height: 16,
+  },
+  pmsPointText: {
+    flex: 1,
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  closerLoadingText: {
     fontFamily: 'Poppins-Light',
     fontSize: 14,
-    lineHeight: 21,
     color: colors.textSubtitle,
     textAlign: 'center',
+    letterSpacing: 0.3,
+  },
+  // Used by the PMS scroll view.
+  cycleScroll: {
+    width: '100%',
+  },
+  cycleHint: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textTagline,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 10,
+  },
+  calendarWrap: {
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 12,
+  },
+  // Period-date bottom sheet (over the dimmed PMS screen).
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: colors.backgroundTop,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingTop: 12,
+    paddingHorizontal: 22,
+    paddingBottom: 32,
+    alignItems: 'center',
+    overflow: 'hidden', // clip the gradient to the rounded top corners
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 20,
+    lineHeight: 28,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginBottom: 8,
+  },
+  sheetFooter: {
+    marginTop: 18,
+    alignItems: 'center',
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 22,
+    marginTop: 28,
+  },
+  stepperBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 18,
+    color: colors.textPrimary,
+    minWidth: 96,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  cycleNote: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textTagline,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 20,
+    paddingHorizontal: 16,
   },
   presets: {
     flexDirection: 'row',
