@@ -4,7 +4,7 @@
 // The tier hue is used to tint My Soul accents (level name, ring around
 // the orb). The home orb stays calm-blue regardless of tier per DESIGN.md.
 
-export type TierId = 'spark' | 'glow' | 'shine' | 'radiance' | 'brilliance';
+export type TierId = 'base' | 'spark' | 'glow' | 'shine' | 'radiance';
 
 export type Tier = {
   id: TierId;
@@ -14,15 +14,17 @@ export type Tier = {
   hue: number;
 };
 
-// Thresholds front-load the reward: the first ring lands after a single
-// session so a new user has something to be excited about right away, then the
-// climb stretches out (5 / 15 / 40) so later rings still feel earned.
+// The orb starts bare (the 'base' tier has no name and no ring) and earns its
+// first ring — amber Spark — after a single session, so a new user has
+// something to be excited about right away. The climb then stretches out
+// (5 / 15 / 40) so later rings still feel earned. Ring colours run warm-to-cool
+// as the Soul grows: amber, pink, purple, violet.
 export const TIERS: readonly Tier[] = [
-  { id: 'spark', name: 'Spark', threshold: 0, hue: 30 },
-  { id: 'glow', name: 'Glow', threshold: 1, hue: 335 },
-  { id: 'shine', name: 'Shine', threshold: 5, hue: 280 },
-  { id: 'radiance', name: 'Radiance', threshold: 15, hue: 230 },
-  { id: 'brilliance', name: 'Brilliance', threshold: 40, hue: 210 },
+  { id: 'base', name: '', threshold: 0, hue: 30 },
+  { id: 'spark', name: 'Spark', threshold: 1, hue: 30 },
+  { id: 'glow', name: 'Glow', threshold: 5, hue: 335 },
+  { id: 'shine', name: 'Shine', threshold: 15, hue: 280 },
+  { id: 'radiance', name: 'Radiance', threshold: 40, hue: 230 },
 ];
 
 export function currentTier(completedSessions: number): Tier {
@@ -43,19 +45,20 @@ export function sessionsToNext(completedSessions: number): number {
   return next ? Math.max(0, next.threshold - completedSessions) : 0;
 }
 
-// Saturn-style ring count per tier. Matches Mac tierRingCount():
-// spark=0, glow=1, shine=2, radiance=3, brilliance=4. The ring count equals
-// the tier's index, so the band visibly widens one ring per tier crossed.
+// Saturn-style ring count per tier. The ring count equals the tier's index, so
+// the band widens one ring per tier crossed: base=0 (bare orb), spark=1,
+// glow=2, shine=3, radiance=4.
 export const TIER_RING_COUNTS: Record<TierId, number> = {
-  spark: 0,
-  glow: 1,
-  shine: 2,
-  radiance: 3,
-  brilliance: 4,
+  base: 0,
+  spark: 1,
+  glow: 2,
+  shine: 3,
+  radiance: 4,
 };
 
-// Per-ring hues (one per tier above spark) so an accumulating band keeps each
-// tier's own colour: pink (Glow), then + purple (Shine), then + blue, etc.
+// Per-ring hues (one per ring-bearing tier, i.e. every tier above 'base') so an
+// accumulating band keeps each tier's own colour: amber (Spark), then + pink
+// (Glow), + purple (Shine), + violet (Radiance).
 export const SOUL_RING_HUES: readonly number[] = TIERS.slice(1).map((t) => t.hue);
 
 export function tierRingCount(tierId: TierId): number {

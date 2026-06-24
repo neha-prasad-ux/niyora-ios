@@ -8,27 +8,28 @@ import {
 } from './tiers';
 
 describe('currentTier', () => {
-  it('returns Spark only before the first ring', () => {
-    expect(currentTier(0).id).toBe('spark');
+  it('returns the bare base tier before any ring is earned', () => {
+    expect(currentTier(0).id).toBe('base');
+    expect(currentTier(0).name).toBe('');
   });
 
   it('steps up at each threshold boundary', () => {
-    expect(currentTier(1).id).toBe('glow'); // first ring after one session
-    expect(currentTier(4).id).toBe('glow');
-    expect(currentTier(5).id).toBe('shine');
-    expect(currentTier(15).id).toBe('radiance');
-    expect(currentTier(40).id).toBe('brilliance');
+    expect(currentTier(1).id).toBe('spark'); // first ring (amber) after one session
+    expect(currentTier(4).id).toBe('spark');
+    expect(currentTier(5).id).toBe('glow');
+    expect(currentTier(15).id).toBe('shine');
+    expect(currentTier(40).id).toBe('radiance');
   });
 
-  it('caps at Brilliance for very high counts', () => {
-    expect(currentTier(1000).id).toBe('brilliance');
+  it('caps at Radiance for very high counts', () => {
+    expect(currentTier(1000).id).toBe('radiance');
   });
 });
 
 describe('nextTier', () => {
   it('returns the following tier', () => {
-    expect(nextTier(TIERS[0])?.id).toBe('glow');
-    expect(nextTier(currentTier(5))?.id).toBe('radiance');
+    expect(nextTier(TIERS[0])?.id).toBe('spark');
+    expect(nextTier(currentTier(5))?.id).toBe('shine');
   });
 
   it('returns null at the top tier', () => {
@@ -38,9 +39,9 @@ describe('nextTier', () => {
 
 describe('sessionsToNext', () => {
   it('counts sessions remaining to the next tier', () => {
-    expect(sessionsToNext(0)).toBe(1); // -> Glow at 1
-    expect(sessionsToNext(1)).toBe(4); // -> Shine at 5
-    expect(sessionsToNext(5)).toBe(10); // -> Radiance at 15
+    expect(sessionsToNext(0)).toBe(1); // -> Spark at 1
+    expect(sessionsToNext(1)).toBe(4); // -> Glow at 5
+    expect(sessionsToNext(5)).toBe(10); // -> Shine at 15
   });
 
   it('returns 0 at the top tier', () => {
@@ -50,14 +51,14 @@ describe('sessionsToNext', () => {
 });
 
 describe('earnedTierBetween', () => {
-  it('earns the first ring on the very first session', () => {
-    expect(earnedTierBetween(0, 1)?.id).toBe('glow');
+  it('earns the first (amber Spark) ring on the very first session', () => {
+    expect(earnedTierBetween(0, 1)?.id).toBe('spark');
   });
 
   it('returns the new tier on the session that crosses a threshold', () => {
-    expect(earnedTierBetween(4, 5)?.id).toBe('shine');
-    expect(earnedTierBetween(14, 15)?.id).toBe('radiance');
-    expect(earnedTierBetween(39, 40)?.id).toBe('brilliance');
+    expect(earnedTierBetween(4, 5)?.id).toBe('glow');
+    expect(earnedTierBetween(14, 15)?.id).toBe('shine');
+    expect(earnedTierBetween(39, 40)?.id).toBe('radiance');
   });
 
   it('returns null when no threshold is crossed', () => {
@@ -73,8 +74,8 @@ describe('earnedTierBetween', () => {
 
 describe('tierRingCount', () => {
   it('maps each tier to a ring count equal to its index', () => {
-    expect(tierRingCount('spark')).toBe(0);
-    expect(tierRingCount('glow')).toBe(1);
-    expect(tierRingCount('brilliance')).toBe(TIERS.length - 1);
+    expect(tierRingCount('base')).toBe(0);
+    expect(tierRingCount('spark')).toBe(1);
+    expect(tierRingCount('radiance')).toBe(TIERS.length - 1);
   });
 });

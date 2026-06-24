@@ -580,7 +580,13 @@ function LevelCard({
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
       <View style={styles.levelHeader}>
-        <Text style={[styles.levelName, { color: accent }]}>Level {tierName}</Text>
+        {/* Before the first ring the Soul has no level name; the "1 to Spark"
+            line carries the moment instead. */}
+        {tierName ? (
+          <Text style={[styles.levelName, { color: accent }]}>Level {tierName}</Text>
+        ) : (
+          <View />
+        )}
         {nextName && (
           <Text style={styles.levelSub}>
             {toNext} to {nextName}
@@ -629,8 +635,8 @@ function TierTrack({
   accent: string;
   nextThreshold: number | null;
 }) {
-  // Skip the spark marker (always reached) per Mac convention.
-  const markers = TIERS.filter((t) => t.id !== 'spark');
+  // Skip the bare base tier (no ring, always reached); show every ring milestone.
+  const markers = TIERS.filter((t) => t.id !== 'base');
   const cap = markers[markers.length - 1].threshold;
   const fillPct = Math.min(100, (sessions / cap) * 100);
 
