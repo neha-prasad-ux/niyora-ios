@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -32,6 +33,9 @@ import { posesFor } from '@/components/activity/pose-images';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
+// Activities that chant along to a looping voice clip while the timer runs.
+const OM_SOURCE = require('../../../assets/audio/voice/om.m4a');
+
 type Props = { activity: Activity; onComplete: () => void };
 
 export function NudgeView({ activity, onComplete }: Props) {
@@ -39,6 +43,7 @@ export function NudgeView({ activity, onComplete }: Props) {
   const [running, setRunning] = useState(false);
   const timed = activity.timeSeconds > 0;
   const poses = posesFor(activity.id);
+  const chant = activity.id === 'om-chant';
 
   const Why = activity.why ? (
     <>
@@ -56,6 +61,7 @@ export function NudgeView({ activity, onComplete }: Props) {
 
   return (
     <View style={styles.wrap}>
+      {chant ? <ChantAudio active={running} /> : null}
       {poses ? (
         <View style={styles.poseBody}>
           <View style={styles.poseHead}>
@@ -92,6 +98,29 @@ export function NudgeView({ activity, onComplete }: Props) {
       </View>
     </View>
   );
+}
+
+// Loops Neha's om clip while the chant timer runs, layered over silence (no
+// other audio plays during an activity). Its own player, so there's no source
+// swapping to race; pauses when the timer stops and releases on unmount.
+function ChantAudio({ active }: { active: boolean }) {
+  const player = useAudioPlayer(OM_SOURCE);
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' }).catch(
+      () => {},
+    );
+  }, []);
+  useEffect(() => {
+    player.loop = true;
+    player.volume = 1;
+    if (active) {
+      player.seekTo(0);
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [active, player]);
+  return null;
 }
 
 // The pose figures for a movement nudge. A single wide drawing (which carries
