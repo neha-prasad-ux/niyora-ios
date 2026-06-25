@@ -2,7 +2,7 @@
   "expo": {
     "name": "Niyora",
     "slug": "niyora",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "niyora",
@@ -12,6 +12,7 @@
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
       "bundleIdentifier": "com.niyora.app",
+      "buildNumber": "111",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
