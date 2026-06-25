@@ -21,6 +21,7 @@ import { CardScene } from '@/components/CardScene';
 import { Orb } from '@/components/orb';
 import { RingCelebration } from '@/components/RingCelebration';
 import { Scrim } from '@/components/activity/ui';
+import { MusicControl } from '@/components/activity/MusicControl';
 import { Pill } from '@/components/Pill';
 import { NudgeView } from '@/components/activity/NudgeView';
 import { WriteView } from '@/components/activity/WriteView';
@@ -81,6 +82,9 @@ export default function ActivityScreen() {
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.header}>
+          {/* Movement activities get a soundtrack (with a track picker / mute),
+              like a breathing session. Other activities stay quiet. */}
+          {activity.modality === 'movement' ? <MusicControl /> : <View />}
           <Pressable
             onPress={() => router.back()}
             hitSlop={12}
@@ -263,7 +267,16 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 24 },
-  header: { flexDirection: 'row', justifyContent: 'flex-end', height: 24, marginBottom: 4 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    height: 24,
+    marginBottom: 4,
+    // Lift above the activity body so the music picker popover isn't clipped
+    // behind it.
+    zIndex: 20,
+  },
   content: { flex: 1 },
   closure: {
     position: 'absolute',
