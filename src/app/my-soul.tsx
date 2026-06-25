@@ -68,6 +68,7 @@ import {
   scheduleDailyReminder,
   cancelDailyReminder,
 } from '@/lib/notifications';
+import { syncPmsReminders } from '@/lib/pms-reminders';
 import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
@@ -205,11 +206,16 @@ export default function MySoulScreen() {
     if (next.enabled) {
       await scheduleDailyReminder(hour, minute).catch(() => {});
     }
+    // The PMS heads-up reminders reuse this time, so move them too.
+    await syncPmsReminders().catch(() => {});
   }
 
   async function persistPms(next: PmsPrefs) {
     setPmsPrefsState(next);
     await setPmsPrefs(next).catch(() => {});
+    // Single write path for PMS prefs: reconcile the heads-up reminders against
+    // the new date, cycle length, or on/off state.
+    await syncPmsReminders().catch(() => {});
   }
 
   async function handlePmsToggle(on: boolean) {
@@ -221,6 +227,9 @@ export default function MySoulScreen() {
     // seed today so the feature has something to work with; she can adjust it
     // right below.
     const lastPeriodStart = pmsPrefs.lastPeriodStart ?? toYmdLocal(new Date());
+    // The heads-up reminders are the feature's only notification, so ask for
+    // permission now. PMS framing still works in-app if she declines.
+    await ensureNotificationPermission().catch(() => false);
     await persistPms({ ...pmsPrefs, pmsMode: true, lastPeriodStart });
   }
 

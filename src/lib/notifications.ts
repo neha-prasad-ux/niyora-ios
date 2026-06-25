@@ -17,10 +17,14 @@ Notifications.setNotificationHandler({
 
 const DAILY_REMINDER_ID = 'niyora-daily-reminder';
 export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
+const PMS_AHEAD_ID = 'niyora-pms-ahead';
+const PMS_START_ID = 'niyora-pms-start';
 
 const REMINDER_TITLE = 'Niyora';
 const REMINDER_BODY = 'A few breaths can settle the whole day.';
 const COMEBACK_NUDGE_BODY = 'When you\'re ready, a breath is here.';
+const PMS_AHEAD_BODY = 'PMS in a day';
+const PMS_START_BODY = 'the PMS days are here';
 
 // Ask the OS for permission. Returns true only if the user has granted it.
 export async function ensureNotificationPermission(): Promise<boolean> {
@@ -77,4 +81,46 @@ export async function scheduleCombackNudge(): Promise<void> {
 
 export async function cancelCombackNudge(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(COMEBACK_NUDGE_ID).catch(() => {});
+}
+
+// Schedule the two one-shot heads-up reminders for the next predicted PMS
+// window: one the day before it begins ("PMS in a day") and one on day one
+// ("the PMS days are here"), both at the given local time. Fixed identifiers
+// mean re-calling this replaces any pending pair, so it can be reconciled on
+// every launch as the window rolls forward. Each is skipped if its moment has
+// already passed (e.g. she enabled the feature mid-window).
+export async function schedulePmsReminders(
+  windowStart: Date,
+  hour: number,
+  minute: number,
+): Promise<void> {
+  await cancelPmsReminders();
+
+  const dayBefore = new Date(windowStart);
+  dayBefore.setDate(dayBefore.getDate() - 1);
+  dayBefore.setHours(hour, minute, 0, 0);
+
+  const dayOf = new Date(windowStart);
+  dayOf.setHours(hour, minute, 0, 0);
+
+  const now = Date.now();
+  if (dayBefore.getTime() > now) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: PMS_AHEAD_ID,
+      content: { title: REMINDER_TITLE, body: PMS_AHEAD_BODY },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: dayBefore },
+    });
+  }
+  if (dayOf.getTime() > now) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: PMS_START_ID,
+      content: { title: REMINDER_TITLE, body: PMS_START_BODY },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: dayOf },
+    });
+  }
+}
+
+export async function cancelPmsReminders(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(PMS_AHEAD_ID).catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync(PMS_START_ID).catch(() => {});
 }
