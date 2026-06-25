@@ -1,11 +1,8 @@
 // Activity experience screen. Reached from the result deck when she taps BEGIN
 // on an activity card. Shows the activity's living scene as a full-bleed
 // background, then the tap-in experience for its card type (nudge / write /
-// read / action). Ends on a brief closure that asks whether she'd recommend it,
-// then sends her off with the calm, then home.
-//
-// The recommend answer isn't persisted yet -- that's the social/rating loop
-// (V2). For now it's a soft beat that closes the moment warmly.
+// read / action). Ends on a brief closure that checks how she feels now, then
+// sends her off with the calm, then home.
 
 import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,7 +14,6 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CardScene } from '@/components/CardScene';
 import { Scrim } from '@/components/activity/ui';
-import { Pill } from '@/components/Pill';
 import { NudgeView } from '@/components/activity/NudgeView';
 import { WriteView } from '@/components/activity/WriteView';
 import { ReadView } from '@/components/activity/ReadView';
@@ -113,14 +109,13 @@ const LEVELS = [
   { label: 'heavy', hue: 335 },
 ];
 
-// Closure: how do you feel now? -> would you recommend this? -> take the calm
-// with you -> home. At the carry beat, if we know the feeling she came in with,
-// we offer the matching Understand reframe ("why this happens") as a gentle,
-// optional read before she leaves. (The felt level isn't stored yet; the delta
-// wiring is #236.)
+// Closure: how do you feel now? -> take the calm with you -> home. At the carry
+// beat, if we know the feeling she came in with, we offer the matching
+// Understand reframe ("why this happens") as a gentle, optional read before she
+// leaves. (The felt level isn't stored yet; the delta wiring is #236.)
 function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeling }) {
   const insets = useSafeAreaInsets();
-  const [phase, setPhase] = useState<'feel' | 'ask' | 'carry' | 'understand'>('feel');
+  const [phase, setPhase] = useState<'feel' | 'carry' | 'understand'>('feel');
 
   // Resolve the reframe for her feeling in the right context (general vs PMS).
   // Null until resolved, or when there's no feeling to key off.
@@ -170,7 +165,7 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
               <Pressable
                 key={l.label}
                 style={styles.levelPill}
-                onPress={() => setPhase('ask')}
+                onPress={() => setPhase('carry')}
                 accessibilityRole="button"
                 accessibilityLabel={l.label}
               >
@@ -179,14 +174,6 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
                 </Text>
               </Pressable>
             ))}
-          </View>
-        </View>
-      ) : phase === 'ask' ? (
-        <View style={styles.closeAsk}>
-          <Text style={styles.closeQ}>Would you recommend this to a friend?</Text>
-          <View style={styles.closeRow}>
-            <Pill label="Yes" onPress={() => setPhase('carry')} />
-            <Pill label="Not for me" variant="ghost" onPress={() => setPhase('carry')} />
           </View>
         </View>
       ) : phase === 'understand' && card ? (
@@ -238,14 +225,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.2,
   },
-  closeQ: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-  },
-  closeRow: { flexDirection: 'row', gap: 12 },
   closeX: { position: 'absolute', right: 24 },
   understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: 8 },
   closeCarryWrap: { alignItems: 'center', gap: 22 },

@@ -6,6 +6,7 @@
 // - Tap anywhere to pause/resume (pause.fill overlay when frozen).
 
 import * as Haptics from 'expo-haptics';
+import * as StoreReview from 'expo-store-review';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -230,6 +231,28 @@ function BreathingSession({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fadeOut is stable; omitting avoids double-fire on track change
   }, [cycle.done, technique.id]);
+
+  // The very first completed session earns the Spark ring. Right after that
+  // celebration — the one genuine peak in v1 — ask for an App Store review.
+  // Gating on Spark means it can only ever fire on session one (later rings
+  // are Glow/Shine/Radiance), and requestReview is itself system-throttled and
+  // a no-op in TestFlight, so this never nags.
+  useEffect(() => {
+    if (earnedTier?.id !== 'spark') return;
+    let cancelled = false;
+    // Let the ring bloom settle before the prompt surfaces over the moment.
+    const t = setTimeout(() => {
+      StoreReview.isAvailableAsync()
+        .then((available) => {
+          if (!cancelled && available) return StoreReview.requestReview();
+        })
+        .catch(() => {});
+    }, 2200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [earnedTier]);
 
   // Pause the music with the breath: tapping to pause freezes the visuals, so
   // the soundtrack should stop too (and resume on the next tap). When the
