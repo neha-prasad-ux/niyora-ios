@@ -8,6 +8,7 @@
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@shopify/react-native-skia": "2.6.2",
     "expo": "~56.0.12",
+    "expo-asset": "~56.0.17",
     "expo-audio": "~56.0.12",
     "expo-clipboard": "~56.0.4",
     "expo-constants": "~56.0.16",
@@ -61,5 +62,10 @@
     "submit:ios": "eas submit -p ios --latest",
     "test": "jest"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  }
 }

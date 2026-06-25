@@ -34,9 +34,6 @@
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-    "autolinking": {
-      "nativeModulesDir": "./modules"
-    },
     "plugins": [
       "./plugins/withNoPushEntitlement.js",
       "./plugins/withHealthKit.js",
@@ -64,7 +61,8 @@
           "color": "#0a0712"
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
