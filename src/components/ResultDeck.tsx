@@ -15,11 +15,11 @@ import { CardScene } from '@/components/CardScene';
 import type { RecCard } from '@/models/recommend';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-const COLS = 3;
+const COLS = 2;
 const H_PADDING = 22; // matches the result screen's safe-area horizontal padding
-const GAP = 10;
+const GAP = 12;
 const CELL_W = Math.floor((SCREEN_W - H_PADDING * 2 - GAP * (COLS - 1)) / COLS);
-const CELL_H = Math.round(CELL_W * 1.5); // 2:3 poster
+const CELL_H = Math.round(CELL_W * 1.4); // tall poster, roomy for the title
 const TEAL = 'hsl(180, 58%, 72%)';
 
 type Props = {
@@ -67,6 +67,11 @@ function GridCard({ card, onPress }: { card: RecCard; onPress: () => void }) {
         <Text style={styles.title} numberOfLines={2}>
           {card.title}
         </Text>
+        {cardBenefit(card) ? (
+          <Text style={styles.benefit} numberOfLines={1}>
+            {cardBenefit(card)}
+          </Text>
+        ) : null}
         <Text style={styles.time}>{formatTime(card.timeSeconds)}</Text>
       </View>
     </Pressable>
@@ -127,27 +132,34 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 9,
-    paddingBottom: 11,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
   tag: {
     fontFamily: 'Poppins-Light',
-    fontSize: 9,
-    letterSpacing: 0.8,
+    fontSize: 10,
+    letterSpacing: 1,
     color: TEAL,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   title: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 17,
+    lineHeight: 21,
     color: colors.textPrimary,
+  },
+  benefit: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(255, 255, 255, 0.68)',
+    marginTop: 3,
   },
   time: {
     fontFamily: 'Poppins-Light',
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.55)',
-    marginTop: 3,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 5,
   },
 });
