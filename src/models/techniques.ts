@@ -150,7 +150,10 @@ export const TECHNIQUES: readonly Technique[] = [
     id: 'cooling',
     name: 'Cooling Breath',
     subtitle: 'lowers body heat',
-    durationSeconds: 60,
+    // Hold 2->3s and exhale 6->8s so the spoken cues fit: "hold" needs a clear
+    // beat and "exhale through your nose" runs ~7.3s, which the old 6s exhale
+    // clipped. 15s a round, 75s total.
+    durationSeconds: 75,
     category: 'breathing',
     locked: true,
     instructions: 'Gently clench your teeth, lips apart. Inhale through your teeth, exhale through your nose.',
@@ -158,8 +161,8 @@ export const TECHNIQUES: readonly Technique[] = [
     rounds: 5,
     phases: [
       { type: 'inhale', label: 'inhale through teeth', duration: 4 },
-      { type: 'hold', label: 'hold', duration: 2 },
-      { type: 'exhale', label: 'exhale through nose', duration: 6 },
+      { type: 'hold', label: 'hold', duration: 3 },
+      { type: 'exhale', label: 'exhale through nose', duration: 8 },
     ],
     colors: {
       inhale: [200, 35, 13],
