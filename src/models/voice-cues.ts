@@ -21,26 +21,30 @@ export type VoiceClip =
   | 'begin'
   | 'well-done';
 
-// Phase labels are authored in techniques.ts; map each to its cue. A few labels
-// share a clip (plain "inhale" reuses "breathe in"; cooling's "inhale through
-// teeth" reuses the mouth cue since the tongue curl sits in the mouth).
+// Every breath phase maps to one of just three calm cues — breathe in / breathe
+// out / hold — no matter the technique. The on-screen instruction already
+// carries the specifics (which nostril, tongue position, "haaa" sound), so the
+// voice only keeps the universal in/out/hold cadence. This deliberately drops
+// the longer variant clips ("inhale through your right nostril", "exhale through
+// your nose"): they ran longer than their phase and got cut off when the next
+// cue fired, which read as the voice dropping out. Three short clips always fit.
 const LABEL_TO_CLIP: Record<string, VoiceClip> = {
   'breathe in': 'breathe-in',
   inhale: 'breathe-in',
-  'inhale through nose': 'breathe-in-nose',
-  'inhale through teeth': 'breathe-in-mouth',
-  'inhale through mouth': 'breathe-in-mouth',
-  'inhale left': 'inhale-left',
-  'inhale right': 'inhale-right',
-  'breathe into belly': 'breathe-into-belly',
+  'inhale through nose': 'breathe-in',
+  'inhale through teeth': 'breathe-in',
+  'inhale through mouth': 'breathe-in',
+  'inhale left': 'breathe-in',
+  'inhale right': 'breathe-in',
+  'breathe into belly': 'breathe-in',
   hold: 'hold',
   'breathe out': 'breathe-out',
   exhale: 'breathe-out',
-  'exhale slowly': 'breathe-out-slowly',
-  'exhale through nose': 'breathe-out-nose',
-  'exhale right': 'exhale-right',
-  'exhale left': 'exhale-left',
-  'release slowly': 'release-slowly',
+  'exhale slowly': 'breathe-out',
+  'exhale through nose': 'breathe-out',
+  'exhale right': 'breathe-out',
+  'exhale left': 'breathe-out',
+  'release slowly': 'breathe-out',
 };
 
 /** The cue clip for a breath phase label, or undefined if none matches. */

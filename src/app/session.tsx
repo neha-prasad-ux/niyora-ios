@@ -438,7 +438,9 @@ function BreathingSession({
               <View style={styles.bottomBlock}>
                 <PhaseLabel label={labelText} />
                 {!cycle.done && (
-                  <NextPhaseCue text={'then ' + nextPhase.label.toLowerCase()} />
+                  <Text style={styles.nextPhaseCue}>
+                    {'then ' + nextPhase.label.toLowerCase()}
+                  </Text>
                 )}
                 {!cycle.done && (
                   <>
@@ -502,26 +504,6 @@ function BreathingSession({
         )}
     </Pressable>
   );
-}
-
-// The "then …" look-ahead cue, cross-fading on each phase change (built on RN's
-// Animated, not reanimated) so it never sits mismatched against the big phase
-// word mid-transition. The text swaps while faded out, so no two cues overlap.
-function NextPhaseCue({ text }: { text: string }) {
-  const [shown, setShown] = useState(text);
-  const opacity = useRef(new Animated.Value(1)).current;
-  const lastRef = useRef(text);
-  useEffect(() => {
-    if (text === lastRef.current) return;
-    lastRef.current = text;
-    Animated.sequence([
-      Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-    ]).start();
-    const t = setTimeout(() => setShown(text), 160);
-    return () => clearTimeout(t);
-  }, [text, opacity]);
-  return <Animated.Text style={[styles.nextPhaseCue, { opacity }]}>{shown}</Animated.Text>;
 }
 
 const styles = StyleSheet.create({
