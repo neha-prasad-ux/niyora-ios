@@ -1,29 +1,23 @@
-// The result swipe deck. The ranked hero + list arrive as cards; the first is
-// the recommendation. A calm two-way swipe: drag left to send the front card
-// back and reveal the next, drag right to bring the last one back. Tap a dot to
-// jump. Motion is an inhale, not a bounce -- the front card glides under the
-// finger, then settles over ~0.75s on a soft eased curve. Ports the approved
-// prototype docs/pms/niyora-pms-cards-animated.html.
+// The result deck as a peek-row carousel (Neha's "Option C", ported from
+// peek-row-deck.html, in teal). One card owns the centre; the edges of the
+// neighbouring cards peek in from left and right so it's obvious there are more
+// options without any swiping. Tap a peeking edge to bring it to centre; tap the
+// centre card to begin that practice. Position dots sit below. The ranked
+// recommend() order is preserved, so the top pick is the centred default.
 //
-// Card visuals are placeholders (a solid tinted scene); the living scenes layer
-// onto the backgrounds in a later task.
+// Replaces the old two-way swipe deck: swiping felt like too much effort in a
+// bad moment. Respects reduce motion (jump-cut between cards, no slide).
 
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
-  Extrapolation,
-  interpolate,
-  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
-  withSequence,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
@@ -33,13 +27,13 @@ import { CardScene } from '@/components/CardScene';
 import type { RecCard } from '@/models/recommend';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-// Card height: a portrait card that leaves clear breathing room above + below,
-// rather than filling the whole screen.
-const DECK_H = Math.min(Math.round(SCREEN_H * 0.56), 440);
-const THRESHOLD = 100; // px past which a swipe commits
-const SETTLE = { duration: 750, easing: Easing.bezier(0.22, 0.61, 0.31, 1) };
-const FLY = { duration: 520, easing: Easing.bezier(0.22, 0.61, 0.31, 1) };
-const SPRING_BACK = { duration: 300, easing: Easing.out(Easing.cubic) };
+const CARD_H = Math.min(Math.round(SCREEN_H * 0.5), 410);
+const CENTER_W = Math.min(266, SCREEN_W - 92);
+const PEEK_W = 44; // peek card width; ~28px shows after it tucks under centre
+const PEEK_H = Math.round(CARD_H * 0.84);
+// Spark teal accent (matches the first Soul ring), per Neha's note on the mockup.
+const TEAL = 'hsl(180, 58%, 72%)';
+const SLIDE = { duration: 340, easing: Easing.out(Easing.cubic) };
 
 type Props = {
   cards: readonly RecCard[];
@@ -47,148 +41,110 @@ type Props = {
 };
 
 export function ResultDeck({ cards, onBegin }: Props) {
-  // `order` holds card indices, front-to-back. The parent remounts this deck
-  // (via a key) when the time toggle re-ranks the list, so the initial order is
-  // always fresh -- no reset effect needed.
-  const [order, setOrder] = useState<number[]>(() => cards.map((_, i) => i));
-
-  const dragX = useSharedValue(0);
-
-  // One-time hint when the deck first appears: the front card eases to the side
-  // and settles back, revealing a peek of the next card so the swipe is
-  // discoverable without a "swipe for more" label. Skipped for reduce-motion or
-  // a single-card deck.
+  const [center, setCenter] = useState(0);
   const reduced = useReducedMotion();
-  useEffect(() => {
-    if (reduced || cards.length < 2) return;
-    dragX.value = withDelay(
-      650,
-      withSequence(
-        withTiming(-26, { duration: 560, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 680, easing: Easing.bezier(0.22, 0.61, 0.31, 1) }),
-      ),
-    );
-    // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Subtle settle slide when the centre changes; dir is -1 (went left) or +1.
+  const tx = useSharedValue(0);
 
-  const commitAdvance = () => {
-    setOrder((o) => [...o.slice(1), o[0]]);
-    dragX.value = 0; // flown card is now at the back, hidden -- reset is invisible
-  };
+  const goTo = useCallback(
+    (i: number, dir: number) => {
+      if (i < 0 || i >= cards.length) return;
+      Haptics.selectionAsync().catch(() => {});
+      setCenter(i);
+      if (reduced) return;
+      tx.value = dir * 26;
+      tx.value = withTiming(0, SLIDE);
+    },
+    [cards.length, reduced, tx],
+  );
 
-  const commitRewind = () => {
-    setOrder((o) => [o[o.length - 1], ...o.slice(0, -1)]);
-    // The brought-back card is now the front; slide it in from the right.
-    dragX.value = SCREEN_W * 1.4;
-    dragX.value = withTiming(0, SETTLE);
-  };
+  const centerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
-  const pan = Gesture.Pan()
-    .activeOffsetX([-10, 10]) // let taps (Begin, dots) through
-    .onUpdate((e) => {
-      dragX.value = e.translationX;
-    })
-    .onEnd((e) => {
-      if (e.translationX < -THRESHOLD) {
-        dragX.value = withTiming(-SCREEN_W * 1.6, FLY, (done) => {
-          if (done) runOnJS(commitAdvance)();
-        });
-      } else if (e.translationX > THRESHOLD) {
-        runOnJS(commitRewind)();
-      } else {
-        dragX.value = withTiming(0, SPRING_BACK);
-      }
-    });
+  const left = center > 0 ? cards[center - 1] : undefined;
+  const right = center < cards.length - 1 ? cards[center + 1] : undefined;
+  const card = cards[center];
 
   return (
     <View style={styles.wrap}>
-      <GestureDetector gesture={pan}>
-        <View style={styles.deck}>
-          {cards.map((card, idx) => (
-            <DeckCard
-              key={card.id}
-              card={card}
-              pos={order.indexOf(idx)}
-              dragX={dragX}
-              onBegin={onBegin}
+      <View style={styles.row}>
+        {left ? (
+          <Peek card={left} side="left" onPress={() => goTo(center - 1, -1)} />
+        ) : (
+          <View style={styles.peekSlot} />
+        )}
+
+        <Animated.View style={[styles.centerWrap, centerStyle]}>
+          <Pressable
+            style={styles.center}
+            onPress={() => onBegin(card)}
+            accessibilityRole="button"
+            accessibilityLabel={`Begin ${card.title}`}
+          >
+            <View style={StyleSheet.absoluteFill}>
+              <CardScene card={card} active />
+            </View>
+            <LinearGradient
+              colors={['rgba(8,6,14,0.10)', 'transparent', 'rgba(9,6,16,0.74)', 'rgba(8,5,14,0.94)']}
+              locations={[0, 0.3, 0.72, 1]}
+              style={StyleSheet.absoluteFill}
             />
-          ))}
-        </View>
-      </GestureDetector>
+            <View style={styles.content}>
+              <Text style={styles.tag}>{cardTag(card)}</Text>
+              <Text style={styles.title}>{card.title}</Text>
+              {cardBenefit(card) ? <Text style={styles.benefit}>{cardBenefit(card)}</Text> : null}
+              {formatTime(card.timeSeconds) ? (
+                <Text style={styles.time}>{formatTime(card.timeSeconds)}</Text>
+              ) : null}
+              <View style={styles.begin}>
+                <Text style={styles.beginText}>BEGIN</Text>
+              </View>
+            </View>
+          </Pressable>
+        </Animated.View>
+
+        {right ? (
+          <Peek card={right} side="right" onPress={() => goTo(center + 1, 1)} />
+        ) : (
+          <View style={styles.peekSlot} />
+        )}
+      </View>
+
+      <View
+        style={styles.dots}
+        accessibilityLabel={`Option ${center + 1} of ${cards.length}`}
+      >
+        {cards.map((c, i) => (
+          <View key={c.id} style={[styles.dot, i === center && styles.dotOn]} />
+        ))}
+      </View>
     </View>
   );
 }
 
-function DeckCard({
+// A neighbour card's edge, tucked partly behind the centre card. Tapping it
+// brings it to centre. The living scene shows through, dimmed.
+function Peek({
   card,
-  pos,
-  dragX,
-  onBegin,
+  side,
+  onPress,
 }: {
   card: RecCard;
-  pos: number;
-  dragX: SharedValue<number>;
-  onBegin: (card: RecCard) => void;
+  side: 'left' | 'right';
+  onPress: () => void;
 }) {
-  const posSV = useSharedValue(pos);
-  useEffect(() => {
-    posSV.value = withTiming(pos, SETTLE);
-  }, [pos, posSV]);
-
-  const animStyle = useAnimatedStyle(() => {
-    const p = posSV.value;
-    const front = p < 0.5;
-    const tx = front ? dragX.value : 0;
-    return {
-      opacity: interpolate(p, [0, 2, 3], [1, 1, 0], Extrapolation.CLAMP),
-      transform: [
-        { translateX: tx },
-        { translateY: p * 14 },
-        { rotateZ: `${tx * 0.025}deg` },
-        { scale: 1 - p * 0.05 },
-      ],
-    };
-  });
-
-  const tag = cardTag(card);
-  const benefit = cardBenefit(card);
-  const time = formatTime(card.timeSeconds);
-
   return (
-    <Animated.View
-      style={[styles.card, animStyle, { zIndex: 100 - pos }]}
-      pointerEvents={pos === 0 ? 'auto' : 'none'}
+    <Pressable
+      onPress={onPress}
+      style={[styles.peek, side === 'left' ? styles.peekLeft : styles.peekRight]}
+      accessibilityRole="button"
+      accessibilityLabel={`See ${card.title}`}
+      hitSlop={10}
     >
       <View style={StyleSheet.absoluteFill}>
-        <CardScene card={card} active={pos <= 2} />
+        <CardScene card={card} active={false} />
       </View>
-      <LinearGradient
-        colors={['rgba(8,6,14,0.12)', 'transparent', 'rgba(9,6,16,0.72)', 'rgba(8,5,14,0.92)']}
-        locations={[0, 0.3, 0.72, 1]}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.content}>
-        <Text style={styles.tag}>{tag}</Text>
-        <Text style={styles.title}>{card.title}</Text>
-        {benefit ? <Text style={styles.benefit}>{benefit}</Text> : null}
-        {time ? <Text style={styles.time}>{time}</Text> : null}
-        <Pressable
-          onPress={() => onBegin(card)}
-          accessibilityRole="button"
-          accessibilityLabel={`Begin ${card.title}`}
-        >
-          <LinearGradient
-            colors={[colors.beginStart, colors.beginEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.begin}
-          >
-            <Text style={styles.beginText}>BEGIN</Text>
-          </LinearGradient>
-        </Pressable>
-      </View>
-    </Animated.View>
+      <View style={styles.peekVeil} />
+    </Pressable>
   );
 }
 
@@ -230,62 +186,87 @@ function formatTime(seconds: number): string {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
-  deck: { height: DECK_H, width: 300, alignSelf: 'center' },
-  card: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 32,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: CARD_H,
+  },
+  peekSlot: { width: PEEK_W - 16 },
+  peek: {
+    width: PEEK_W,
+    height: PEEK_H,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: colors.backgroundBottom,
+  },
+  // Tuck each peek partly behind the centre card so only its edge shows.
+  peekLeft: { marginRight: -16 },
+  peekRight: { marginLeft: -16 },
+  peekVeil: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(8,6,14,0.45)',
+  },
+  centerWrap: { zIndex: 2 },
+  center: {
+    width: CENTER_W,
+    height: CARD_H,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(120, 220, 210, 0.45)', // teal frame
   },
   content: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 26,
-    paddingBottom: 30,
+    paddingHorizontal: 22,
+    paddingBottom: 26,
     alignItems: 'center',
   },
   tag: {
     fontFamily: 'Poppins-Light',
     fontSize: 12,
     letterSpacing: 1,
-    color: 'rgba(255, 255, 255, 0.55)',
+    color: TEAL,
     textTransform: 'uppercase',
   },
   title: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 23,
+    fontSize: 22,
     color: colors.textPrimary,
     marginTop: 8,
     textAlign: 'center',
-    lineHeight: 29,
+    lineHeight: 28,
   },
   benefit: {
     fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.72)',
-    marginTop: 9,
+    marginTop: 8,
     textAlign: 'center',
-    lineHeight: 21,
+    lineHeight: 20,
   },
   time: {
     fontFamily: 'Poppins-Light',
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.5)',
-    marginVertical: 14,
+    marginVertical: 13,
   },
   begin: {
-    borderRadius: 26,
-    paddingHorizontal: 46,
-    paddingVertical: 13,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.beginBorder,
+    borderRadius: 24,
+    paddingHorizontal: 42,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(120, 220, 210, 0.6)',
+    backgroundColor: 'rgba(120, 220, 210, 0.16)',
   },
   beginText: {
     fontFamily: 'Poppins-Medium',
@@ -293,4 +274,17 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: '#fff',
   },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  dotOn: { backgroundColor: TEAL, width: 18 },
 });
