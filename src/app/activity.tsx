@@ -13,10 +13,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import { SymbolView } from 'expo-symbols';
+import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { CardScene } from '@/components/CardScene';
+import { Orb } from '@/components/orb';
+import { RingCelebration } from '@/components/RingCelebration';
 import { Scrim } from '@/components/activity/ui';
 import { Pill } from '@/components/Pill';
 import { NudgeView } from '@/components/activity/NudgeView';
@@ -109,6 +112,10 @@ export default function ActivityScreen() {
   );
 }
 
+// The soft Soul violet, used for the celebration burst + orb so the moment
+// reads as the same app that lights up after a breath.
+const CELEBRATE_HUE = 265;
+
 // The graded felt-check we already use elsewhere, reused as the post-activity
 // beat (a positive option, "light", is what makes it a real before/after).
 const LEVELS = [
@@ -124,7 +131,21 @@ const LEVELS = [
 // wiring is #236.)
 function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeling }) {
   const insets = useSafeAreaInsets();
-  const [phase, setPhase] = useState<'feel' | 'ask' | 'carry' | 'understand'>('feel');
+  // Open on a brief celebration burst (light floods out from the Soul, the same
+  // beat a breath earns), then settle into the felt-check. Starting on
+  // 'celebrate' avoids flipping phase synchronously inside an effect.
+  const [phase, setPhase] = useState<'celebrate' | 'feel' | 'ask' | 'carry' | 'understand'>(
+    'celebrate',
+  );
+
+  // The celebration is a held moment, not a tap gate: a warm success haptic,
+  // then it drifts on to "How are you feeling now?".
+  useEffect(() => {
+    if (phase !== 'celebrate') return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    const t = setTimeout(() => setPhase('feel'), 2300);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   // Resolve the reframe for her feeling in the right context (general vs PMS).
   // Null until resolved, or when there's no feeling to key off.
@@ -166,7 +187,16 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
         </Pressable>
       ) : null}
 
-      {phase === 'feel' ? (
+      {phase === 'celebrate' ? (
+        <>
+          <RingCelebration hue={CELEBRATE_HUE} />
+          <Animated.View entering={FadeIn.duration(500)} style={styles.celebrateCard}>
+            <Orb size={120} hue={CELEBRATE_HUE} />
+            <Text style={styles.celebrateLead}>Nicely done.</Text>
+            <Text style={styles.celebrateSub}>You took a moment for yourself.</Text>
+          </Animated.View>
+        </>
+      ) : phase === 'feel' ? (
         <View style={styles.closeAsk}>
           <Text style={styles.closeLead}>How are you feeling now?</Text>
           <View style={styles.levelRow}>
@@ -241,6 +271,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
+  },
+  celebrateCard: { alignItems: 'center', gap: 18 },
+  celebrateLead: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 24,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 8,
+  },
+  celebrateSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    marginTop: -8,
   },
   closeAsk: { alignItems: 'center', gap: 16 },
   closeLead: {
