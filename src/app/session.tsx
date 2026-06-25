@@ -309,12 +309,16 @@ function BreathingSession({
           />
         )}
 
-        {cycle.done &&
-          (earnedTier ? (
-            <RingCelebration hue={earnedTier.hue} />
-          ) : (
+        {/* The done backdrop (dark gradient + falling snow) seats the closing
+            copy on every finish. On a tier-earned finish the burst layers on
+            top of it, so "You earned your first ring" reads on a solid calm
+            backdrop instead of the see-through live breathing scene. */}
+        {cycle.done && (
+          <>
             <SessionDoneBackdrop />
-          ))}
+            {earnedTier ? <RingCelebration hue={earnedTier.hue} /> : null}
+          </>
+        )}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
