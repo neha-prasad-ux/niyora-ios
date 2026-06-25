@@ -61,6 +61,7 @@ import { loadMacSoul } from '@/store/last-mac-soul';
 import { macSoulHue } from '@/lib/mac-soul';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import { scheduleCombackNudge } from '@/lib/notifications';
+import { syncPmsReminders } from '@/lib/pms-reminders';
 
 const LAPSE_DAYS = 3;
 
@@ -182,6 +183,8 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       checkAndScheduleCombackNudge().catch(() => {});
+      // Roll the PMS heads-up reminders forward to the next predicted window.
+      syncPmsReminders().catch(() => {});
     }, [])
   );
 
