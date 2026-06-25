@@ -225,16 +225,20 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
           </View>
         </View>
       ) : phase === 'understand' && card ? (
-        <View style={[styles.understandWrap, { paddingTop: insets.top + 44 }]}>
+        <>
           {/* Full-bleed Niyora gradient behind the reframe so it reads as its
-              own calm page, not transparent text over the activity scene. The
-              backdrop bleeds past the closure's horizontal padding to the
-              screen edges. */}
+              own calm page, not transparent text over the activity scene. Kept
+              outside the padded wrap and pinned to the screen (only the
+              horizontal padding is cancelled, top/bottom stay at 0) so the
+              gradient's ambient blobs align to the real screen and cover it
+              edge to edge. */}
           <View style={styles.understandBackdrop}>
             <BackgroundGradient />
           </View>
-          <UnderstandReadView card={card} onDone={onClose} />
-        </View>
+          <View style={[styles.understandWrap, { paddingTop: insets.top + 44 }]}>
+            <UnderstandReadView card={card} onDone={onClose} />
+          </View>
+        </>
       ) : (
         <View style={styles.closeCarryWrap}>
           <Animated.Text entering={FadeIn.duration(600)} style={styles.closeCarry}>
@@ -317,9 +321,10 @@ const styles = StyleSheet.create({
   understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: 8 },
   understandBackdrop: {
     position: 'absolute',
-    top: -200,
-    bottom: -200,
-    // Bleed past the closure's 32px horizontal padding to the screen edges.
+    top: 0,
+    bottom: 0,
+    // Closure has only horizontal padding, so top/bottom 0 already reach the
+    // screen edges; cancel the 32px horizontal padding to bleed full width.
     left: -32,
     right: -32,
     backgroundColor: colors.backgroundBottom,
