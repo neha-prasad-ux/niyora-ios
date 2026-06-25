@@ -1,11 +1,8 @@
 // Activity experience screen. Reached from the result deck when she taps BEGIN
 // on an activity card. Shows the activity's living scene as a full-bleed
 // background, then the tap-in experience for its card type (nudge / write /
-// read / action). Ends on a brief closure that asks whether she'd recommend it,
-// then sends her off with the calm, then home.
-//
-// The recommend answer isn't persisted yet -- that's the social/rating loop
-// (V2). For now it's a soft beat that closes the moment warmly.
+// read / action). Ends on a brief closure that checks how she feels now, then
+// sends her off with the calm, then home.
 
 import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -23,7 +20,6 @@ import { RingCelebration } from '@/components/RingCelebration';
 import { Scrim } from '@/components/activity/ui';
 import { MusicControl } from '@/components/activity/MusicControl';
 import { CloseButton } from '@/components/CloseButton';
-import { Pill } from '@/components/Pill';
 import { NudgeView } from '@/components/activity/NudgeView';
 import { WriteView } from '@/components/activity/WriteView';
 import { ReadView } from '@/components/activity/ReadView';
@@ -122,18 +118,17 @@ const LEVELS = [
   { label: 'heavy', hue: 335 },
 ];
 
-// Closure: how do you feel now? -> would you recommend this? -> take the calm
-// with you -> home. At the carry beat, if we know the feeling she came in with,
-// we offer the matching Understand reframe ("why this happens") as a gentle,
-// optional read before she leaves. (The felt level isn't stored yet; the delta
-// wiring is #236.)
+// Closure: how do you feel now? -> take the calm with you -> home. At the carry
+// beat, if we know the feeling she came in with, we offer the matching
+// Understand reframe ("why this happens") as a gentle, optional read before she
+// leaves. (The felt level isn't stored yet; the delta wiring is #236.)
 function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeling }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   // Open on a brief celebration burst (light floods out from the Soul, the same
   // beat a breath earns), then settle into the felt-check. Starting on
   // 'celebrate' avoids flipping phase synchronously inside an effect.
-  const [phase, setPhase] = useState<'celebrate' | 'feel' | 'ask' | 'carry' | 'understand'>(
+  const [phase, setPhase] = useState<'celebrate' | 'feel' | 'carry' | 'understand'>(
     'celebrate',
   );
 
@@ -197,7 +192,7 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
               <Pressable
                 key={l.label}
                 style={styles.levelPill}
-                onPress={() => setPhase('ask')}
+                onPress={() => setPhase('carry')}
                 accessibilityRole="button"
                 accessibilityLabel={l.label}
               >
@@ -206,15 +201,6 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
                 </Text>
               </Pressable>
             ))}
-          </View>
-        </View>
-      ) : phase === 'ask' ? (
-        <View style={styles.closeAsk}>
-          <Text style={styles.closeQ}>Would you recommend this activity to a friend?</Text>
-          <Text style={styles.closeSub}>Helps us recommend you better.</Text>
-          <View style={styles.closeRow}>
-            <Pill label="Yes" onPress={() => setPhase('carry')} />
-            <Pill label="Not for me" variant="ghost" onPress={() => setPhase('carry')} />
           </View>
         </View>
       ) : phase === 'understand' && card ? (
@@ -314,22 +300,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.2,
   },
-  closeQ: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 18,
-    lineHeight: 25,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  closeSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginTop: -6,
-  },
-  closeRow: { flexDirection: 'row', gap: 12 },
   closeX: { position: 'absolute', right: 24 },
   understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: 8 },
   understandBackdrop: {

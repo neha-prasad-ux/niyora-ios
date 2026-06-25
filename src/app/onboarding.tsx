@@ -58,6 +58,7 @@ import {
   MAX_CYCLE_LENGTH,
 } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
+import { syncPmsReminders } from '@/lib/pms-reminders';
 
 const ORB_SIZE = 220;
 // On the PMS offer the orb is the hero: it fills the top of the screen and
@@ -455,8 +456,13 @@ export default function OnboardingScreen() {
         lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
         cycleLength,
       });
+      // The heads-up reminders are this feature's only notification, so ask now
+      // (no-op if she already granted it on the reminder step) and schedule the
+      // first window. PMS framing still works in-app if she declines.
+      await ensureNotificationPermission().catch(() => false);
+      await syncPmsReminders();
     } catch {
-      // Storage can throw; never trap the user.
+      // Storage/scheduling can throw; never trap the user.
     }
     setCycleSheet('closed');
     setCloserReady(false); // restart the loading beat each time she reaches the closer
