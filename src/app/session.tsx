@@ -10,6 +10,7 @@ import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
@@ -97,6 +98,9 @@ function BreathingSession({
   roundsOverride?: number;
   feeling?: string;
 }) {
+  // Keep the screen awake for the whole session: eyes are often closed during a
+  // breath, so the display must not sleep mid-practice.
+  useKeepAwake();
   const rounds = roundsOverride ?? technique.rounds;
   // Scale the reported duration to the actual rounds run, keeping per-round
   // cadence fixed so paired-device stats stay honest.
@@ -328,19 +332,38 @@ function BreathingSession({
               />
             </Pressable>
 
-            <Pressable
-              onPress={() => setPickerVisible((v) => !v)}
-              hitSlop={20}
-              accessibilityRole="button"
-              accessibilityLabel={musicLabel}
-            >
-              <SymbolView
-                name="music.note"
-                tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
-                size={22}
-                weight="medium"
-              />
-            </Pressable>
+            <View style={styles.topRowRight}>
+              {/* Voice guidance is a first-class, visible control here (not just
+                  a buried row in the music menu) so people discover it exists. */}
+              <Pressable
+                onPress={toggleVoice}
+                hitSlop={16}
+                accessibilityRole="switch"
+                accessibilityLabel="Voice guidance"
+                accessibilityState={{ checked: voiceOn === true }}
+              >
+                <SymbolView
+                  name={voiceOn === true ? 'speaker.wave.2.fill' : 'speaker.wave.2'}
+                  tintColor={voiceOn === true ? colors.textPrimary : colors.textSubtitle}
+                  size={22}
+                  weight="medium"
+                />
+              </Pressable>
+
+              <Pressable
+                onPress={() => setPickerVisible((v) => !v)}
+                hitSlop={20}
+                accessibilityRole="button"
+                accessibilityLabel={musicLabel}
+              >
+                <SymbolView
+                  name="music.note"
+                  tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
+                  size={22}
+                  weight="medium"
+                />
+              </Pressable>
+            </View>
           </View>
 
           {pickerVisible && (
@@ -415,9 +438,7 @@ function BreathingSession({
               <View style={styles.bottomBlock}>
                 <PhaseLabel label={labelText} />
                 {!cycle.done && (
-                  <Text style={styles.nextPhaseCue}>
-                    {'then ' + nextPhase.label.toLowerCase()}
-                  </Text>
+                  <NextPhaseCue text={'then ' + nextPhase.label.toLowerCase()} />
                 )}
                 {!cycle.done && (
                   <>
@@ -483,6 +504,26 @@ function BreathingSession({
   );
 }
 
+// The "then …" look-ahead cue, cross-fading on each phase change (built on RN's
+// Animated, not reanimated) so it never sits mismatched against the big phase
+// word mid-transition. The text swaps while faded out, so no two cues overlap.
+function NextPhaseCue({ text }: { text: string }) {
+  const [shown, setShown] = useState(text);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const lastRef = useRef(text);
+  useEffect(() => {
+    if (text === lastRef.current) return;
+    lastRef.current = text;
+    Animated.sequence([
+      Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start();
+    const t = setTimeout(() => setShown(text), 160);
+    return () => clearTimeout(t);
+  }, [text, opacity]);
+  return <Animated.Text style={[styles.nextPhaseCue, { opacity }]}>{shown}</Animated.Text>;
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -509,6 +550,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 8,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 22,
   },
   pickerCard: {
     position: 'absolute',

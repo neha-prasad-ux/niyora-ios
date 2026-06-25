@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useKeepAwake } from 'expo-keep-awake';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
@@ -30,6 +31,9 @@ import { resolveUnderstandContext } from '@/lib/understand-context';
 import type { RecCard } from '@/models/recommend';
 
 export default function ActivityScreen() {
+  // Activities are calming and often done with eyes closed; don't let the
+  // screen sleep partway through.
+  useKeepAwake();
   const { id, feeling } = useLocalSearchParams<{ id: string; feeling?: string }>();
   const activity = id ? getActivity(id) : undefined;
   const pmsFeeling = isPmsFeeling(feeling) ? feeling : undefined;
@@ -192,9 +196,13 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
         </View>
       ) : phase === 'understand' && card ? (
         <View style={[styles.understandWrap, { paddingTop: insets.top + 44 }]}>
-          {/* Solid backdrop so the long reframe text never reads against the
-              living activity scene bleeding through from behind. */}
-          <View style={styles.understandBackdrop} />
+          {/* Full-bleed Niyora gradient behind the reframe so it reads as its
+              own calm page, not transparent text over the activity scene. The
+              backdrop bleeds past the closure's horizontal padding to the
+              screen edges. */}
+          <View style={styles.understandBackdrop}>
+            <BackgroundGradient />
+          </View>
           <UnderstandReadView card={card} onDone={onClose} />
         </View>
       ) : (
@@ -262,11 +270,13 @@ const styles = StyleSheet.create({
   understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: 8 },
   understandBackdrop: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: -200,
+    bottom: -200,
+    // Bleed past the closure's 32px horizontal padding to the screen edges.
+    left: -32,
+    right: -32,
     backgroundColor: colors.backgroundBottom,
+    overflow: 'hidden',
   },
   closeCarryWrap: { alignItems: 'center', gap: 22 },
   carryOffer: {
