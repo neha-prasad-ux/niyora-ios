@@ -22,6 +22,7 @@ import { Orb } from '@/components/orb';
 import { RingCelebration } from '@/components/RingCelebration';
 import { Scrim } from '@/components/activity/ui';
 import { MusicControl } from '@/components/activity/MusicControl';
+import { CloseButton } from '@/components/CloseButton';
 import { Pill } from '@/components/Pill';
 import { NudgeView } from '@/components/activity/NudgeView';
 import { WriteView } from '@/components/activity/WriteView';
@@ -85,14 +86,7 @@ export default function ActivityScreen() {
           {/* Movement activities get a soundtrack (with a track picker / mute),
               like a breathing session. Other activities stay quiet. */}
           {activity.modality === 'movement' ? <MusicControl /> : <View />}
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <SymbolView name="xmark" tintColor={colors.textSubtitle} size={16} weight="medium" />
-          </Pressable>
+          <CloseButton onPress={() => router.back()} />
         </View>
 
         <View style={styles.content}>
@@ -180,15 +174,9 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
   return (
     <Animated.View entering={FadeIn.duration(500)} style={styles.closure}>
       {showClose ? (
-        <Pressable
-          onPress={onClose}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          style={[styles.closeX, { top: insets.top + 8 }]}
-        >
-          <SymbolView name="xmark" tintColor={colors.textSubtitle} size={16} weight="medium" />
-        </Pressable>
+        <View style={[styles.closeX, { top: insets.top + 8 }]}>
+          <CloseButton onPress={onClose} />
+        </View>
       ) : null}
 
       {phase === 'celebrate' ? (
@@ -250,12 +238,23 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
           </Animated.Text>
           {card ? (
             <Pressable
+              style={styles.whyCard}
               onPress={() => setPhase('understand')}
-              hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel="Why this happens"
+              accessibilityLabel={`Why this happens. ${card.title}`}
             >
-              <Text style={styles.carryOffer}>why this happens ›</Text>
+              <View style={styles.whyCardText}>
+                <Text style={styles.whyCardTitle}>Why this happens</Text>
+                <Text style={styles.whyCardBody} numberOfLines={2}>
+                  {card.title}
+                </Text>
+              </View>
+              <SymbolView
+                name="chevron.right"
+                tintColor={colors.textSubtitle}
+                size={14}
+                weight="semibold"
+              />
             </Pressable>
           ) : null}
         </View>
@@ -343,24 +342,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundBottom,
     overflow: 'hidden',
   },
-  closeCarryWrap: { alignItems: 'center', gap: 22 },
-  carryOffer: {
+  closeCarryWrap: { alignSelf: 'stretch', alignItems: 'center', gap: 22, paddingHorizontal: 8 },
+  // "Why this happens" reads as one of the app's list cards (title + teaser +
+  // chevron), not a faint text link.
+  whyCard: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  whyCardText: { flex: 1, gap: 4 },
+  whyCardTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  whyCardBody: {
     fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    color: 'rgba(196, 178, 255, 0.85)',
-    textAlign: 'center',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSubtitle,
   },
   levelRow: { flexDirection: 'row', gap: 12 },
+  // The felt-check is a real answer, not a tertiary action: heavier label and a
+  // more solid fill set it apart from the ghost buttons used elsewhere.
   levelPill: {
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.13)',
   },
-  levelLabel: { fontFamily: 'Poppins-Light', fontSize: 15, letterSpacing: 0.3 },
+  levelLabel: { fontFamily: 'Poppins-Medium', fontSize: 15, letterSpacing: 0.3 },
   closeCarry: {
     fontFamily: 'Poppins-Light',
     fontSize: 22,

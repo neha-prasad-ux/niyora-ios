@@ -15,6 +15,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
+import { CloseButton } from '@/components/CloseButton';
 import { colors } from '@/theme/colors';
 import {
   DURATIONS,
@@ -111,15 +112,9 @@ export default function ResultScreen() {
           <Text style={styles.headerTitle} numberOfLines={1}>
             {header}
           </Text>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            style={styles.headerSide}
-          >
-            <SymbolView name="xmark" tintColor={colors.textSubtitle} size={16} weight="medium" />
-          </Pressable>
+          <View style={styles.headerSide}>
+            <CloseButton onPress={() => router.back()} />
+          </View>
         </View>
 
         <Animated.View entering={FadeIn.duration(450)} style={styles.loaded}>
@@ -217,7 +212,7 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     marginBottom: 14,
   },
-  headerSide: { width: 24, alignItems: 'flex-end' },
+  headerSide: { width: 32, alignItems: 'flex-end' },
   headerTitle: {
     flex: 1,
     fontFamily: 'Poppins-Medium',
