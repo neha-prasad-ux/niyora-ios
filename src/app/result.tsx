@@ -100,12 +100,19 @@ export default function ResultScreen() {
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
+        {/* Title and close share one line, so the grid gets the space the old
+            stacked header + big top gap used to eat. */}
         <View style={styles.header}>
+          <View style={styles.headerSide} />
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {header}
+          </Text>
           <Pressable
             onPress={() => router.back()}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="Close"
+            style={styles.headerSide}
           >
             <SymbolView name="xmark" tintColor={colors.textSubtitle} size={16} weight="medium" />
           </Pressable>
@@ -119,7 +126,6 @@ export default function ResultScreen() {
           </View>
         ) : (
           <Animated.View entering={FadeIn.duration(450)} style={styles.loaded}>
-            <Text style={styles.ctx}>{header}</Text>
             {cards.length > 0 ? (
               <ResultDeck cards={cards} onBegin={onBegin} />
             ) : (
@@ -172,7 +178,22 @@ function LoadingLine() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 22 },
-  header: { flexDirection: 'row', justifyContent: 'flex-end', height: 24, marginBottom: 4 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+    marginBottom: 14,
+  },
+  headerSide: { width: 24, alignItems: 'flex-end' },
+  headerTitle: {
+    flex: 1,
+    fontFamily: 'Poppins-Medium',
+    fontSize: 20,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
   loaded: { flex: 1, width: '100%' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingLine: {
@@ -181,14 +202,5 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     letterSpacing: 0.4,
     textAlign: 'center',
-  },
-  ctx: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 23,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    marginTop: 48,
-    marginBottom: 22,
   },
 });
