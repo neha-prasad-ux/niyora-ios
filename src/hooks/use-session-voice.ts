@@ -65,11 +65,14 @@ export function useSessionVoice(enabled: boolean) {
       if (clip !== loadedRef.current) {
         player.replace(VOICE_SOURCES[clip]);
         loadedRef.current = clip;
-      } else {
-        // Same source already loaded: rewind so a repeated cue (e.g. "hold")
-        // plays again from the top.
-        player.seekTo(0);
       }
+      // Always rewind to the start before playing. A cue that follows a clip
+      // which finished on its own (e.g. breathe-in after breathe-out ended,
+      // since the in-clip is longer than its phase and gets cut, while the
+      // out-clip fits and ends naturally) would otherwise hit a player parked
+      // at the end, where play() is a no-op and the cue goes silent. Seeking to
+      // 0 clears that ended state so every round speaks like the first.
+      player.seekTo(0);
       player.play();
     },
     [player]
