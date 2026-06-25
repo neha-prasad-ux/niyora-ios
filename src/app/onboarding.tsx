@@ -17,7 +17,6 @@ import {
   AccessibilityInfo,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -62,7 +61,9 @@ import { isInPmsWindow } from '@/lib/pms-window';
 import { syncPmsReminders } from '@/lib/pms-reminders';
 
 const ORB_SIZE = 220;
-const PMS_ORB_SIZE = 150; // large on the PMS offer: the orb is the emotional hero
+// On the PMS offer the orb is the hero: it fills the top of the screen and
+// carries the opening stat inside it (Neha's design).
+const PMS_ORB_SIZE = 300;
 
 // PMS offer orb behaviour: the orb drifts through soft cool shades (the moods of
 // the week) and settles back to calm, never landing on an alarming colour, so
@@ -536,6 +537,11 @@ export default function OnboardingScreen() {
             />
             </Animated.View>
           </Animated.View>
+          {isPmsStep && (
+            <View style={styles.pmsStatOverlay} pointerEvents="none">
+              <Text style={styles.pmsStat}>2/3 women get PMS{'\n'}mood swings</Text>
+            </View>
+          )}
           {isBreathStep && !breathDone && (
             <BreathDriver onPhase={handlePhase} onDone={handleBreathDone} />
           )}
@@ -621,41 +627,32 @@ export default function OnboardingScreen() {
           )}
 
           {isPmsStep && (
-            <ScrollView
-              style={styles.cycleScroll}
-              contentContainerStyle={styles.pmsScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.hero}>Feel safe through PMS</Text>
-              <View style={styles.pmsCard}>
-                <Text style={styles.pmsScience}>
-                  In studies, women with and without PMS had the same hormone levels. The only difference was how strongly the brain responds to them.
-                </Text>
-              </View>
-              <Text style={styles.pmsBenefitsTitle}>Niyora PMS mode helps you:</Text>
+            <View style={styles.pmsBlock}>
+              <Text style={styles.pmsTitle}>Feel safe through PMS</Text>
               <View style={styles.pmsList}>
                 {[
-                  'A heads-up before PMS hits',
-                  'Understand why you feel this way',
-                  'Makes you feel better',
+                  'Get a heads up before PMS hits',
+                  'Understand why',
+                  'Activity to help you feel better',
                 ].map((point, i) => (
                   <Animated.View
                     key={point}
-                    entering={FadeInDown.delay(150 + i * 220).duration(500)}
+                    entering={FadeInDown.delay(150 + i * 180).duration(500)}
                     style={styles.pmsPointRow}
                   >
-                    <SymbolView
-                      name="checkmark"
-                      tintColor={colors.textPrimary}
-                      size={15}
-                      weight="semibold"
-                      style={styles.pmsCheck}
-                    />
+                    <View style={styles.pmsCheckBadge}>
+                      <SymbolView
+                        name="checkmark"
+                        tintColor={colors.textPrimary}
+                        size={12}
+                        weight="bold"
+                      />
+                    </View>
                     <Text style={styles.pmsPointText}>{point}</Text>
                   </Animated.View>
                 ))}
               </View>
-            </ScrollView>
+            </View>
           )}
 
           {step === STEP.done && !pmsActivated && (
@@ -869,9 +866,29 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   orbAreaPms: {
-    flex: 0,
-    height: 200,
-    marginTop: 4,
+    // The orb fills the top of the screen on the PMS offer; it shares the
+    // vertical space with the title + checklist below it.
+    flex: 1,
+    marginTop: 0,
+  },
+  // The opening stat sits inside the orb, centred over the bright sphere.
+  pmsStatOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  pmsStat: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 23,
+    lineHeight: 31,
+    color: 'hsl(258, 48%, 22%)',
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
   content: {
     alignItems: 'center',
@@ -896,7 +913,9 @@ const styles = StyleSheet.create({
   // Onboarding type scale: one title size (hero, 26), one body size (sub, 15),
   // one caption size (13). Screen titles all use hero; captions all use 13/19.
   hero: {
-    fontFamily: 'Poppins-Light',
+    // Screen titles render at a consistent Medium weight across the app, not a
+    // thin Light (titles were a Light/Medium mix; this aligns them).
+    fontFamily: 'Poppins-Medium',
     fontSize: 26,
     lineHeight: 34,
     letterSpacing: 0.3,
@@ -957,60 +976,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
-  pmsScrollContent: {
-    alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 16,
+  // PMS offer body: left-aligned title + checklist, sat below the hero orb.
+  pmsBlock: {
+    alignSelf: 'stretch',
+    paddingHorizontal: 4,
   },
-  pmsCard: {
-    width: '100%',
-    maxWidth: 360,
-    alignSelf: 'center',
-    marginTop: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  pmsScience: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.textPrimary, // full-contrast: the card bg is too faint for muted text
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-  pmsBenefitsTitle: {
+  pmsTitle: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 17,
-    lineHeight: 24,
+    fontSize: 30,
+    lineHeight: 38,
     color: colors.textPrimary,
-    textAlign: 'center',
     letterSpacing: 0.2,
-    marginTop: 26,
+    marginBottom: 24,
   },
   pmsList: {
-    width: '100%',
-    maxWidth: 320,
-    alignSelf: 'center',
-    marginTop: 16,
-    gap: 18,
+    alignSelf: 'stretch',
+    gap: 20,
   },
   pmsPointRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
   },
-  pmsCheck: {
-    width: 16,
-    height: 16,
+  pmsCheckBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pmsPointText: {
     flex: 1,
     fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
@@ -1021,10 +1022,6 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     textAlign: 'center',
     letterSpacing: 0.3,
-  },
-  // Used by the PMS scroll view.
-  cycleScroll: {
-    width: '100%',
   },
   cycleHint: {
     fontFamily: 'Poppins-Light',
@@ -1066,7 +1063,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetTitle: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: 'Poppins-Medium',
     fontSize: 20,
     lineHeight: 28,
     color: colors.textPrimary,

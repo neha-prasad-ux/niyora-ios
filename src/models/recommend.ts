@@ -162,6 +162,14 @@ export type RecResult = {
   needIds: readonly Need[];
 };
 
+// True for a breathing-technique card. Used to float breath to the top of the
+// ranked list (see the sort in recommend()).
+function isBreathCard(card: RecCard): boolean {
+  if (card.source !== 'technique' || !card.techniqueId) return false;
+  const t = getTechnique(card.techniqueId);
+  return !!t && isBreathing(t);
+}
+
 // Which feelings a technique serves, derived from the FEELINGS map (a technique
 // serves feeling F if it is F.short or F.long).
 function techniqueFeelings(techniqueId: string): readonly PmsFeeling[] {
@@ -251,6 +259,12 @@ export function recommend(
     .filter((c) => c.score > 0)
     .filter((c) => !hasBudget || c.source === 'technique' || c.timeSeconds === 0 || c.timeSeconds <= budgetSeconds)
     .sort((a, b) => {
+      // Breathing always leads. Paced breath is the fastest-acting, highest-
+      // evidence reset for an acute moment, so a relevant breathing technique
+      // ranks ahead of everything else; activities + mindfulness fill in below.
+      const aBreath = isBreathCard(a) ? 1 : 0;
+      const bBreath = isBreathCard(b) ? 1 : 0;
+      if (bBreath !== aBreath) return bBreath - aBreath;
       if (b.score !== a.score) return b.score - a.score;
       // Same score: prefer items serving the PRIMARY feeling.
       const aPrim = a.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;

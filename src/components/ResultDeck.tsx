@@ -1,30 +1,12 @@
-// The result swipe deck. The ranked hero + list arrive as cards; the first is
-// the recommendation. A calm two-way swipe: drag left to send the front card
-// back and reveal the next, drag right to bring the last one back. Tap a dot to
-// jump. Motion is an inhale, not a bounce -- the front card glides under the
-// finger, then settles over ~0.75s on a soft eased curve. Ports the approved
-// prototype docs/pms/niyora-pms-cards-animated.html.
-//
-// Card visuals are placeholders (a solid tinted scene); the living scenes layer
-// onto the backgrounds in a later task.
+// The result options as a Letterboxd-style poster grid: every matched practice
+// shown at once in a calm 3-column scroll, newest-effort-first (the recommend()
+// rank). No swipe, no carousel to figure out, just see everything and tap one.
+// Each cell is the practice's living scene (frozen for the grid) with its name
+// over a soft gradient; tapping a cell begins it.
 
-import { useEffect, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Dimensions, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  Easing,
-  Extrapolation,
-  interpolate,
-  runOnJS,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withSequence,
-  withTiming,
-  type SharedValue,
-} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
 import { getActivity, type Modality } from '@/models/activities';
@@ -32,14 +14,13 @@ import { getTechnique } from '@/models/techniques';
 import { CardScene } from '@/components/CardScene';
 import type { RecCard } from '@/models/recommend';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-// Card height: a portrait card that leaves clear breathing room above + below,
-// rather than filling the whole screen.
-const DECK_H = Math.min(Math.round(SCREEN_H * 0.56), 440);
-const THRESHOLD = 100; // px past which a swipe commits
-const SETTLE = { duration: 750, easing: Easing.bezier(0.22, 0.61, 0.31, 1) };
-const FLY = { duration: 520, easing: Easing.bezier(0.22, 0.61, 0.31, 1) };
-const SPRING_BACK = { duration: 300, easing: Easing.out(Easing.cubic) };
+const { width: SCREEN_W } = Dimensions.get('window');
+const COLS = 2;
+const H_PADDING = 22; // matches the result screen's safe-area horizontal padding
+const GAP = 12;
+const CELL_W = Math.floor((SCREEN_W - H_PADDING * 2 - GAP * (COLS - 1)) / COLS);
+const CELL_H = Math.round(CELL_W * 1.4); // tall poster, roomy for the title
+const TEAL = 'hsl(180, 58%, 72%)';
 
 type Props = {
   cards: readonly RecCard[];
@@ -47,148 +28,53 @@ type Props = {
 };
 
 export function ResultDeck({ cards, onBegin }: Props) {
-  // `order` holds card indices, front-to-back. The parent remounts this deck
-  // (via a key) when the time toggle re-ranks the list, so the initial order is
-  // always fresh -- no reset effect needed.
-  const [order, setOrder] = useState<number[]>(() => cards.map((_, i) => i));
-
-  const dragX = useSharedValue(0);
-
-  // One-time hint when the deck first appears: the front card eases to the side
-  // and settles back, revealing a peek of the next card so the swipe is
-  // discoverable without a "swipe for more" label. Skipped for reduce-motion or
-  // a single-card deck.
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (reduced || cards.length < 2) return;
-    dragX.value = withDelay(
-      650,
-      withSequence(
-        withTiming(-26, { duration: 560, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 680, easing: Easing.bezier(0.22, 0.61, 0.31, 1) }),
-      ),
-    );
-    // Run once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const commitAdvance = () => {
-    setOrder((o) => [...o.slice(1), o[0]]);
-    dragX.value = 0; // flown card is now at the back, hidden -- reset is invisible
-  };
-
-  const commitRewind = () => {
-    setOrder((o) => [o[o.length - 1], ...o.slice(0, -1)]);
-    // The brought-back card is now the front; slide it in from the right.
-    dragX.value = SCREEN_W * 1.4;
-    dragX.value = withTiming(0, SETTLE);
-  };
-
-  const pan = Gesture.Pan()
-    .activeOffsetX([-10, 10]) // let taps (Begin, dots) through
-    .onUpdate((e) => {
-      dragX.value = e.translationX;
-    })
-    .onEnd((e) => {
-      if (e.translationX < -THRESHOLD) {
-        dragX.value = withTiming(-SCREEN_W * 1.6, FLY, (done) => {
-          if (done) runOnJS(commitAdvance)();
-        });
-      } else if (e.translationX > THRESHOLD) {
-        runOnJS(commitRewind)();
-      } else {
-        dragX.value = withTiming(0, SPRING_BACK);
-      }
-    });
-
   return (
-    <View style={styles.wrap}>
-      <GestureDetector gesture={pan}>
-        <View style={styles.deck}>
-          {cards.map((card, idx) => (
-            <DeckCard
-              key={card.id}
-              card={card}
-              pos={order.indexOf(idx)}
-              dragX={dragX}
-              onBegin={onBegin}
-            />
-          ))}
-        </View>
-      </GestureDetector>
-    </View>
+    <FlatList
+      data={cards as RecCard[]}
+      keyExtractor={(c) => c.id}
+      numColumns={COLS}
+      style={styles.list}
+      columnWrapperStyle={styles.column}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      renderItem={({ item }) => <GridCard card={item} onPress={() => onBegin(item)} />}
+    />
   );
 }
 
-function DeckCard({
-  card,
-  pos,
-  dragX,
-  onBegin,
-}: {
-  card: RecCard;
-  pos: number;
-  dragX: SharedValue<number>;
-  onBegin: (card: RecCard) => void;
-}) {
-  const posSV = useSharedValue(pos);
-  useEffect(() => {
-    posSV.value = withTiming(pos, SETTLE);
-  }, [pos, posSV]);
-
-  const animStyle = useAnimatedStyle(() => {
-    const p = posSV.value;
-    const front = p < 0.5;
-    const tx = front ? dragX.value : 0;
-    return {
-      opacity: interpolate(p, [0, 2, 3], [1, 1, 0], Extrapolation.CLAMP),
-      transform: [
-        { translateX: tx },
-        { translateY: p * 14 },
-        { rotateZ: `${tx * 0.025}deg` },
-        { scale: 1 - p * 0.05 },
-      ],
-    };
-  });
-
-  const tag = cardTag(card);
-  const benefit = cardBenefit(card);
-  const time = formatTime(card.timeSeconds);
-
+function GridCard({ card, onPress }: { card: RecCard; onPress: () => void }) {
   return (
-    <Animated.View
-      style={[styles.card, animStyle, { zIndex: 100 - pos }]}
-      pointerEvents={pos === 0 ? 'auto' : 'none'}
+    <Pressable
+      style={styles.cell}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={`${card.title}. ${cardBenefit(card)}`}
     >
       <View style={StyleSheet.absoluteFill}>
-        <CardScene card={card} active={pos <= 2} />
+        {/* Frozen scene (active=false) so a full grid of them stays light. */}
+        <CardScene card={card} active={false} />
       </View>
       <LinearGradient
-        colors={['rgba(8,6,14,0.12)', 'transparent', 'rgba(9,6,16,0.72)', 'rgba(8,5,14,0.92)']}
-        locations={[0, 0.3, 0.72, 1]}
+        colors={['rgba(8,6,14,0.05)', 'transparent', 'rgba(9,6,16,0.82)', 'rgba(8,5,14,0.96)']}
+        locations={[0, 0.32, 0.74, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.content}>
-        <Text style={styles.tag}>{tag}</Text>
-        <Text style={styles.title}>{card.title}</Text>
-        {benefit ? <Text style={styles.benefit}>{benefit}</Text> : null}
-        {time ? <Text style={styles.time}>{time}</Text> : null}
-        <Pressable
-          onPress={() => onBegin(card)}
-          accessibilityRole="button"
-          accessibilityLabel={`Begin ${card.title}`}
-        >
-          <LinearGradient
-            colors={[colors.beginStart, colors.beginEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.begin}
-          >
-            <Text style={styles.beginText}>BEGIN</Text>
-          </LinearGradient>
-        </Pressable>
+      <View style={styles.cellText}>
+        <Text style={styles.tag}>{cardTag(card)}</Text>
+        <Text style={styles.title} numberOfLines={2}>
+          {card.title}
+        </Text>
+        {cardBenefit(card) ? (
+          <Text style={styles.benefit} numberOfLines={1}>
+            {cardBenefit(card)}
+          </Text>
+        ) : null}
+        <Text style={styles.time}>{formatTime(card.timeSeconds)}</Text>
       </View>
-    </Animated.View>
+    </Pressable>
   );
 }
 
@@ -229,68 +115,51 @@ function formatTime(seconds: number): string {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
-  deck: { height: DECK_H, width: 300, alignSelf: 'center' },
-  card: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 32,
+  list: { flex: 1, width: '100%' },
+  column: { gap: GAP },
+  content: { gap: GAP, paddingBottom: 28 },
+  cell: {
+    width: CELL_W,
+    height: CELL_H,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: colors.backgroundBottom,
   },
-  content: {
+  cellText: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 26,
-    paddingBottom: 30,
-    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
   tag: {
     fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontSize: 10,
     letterSpacing: 1,
-    color: 'rgba(255, 255, 255, 0.55)',
+    color: TEAL,
     textTransform: 'uppercase',
+    marginBottom: 3,
   },
   title: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 23,
+    fontSize: 17,
+    lineHeight: 21,
     color: colors.textPrimary,
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 29,
   },
   benefit: {
     fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.72)',
-    marginTop: 9,
-    textAlign: 'center',
-    lineHeight: 21,
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(255, 255, 255, 0.68)',
+    marginTop: 3,
   },
   time: {
     fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255, 255, 255, 0.5)',
-    marginVertical: 14,
-  },
-  begin: {
-    borderRadius: 26,
-    paddingHorizontal: 46,
-    paddingVertical: 13,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.beginBorder,
-  },
-  beginText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    letterSpacing: 2,
-    color: '#fff',
+    marginTop: 5,
   },
 });

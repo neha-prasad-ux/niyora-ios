@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   ringHeading: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: 'Poppins-Medium',
     fontSize: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   heading: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: 'Poppins-Medium',
     fontSize: 22,
     color: colors.textPrimary,
     marginBottom: 32,

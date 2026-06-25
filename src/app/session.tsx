@@ -11,6 +11,7 @@ import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
@@ -98,6 +99,9 @@ function BreathingSession({
   roundsOverride?: number;
   feeling?: string;
 }) {
+  // Keep the screen awake for the whole session: eyes are often closed during a
+  // breath, so the display must not sleep mid-practice.
+  useKeepAwake();
   const rounds = roundsOverride ?? technique.rounds;
   // Scale the reported duration to the actual rounds run, keeping per-round
   // cadence fixed so paired-device stats stay honest.
@@ -212,10 +216,14 @@ function BreathingSession({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     voice.playEnd('well-done');
     fadeOut();
-    // Record first so any earned ring is known before the mood overlay mounts;
-    // the "well done" label still gets a 500ms beat before it fades in.
+    // Record first so any earned ring is known before the mood overlay mounts.
+    // When a ring IS earned (the first session lands the Spark), hold the mood
+    // sheet back so the celebration — the light flood, sunburst and sparks —
+    // actually plays out instead of being covered after half a second.
+    let earned: Tier | null = null;
     appendSession(technique.id)
       .then((r) => {
+        earned = r.earnedTier;
         if (!cancelled) setEarnedTier(r.earnedTier);
       })
       .catch(() => {})
@@ -223,7 +231,7 @@ function BreathingSession({
         if (cancelled) return;
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, 500);
+        }, earned ? 2600 : 500);
       });
     return () => {
       cancelled = true;
@@ -324,12 +332,16 @@ function BreathingSession({
           />
         )}
 
-        {cycle.done &&
-          (earnedTier ? (
-            <RingCelebration hue={earnedTier.hue} />
-          ) : (
+        {/* The done backdrop (dark gradient + falling snow) seats the closing
+            copy on every finish. On a tier-earned finish the burst layers on
+            top of it, so "You earned your first ring" reads on a solid calm
+            backdrop instead of the see-through live breathing scene. */}
+        {cycle.done && (
+          <>
             <SessionDoneBackdrop />
-          ))}
+            {earnedTier ? <RingCelebration hue={earnedTier.hue} /> : null}
+          </>
+        )}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
@@ -347,19 +359,38 @@ function BreathingSession({
               />
             </Pressable>
 
-            <Pressable
-              onPress={() => setPickerVisible((v) => !v)}
-              hitSlop={20}
-              accessibilityRole="button"
-              accessibilityLabel={musicLabel}
-            >
-              <SymbolView
-                name="music.note"
-                tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
-                size={22}
-                weight="medium"
-              />
-            </Pressable>
+            <View style={styles.topRowRight}>
+              {/* Voice guidance is a first-class, visible control here (not just
+                  a buried row in the music menu) so people discover it exists. */}
+              <Pressable
+                onPress={toggleVoice}
+                hitSlop={16}
+                accessibilityRole="switch"
+                accessibilityLabel="Voice guidance"
+                accessibilityState={{ checked: voiceOn === true }}
+              >
+                <SymbolView
+                  name={voiceOn === true ? 'speaker.wave.2.fill' : 'speaker.wave.2'}
+                  tintColor={voiceOn === true ? colors.textPrimary : colors.textSubtitle}
+                  size={22}
+                  weight="medium"
+                />
+              </Pressable>
+
+              <Pressable
+                onPress={() => setPickerVisible((v) => !v)}
+                hitSlop={20}
+                accessibilityRole="button"
+                accessibilityLabel={musicLabel}
+              >
+                <SymbolView
+                  name="music.note"
+                  tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
+                  size={22}
+                  weight="medium"
+                />
+              </Pressable>
+            </View>
           </View>
 
           {pickerVisible && (
@@ -528,6 +559,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 8,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 22,
   },
   pickerCard: {
     position: 'absolute',

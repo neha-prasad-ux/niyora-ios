@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import Animated, {
@@ -70,6 +71,8 @@ export function MindfulnessSession({
   technique: MindfulnessTechnique;
   feeling?: string;
 }) {
+  // Keep the screen awake through the practice (eyes may be closed).
+  useKeepAwake();
   const { width, height } = Dimensions.get('window');
   const { track, changeTrack, fadeOut } = useSessionMusic();
 

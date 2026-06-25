@@ -1,12 +1,18 @@
 // Spoken breath guidance, layered over the session music. Clips are Neha's own
 // voice, pre-recorded and bundled, so nothing leaves the device at play time.
 //
-// One player drives everything: an opening sequence plays uninterrupted
-// (settle → optional technique intro → begin), then each breath boundary fires
-// a short phase cue that replaces whatever is playing, and the session ends on
-// "well done". Voice is opt-in and off by default (see voice-prefs).
+// One player PER CLIP, created up front and cached. An opening sequence plays
+// uninterrupted (settle → optional technique intro → begin), then each breath
+// boundary fires a short phase cue, and the session ends on "well done". Voice
+// is opt-in and off by default (see voice-prefs).
+//
+// Why a player per clip (not one shared player with replace()): expo-audio's
+// replace() loads the new source asynchronously, so calling play() immediately
+// after raced the load and cues dropped at random across rounds and techniques
+// (a silent hold here, a missing exhale there). Independent, pre-warmed players
+// just seekTo(0) and play every time, which is reliable.
 
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync, type AudioSource } from 'expo-audio';
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { VoiceClip } from '@/models/voice-cues';
@@ -14,8 +20,10 @@ import type { VoiceClip } from '@/models/voice-cues';
 export { clipForLabel, introClipsFor } from '@/models/voice-cues';
 export type { VoiceClip } from '@/models/voice-cues';
 
+type Player = ReturnType<typeof createAudioPlayer>;
+
 // Paths are relative to this file (src/hooks/ → assets/audio/voice/).
-const VOICE_SOURCES: Record<VoiceClip, ReturnType<typeof require>> = {
+const VOICE_SOURCES: Record<VoiceClip, AudioSource> = {
   'breathe-in': require('../../assets/audio/voice/breathe-in.m4a'),
   'breathe-in-nose': require('../../assets/audio/voice/breathe-in-nose.m4a'),
   'breathe-in-mouth': require('../../assets/audio/voice/breathe-in-mouth.m4a'),
@@ -35,22 +43,39 @@ const VOICE_SOURCES: Record<VoiceClip, ReturnType<typeof require>> = {
   'well-done': require('../../assets/audio/voice/well-done.m4a'),
 } as const;
 
+// The clips actually reachable: the universal three cues, plus the opening and
+// closing clips. The variant clips above are kept in the source map but are no
+// longer referenced by the cue mapping (voice-cues collapses every phase to
+// in/out/hold), so we don't warm them.
+const WARM_CLIPS: readonly VoiceClip[] = [
+  'breathe-in',
+  'breathe-out',
+  'hold',
+  'settle',
+  'begin',
+  'intro-ocean',
+  'well-done',
+];
+
 export function useSessionVoice(enabled: boolean) {
-  const player = useAudioPlayer(VOICE_SOURCES.begin);
-  const loadedRef = useRef<VoiceClip>('begin');
+  const playersRef = useRef<Map<VoiceClip, Player>>(new Map());
+  // The player currently sounding, so we can silence it before the next cue.
+  const currentRef = useRef<Player | null>(null);
   // Remaining clips of the opening sequence; non-empty means the intro is still
   // playing and per-phase cues should hold off.
   const queueRef = useRef<VoiceClip[]>([]);
-  // True while the opening sequence is running, so the playback listener knows
-  // its final clip's completion should release the breath.
+  // True while the opening sequence is running, so a clip's finish knows to
+  // release the breath when the last intro clip ends.
   const introActiveRef = useRef(false);
   const onIntroDoneRef = useRef<(() => void) | undefined>(undefined);
-  // Live ref so the playback listener and callbacks always see the latest value
-  // without resubscribing.
+  // Live ref so listeners and callbacks always see the latest enabled value.
   const enabledRef = useRef(enabled);
   useEffect(() => {
     enabledRef.current = enabled;
   }, [enabled]);
+  // Forward ref so a player's finish listener can advance the intro without a
+  // circular dependency on playOne.
+  const playOneRef = useRef<(clip: VoiceClip) => void>(() => {});
 
   useEffect(() => {
     setAudioModeAsync({
@@ -59,30 +84,18 @@ export function useSessionVoice(enabled: boolean) {
     }).catch(() => {});
   }, []);
 
-  const playOne = useCallback(
-    (clip: VoiceClip) => {
-      player.volume = 1;
-      if (clip !== loadedRef.current) {
-        player.replace(VOICE_SOURCES[clip]);
-        loadedRef.current = clip;
-      } else {
-        // Same source already loaded: rewind so a repeated cue (e.g. "hold")
-        // plays again from the top.
-        player.seekTo(0);
-      }
-      player.play();
-    },
-    [player]
-  );
-
-  // Advance the opening sequence as each clip finishes; when its last clip ends,
-  // fire the completion callback (which releases the breath).
-  useEffect(() => {
-    const sub = player.addListener('playbackStatusUpdate', (status) => {
+  // Build (or fetch) the dedicated player for a clip. Each player carries a
+  // finish listener that advances the opening sequence when its own clip is the
+  // one currently sounding; per-phase cues end naturally and are ignored here.
+  const getPlayer = useCallback((clip: VoiceClip): Player => {
+    const existing = playersRef.current.get(clip);
+    if (existing) return existing;
+    const p = createAudioPlayer(VOICE_SOURCES[clip]);
+    p.addListener('playbackStatusUpdate', (status) => {
       if (!status.didJustFinish) return;
+      if (currentRef.current !== p) return;
       if (queueRef.current.length > 0) {
-        const next = queueRef.current.shift()!;
-        playOne(next);
+        playOneRef.current(queueRef.current.shift()!);
       } else if (introActiveRef.current) {
         introActiveRef.current = false;
         const done = onIntroDoneRef.current;
@@ -90,8 +103,50 @@ export function useSessionVoice(enabled: boolean) {
         done?.();
       }
     });
-    return () => sub.remove();
-  }, [player, playOne]);
+    playersRef.current.set(clip, p);
+    return p;
+  }, []);
+
+  const playOne = useCallback(
+    (clip: VoiceClip) => {
+      const p = getPlayer(clip);
+      const prev = currentRef.current;
+      if (prev && prev !== p) {
+        prev.pause();
+      }
+      currentRef.current = p;
+      p.volume = 1;
+      // Rewind, THEN play. A clip that finished on its own sits parked at its
+      // end; seekTo is async, so playing immediately raced the rewind and the
+      // cue went silent every other round. Waiting for the seek guarantees it
+      // starts from the top each time.
+      p.seekTo(0)
+        .then(() => p.play())
+        .catch(() => p.play());
+    },
+    [getPlayer],
+  );
+  useEffect(() => {
+    playOneRef.current = playOne;
+  }, [playOne]);
+
+  // Warm the reachable players once at mount so the first cue of each kind is
+  // already loaded and never races its initial load.
+  useEffect(() => {
+    WARM_CLIPS.forEach((clip) => getPlayer(clip));
+    const players = playersRef.current;
+    return () => {
+      players.forEach((p) => {
+        try {
+          p.remove();
+        } catch {
+          // already gone
+        }
+      });
+      players.clear();
+      currentRef.current = null;
+    };
+  }, [getPlayer]);
 
   // Start the opening sequence (uninterrupted); onDone fires when it ends, or
   // immediately when voice is off so the caller never waits forever.
@@ -106,17 +161,17 @@ export function useSessionVoice(enabled: boolean) {
       queueRef.current = clips.slice(1);
       playOne(clips[0]);
     },
-    [playOne]
+    [playOne],
   );
 
   // Fire a per-phase cue, unless the opening sequence is still playing.
   const playCue = useCallback(
     (clip: VoiceClip | undefined) => {
       if (!enabledRef.current || !clip) return;
-      if (queueRef.current.length > 0) return;
+      if (introActiveRef.current || queueRef.current.length > 0) return;
       playOne(clip);
     },
-    [playOne]
+    [playOne],
   );
 
   // The closing cue always interrupts whatever is playing.
@@ -128,15 +183,15 @@ export function useSessionVoice(enabled: boolean) {
       onIntroDoneRef.current = undefined;
       playOne(clip);
     },
-    [playOne]
+    [playOne],
   );
 
   const stop = useCallback(() => {
     queueRef.current = [];
     introActiveRef.current = false;
     onIntroDoneRef.current = undefined;
-    player.pause();
-  }, [player]);
+    currentRef.current?.pause();
+  }, []);
 
   return { playIntro, playCue, playEnd, stop };
 }

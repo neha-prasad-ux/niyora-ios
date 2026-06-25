@@ -401,12 +401,16 @@ export default function HomeScreen() {
           <>
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
-                <Text style={styles.recommendCardTitle}>Calm, made for you</Text>
+                <Text style={styles.recommendCardTitle}>
+                  {practiced ? 'Calm, made for you' : 'Your first calming moment'}
+                </Text>
                 <Text style={styles.recommendCardSubtitle}>
-                  shaped by your stress, your mood, your minutes
+                  {practiced
+                    ? 'shaped by your stress, your mood, your minutes'
+                    : 'tell us how you feel, we will find what helps'}
                 </Text>
               </View>
-              <BeginButton onPress={handleRecommendOpen} />
+              <BeginButton label={practiced ? 'Begin' : 'Start'} onPress={handleRecommendOpen} />
             </Animated.View>
 
             <View style={styles.chooseWrap}>
