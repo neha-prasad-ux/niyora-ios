@@ -6,7 +6,7 @@
 // a short phase cue that replaces whatever is playing, and the session ends on
 // "well done". Voice is opt-in and off by default (see voice-prefs).
 
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, type AudioSource } from 'expo-audio';
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { VoiceClip } from '@/models/voice-cues';
@@ -15,7 +15,7 @@ export { clipForLabel, introClipsFor } from '@/models/voice-cues';
 export type { VoiceClip } from '@/models/voice-cues';
 
 // Paths are relative to this file (src/hooks/ → assets/audio/voice/).
-const VOICE_SOURCES: Record<VoiceClip, ReturnType<typeof require>> = {
+const VOICE_SOURCES: Record<VoiceClip, AudioSource> = {
   'breathe-in': require('../../assets/audio/voice/breathe-in.m4a'),
   'breathe-in-nose': require('../../assets/audio/voice/breathe-in-nose.m4a'),
   'breathe-in-mouth': require('../../assets/audio/voice/breathe-in-mouth.m4a'),
