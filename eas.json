@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "remote",
+    "appVersionSource": "local",
     "promptToConfigurePushNotifications": false
   },
   "build": {
@@ -14,7 +14,7 @@
       }
     },
     "production": {
-      "autoIncrement": true,
+      "autoIncrement": false,
       "ios": {
         "buildConfiguration": "Release"
       }
