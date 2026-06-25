@@ -45,6 +45,13 @@ export function NudgeView({ activity, onComplete }: Props) {
   const poses = posesFor(activity.id);
   const chant = activity.id === 'om-chant';
 
+  // End the practice: stop the timer (which silences the chant audio, since it
+  // follows `running`) and close out.
+  const finish = () => {
+    setRunning(false);
+    onComplete();
+  };
+
   const Why = activity.why ? (
     <>
       <Pressable
@@ -85,7 +92,7 @@ export function NudgeView({ activity, onComplete }: Props) {
 
       <View style={styles.actions}>
         {running ? (
-          <Countdown seconds={activity.timeSeconds} onFinish={onComplete} />
+          <Countdown seconds={activity.timeSeconds} onFinish={finish} />
         ) : null}
         {timed && !running ? (
           <Pill label="Start" onPress={() => setRunning(true)} />
@@ -93,7 +100,7 @@ export function NudgeView({ activity, onComplete }: Props) {
         <Pill
           label={running ? "I'm done" : timed ? 'Skip' : 'Done'}
           variant={running || timed ? 'ghost' : 'solid'}
-          onPress={onComplete}
+          onPress={running ? finish : onComplete}
         />
       </View>
     </View>

@@ -116,10 +116,13 @@ export function useSessionVoice(enabled: boolean) {
       }
       currentRef.current = p;
       p.volume = 1;
-      // Rewind so a clip that finished on its own last time speaks again from
-      // the top rather than sitting parked at its end.
-      p.seekTo(0);
-      p.play();
+      // Rewind, THEN play. A clip that finished on its own sits parked at its
+      // end; seekTo is async, so playing immediately raced the rewind and the
+      // cue went silent every other round. Waiting for the seek guarantees it
+      // starts from the top each time.
+      p.seekTo(0)
+        .then(() => p.play())
+        .catch(() => p.play());
     },
     [getPlayer],
   );

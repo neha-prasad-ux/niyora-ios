@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import { SymbolView } from 'expo-symbols';
@@ -129,6 +129,7 @@ const LEVELS = [
 // wiring is #236.)
 function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeling }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   // Open on a brief celebration burst (light floods out from the Soul, the same
   // beat a breath earns), then settle into the felt-check. Starting on
   // 'celebrate' avoids flipping phase synchronously inside an effect.
@@ -224,7 +225,7 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
               horizontal padding is cancelled, top/bottom stay at 0) so the
               gradient's ambient blobs align to the real screen and cover it
               edge to edge. */}
-          <View style={styles.understandBackdrop}>
+          <View style={[styles.understandBackdrop, { width: width + 64, height }]}>
             <BackgroundGradient />
           </View>
           <View style={[styles.understandWrap, { paddingTop: insets.top + 44 }]}>
@@ -334,11 +335,12 @@ const styles = StyleSheet.create({
   understandBackdrop: {
     position: 'absolute',
     top: 0,
-    bottom: 0,
-    // Closure has only horizontal padding, so top/bottom 0 already reach the
-    // screen edges; cancel the 32px horizontal padding to bleed full width.
+    // Explicit window width+64 / height (set inline) so the gradient covers the
+    // whole screen regardless of the closure's padding -- deriving height from
+    // top+bottom inside the padded parent left the bottom uncovered on device.
+    // left:-32 cancels the closure's horizontal padding; the +64 width covers
+    // both sides.
     left: -32,
-    right: -32,
     backgroundColor: colors.backgroundBottom,
     overflow: 'hidden',
   },
