@@ -9,9 +9,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
   FadeIn,
@@ -27,7 +29,15 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
 import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
-import { recommend, type Need, type RecCard } from '@/models/recommend';
+import {
+  DURATIONS,
+  recommend,
+  scaleRounds,
+  type DurationOption,
+  type Need,
+  type RecCard,
+} from '@/models/recommend';
+import { getTechnique, isBreathing } from '@/models/techniques';
 
 // The header leads with where she's headed (the need), never the feeling she's
 // leaving. A gentle "Let's..." invitation toward feeling better.
@@ -76,11 +86,19 @@ export default function ResultScreen() {
     return () => clearTimeout(t);
   }, []);
 
-  const onBegin = useCallback((card: RecCard) => {
+  // Breathing is the only practice whose length is the user's to choose: its
+  // rounds scale to any duration. Tapping one opens the length picker; mindful
+  // techniques and activities run at their authored length and tap straight in.
+  const [pending, setPending] = useState<RecCard | null>(null);
+
+  // Push to the session/activity screen. `rounds` overrides the card's own when
+  // the length picker has scaled a breathing technique.
+  const goToCard = useCallback((card: RecCard, rounds?: number) => {
     if (card.techniqueId) {
       const p: Record<string, string> = { id: card.techniqueId };
       if (card.feelingId) p.feeling = card.feelingId;
-      if (card.rounds != null) p.rounds = String(card.rounds);
+      const r = rounds ?? card.rounds;
+      if (r != null) p.rounds = String(r);
       router.push({ pathname: '/session', params: p });
       return;
     }
@@ -95,6 +113,24 @@ export default function ResultScreen() {
       });
     }
   }, [feelings]);
+
+  const onBegin = useCallback((card: RecCard) => {
+    const t = card.techniqueId ? getTechnique(card.techniqueId) : undefined;
+    if (t && isBreathing(t)) {
+      setPending(card);
+      return;
+    }
+    goToCard(card);
+  }, [goToCard]);
+
+  const onPickLength = useCallback((minutes: number) => {
+    const card = pending;
+    if (!card?.techniqueId) return;
+    const t = getTechnique(card.techniqueId);
+    const rounds = t ? scaleRounds(t, minutes * 60) : undefined;
+    setPending(null);
+    if (card) goToCard(card, rounds);
+  }, [pending, goToCard]);
 
   return (
     <View style={styles.root}>
@@ -134,7 +170,80 @@ export default function ResultScreen() {
           </Animated.View>
         )}
       </SafeAreaView>
+
+      <LengthPicker
+        card={pending}
+        onPick={onPickLength}
+        onClose={() => setPending(null)}
+      />
     </View>
+  );
+}
+
+// The breathing length picker: tap a breathing card, choose how long. Rounds
+// scale to the chosen minutes; the on-screen cue carries the per-phase timing.
+function LengthPicker({
+  card,
+  onPick,
+  onClose,
+}: {
+  card: RecCard | null;
+  onPick: (minutes: number) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={card != null}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable
+        style={styles.pickerBackdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
+        <Pressable style={styles.pickerSheet} onPress={() => {}}>
+          <LinearGradient
+            colors={['#1b1430', '#0e0b14', colors.backgroundBottom]}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.pickerHeaderRow}>
+            <Text style={styles.pickerTitle}>How long?</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <SymbolView name="xmark" tintColor={colors.textSubtitle} size={15} weight="medium" />
+            </Pressable>
+          </View>
+          <View style={styles.lengthRow}>
+            {DURATIONS.map((d: DurationOption) => (
+              <Pressable
+                key={d.minutes}
+                style={styles.lengthOption}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  onPick(d.minutes);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={d.label}
+              >
+                <Text style={styles.lengthMinutes}>{d.minutes}</Text>
+                <Text style={styles.lengthUnit}>min</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -202,5 +311,61 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     letterSpacing: 0.4,
     textAlign: 'center',
+  },
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: colors.backgroundBottom,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    paddingTop: 22,
+    paddingBottom: 44,
+    overflow: 'hidden',
+  },
+  pickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    marginBottom: 22,
+  },
+  pickerTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  lengthRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  lengthOption: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lengthMinutes: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 34,
+    color: colors.textPrimary,
+    lineHeight: 38,
+  },
+  lengthUnit: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    color: colors.textSubtitle,
+    letterSpacing: 0.4,
+    marginTop: 2,
   },
 });
