@@ -890,7 +890,9 @@ const styles = StyleSheet.create({
   // Onboarding type scale: one title size (hero, 26), one body size (sub, 15),
   // one caption size (13). Screen titles all use hero; captions all use 13/19.
   hero: {
-    fontFamily: 'Poppins-Light',
+    // Screen titles render at a consistent Medium weight across the app, not a
+    // thin Light (titles were a Light/Medium mix; this aligns them).
+    fontFamily: 'Poppins-Medium',
     fontSize: 26,
     lineHeight: 34,
     letterSpacing: 0.3,
@@ -1060,7 +1062,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetTitle: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: 'Poppins-Medium',
     fontSize: 20,
     lineHeight: 28,
     color: colors.textPrimary,

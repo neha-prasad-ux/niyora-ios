@@ -10,6 +10,14 @@ import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import Reanimated, {
+  Easing as ReEasing,
+  runOnJS,
+  useAnimatedStyle as useReAnimatedStyle,
+  useSharedValue as useReSharedValue,
+  withSequence as withReSequence,
+  withTiming as withReTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
@@ -211,10 +219,14 @@ function BreathingSession({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     voice.playEnd('well-done');
     fadeOut();
-    // Record first so any earned ring is known before the mood overlay mounts;
-    // the "well done" label still gets a 500ms beat before it fades in.
+    // Record first so any earned ring is known before the mood overlay mounts.
+    // When a ring IS earned (the first session lands the Spark), hold the mood
+    // sheet back so the celebration — the light flood, sunburst and sparks —
+    // actually plays out instead of being covered after half a second.
+    let earned: Tier | null = null;
     appendSession(technique.id)
       .then((r) => {
+        earned = r.earnedTier;
         if (!cancelled) setEarnedTier(r.earnedTier);
       })
       .catch(() => {})
@@ -222,7 +234,7 @@ function BreathingSession({
         if (cancelled) return;
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, 500);
+        }, earned ? 2600 : 500);
       });
     return () => {
       cancelled = true;
@@ -411,9 +423,7 @@ function BreathingSession({
               <View style={styles.bottomBlock}>
                 <PhaseLabel label={labelText} />
                 {!cycle.done && (
-                  <Text style={styles.nextPhaseCue}>
-                    {'then ' + nextPhase.label.toLowerCase()}
-                  </Text>
+                  <NextPhaseCue text={'then ' + nextPhase.label.toLowerCase()} />
                 )}
                 {!cycle.done && (
                   <>
@@ -477,6 +487,32 @@ function BreathingSession({
         )}
     </Pressable>
   );
+}
+
+// The "then …" look-ahead cue. It cross-fades on each phase change instead of
+// hard-swapping, so it never sits mismatched against the big phase word while
+// that word is mid cross-fade (the glitch between, e.g., hold and exhale).
+function NextPhaseCue({ text }: { text: string }) {
+  const [shown, setShown] = useState(text);
+  const opacity = useReSharedValue(1);
+  const lastRef = useRef(text);
+  useEffect(() => {
+    if (text === lastRef.current) return;
+    lastRef.current = text;
+    opacity.value = withReSequence(
+      withReTiming(
+        0,
+        { duration: 180, easing: ReEasing.inOut(ReEasing.cubic) },
+        (finished) => {
+          'worklet';
+          if (finished) runOnJS(setShown)(text);
+        },
+      ),
+      withReTiming(1, { duration: 240, easing: ReEasing.inOut(ReEasing.cubic) }),
+    );
+  }, [text, opacity]);
+  const style = useReAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <Reanimated.Text style={[styles.nextPhaseCue, style]}>{shown}</Reanimated.Text>;
 }
 
 const styles = StyleSheet.create({

@@ -183,7 +183,8 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
         </View>
       ) : phase === 'ask' ? (
         <View style={styles.closeAsk}>
-          <Text style={styles.closeQ}>Would you recommend this to a friend?</Text>
+          <Text style={styles.closeQ}>Would you recommend this activity to a friend?</Text>
+          <Text style={styles.closeSub}>Helps us recommend you better.</Text>
           <View style={styles.closeRow}>
             <Pill label="Yes" onPress={() => setPhase('carry')} />
             <Pill label="Not for me" variant="ghost" onPress={() => setPhase('carry')} />
@@ -191,6 +192,9 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
         </View>
       ) : phase === 'understand' && card ? (
         <View style={[styles.understandWrap, { paddingTop: insets.top + 44 }]}>
+          {/* Solid backdrop so the long reframe text never reads against the
+              living activity scene bleeding through from behind. */}
+          <View style={styles.understandBackdrop} />
           <UnderstandReadView card={card} onDone={onClose} />
         </View>
       ) : (
@@ -225,12 +229,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(8, 6, 14, 0.88)',
+    backgroundColor: 'rgba(8, 6, 14, 0.94)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  closeAsk: { alignItems: 'center', gap: 18 },
+  closeAsk: { alignItems: 'center', gap: 16 },
   closeLead: {
     fontFamily: 'Poppins-Medium',
     fontSize: 21,
@@ -239,15 +243,31 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   closeQ: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 18,
+    lineHeight: 25,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  closeSub: {
     fontFamily: 'Poppins-Light',
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 13,
+    lineHeight: 19,
     color: colors.textSubtitle,
     textAlign: 'center',
+    marginTop: -6,
   },
   closeRow: { flexDirection: 'row', gap: 12 },
   closeX: { position: 'absolute', right: 24 },
   understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: 8 },
+  understandBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.backgroundBottom,
+  },
   closeCarryWrap: { alignItems: 'center', gap: 22 },
   carryOffer: {
     fontFamily: 'Poppins-Light',

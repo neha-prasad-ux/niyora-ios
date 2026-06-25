@@ -36,16 +36,19 @@ export function UnderstandReadView({ card, onDone }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignSelf: 'stretch' },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 21,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 22,
+    lineHeight: 29,
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: 'left',
     letterSpacing: 0.2,
     marginTop: 6,
-    marginBottom: 22,
+    marginBottom: 14,
   },
   scroll: { flex: 1 },
-  scrollContent: { justifyContent: 'center', flexGrow: 1, paddingVertical: 12 },
+  // Top-aligned so the body sits directly under the title instead of floating in
+  // the vertical centre with a dead gap between heading and text.
+  scrollContent: { justifyContent: 'flex-start', flexGrow: 1, paddingTop: 2, paddingBottom: 12 },
   body: {
     fontFamily: 'Poppins-Light',
     fontSize: 18,

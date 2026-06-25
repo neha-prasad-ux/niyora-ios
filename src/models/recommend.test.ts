@@ -97,11 +97,28 @@ describe('recommend (hero + ranked list)', () => {
     for (const c of res.list) expect(c.feelingId).toBe('low');
   });
 
-  it('ranks every card by the union of selected feelings + needs (descending)', () => {
+  it('floats breathing to the top, then ranks by score (descending) within each group', () => {
     const res = recommend(['irritable', 'overwhelmed'], ['relaxed', 'calm'], 5)!;
-    const scores = [res.hero, ...res.list].map((c) => c.score);
-    const sorted = [...scores].sort((a, b) => b - a);
-    expect(scores).toEqual(sorted);
+    const cards = [res.hero, ...res.list];
+    const isBreath = (c: (typeof cards)[number]) => {
+      if (c.source !== 'technique' || !c.techniqueId) return false;
+      const t = getTechnique(c.techniqueId);
+      return !!t && isBreathing(t);
+    };
+    // All breathing cards come before any non-breathing card.
+    const firstNonBreath = cards.findIndex((c) => !isBreath(c));
+    if (firstNonBreath >= 0) {
+      for (let i = firstNonBreath; i < cards.length; i++) {
+        expect(isBreath(cards[i])).toBe(false);
+      }
+    }
+    // Within each group, scores are descending.
+    const breathScores = cards.filter(isBreath).map((c) => c.score);
+    const restScores = cards.filter((c) => !isBreath(c)).map((c) => c.score);
+    expect(breathScores).toEqual([...breathScores].sort((a, b) => b - a));
+    expect(restScores).toEqual([...restScores].sort((a, b) => b - a));
+    // Breathing leads the deck, so the hero is a breathing technique.
+    expect(isBreath(res.hero)).toBe(true);
     expect(res.hero.score).toBeGreaterThan(0);
   });
 

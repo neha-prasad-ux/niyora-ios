@@ -18,7 +18,6 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -115,8 +114,8 @@ export default function ResultScreen() {
         {loading ? (
           <View style={styles.loadingWrap}>
             <LoadingOrb hue={orbHue} />
-            <View style={{ height: 26 }} />
-            <LoadingDots />
+            <View style={{ height: 30 }} />
+            <LoadingLine />
           </View>
         ) : (
           <Animated.View entering={FadeIn.duration(450)} style={styles.loaded}>
@@ -153,28 +152,21 @@ function LoadingOrb({ hue }: { hue?: number }) {
   );
 }
 
-function LoadingDots() {
-  return (
-    <View style={styles.dotsRow}>
-      {[0, 1, 2].map((i) => (
-        <LoadingDot key={i} delay={i * 200} />
-      ))}
-    </View>
-  );
-}
-
-function LoadingDot({ delay }: { delay: number }) {
+// A single softly-breathing line, paced like a slow exhale, instead of three
+// bouncing dots. Calmer, and it tells her what the wait is for.
+function LoadingLine() {
   const reduced = useReducedMotion();
-  const o = useSharedValue(reduced ? 0.6 : 0.3);
+  const o = useSharedValue(reduced ? 0.7 : 0.4);
   useEffect(() => {
     if (reduced) return;
-    o.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) }), -1, true),
+    o.value = withRepeat(
+      withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
     );
-  }, [delay, reduced, o]);
+  }, [reduced, o]);
   const style = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[styles.ldot, style]} />;
+  return <Animated.Text style={[styles.loadingLine, style]}>Finding what helps</Animated.Text>;
 }
 
 const styles = StyleSheet.create({
@@ -183,12 +175,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'flex-end', height: 24, marginBottom: 4 },
   loaded: { flex: 1, width: '100%' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  dotsRow: { flexDirection: 'row', gap: 9 },
-  ldot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: 'rgba(190, 170, 255, 0.9)',
+  loadingLine: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    color: colors.textSubtitle,
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   ctx: {
     fontFamily: 'Poppins-Medium',
