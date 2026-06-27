@@ -196,20 +196,33 @@ export default function HomeScreen() {
   // the home warms (orb hue + background) and the luteal card appears above
   // Begin. Computed live from the cycle, never stored. Off for everyone else.
   const [inLuteal, setInLuteal] = useState(false);
+  // PMS mode being on (any week) gates the distress-loop entry; the luteal
+  // signature is the narrower in-window state.
+  const [pmsOn, setPmsOn] = useState(false);
   useFocusEffect(
     useCallback(() => {
       let active = true;
       getPmsPrefs()
         .then((p) => {
           if (!active) return;
+          setPmsOn(p.pmsMode);
           setInLuteal(
             p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date()),
           );
         })
-        .catch(() => active && setInLuteal(false));
+        .catch(() => {
+          if (!active) return;
+          setPmsOn(false);
+          setInLuteal(false);
+        });
       return () => { active = false; };
     }, [])
   );
+
+  const handleHowAreYou = useCallback(() => {
+    Haptics.selectionAsync();
+    router.push('/distress-loop');
+  }, []);
 
   // Bumped on each orb press to replay the ring draw-on sweep, so tapping the
   // Soul makes its rings glide back on alongside the existing tap reaction.
@@ -423,6 +436,25 @@ export default function HomeScreen() {
         {practiced !== undefined && (
           <>
             {inLuteal && <LutealCard />}
+            {pmsOn && (
+              <Pressable
+                onPress={handleHowAreYou}
+                style={styles.howAreYouCard}
+                accessibilityRole="button"
+                accessibilityLabel="How are you? Start a moment to feel better."
+              >
+                <View style={styles.howAreYouText}>
+                  <Text style={styles.howAreYouTitle}>How are you?</Text>
+                  <Text style={styles.howAreYouSub}>A moment to feel better, right now.</Text>
+                </View>
+                <SymbolView
+                  name="chevron.right"
+                  tintColor={colors.textSubtitle}
+                  size={15}
+                  weight="semibold"
+                />
+              </Pressable>
+            )}
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
                 <Text style={styles.recommendCardTitle}>
@@ -580,6 +612,38 @@ const styles = StyleSheet.create({
   beginWrap: {
     alignItems: 'center',
     marginTop: 28,
+  },
+
+  // PMS-mode in-the-moment entry (the distress loop). Quiet card above Begin.
+  howAreYouCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: 16,
+  },
+  howAreYouText: {
+    flex: 1,
+  },
+  howAreYouTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
+    lineHeight: 23,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  howAreYouSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    marginTop: 3,
   },
 
   // returning-user recommend card
