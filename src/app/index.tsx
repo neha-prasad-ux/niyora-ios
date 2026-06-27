@@ -62,6 +62,10 @@ import { macSoulHue } from '@/lib/mac-soul';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
+import { getPmsPrefs } from '@/store/pms-prefs';
+import { isInPmsWindow } from '@/lib/pms-window';
+import { LutealCard } from '@/components/luteal-card';
+import { LUTEAL_ORB_HUE } from '@/theme/luteal-palette';
 
 const LAPSE_DAYS = 3;
 
@@ -185,6 +189,25 @@ export default function HomeScreen() {
       checkAndScheduleCombackNudge().catch(() => {});
       // Roll the PMS heads-up reminders forward to the next predicted window.
       syncPmsReminders().catch(() => {});
+    }, [])
+  );
+
+  // The luteal signature: in PMS mode, during the predicted premenstrual window,
+  // the home warms (orb hue + background) and the luteal card appears above
+  // Begin. Computed live from the cycle, never stored. Off for everyone else.
+  const [inLuteal, setInLuteal] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      getPmsPrefs()
+        .then((p) => {
+          if (!active) return;
+          setInLuteal(
+            p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date()),
+          );
+        })
+        .catch(() => active && setInLuteal(false));
+      return () => { active = false; };
     }, [])
   );
 
@@ -340,14 +363,14 @@ export default function HomeScreen() {
   if (onboarded !== true) {
     return (
       <View style={styles.root}>
-        <BackgroundGradient />
+        <BackgroundGradient luteal={inLuteal} />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient />
+      <BackgroundGradient luteal={inLuteal} />
       <ShootingStar />
       <Animated.View style={[styles.pageFill, pageAnimStyle]}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -366,7 +389,7 @@ export default function HomeScreen() {
             <View pointerEvents="none">
               <Orb
                 size={ORB_SIZE}
-                hue={orbHue}
+                hue={inLuteal ? LUTEAL_ORB_HUE : orbHue}
                 tierRingCount={homeRingCount}
                 tierHue={homeTier.hue}
                 ringHues={SOUL_RING_HUES}
@@ -399,6 +422,7 @@ export default function HomeScreen() {
             want to feel" path; browsing stays the quiet option. */}
         {practiced !== undefined && (
           <>
+            {inLuteal && <LutealCard />}
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
                 <Text style={styles.recommendCardTitle}>

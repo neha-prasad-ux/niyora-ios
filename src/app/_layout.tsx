@@ -117,6 +117,13 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          <Stack.Screen
+            name="pms-week"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
         </Stack>
       </ErrorBoundary>
