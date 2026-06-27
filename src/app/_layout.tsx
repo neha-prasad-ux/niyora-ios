@@ -138,6 +138,13 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          <Stack.Screen
+            name="crisis"
+            options={{
+              animation: 'slide_from_bottom',
+              gestureEnabled: true,
+            }}
+          />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
         </Stack>
       </ErrorBoundary>

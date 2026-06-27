@@ -40,6 +40,8 @@ import {
 } from '@/models/understand';
 import { resolveUnderstandContext } from '@/lib/understand-context';
 import { addDistressEntry, getDistressState } from '@/store/distress-history';
+import { CrisisLink } from '@/components/crisis-link';
+import { looksLikeCrisisText } from '@/lib/crisis';
 
 type Phase =
   | 'entry'
@@ -161,6 +163,9 @@ export default function DistressLoopScreen() {
   const [ctx, setCtx] = useState<UnderstandContext>('general');
   // The count to celebrate on the done page (stored + this one), read once.
   const [doneCount, setDoneCount] = useState<number | null>(null);
+  // The behavioral net: set when she has finished the loop and still rates
+  // bottom-band several times running. A single low rating never triggers it.
+  const [showReachOut, setShowReachOut] = useState(false);
   const recorded = useRef(false);
 
   // Resolve the reframe context (PMS vs general) once on mount.
@@ -210,8 +215,14 @@ export default function DistressLoopScreen() {
   const goReframe = useCallback(() => {
     Haptics.selectionAsync();
     Keyboard.dismiss();
+    // Content exit: self-harm-adjacent input goes straight to the crisis
+    // resource, never to a reframe.
+    if (looksLikeCrisisText(reflection)) {
+      router.push('/crisis');
+      return;
+    }
     setPhase('reframe');
-  }, []);
+  }, [reflection]);
 
   const goRatingAfter = useCallback(() => {
     Haptics.selectionAsync();
@@ -224,9 +235,16 @@ export default function DistressLoopScreen() {
     Haptics.selectionAsync();
     setPhase('done');
     getDistressState()
-      .then((s) => setDoneCount(s.count + 1))
+      .then((s) => {
+        setDoneCount(s.count + 1);
+        // Behavioral net: this rating plus the last two recorded, all bottom
+        // band (4 or 5). Needs three in a row, so a single low day never fires.
+        const recent = s.entries.slice(-2).map((e) => e.after);
+        const band = [after, ...recent].filter((n): n is number => n != null);
+        setShowReachOut(band.length >= 3 && band.every((n) => n >= 4));
+      })
       .catch(() => setDoneCount(null));
-  }, []);
+  }, [after]);
 
   // Record once, on the terminal exit from the done page.
   const finishAndExit = useCallback(() => {
@@ -268,7 +286,7 @@ export default function DistressLoopScreen() {
         </View>
 
         {phase === 'entry' && (
-          <ScrollView contentContainerStyle={styles.entryContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.phaseScroll} contentContainerStyle={styles.entryContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.title}>How are you?</Text>
             <View style={styles.chips}>
               {PMS_FEELINGS.map((f) => (
@@ -341,6 +359,7 @@ export default function DistressLoopScreen() {
 
         {phase === 'reflect' && (
           <ScrollView
+            style={styles.phaseScroll}
             contentContainerStyle={styles.reflectContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -364,7 +383,7 @@ export default function DistressLoopScreen() {
         )}
 
         {phase === 'reframe' && (
-          <ScrollView contentContainerStyle={styles.reflectContent} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.phaseScroll} contentContainerStyle={styles.reflectContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.reframeTitle}>{reframe.title}</Text>
             <Text style={styles.reframeBody}>{reframe.body}</Text>
             <Text style={styles.reframeAsk}>Does this land?</Text>
@@ -397,7 +416,27 @@ export default function DistressLoopScreen() {
 
         {phase === 'done' && (
           <View style={styles.centerContent}>
-            {bigShift ? (
+            {showReachOut ? (
+              <>
+                <Text style={styles.title}>You&apos;ve been carrying a lot.</Text>
+                <Text style={styles.sub}>
+                  These days have stayed heavy even after you showed up for yourself. Talking to
+                  someone can help, and reaching out is a strong thing to do.
+                </Text>
+                <View style={styles.footer}>
+                  <BeginButton label="Find support" onPress={() => router.push('/crisis')} />
+                  <Pressable
+                    onPress={finishAndExit}
+                    hitSlop={12}
+                    style={styles.notNow}
+                    accessibilityRole="button"
+                    accessibilityLabel="Maybe later"
+                  >
+                    <Text style={styles.notNowText}>Maybe later</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : bigShift ? (
               <>
                 <Text style={styles.title}>You moved through it.</Text>
                 <Text style={styles.sub}>
@@ -429,6 +468,10 @@ export default function DistressLoopScreen() {
             )}
           </View>
         )}
+
+        <View style={styles.crisisFooter}>
+          <CrisisLink />
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -464,6 +507,10 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     textAlign: 'center',
     marginTop: 12,
+  },
+  phaseScroll: {
+    flex: 1,
+    alignSelf: 'stretch',
   },
   entryContent: {
     flexGrow: 1,
@@ -620,5 +667,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textTertiary,
     letterSpacing: 0.2,
+  },
+  // Pinned to the bottom of every phase: the crisis link is always reachable.
+  crisisFooter: {
+    marginTop: 'auto',
+    paddingTop: 8,
+    paddingBottom: 4,
   },
 });
