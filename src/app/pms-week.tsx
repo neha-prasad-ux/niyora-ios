@@ -20,6 +20,7 @@ import {
   DEFAULT_PMS_FACTORS,
   type PmsFactors,
 } from '@/store/pms-factors';
+import { hasFactorCard } from '@/lib/pms-factor-content';
 
 export default function PmsWeekScreen() {
   const [factors, setFactors] = useState<PmsFactors>(DEFAULT_PMS_FACTORS);
@@ -38,6 +39,11 @@ export default function PmsWeekScreen() {
   const goBack = () => {
     Haptics.selectionAsync();
     router.back();
+  };
+
+  const openFactor = (id: string) => {
+    Haptics.selectionAsync();
+    router.push({ pathname: '/pms-factor', params: { id } });
   };
 
   return (
@@ -59,18 +65,48 @@ export default function PmsWeekScreen() {
           <Text style={styles.title}>Gentle this week</Text>
           <Text style={styles.intro}>Your body is in the days before your period. A few small things help.</Text>
 
-          {chosen.map((id) => (
-            <View key={id} style={styles.row}>
-              <Text style={styles.rowTitle}>{PMS_FACTOR_CONTENT[id].label}</Text>
-              <Text style={styles.rowWhy}>{PMS_FACTOR_CONTENT[id].why}</Text>
-            </View>
-          ))}
+          {chosen.map((id) => {
+            const tappable = hasFactorCard(id);
+            const body = (
+              <>
+                <View style={styles.rowText}>
+                  <Text style={styles.rowTitle}>{PMS_FACTOR_CONTENT[id].label}</Text>
+                  <Text style={styles.rowWhy}>{PMS_FACTOR_CONTENT[id].why}</Text>
+                </View>
+                {tappable && (
+                  <SymbolView
+                    name="chevron.right"
+                    tintColor={colors.textTagline}
+                    size={14}
+                    weight="semibold"
+                  />
+                )}
+              </>
+            );
+            return tappable ? (
+              <Pressable
+                key={id}
+                onPress={() => openFactor(id)}
+                style={styles.row}
+                accessibilityRole="button"
+                accessibilityLabel={PMS_FACTOR_CONTENT[id].label}
+              >
+                {body}
+              </Pressable>
+            ) : (
+              <View key={id} style={styles.row}>
+                {body}
+              </View>
+            );
+          })}
 
           <View style={styles.row}>
-            <Text style={styles.rowTitle}>Rest</Text>
-            <Text style={styles.rowWhy}>
-              The days before your period ask more of you. Resting is doing something.
-            </Text>
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle}>Rest</Text>
+              <Text style={styles.rowWhy}>
+                The days before your period ask more of you. Resting is doing something.
+              </Text>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -112,9 +148,15 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     paddingVertical: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255, 255, 255, 0.10)',
+  },
+  rowText: {
+    flex: 1,
   },
   rowTitle: {
     fontFamily: 'Poppins-Medium',
