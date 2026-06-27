@@ -68,6 +68,14 @@ import {
   type PmsFactorId,
   type PmsFactors,
 } from '@/store/pms-factors';
+import {
+  setPmsSymptoms,
+  DEFAULT_PMS_SYMPTOMS,
+  PMS_SYMPTOM_IDS,
+  PMS_SYMPTOM_LABELS,
+  type PmsSymptomId,
+  type PmsSymptoms,
+} from '@/store/pms-symptoms';
 
 const ORB_SIZE = 220;
 // On the PMS offer the orb is the hero: it fills the top of the screen and
@@ -245,8 +253,13 @@ export default function OnboardingScreen() {
   // never changes the general flow): the offer, then the reveal beats, then the
   // factor cards, then the existing cycle-setup sheets. Only ever meaningful
   // while step === STEP.pms; 'offer' is the inert default everyone else stays on.
-  const [pmsSubPhase, setPmsSubPhase] = useState<'offer' | 'reveal' | 'factors'>('offer');
+  const [pmsSubPhase, setPmsSubPhase] = useState<'offer' | 'symptoms' | 'reveal' | 'factors'>(
+    'offer',
+  );
   const [revealBeat, setRevealBeat] = useState(0); // 0..2
+  // What she feels before her period (opt-in, none pre-selected). Seeds relief
+  // later; committed with the cycle in confirmLength.
+  const [symptoms, setSymptoms] = useState<PmsSymptoms>(DEFAULT_PMS_SYMPTOMS);
   // The factors she lets Niyora help with. All pre-selected; she taps to remove.
   // Held locally and committed alongside the cycle in confirmLength, so backing
   // out of setup commits nothing.
@@ -429,8 +442,12 @@ export default function OnboardingScreen() {
         if (revealBeat > 0) {
           setRevealBeat(revealBeat - 1);
         } else {
-          setPmsSubPhase('offer');
+          setPmsSubPhase('symptoms');
         }
+        return;
+      }
+      if (pmsSubPhase === 'symptoms') {
+        setPmsSubPhase('offer');
         return;
       }
     }
@@ -463,9 +480,22 @@ export default function OnboardingScreen() {
     afterNudge();
   }, [presetIndex, afterNudge]);
 
-  // Activating opens the reveal first (then factors, then cycle setup), all
-  // under STEP.pms. The cycle sheets open later, from the factor page.
+  // Activating opens the symptom step first (then reveal, factors, cycle
+  // setup), all under STEP.pms. The cycle sheets open later, from the factors.
   const activatePms = useCallback(() => {
+    Haptics.selectionAsync();
+    setPmsSubPhase('symptoms');
+  }, []);
+
+  // Symptom chips are opt-in: tap to add what she feels.
+  const toggleSymptom = useCallback((id: PmsSymptomId) => {
+    Haptics.selectionAsync();
+    setSymptoms((s) => ({ ...s, [id]: !s[id] }));
+  }, []);
+
+  // Symptoms -> the reveal. She can continue without choosing any; we never
+  // trap her on this step.
+  const continueFromSymptoms = useCallback(() => {
     Haptics.selectionAsync();
     setRevealBeat(0);
     setPmsSubPhase('reveal');
@@ -533,9 +563,10 @@ export default function OnboardingScreen() {
         lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
         cycleLength,
       });
-      // Commit the factor selection in the same beat as the cycle, so PMS
-      // activation is all-or-nothing: backing out of setup persists neither.
+      // Commit the factor + symptom selections in the same beat as the cycle,
+      // so PMS activation is all-or-nothing: backing out persists none of it.
       await setPmsFactors(factors);
+      await setPmsSymptoms(symptoms);
       // The heads-up reminders are this feature's only notification, so ask now
       // (no-op if she already granted it on the reminder step) and schedule the
       // first window. PMS framing still works in-app if she declines.
@@ -549,7 +580,7 @@ export default function OnboardingScreen() {
     setCloserReady(false); // restart the loading beat each time she reaches the closer
     setPmsActivated(true);
     setStep(STEP.done);
-  }, [cycleDate, cycleLength, factors]);
+  }, [cycleDate, cycleLength, factors, symptoms]);
 
   // Orb props per step: breathing on the breath step, Spark rings on My Soul,
   // calm everywhere else. The orb shrinks aside on the cycle-setup screen to
@@ -562,9 +593,9 @@ export default function OnboardingScreen() {
   const pmsOrbSize =
     pmsSubPhase === 'offer'
       ? PMS_ORB_SIZE
-      : pmsSubPhase === 'reveal'
-        ? PMS_REVEAL_ORB_SIZE
-        : PMS_FACTORS_ORB_SIZE;
+      : pmsSubPhase === 'factors'
+        ? PMS_FACTORS_ORB_SIZE
+        : PMS_REVEAL_ORB_SIZE; // reveal + symptoms share the stepped-back size
 
   return (
     <View style={styles.root}>
@@ -750,6 +781,31 @@ export default function OnboardingScreen() {
             </View>
           )}
 
+          {isPmsStep && pmsSubPhase === 'symptoms' && (
+            <View style={styles.symptomBlock}>
+              <Text style={styles.symptomHeader}>What do you feel before your period?</Text>
+              <View style={styles.symptomChips}>
+                {PMS_SYMPTOM_IDS.map((id) => {
+                  const selected = symptoms[id];
+                  return (
+                    <Pressable
+                      key={id}
+                      onPress={() => toggleSymptom(id)}
+                      style={[styles.symptomChip, selected && styles.symptomChipOn]}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      accessibilityLabel={PMS_SYMPTOM_LABELS[id]}
+                    >
+                      <Text style={[styles.symptomChipText, selected && styles.symptomChipTextOn]}>
+                        {PMS_SYMPTOM_LABELS[id]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
           {isPmsStep && pmsSubPhase === 'reveal' && (
             <View style={styles.revealBlock}>
               <Text style={styles.revealText}>{REVEAL_BEATS[revealBeat]}</Text>
@@ -861,6 +917,9 @@ export default function OnboardingScreen() {
                 <Text style={styles.notNowText}>No, not for me</Text>
               </Pressable>
             </>
+          )}
+          {step === STEP.pms && pmsSubPhase === 'symptoms' && (
+            <BeginButton label="Continue" onPress={continueFromSymptoms} />
           )}
           {step === STEP.pms && pmsSubPhase === 'reveal' && (
             <BeginButton label="Continue" onPress={advanceReveal} />
@@ -1172,6 +1231,50 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
+  },
+  // Symptom select: opt-in chips, none pre-selected.
+  symptomBlock: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  symptomHeader: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+  symptomChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  symptomChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  symptomChipOn: {
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.25)',
+  },
+  symptomChipText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  symptomChipTextOn: {
+    color: colors.textPrimary,
+    fontFamily: 'Poppins-Medium',
   },
   // The reveal: one beat at a time, centred and unhurried.
   revealBlock: {
