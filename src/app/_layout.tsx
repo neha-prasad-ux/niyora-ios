@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ErrorBoundary } from '../components/error-boundary';
 import * as Notifications from 'expo-notifications';
-import { COMEBACK_NUDGE_ID } from '../lib/notifications';
+import { COMEBACK_NUDGE_ID, PMS_AHEAD_ID, PMS_START_ID } from '../lib/notifications';
 import {
   STRESS_NUDGE_ID,
   registerStressNudgeCategory,
@@ -53,6 +53,12 @@ export default function RootLayout() {
       const id = response.notification.request.identifier;
       if (id === COMEBACK_NUDGE_ID) {
         router.push({ pathname: '/session', params: { id: 'quick-calm' } });
+        return;
+      }
+      // The PMS window doorbell lands her on home, where the luteal signature
+      // (warm orb + card) and the "How are you?" entry do the teaching.
+      if (id === PMS_AHEAD_ID || id === PMS_START_ID) {
+        router.replace('/');
         return;
       }
       if (id === STRESS_NUDGE_ID) {

@@ -17,14 +17,15 @@ Notifications.setNotificationHandler({
 
 const DAILY_REMINDER_ID = 'niyora-daily-reminder';
 export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
-const PMS_AHEAD_ID = 'niyora-pms-ahead';
-const PMS_START_ID = 'niyora-pms-start';
+export const PMS_AHEAD_ID = 'niyora-pms-ahead';
+export const PMS_START_ID = 'niyora-pms-start';
 
 const REMINDER_TITLE = 'Niyora';
 const REMINDER_BODY = 'A few breaths can settle the whole day.';
 const COMEBACK_NUDGE_BODY = 'When you\'re ready, a breath is here.';
-const PMS_AHEAD_BODY = 'PMS in a day';
-const PMS_START_BODY = 'the PMS days are here';
+// Warm, low-key copy for the window doorbell. It only says "come back".
+const PMS_AHEAD_BODY = 'Your window is coming. Be gentle with yourself.';
+const PMS_START_BODY = 'Your PMS window is here. I am here when you need me.';
 
 // Ask the OS for permission. Returns true only if the user has granted it.
 export async function ensureNotificationPermission(): Promise<boolean> {
