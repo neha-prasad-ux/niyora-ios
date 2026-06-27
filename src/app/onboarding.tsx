@@ -86,15 +86,11 @@ const PMS_ORB_SIZE = 300;
 const PMS_REVEAL_ORB_SIZE = 150;
 const PMS_FACTORS_ORB_SIZE = 104;
 
-// The reveal: three beats of "not your fault", shown one at a time. Beat 2
-// carries the genetics line, the single highest-value education moment. No em
-// dashes; the science link is intentionally omitted until the research
-// appendix exists.
-const REVEAL_BEATS: readonly string[] = [
-  'Your hormones dip in the days before your period.',
-  "Some women are simply born more sensitive to that dip. It's in your genes, not a flaw, not weakness, and not your fault.",
-  'A handful of everyday things quietly turn that feeling up or down. Stress, sleep, steady meals, calcium, and movement. That part we can work on together.',
-];
+// The reveal: a single Normal-vs-sensitive contrast that carries the genetics
+// "not your fault" line, the highest-value education moment. Same hormones,
+// different volume. No "imbalance", concrete factor names, no em dashes; the
+// science link is omitted until the research appendix exists.
+const REVEAL_FACTORS: readonly string[] = ['Stress', 'Sleep', 'Food', 'Movement'];
 
 // PMS offer orb behaviour: the orb drifts through soft cool shades (the moods of
 // the week) and settles back to calm, never landing on an alarming colour, so
@@ -256,7 +252,6 @@ export default function OnboardingScreen() {
   const [pmsSubPhase, setPmsSubPhase] = useState<'offer' | 'symptoms' | 'reveal' | 'factors'>(
     'offer',
   );
-  const [revealBeat, setRevealBeat] = useState(0); // 0..2
   // What she feels before her period (opt-in, none pre-selected). Seeds relief
   // later; committed with the cycle in confirmLength.
   const [symptoms, setSymptoms] = useState<PmsSymptoms>(DEFAULT_PMS_SYMPTOMS);
@@ -430,20 +425,15 @@ export default function OnboardingScreen() {
   // screen was skipped, so back lands on the PMS offer instead.
   const goBack = useCallback(() => {
     Haptics.selectionAsync();
-    // Walk the PMS sub-flow back before changing step: factors -> last reveal
-    // beat -> earlier beats -> the offer. These all live under STEP.pms.
+    // Walk the PMS sub-flow back before changing step: factors -> reveal ->
+    // symptoms -> the offer. These all live under STEP.pms.
     if (step === STEP.pms) {
       if (pmsSubPhase === 'factors') {
-        setRevealBeat(REVEAL_BEATS.length - 1);
         setPmsSubPhase('reveal');
         return;
       }
       if (pmsSubPhase === 'reveal') {
-        if (revealBeat > 0) {
-          setRevealBeat(revealBeat - 1);
-        } else {
-          setPmsSubPhase('symptoms');
-        }
+        setPmsSubPhase('symptoms');
         return;
       }
       if (pmsSubPhase === 'symptoms') {
@@ -457,7 +447,7 @@ export default function OnboardingScreen() {
       if (s === STEP.done && !pmsActivated) return STEP.pms;
       return Math.max(0, s - 1);
     });
-  }, [step, pmsSubPhase, revealBeat, pmsActivated]);
+  }, [step, pmsSubPhase, pmsActivated]);
 
   // After the nudge beat, on to the Smart PMS mode offer.
   const afterNudge = useCallback(() => {
@@ -487,29 +477,31 @@ export default function OnboardingScreen() {
     setPmsSubPhase('symptoms');
   }, []);
 
-  // Symptom chips are opt-in: tap to add what she feels.
+  // Symptom rows are opt-in: tap to add what she feels.
   const toggleSymptom = useCallback((id: PmsSymptomId) => {
     Haptics.selectionAsync();
     setSymptoms((s) => ({ ...s, [id]: !s[id] }));
   }, []);
 
+  // "None of these" clears the lot; it reads as selected when nothing else is.
+  const clearSymptoms = useCallback(() => {
+    Haptics.selectionAsync();
+    setSymptoms(DEFAULT_PMS_SYMPTOMS);
+  }, []);
+  const noneSelected = PMS_SYMPTOM_IDS.every((id) => !symptoms[id]);
+
   // Symptoms -> the reveal. She can continue without choosing any; we never
   // trap her on this step.
   const continueFromSymptoms = useCallback(() => {
     Haptics.selectionAsync();
-    setRevealBeat(0);
     setPmsSubPhase('reveal');
   }, []);
 
-  // Reveal: advance through the three beats, then on to the factor cards.
+  // Reveal (a single screen) -> the factor cards.
   const advanceReveal = useCallback(() => {
     Haptics.selectionAsync();
-    if (revealBeat < REVEAL_BEATS.length - 1) {
-      setRevealBeat(revealBeat + 1);
-    } else {
-      setPmsSubPhase('factors');
-    }
-  }, [revealBeat]);
+    setPmsSubPhase('factors');
+  }, []);
 
   // Factor cards are default-in: tapping one removes it (opt-out).
   const toggleFactor = useCallback((id: PmsFactorId) => {
@@ -674,7 +666,7 @@ export default function OnboardingScreen() {
         </View>
 
         <Animated.View
-          key={`${step}-${breathDone}-${pmsSubPhase}-${revealBeat}`}
+          key={`${step}-${breathDone}-${pmsSubPhase}`}
           entering={FadeIn.duration(450)}
           style={[styles.content, isPmsStep && styles.contentCycle]}
         >
@@ -783,33 +775,82 @@ export default function OnboardingScreen() {
 
           {isPmsStep && pmsSubPhase === 'symptoms' && (
             <View style={styles.symptomBlock}>
-              <Text style={styles.symptomHeader}>What do you feel before your period?</Text>
-              <View style={styles.symptomChips}>
+              <Text style={styles.symptomHeader}>How do you feel in the days before your period?</Text>
+              <View style={styles.symptomList}>
                 {PMS_SYMPTOM_IDS.map((id) => {
                   const selected = symptoms[id];
                   return (
                     <Pressable
                       key={id}
                       onPress={() => toggleSymptom(id)}
-                      style={[styles.symptomChip, selected && styles.symptomChipOn]}
+                      style={styles.symptomRow}
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: selected }}
                       accessibilityLabel={PMS_SYMPTOM_LABELS[id]}
                     >
-                      <Text style={[styles.symptomChipText, selected && styles.symptomChipTextOn]}>
-                        {PMS_SYMPTOM_LABELS[id]}
-                      </Text>
+                      <View style={[styles.checkbox, selected && styles.checkboxOn]}>
+                        {selected && (
+                          <SymbolView name="checkmark" tintColor={colors.textPrimary} size={12} weight="bold" />
+                        )}
+                      </View>
+                      <Text style={styles.symptomRowText}>{PMS_SYMPTOM_LABELS[id]}</Text>
                     </Pressable>
                   );
                 })}
+                <Pressable
+                  onPress={clearSymptoms}
+                  style={styles.symptomRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: noneSelected }}
+                  accessibilityLabel="None of these"
+                >
+                  <View style={[styles.checkbox, noneSelected && styles.checkboxOn]}>
+                    {noneSelected && (
+                      <SymbolView name="checkmark" tintColor={colors.textPrimary} size={12} weight="bold" />
+                    )}
+                  </View>
+                  <Text style={styles.symptomRowText}>None of these</Text>
+                </Pressable>
               </View>
             </View>
           )}
 
           {isPmsStep && pmsSubPhase === 'reveal' && (
-            <View style={styles.revealBlock}>
-              <Text style={styles.revealText}>{REVEAL_BEATS[revealBeat]}</Text>
-            </View>
+            <ScrollView
+              style={styles.factorScroll}
+              contentContainerStyle={styles.revealContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.revealLead}>
+                Before your period, your hormones dip. That part is normal.
+              </Text>
+              <View style={styles.contrastRow}>
+                <View style={styles.contrastCol}>
+                  <Text style={styles.contrastColTitle}>Most brains</Text>
+                  <Text style={styles.contrastColBody}>feel a small dip</Text>
+                </View>
+                <View style={[styles.contrastCol, styles.contrastColHi]}>
+                  <Text style={styles.contrastColTitleHi}>A sensitive brain</Text>
+                  <Text style={styles.contrastColBodyHi}>feels it strongly</Text>
+                </View>
+              </View>
+              <Text style={styles.contrastCaption}>
+                Same hormones. The difference is how strongly the brain responds.
+              </Text>
+              <Text style={styles.revealWarmth}>
+                This sensitivity is in your genes. Not a flaw, not weakness, not your fault.
+              </Text>
+              <View style={styles.revealChips}>
+                {REVEAL_FACTORS.map((f) => (
+                  <View key={f} style={styles.revealChip}>
+                    <Text style={styles.revealChipText}>{f}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.revealPayoff}>
+                A few everyday things turn it up or down. That part, we can help with.
+              </Text>
+            </ScrollView>
           )}
 
           {isPmsStep && pmsSubPhase === 'factors' && (
@@ -1232,12 +1273,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  // Symptom select: opt-in chips, none pre-selected.
+  // Symptom select: opt-in checkbox rows, none pre-selected.
   symptomBlock: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   symptomHeader: {
     fontFamily: 'Poppins-Medium',
@@ -1248,48 +1288,150 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 22,
   },
-  symptomChips: {
+  symptomList: {
+    alignSelf: 'stretch',
+    gap: 10,
+  },
+  symptomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOn: {
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.45)',
+  },
+  symptomRowText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  // The reveal: a Normal-vs-sensitive contrast that carries the warmth.
+  revealContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  revealLead: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  contrastRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 22,
+  },
+  contrastCol: {
+    flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+  },
+  contrastColHi: {
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.22)',
+  },
+  contrastColTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  contrastColTitleHi: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  contrastColBody: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  contrastColBodyHi: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  contrastCaption: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textTagline,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 14,
+  },
+  revealWarmth: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
+    lineHeight: 25,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 24,
+  },
+  revealChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
+    marginTop: 22,
   },
-  symptomChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  revealChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  symptomChipOn: {
-    borderColor: colors.beginBorder,
-    backgroundColor: 'rgba(115, 57, 172, 0.25)',
+  revealChipText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
   },
-  symptomChipText: {
+  revealPayoff: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
+    lineHeight: 23,
     color: colors.textSubtitle,
-    letterSpacing: 0.2,
-  },
-  symptomChipTextOn: {
-    color: colors.textPrimary,
-    fontFamily: 'Poppins-Medium',
-  },
-  // The reveal: one beat at a time, centred and unhurried.
-  revealBlock: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-  },
-  revealText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
-    lineHeight: 33,
-    letterSpacing: 0.2,
-    color: colors.textPrimary,
     textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 18,
   },
   // Factor cards: all pre-selected, tap to remove (opt-out).
   factorScroll: {

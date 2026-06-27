@@ -19,27 +19,27 @@ describe('parsePmsFactors', () => {
   });
 
   it('round-trips a well-formed selection', () => {
-    const value = { ...DEFAULT_PMS_FACTORS, calcium: false, movement: false };
+    const value = { ...DEFAULT_PMS_FACTORS, food: false };
     expect(parsePmsFactors(JSON.stringify(value))).toEqual(value);
   });
 
-  it('honors an explicitly removed factor', () => {
-    expect(parsePmsFactors(JSON.stringify({ stress: false })).stress).toBe(false);
+  it('honors an explicitly removed group', () => {
+    expect(parsePmsFactors(JSON.stringify({ calm: false })).calm).toBe(false);
   });
 
   it('defaults a missing key to true (opt-out invariant)', () => {
-    const parsed = parsePmsFactors(JSON.stringify({ stress: false }));
+    const parsed = parsePmsFactors(JSON.stringify({ calm: false }));
     expect(parsed.sleep).toBe(true);
-    expect(parsed.gutInflammation).toBe(true);
+    expect(parsed.food).toBe(true);
   });
 
   it('ignores unknown keys', () => {
-    const parsed = parsePmsFactors(JSON.stringify({ stress: false, bogus: true }));
-    expect(parsed).toEqual({ ...DEFAULT_PMS_FACTORS, stress: false });
+    const parsed = parsePmsFactors(JSON.stringify({ calm: false, bogus: true }));
+    expect(parsed).toEqual({ ...DEFAULT_PMS_FACTORS, calm: false });
     expect('bogus' in parsed).toBe(false);
   });
 
   it('coerces a non-boolean value to true', () => {
-    expect(parsePmsFactors(JSON.stringify({ calcium: 'yes' })).calcium).toBe(true);
+    expect(parsePmsFactors(JSON.stringify({ food: 'yes' })).food).toBe(true);
   });
 });

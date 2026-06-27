@@ -68,6 +68,20 @@ export default function PmsFactorScreen() {
             ))}
           </View>
 
+          {content.actionRoute && content.actionLabel && (
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push(content.actionRoute as '/distress-loop');
+              }}
+              style={styles.actionBtn}
+              accessibilityRole="button"
+              accessibilityLabel={content.actionLabel}
+            >
+              <Text style={styles.actionBtnText}>{content.actionLabel}</Text>
+            </Pressable>
+          )}
+
           <Text style={styles.evidence}>{content.evidence}</Text>
         </ScrollView>
       </SafeAreaView>
@@ -129,6 +143,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23,
     color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  actionBtn: {
+    marginTop: 28,
+    paddingVertical: 15,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.25)',
+    alignItems: 'center',
+  },
+  actionBtnText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   evidence: {

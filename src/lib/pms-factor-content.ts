@@ -1,19 +1,18 @@
-// Hardcoded content for the five lifestyle factors (stress is the live dial,
-// handled by the breath / distress loop, so it has no card here). Each opens
-// from the week page during the luteal window.
+// Hardcoded content for the three PMS help groups, opened from the week page
+// during the luteal window. Each group folds in the underlying levers: calm
+// (in-the-moment calming + gentle movement), sleep, and food (steady blood
+// sugar + calcium + gentle anti-inflammatory eating).
 //
 // Voice: neutrally warm, like a smart friend who knows the science. No em
 // dashes, no "it's fine / it's normal", no "this will help" promises. Honesty
-// rules (from the v2 scope research appendix): grade the evidence plainly.
-// Calcium is the firm one (RCTs). The blood-sugar link is reasoned from
-// adjacent research, not a dedicated PMS trial. Gut & inflammation is the
-// softest: included as a gentle, low-risk habit, never as a proven fix
-// (premenstrual inflammation as a driver is mixed and was not over-claimed).
+// rules (v2 scope research appendix): calcium is the firm one (RCTs); the
+// blood-sugar and anti-inflammatory links are gentler, reasoned from adjacent
+// research, never over-claimed. No "imbalance", never "leaky gut".
 
 import type { PmsFactorId } from '@/store/pms-factors';
 
-// The factors that have a content card (everything except the live 'stress' dial).
-export type PmsContentFactorId = Exclude<PmsFactorId, 'stress'>;
+// All three groups have a content card.
+export type PmsContentFactorId = PmsFactorId;
 
 export type PmsFactorContent = {
   title: string;
@@ -21,9 +20,24 @@ export type PmsFactorContent = {
   points: readonly string[];
   // The honest evidence note shown at the foot of the card.
   evidence: string;
+  // Optional in-card action (the calm group offers to start the loop now).
+  actionLabel?: string;
+  actionRoute?: string;
 };
 
 export const PMS_FACTOR_CONTENT_CARDS: Record<PmsContentFactorId, PmsFactorContent> = {
+  calm: {
+    title: 'Calm your body and mind',
+    lead: 'When the tension spikes before your period, calming your body first is what helps most. Gentle movement helps too, and neither has to be a big effort.',
+    points: [
+      'A slow breath or a short calming moment settles the spike.',
+      'A walk or some easy stretching lifts mood and eases tension.',
+      'Even a few minutes counts. Lighter and kinder is the point this week.',
+    ],
+    evidence: 'Calming activities and gentle movement both show a moderate effect on premenstrual mood. Intensity is not the point, showing up gently is.',
+    actionLabel: 'Start a calming moment',
+    actionRoute: '/distress-loop',
+  },
   sleep: {
     title: 'Sleep',
     lead: 'Short sleep before your period sharpens every other symptom. The nights right before bleeding are often the most broken, and thin sleep makes the dip land harder.',
@@ -34,49 +48,20 @@ export const PMS_FACTOR_CONTENT_CARDS: Record<PmsContentFactorId, PmsFactorConte
     ],
     evidence: 'Sleep shifts across the cycle are well documented, and protecting sleep is one of the steadier levers you have.',
   },
-  steadyMeals: {
-    title: 'Steady meals',
-    lead: 'A blood-sugar crash can copy the mood dip almost exactly: shaky, short-fused, suddenly tearful. Eating steadily takes one trigger off the table.',
+  food: {
+    title: 'Food for steadier days',
+    lead: 'What you eat can take a couple of triggers off the table before your period: a steadier blood sugar, the minerals that ease the dip, and gentler meals.',
     points: [
-      'Some protein or fat with each meal slows the crash.',
-      'Smaller and more often beats one long gap.',
-      'A crash and a mood dip feel identical from the inside, so eating first is worth a try.',
+      'Some protein or fat with each meal slows the blood-sugar crash that can copy the mood dip.',
+      'Calcium has the strongest evidence here. Milk, yogurt, fortified plant milks, leafy greens, calcium-set tofu.',
+      'Omega-3, more fibre, and fermented foods, with a little less ultra-processed when that is easy.',
     ],
-    evidence: 'The blood-sugar link is reasoned from related research rather than a dedicated PMS trial. Steady eating is low-risk and easy to test for yourself.',
-  },
-  calcium: {
-    title: 'Calcium',
-    lead: 'Of all the everyday levers, calcium has the strongest evidence for easing premenstrual mood.',
-    points: [
-      'The studied range is about 1000 to 1200 mg a day, from food or a supplement.',
-      'Milk, yogurt, fortified plant milks, leafy greens, and calcium-set tofu all count.',
-      'It builds over weeks, so it is a quiet daily habit rather than a same-day fix.',
-    ],
-    evidence: 'This one is backed by randomized trials, the firmest of the factors here. Have a quick word with your doctor before starting a supplement.',
-  },
-  movement: {
-    title: 'Movement',
-    lead: 'Gentle movement lifts mood and eases the tension in the days before your period. It does not have to be a workout.',
-    points: [
-      'A walk counts. Stretching counts. Slow counts.',
-      'Lighter and kinder beats hard and punishing this week.',
-      'Even ten minutes shifts something.',
-    ],
-    evidence: 'Regular activity shows a moderate effect on premenstrual mood. Gentle is the point, not intensity.',
-  },
-  gutInflammation: {
-    title: 'Gut & inflammation',
-    lead: 'This one is softer than the others. Calming inflammation may take a little edge off, and the foods that do it are good for you anyway.',
-    points: [
-      'Omega-3 from oily fish, walnuts, or flax. A bit more fibre. Some fermented foods.',
-      'A little less ultra-processed food, when that is easy.',
-      'No overhaul needed. Small, kind swaps.',
-    ],
-    evidence: 'The direct evidence here is mixed and smaller than for calcium. It is in because these are gentle, low-risk habits with broad benefits, not because it is a proven fix.',
+    evidence: 'Calcium is backed by randomized trials, the firmest lever. The blood-sugar and anti-inflammatory links are gentler and reasoned from adjacent research. A quick word with your doctor before any supplement.',
   },
 };
 
-// Type guard: does this factor have a content card?
+// Every group has a content card, so this is always true. Kept so callers can
+// stay group-agnostic if a non-content entry is ever added.
 export function hasFactorCard(id: PmsFactorId): id is PmsContentFactorId {
-  return id !== 'stress';
+  return id in PMS_FACTOR_CONTENT_CARDS;
 }
