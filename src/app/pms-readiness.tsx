@@ -16,12 +16,14 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { Checklist, type ChecklistItem } from '@/components/checklist';
 import { Orb } from '@/components/orb';
 import { PeriodSheet } from '@/components/period-sheet';
+import { WhySheet } from '@/components/why-sheet';
 import { colors } from '@/theme/colors';
 import {
   getReadiness,
   setReadiness,
   READINESS_CHECK_IDS,
   READINESS_CHECK_CONTENT,
+  READINESS_WHY,
   readinessDoneCount,
   LUTEAL_ROSE_HUE,
   lutealOrbSat,
@@ -57,6 +59,7 @@ export default function PmsReadinessScreen() {
   const [calmDone, setCalmDone] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [periodStarts, setPeriodStarts] = useState<string[]>([]);
+  const [whyFactor, setWhyFactor] = useState<ReadinessCheckId | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -130,6 +133,11 @@ export default function PmsReadinessScreen() {
     router.back();
   };
 
+  const openWhy = (id: ReadinessCheckId) => {
+    Haptics.selectionAsync();
+    setWhyFactor(id);
+  };
+
   return (
     <View style={styles.root}>
       <BackgroundGradient />
@@ -177,6 +185,30 @@ export default function PmsReadinessScreen() {
               <Text style={styles.periodText}>My period&apos;s here</Text>
             </Pressable>
           </View>
+
+          {/* Know why: compact cards in a 2-up grid, like the activities list.
+              Tapping one opens a half-page sheet with the full reason and the
+              research, no new screen. */}
+          <View style={styles.know}>
+            <Text style={styles.knowHeader}>Know why</Text>
+            <View style={styles.whyGrid}>
+              {READINESS_CHECK_IDS.map((id) => {
+                const w = READINESS_WHY[id];
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => openWhy(id)}
+                    style={styles.whyCell}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Know why: ${w.name}`}
+                  >
+                    <Text style={styles.whyName} numberOfLines={2}>{w.name}</Text>
+                    <Text style={styles.whyTeaser} numberOfLines={1}>{w.teaser}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
 
@@ -186,6 +218,7 @@ export default function PmsReadinessScreen() {
         onClose={() => setSheet(false)}
         onConfirm={confirmPeriod}
       />
+      <WhySheet factor={whyFactor} onClose={() => setWhyFactor(null)} />
     </View>
   );
 }
@@ -275,5 +308,45 @@ const styles = StyleSheet.create({
     color: colors.textTagline,
     letterSpacing: 0.2,
     textDecorationLine: 'underline',
+  },
+  know: { marginTop: 36 },
+  knowHeader: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textSubtitle,
+    letterSpacing: 0.3,
+    marginBottom: 14,
+  },
+  whyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  whyCell: {
+    width: '48%',
+    minHeight: 84,
+    justifyContent: 'flex-end',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  whyName: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  whyTeaser: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.55)',
+    letterSpacing: 0.2,
+    marginTop: 4,
   },
 });
