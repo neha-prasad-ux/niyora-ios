@@ -437,7 +437,7 @@ export default function HomeScreen() {
             want to feel" path; browsing stays the quiet option. */}
         {practiced !== undefined && (
           <>
-            {inLuteal && <LutealCard onPeriodStarted={refreshPms} />}
+            {inLuteal && <LutealCard />}
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
                 <Text style={styles.recommendCardTitle}>

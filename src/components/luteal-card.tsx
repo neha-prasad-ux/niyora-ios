@@ -1,9 +1,9 @@
 // The luteal home card. Shows only in the predicted premenstrual window, above
-// Begin, and is the secondary action (Begin stays the loud primary). A compact
-// card with a cosmic gradient (warm rose core) + a faint starfield, a floating
-// tag, and two quiet buttons. Tapping the card (or "Let's go") opens the
-// readiness page; "Got my period" opens the calendar to roll the window forward.
-// Once she is done for today it turns calm green.
+// Begin, as the quiet secondary thing (Begin stays the primary). A compact card
+// with a cosmic gradient (warm rose core) + a faint starfield and a floating
+// tag. No buttons: the whole card opens the readiness page (where "Got my
+// period" lives). Turns calm green once she's done for the day, or has done all
+// six.
 
 import { useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -11,16 +11,13 @@ import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PeriodSheet } from '@/components/period-sheet';
 import { getReadiness, isReadyDone } from '@/store/pms-readiness';
-import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
 import { getLastSession } from '@/store/session-history';
 
 const STARFIELD = require('../../assets/images/starfield.png');
 
 // Distributed cosmic gradient, warm rose core (active) and calm green (done).
-// Four soft stops, eased across the whole card so the cosmic blend is smooth,
-// not banded. Warm rose sits in the middle.
+// Four soft stops, eased across the whole card so the blend is smooth.
 const ACTIVE_GRADIENT: readonly [string, string, string, string] = [
   'rgba(100,60,138,0.6)',
   'rgba(150,74,128,0.62)',
@@ -42,9 +39,8 @@ function toYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }) {
+export function LutealCard() {
   const [doneToday, setDoneToday] = useState(false);
-  const [sheet, setSheet] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,17 +61,6 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
   const open = () => {
     Haptics.selectionAsync();
     router.push('/pms-readiness');
-  };
-
-  const confirmPeriod = async (date: Date) => {
-    setSheet(false);
-    try {
-      const p = await getPmsPrefs();
-      await setPmsPrefs({ ...p, lastPeriodStart: toYmd(date) });
-    } catch {
-      // Storage can throw; never trap the user.
-    }
-    onPeriodStarted?.();
   };
 
   const gradient = doneToday ? DONE_GRADIENT : ACTIVE_GRADIENT;
@@ -104,34 +89,8 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
         <View style={styles.body}>
           <Text style={styles.title}>PMS day prep</Text>
           <Text style={styles.sub}>{doneToday ? 'You took care of today' : "Let's get you ready"}</Text>
-          {!doneToday && (
-            <View style={styles.btnRow}>
-              <Pressable
-                onPress={open}
-                style={styles.primaryPill}
-                accessibilityRole="button"
-                accessibilityLabel="Let's go"
-              >
-                <Text style={styles.primaryPillText}>Let&apos;s go</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  setSheet(true);
-                }}
-                hitSlop={8}
-                style={styles.tertiary}
-                accessibilityRole="button"
-                accessibilityLabel="My period is here"
-              >
-                <Text style={styles.tertiaryText}>Got my period</Text>
-              </Pressable>
-            </View>
-          )}
         </View>
       </Pressable>
-
-      <PeriodSheet visible={sheet} onClose={() => setSheet(false)} onConfirm={confirmPeriod} />
     </View>
   );
 }
@@ -193,32 +152,5 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
     letterSpacing: 0.2,
     marginTop: 3,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 14,
-  },
-  primaryPill: {
-    paddingHorizontal: 22,
-    paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: '#ffffff',
-  },
-  primaryPillText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: '#9E4666',
-    letterSpacing: 0.2,
-  },
-  tertiary: {
-    paddingVertical: 4,
-  },
-  tertiaryText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
-    letterSpacing: 0.2,
   },
 });
