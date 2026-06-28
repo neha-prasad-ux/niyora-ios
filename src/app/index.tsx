@@ -196,20 +196,14 @@ export default function HomeScreen() {
   // the home warms (orb hue + background) and the luteal card appears above
   // Begin. Computed live from the cycle, never stored. Off for everyone else.
   const [inLuteal, setInLuteal] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      getPmsPrefs()
-        .then((p) => {
-          if (!active) return;
-          setInLuteal(
-            p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date()),
-          );
-        })
-        .catch(() => active && setInLuteal(false));
-      return () => { active = false; };
-    }, [])
-  );
+  const refreshPms = useCallback(() => {
+    getPmsPrefs()
+      .then((p) =>
+        setInLuteal(p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date())),
+      )
+      .catch(() => setInLuteal(false));
+  }, []);
+  useFocusEffect(refreshPms);
 
   // Bumped on each orb press to replay the ring draw-on sweep, so tapping the
   // Soul makes its rings glide back on alongside the existing tap reaction.
@@ -422,7 +416,7 @@ export default function HomeScreen() {
             want to feel" path; browsing stays the quiet option. */}
         {practiced !== undefined && (
           <>
-            {inLuteal && <LutealCard />}
+            {inLuteal && <LutealCard onPeriodStarted={refreshPms} />}
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
                 <Text style={styles.recommendCardTitle}>

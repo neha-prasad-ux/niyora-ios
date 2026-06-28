@@ -38,6 +38,7 @@ import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
+import { MoonCard } from '@/components/moon-card';
 import { Orb } from '@/components/orb';
 import { PhaseLabel } from '@/components/phase-label';
 import { colors } from '@/theme/colors';
@@ -920,18 +921,11 @@ export default function OnboardingScreen() {
                 <Animated.View
                   key={f.title}
                   entering={FadeInDown.delay(120 + i * 130).duration(480)}
-                  style={[styles.helpCard, { backgroundColor: f.tint }]}
                 >
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.07)', 'transparent', 'rgba(0,0,0,0.12)']}
-                    locations={[0, 0.5, 1]}
-                    start={{ x: 0.15, y: 0 }}
-                    end={{ x: 0.85, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
-                  />
-                  <Text style={styles.affectCardTitle}>{f.title}</Text>
-                  <Text style={styles.helpCardHow}>{f.how}</Text>
+                  <MoonCard color={f.tint} style={styles.helpCard}>
+                    <Text style={styles.affectCardTitle}>{f.title}</Text>
+                    <Text style={styles.helpCardHow}>{f.how}</Text>
+                  </MoonCard>
                 </Animated.View>
               ))}
             </ScrollView>
@@ -1523,11 +1517,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     marginTop: 9,
   },
-  // Page B: darker cards with a soft moon-surface sheen (the LinearGradient).
+  // Page B: darker cards with the shared moon texture (via MoonCard).
   helpCard: {
-    borderRadius: 26,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
     paddingVertical: 18,
     paddingHorizontal: 17,
     marginBottom: 14,
