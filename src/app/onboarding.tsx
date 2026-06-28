@@ -17,6 +17,7 @@ import {
   AccessibilityInfo,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -59,11 +60,33 @@ import {
 } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 import { syncPmsReminders } from '@/lib/pms-reminders';
+import {
+  setPmsFactors,
+  DEFAULT_PMS_FACTORS,
+  PMS_FACTOR_IDS,
+  PMS_FACTOR_CONTENT,
+  type PmsFactorId,
+  type PmsFactors,
+} from '@/store/pms-factors';
 
 const ORB_SIZE = 220;
 // On the PMS offer the orb is the hero: it fills the top of the screen and
 // carries the opening stat inside it (Neha's design).
 const PMS_ORB_SIZE = 300;
+// On the PMS reveal and factor pages the orb steps back so the words (reveal)
+// and the cards (factors) lead, but it stays present as the calm anchor.
+const PMS_REVEAL_ORB_SIZE = 150;
+const PMS_FACTORS_ORB_SIZE = 104;
+
+// The reveal: three beats of "not your fault", shown one at a time. Beat 2
+// carries the genetics line, the single highest-value education moment. No em
+// dashes; the science link is intentionally omitted until the research
+// appendix exists.
+const REVEAL_BEATS: readonly string[] = [
+  'Your hormones dip in the days before your period.',
+  "Some women are simply born more sensitive to that dip. It's in your genes, not a flaw, not weakness, and not your fault.",
+  'A handful of everyday things quietly turn that feeling up or down. Stress, sleep, steady meals, calcium, and movement. That part we can work on together.',
+];
 
 // PMS offer orb behaviour: the orb drifts through soft cool shades (the moods of
 // the week) and settles back to calm, never landing on an alarming colour, so
@@ -217,6 +240,17 @@ export default function OnboardingScreen() {
   const [cycleDate, setCycleDate] = useState<Date | null>(null);
   const [cycleSheet, setCycleSheet] = useState<'closed' | 'date' | 'length'>('closed');
   const [cycleLength, setCycleLength] = useState(DEFAULT_CYCLE_LENGTH);
+
+  // PMS-path sub-flow that sits inside STEP.pms (so it shares the PMS dot and
+  // never changes the general flow): the offer, then the reveal beats, then the
+  // factor cards, then the existing cycle-setup sheets. Only ever meaningful
+  // while step === STEP.pms; 'offer' is the inert default everyone else stays on.
+  const [pmsSubPhase, setPmsSubPhase] = useState<'offer' | 'reveal' | 'factors'>('offer');
+  const [revealBeat, setRevealBeat] = useState(0); // 0..2
+  // The factors she lets Niyora help with. All pre-selected; she taps to remove.
+  // Held locally and committed alongside the cycle in confirmLength, so backing
+  // out of setup commits nothing.
+  const [factors, setFactors] = useState<PmsFactors>(DEFAULT_PMS_FACTORS);
   const today = useMemo(() => new Date(), []);
   const basePickerStyles = useDefaultStyles('dark');
   const pickerStyles = useMemo(
@@ -383,13 +417,30 @@ export default function OnboardingScreen() {
   // screen was skipped, so back lands on the PMS offer instead.
   const goBack = useCallback(() => {
     Haptics.selectionAsync();
+    // Walk the PMS sub-flow back before changing step: factors -> last reveal
+    // beat -> earlier beats -> the offer. These all live under STEP.pms.
+    if (step === STEP.pms) {
+      if (pmsSubPhase === 'factors') {
+        setRevealBeat(REVEAL_BEATS.length - 1);
+        setPmsSubPhase('reveal');
+        return;
+      }
+      if (pmsSubPhase === 'reveal') {
+        if (revealBeat > 0) {
+          setRevealBeat(revealBeat - 1);
+        } else {
+          setPmsSubPhase('offer');
+        }
+        return;
+      }
+    }
     setBreathPhase(undefined);
     setBreathDone(false);
     setStep((s) => {
       if (s === STEP.done && !pmsActivated) return STEP.pms;
       return Math.max(0, s - 1);
     });
-  }, [pmsActivated]);
+  }, [step, pmsSubPhase, revealBeat, pmsActivated]);
 
   // After the nudge beat, on to the Smart PMS mode offer.
   const afterNudge = useCallback(() => {
@@ -412,7 +463,33 @@ export default function OnboardingScreen() {
     afterNudge();
   }, [presetIndex, afterNudge]);
 
+  // Activating opens the reveal first (then factors, then cycle setup), all
+  // under STEP.pms. The cycle sheets open later, from the factor page.
   const activatePms = useCallback(() => {
+    Haptics.selectionAsync();
+    setRevealBeat(0);
+    setPmsSubPhase('reveal');
+  }, []);
+
+  // Reveal: advance through the three beats, then on to the factor cards.
+  const advanceReveal = useCallback(() => {
+    Haptics.selectionAsync();
+    if (revealBeat < REVEAL_BEATS.length - 1) {
+      setRevealBeat(revealBeat + 1);
+    } else {
+      setPmsSubPhase('factors');
+    }
+  }, [revealBeat]);
+
+  // Factor cards are default-in: tapping one removes it (opt-out).
+  const toggleFactor = useCallback((id: PmsFactorId) => {
+    Haptics.selectionAsync();
+    setFactors((f) => ({ ...f, [id]: !f[id] }));
+  }, []);
+
+  // From the factor page on into the existing cycle-setup sheets. The selection
+  // is committed later, in confirmLength, so nothing persists if she backs out.
+  const confirmFactors = useCallback(() => {
     Haptics.selectionAsync();
     setCycleSheet('date');
   }, []);
@@ -456,6 +533,9 @@ export default function OnboardingScreen() {
         lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
         cycleLength,
       });
+      // Commit the factor selection in the same beat as the cycle, so PMS
+      // activation is all-or-nothing: backing out of setup persists neither.
+      await setPmsFactors(factors);
       // The heads-up reminders are this feature's only notification, so ask now
       // (no-op if she already granted it on the reminder step) and schedule the
       // first window. PMS framing still works in-app if she declines.
@@ -465,10 +545,11 @@ export default function OnboardingScreen() {
       // Storage/scheduling can throw; never trap the user.
     }
     setCycleSheet('closed');
+    setPmsSubPhase('offer'); // reset the sub-flow now setup is done and committed
     setCloserReady(false); // restart the loading beat each time she reaches the closer
     setPmsActivated(true);
     setStep(STEP.done);
-  }, [cycleDate, cycleLength]);
+  }, [cycleDate, cycleLength, factors]);
 
   // Orb props per step: breathing on the breath step, Spark rings on My Soul,
   // calm everywhere else. The orb shrinks aside on the cycle-setup screen to
@@ -476,6 +557,14 @@ export default function OnboardingScreen() {
   const isBreathStep = step === STEP.breath;
   const isSoulStep = step === STEP.soul;
   const isPmsStep = step === STEP.pms;
+  // The orb is the hero on the offer, then steps back for the reveal and the
+  // factor cards so the content leads.
+  const pmsOrbSize =
+    pmsSubPhase === 'offer'
+      ? PMS_ORB_SIZE
+      : pmsSubPhase === 'reveal'
+        ? PMS_REVEAL_ORB_SIZE
+        : PMS_FACTORS_ORB_SIZE;
 
   return (
     <View style={styles.root}>
@@ -513,11 +602,17 @@ export default function OnboardingScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.orbArea, isPmsStep && styles.orbAreaPms]}>
+        <View
+          style={[
+            styles.orbArea,
+            isPmsStep && pmsSubPhase === 'offer' && styles.orbAreaPms,
+            isPmsStep && pmsSubPhase !== 'offer' && styles.orbAreaPmsCompact,
+          ]}
+        >
           <Animated.View style={orbDropStyle}>
             <Animated.View style={closerPulseStyle}>
             <Orb
-              size={isPmsStep ? PMS_ORB_SIZE : ORB_SIZE}
+              size={isPmsStep ? pmsOrbSize : ORB_SIZE}
               hue={isPmsStep ? pmsHue : undefined}
               phase={
                 isBreathStep && breathPhase
@@ -537,7 +632,7 @@ export default function OnboardingScreen() {
             />
             </Animated.View>
           </Animated.View>
-          {isPmsStep && (
+          {isPmsStep && pmsSubPhase === 'offer' && (
             <View style={styles.pmsStatOverlay} pointerEvents="none">
               <Text style={styles.pmsStat}>2/3 women get PMS{'\n'}mood swings</Text>
             </View>
@@ -548,7 +643,7 @@ export default function OnboardingScreen() {
         </View>
 
         <Animated.View
-          key={`${step}-${breathDone}`}
+          key={`${step}-${breathDone}-${pmsSubPhase}-${revealBeat}`}
           entering={FadeIn.duration(450)}
           style={[styles.content, isPmsStep && styles.contentCycle]}
         >
@@ -626,7 +721,7 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {isPmsStep && (
+          {isPmsStep && pmsSubPhase === 'offer' && (
             <View style={styles.pmsBlock}>
               <Text style={styles.pmsTitle}>Feel safe through PMS</Text>
               <View style={styles.pmsList}>
@@ -653,6 +748,55 @@ export default function OnboardingScreen() {
                 ))}
               </View>
             </View>
+          )}
+
+          {isPmsStep && pmsSubPhase === 'reveal' && (
+            <View style={styles.revealBlock}>
+              <Text style={styles.revealText}>{REVEAL_BEATS[revealBeat]}</Text>
+            </View>
+          )}
+
+          {isPmsStep && pmsSubPhase === 'factors' && (
+            <ScrollView
+              style={styles.factorScroll}
+              contentContainerStyle={styles.factorScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.factorHeader}>Which of these can Niyora help you with?</Text>
+              {PMS_FACTOR_IDS.map((id) => {
+                const c = PMS_FACTOR_CONTENT[id];
+                const selected = factors[id];
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => toggleFactor(id)}
+                    style={[styles.factorCard, !selected && styles.factorCardOff]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
+                    accessibilityLabel={c.label}
+                  >
+                    <View style={styles.factorCardText}>
+                      <Text style={[styles.factorLabel, !selected && styles.factorTextOff]}>
+                        {c.label}
+                      </Text>
+                      <Text style={[styles.factorWhy, !selected && styles.factorTextOff]}>
+                        {c.why}
+                      </Text>
+                    </View>
+                    <View style={[styles.factorCheck, !selected && styles.factorCheckOff]}>
+                      {selected && (
+                        <SymbolView
+                          name="checkmark"
+                          tintColor={colors.textPrimary}
+                          size={13}
+                          weight="bold"
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           )}
 
           {step === STEP.done && !pmsActivated && (
@@ -704,7 +848,7 @@ export default function OnboardingScreen() {
               </Pressable>
             </>
           )}
-          {step === STEP.pms && (
+          {step === STEP.pms && pmsSubPhase === 'offer' && (
             <>
               <BeginButton label="Activate Smart PMS mode" onPress={activatePms} />
               <Pressable
@@ -717,6 +861,12 @@ export default function OnboardingScreen() {
                 <Text style={styles.notNowText}>No, not for me</Text>
               </Pressable>
             </>
+          )}
+          {step === STEP.pms && pmsSubPhase === 'reveal' && (
+            <BeginButton label="Continue" onPress={advanceReveal} />
+          )}
+          {step === STEP.pms && pmsSubPhase === 'factors' && (
+            <BeginButton label="Continue" onPress={confirmFactors} />
           )}
           {step === STEP.done && (!pmsActivated || closerReady) && (
             <BeginButton label="Begin" onPress={finish} />
@@ -871,6 +1021,13 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 0,
   },
+  orbAreaPmsCompact: {
+    // The reveal and factor pages give the words and cards the room; the orb
+    // sits small at the top.
+    flex: 0,
+    height: 168,
+    marginTop: 4,
+  },
   // The opening stat sits inside the orb, centred over the bright sphere.
   pmsStatOverlay: {
     position: 'absolute',
@@ -1015,6 +1172,90 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
+  },
+  // The reveal: one beat at a time, centred and unhurried.
+  revealBlock: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  revealText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 22,
+    lineHeight: 33,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  // Factor cards: all pre-selected, tap to remove (opt-out).
+  factorScroll: {
+    flex: 1,
+    width: '100%',
+  },
+  factorScrollContent: {
+    paddingBottom: 16,
+  },
+  factorHeader: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  factorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.22)',
+  },
+  factorCardOff: {
+    // Removed cards stay readable so she can add them back, just dimmed.
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  factorCardText: {
+    flex: 1,
+  },
+  factorLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  factorWhy: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    marginTop: 4,
+  },
+  factorTextOff: {
+    color: colors.textTertiary,
+  },
+  factorCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.beginBorder,
+  },
+  factorCheckOff: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
   },
   closerLoadingText: {
     fontFamily: 'Poppins-Light',
