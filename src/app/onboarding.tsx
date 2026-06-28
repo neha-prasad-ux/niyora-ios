@@ -90,7 +90,11 @@ const PMS_FACTORS_ORB_SIZE = 104;
 // "not your fault" line, the highest-value education moment. Same hormones,
 // different volume. No "imbalance", concrete factor names, no em dashes; the
 // science link is omitted until the research appendix exists.
-const REVEAL_FACTORS: readonly string[] = ['Stress', 'Sleep', 'Food', 'Movement'];
+// The two mini "moons" inside the reveal cards: a calm one and a warmer,
+// slightly larger PMS one that reads as reacting more (rose, never alarm-red).
+const REVEAL_CARD_ORB = 46;
+const REVEAL_CARD_ORB_PMS = 52;
+const REVEAL_PMS_HUE = 345; // soft rose
 
 // PMS offer orb behaviour: the orb drifts through soft cool shades (the moods of
 // the week) and settles back to calm, never landing on an alarming colour, so
@@ -629,7 +633,9 @@ export default function OnboardingScreen() {
           style={[
             styles.orbArea,
             isPmsStep && pmsSubPhase === 'offer' && styles.orbAreaPms,
-            isPmsStep && pmsSubPhase !== 'offer' && styles.orbAreaPmsCompact,
+            isPmsStep && (pmsSubPhase === 'symptoms' || pmsSubPhase === 'factors') &&
+              styles.orbAreaPmsCompact,
+            isPmsStep && pmsSubPhase === 'reveal' && styles.orbAreaReveal,
           ]}
         >
           <Animated.View style={orbDropStyle}>
@@ -821,35 +827,36 @@ export default function OnboardingScreen() {
               contentContainerStyle={styles.revealContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.revealLead}>
-                Before your period, your hormones dip. That part is normal.
-              </Text>
-              <View style={styles.contrastRow}>
-                <View style={styles.contrastCol}>
-                  <Text style={styles.contrastColTitle}>Most brains</Text>
-                  <Text style={styles.contrastColBody}>feel a small dip</Text>
-                </View>
-                <View style={[styles.contrastCol, styles.contrastColHi]}>
-                  <Text style={styles.contrastColTitleHi}>A sensitive brain</Text>
-                  <Text style={styles.contrastColBodyHi}>feels it strongly</Text>
-                </View>
-              </View>
-              <Text style={styles.contrastCaption}>
-                Same hormones. The difference is how strongly the brain responds.
-              </Text>
-              <Text style={styles.revealWarmth}>
-                This sensitivity is in your genes. Not a flaw, not weakness, not your fault.
-              </Text>
-              <View style={styles.revealChips}>
-                {REVEAL_FACTORS.map((f) => (
-                  <View key={f} style={styles.revealChip}>
-                    <Text style={styles.revealChipText}>{f}</Text>
+              <Text style={styles.revealTitle}>Why PMS hits some of us harder</Text>
+              <View style={styles.flowRow}>
+                <View style={styles.flowCard}>
+                  <View style={styles.flowOrb}>
+                    <Orb size={REVEAL_CARD_ORB} hue={CALM_HUE} still />
                   </View>
-                ))}
+                  <Text style={styles.flowCardTitle}>A calm cycle</Text>
+                  <Text style={styles.flowStep}>Hormones dip before your period</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowStep}>Feel-good hormones dip</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowOutcome}>You feel a little low</Text>
+                </View>
+
+                <View style={[styles.flowCard, styles.flowCardPms]}>
+                  <View style={styles.flowOrb}>
+                    <Orb size={REVEAL_CARD_ORB_PMS} hue={REVEAL_PMS_HUE} still />
+                  </View>
+                  <Text style={styles.flowCardTitleHi}>A PMS cycle</Text>
+                  <Text style={styles.flowStep}>Hormones dip before your period</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <View style={styles.flowHighlight}>
+                    <Text style={styles.flowHighlightText}>Genetic brain sensitivity</Text>
+                  </View>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowStep}>Feel-good hormones dip too</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowOutcomeHi}>You feel much lower</Text>
+                </View>
               </View>
-              <Text style={styles.revealPayoff}>
-                A few everyday things turn it up or down. That part, we can help with.
-              </Text>
             </ScrollView>
           )}
 
@@ -859,7 +866,7 @@ export default function OnboardingScreen() {
               contentContainerStyle={styles.factorScrollContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.factorHeader}>Which of these can Niyora help you with?</Text>
+              <Text style={styles.factorHeader}>Here&apos;s what can help</Text>
               {PMS_FACTOR_IDS.map((id) => {
                 const c = PMS_FACTOR_CONTENT[id];
                 const selected = factors[id];
@@ -963,7 +970,7 @@ export default function OnboardingScreen() {
             <BeginButton label="Continue" onPress={continueFromSymptoms} />
           )}
           {step === STEP.pms && pmsSubPhase === 'reveal' && (
-            <BeginButton label="Continue" onPress={advanceReveal} />
+            <BeginButton label="See what helps" onPress={advanceReveal} />
           )}
           {step === STEP.pms && pmsSubPhase === 'factors' && (
             <BeginButton label="Continue" onPress={confirmFactors} />
@@ -1120,6 +1127,14 @@ const styles = StyleSheet.create({
     // vertical space with the title + checklist below it.
     flex: 1,
     marginTop: 0,
+  },
+  orbAreaReveal: {
+    // The reveal carries its own two mini-moons inside the cards, so the shared
+    // top orb is collapsed away here.
+    flex: 0,
+    height: 0,
+    marginTop: 0,
+    overflow: 'hidden',
   },
   orbAreaPmsCompact: {
     // The reveal and factor pages give the words and cards the room; the orb
@@ -1322,116 +1337,102 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  // The reveal: a Normal-vs-sensitive contrast that carries the warmth.
+  // The reveal: two step-flow cards (a calm cycle vs a PMS cycle), the PMS one
+  // carrying the extra "genetic brain sensitivity" step and a warmer moon.
   revealContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
-  revealLead: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
-    lineHeight: 24,
+  revealTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 23,
+    lineHeight: 31,
     color: colors.textPrimary,
-    textAlign: 'center',
     letterSpacing: 0.2,
+    marginBottom: 22,
+    paddingHorizontal: 2,
   },
-  contrastRow: {
+  flowRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 22,
+    gap: 11,
+    alignItems: 'stretch',
   },
-  contrastCol: {
+  flowCard: {
     flex: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 11,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     alignItems: 'center',
   },
-  contrastColHi: {
+  flowCardPms: {
     borderColor: colors.beginBorder,
-    backgroundColor: 'rgba(115, 57, 172, 0.22)',
+    backgroundColor: 'rgba(115, 57, 172, 0.2)',
   },
-  contrastColTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-  contrastColTitleHi: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-  contrastColBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  contrastColBodyHi: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  contrastCaption: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textTagline,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    marginTop: 14,
-  },
-  revealWarmth: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
-    lineHeight: 25,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    marginTop: 24,
-  },
-  revealChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  flowOrb: {
+    height: 56,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 22,
+    marginBottom: 10,
   },
-  revealChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  revealChipText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  revealPayoff: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 23,
+  flowCardTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
     color: colors.textSubtitle,
     textAlign: 'center',
     letterSpacing: 0.2,
-    marginTop: 18,
+    marginBottom: 14,
+  },
+  flowCardTitleHi: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginBottom: 14,
+  },
+  flowStep: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+  },
+  flowArrow: {
+    fontSize: 12,
+    color: colors.textTagline,
+    marginVertical: 6,
+  },
+  flowHighlight: {
+    backgroundColor: 'rgba(214, 150, 200, 0.3)',
+    borderRadius: 11,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  flowHighlightText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#f0ddff',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  flowOutcome: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  flowOutcomeHi: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#ffffff',
+    textAlign: 'center',
   },
   // Factor cards: all pre-selected, tap to remove (opt-out).
   factorScroll: {
