@@ -34,6 +34,33 @@ function clampLength(cycleLength: number): number {
   return n;
 }
 
+// How many recent observed cycles feed the learned average. Six smooths a
+// single odd month without lagging a real shift in her cycle for too long.
+export const LEARN_CYCLE_SAMPLE = 6;
+
+// The learned cycle length, derived from the gaps between her logged period
+// starts. Returns null until we have at least two periods to measure a gap, or
+// when no gap is biologically plausible (so a stray/duplicate log can't poison
+// it). Gaps outside 20-40 days are dropped: a too-short gap is usually spotting
+// or a double-tap, a too-long one a month she forgot to log. We average the
+// most recent LEARN_CYCLE_SAMPLE plausible gaps so the estimate tracks her.
+export function learnedCycleLength(periodStarts: string[]): number | null {
+  const days = periodStarts
+    .map(parseDayNumber)
+    .filter((d): d is number => d != null)
+    .sort((a, b) => a - b);
+  if (days.length < 2) return null;
+  const gaps: number[] = [];
+  for (let i = 1; i < days.length; i += 1) {
+    const gap = days[i] - days[i - 1];
+    if (gap >= 20 && gap <= 40) gaps.push(gap);
+  }
+  if (gaps.length === 0) return null;
+  const recent = gaps.slice(-LEARN_CYCLE_SAMPLE);
+  const mean = recent.reduce((sum, g) => sum + g, 0) / recent.length;
+  return clampLength(mean);
+}
+
 // Days between today and the nearest predicted period start. Negative = before
 // the period (premenstrual), positive = after it has (predicted to have)
 // started. null when the date is unparseable.

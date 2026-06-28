@@ -30,7 +30,7 @@ import {
   type ReadinessChecks,
   type ReadinessCheckId,
 } from '@/store/pms-readiness';
-import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
+import { getPmsPrefs, setPmsPrefs, addPeriodStart } from '@/store/pms-prefs';
 import { getLastSession } from '@/store/session-history';
 
 const FRESH: ReadinessChecks = {
@@ -56,6 +56,7 @@ export default function PmsReadinessScreen() {
   const [checks, setChecks] = useState<ReadinessChecks>(FRESH);
   const [calmDone, setCalmDone] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [periodStarts, setPeriodStarts] = useState<string[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,6 +66,9 @@ export default function PmsReadinessScreen() {
         .catch(() => {});
       getLastSession()
         .then((s) => alive && setCalmDone(isToday(s?.completedAt, today)))
+        .catch(() => {});
+      getPmsPrefs()
+        .then((p) => alive && setPeriodStarts(p.periodStarts))
         .catch(() => {});
       return () => {
         alive = false;
@@ -110,7 +114,11 @@ export default function PmsReadinessScreen() {
     setSheet(false);
     try {
       const p = await getPmsPrefs();
-      await setPmsPrefs({ ...p, lastPeriodStart: todayYmd(date) });
+      // She's reporting a fresh period: append it to the history (the learned
+      // cycle length reads from these gaps), don't overwrite the last one.
+      const next = addPeriodStart(p, todayYmd(date));
+      await setPmsPrefs(next);
+      setPeriodStarts(next.periodStarts);
     } catch {
       // Storage can throw; never trap the user.
     }
@@ -172,7 +180,12 @@ export default function PmsReadinessScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <PeriodSheet visible={sheet} onClose={() => setSheet(false)} onConfirm={confirmPeriod} />
+      <PeriodSheet
+        visible={sheet}
+        markedDates={periodStarts}
+        onClose={() => setSheet(false)}
+        onConfirm={confirmPeriod}
+      />
     </View>
   );
 }

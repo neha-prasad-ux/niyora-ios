@@ -56,6 +56,8 @@ import { setOnboardingComplete } from '@/store/onboarding-complete';
 import { BREATH_FACTS, pickFact } from '@/lib/onboarding-facts';
 import {
   setPmsPrefs,
+  addPeriodStart,
+  DEFAULT_PMS_PREFS,
   DEFAULT_CYCLE_LENGTH,
   MIN_CYCLE_LENGTH,
   MAX_CYCLE_LENGTH,
@@ -568,8 +570,8 @@ export default function OnboardingScreen() {
     setPmsActivated(false);
     try {
       await setPmsPrefs({
+        ...DEFAULT_PMS_PREFS,
         pmsMode: false,
-        lastPeriodStart: null,
         cycleLength: DEFAULT_CYCLE_LENGTH,
       });
     } catch {
@@ -586,9 +588,13 @@ export default function OnboardingScreen() {
   const confirmLength = useCallback(async () => {
     Haptics.selectionAsync();
     try {
+      // Seed the history with her first logged start; cycleLength is her typed
+      // estimate (manualCycle stays false so the learned average takes over once
+      // she has logged a couple of real periods).
+      const seeded = cycleDate ? addPeriodStart(DEFAULT_PMS_PREFS, toYmd(cycleDate)) : DEFAULT_PMS_PREFS;
       await setPmsPrefs({
+        ...seeded,
         pmsMode: true,
-        lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
         cycleLength,
       });
       // Commit the symptom selection in the same beat as the cycle, so PMS

@@ -56,12 +56,16 @@ import {
 import {
   getPmsPrefs,
   setPmsPrefs,
+  addPeriodStart,
+  replaceLatestPeriodStart,
+  effectiveCycleLength,
   DEFAULT_PMS_PREFS,
   MIN_CYCLE_LENGTH,
   MAX_CYCLE_LENGTH,
   type PmsPrefs,
 } from '@/store/pms-prefs';
-import { isInPmsWindow, daysUntilPmsWindow } from '@/lib/pms-window';
+import { isInPmsWindow, daysUntilPmsWindow, learnedCycleLength } from '@/lib/pms-window';
+import { PeriodSheet } from '@/components/period-sheet';
 import {
   ensureNotificationPermission,
   isPermissionBlocked,
@@ -223,23 +227,37 @@ export default function MySoulScreen() {
       await persistPms({ ...pmsPrefs, pmsMode: false });
       return;
     }
-    // Turning it on needs a date to predict from. Keep an existing one, else
-    // seed today so the feature has something to work with; she can adjust it
-    // right below.
-    const lastPeriodStart = pmsPrefs.lastPeriodStart ?? toYmdLocal(new Date());
+    // Turning it on needs a date to predict from. Keep her logged history if any,
+    // else seed today so the feature has something to work with; she can correct
+    // it right below.
+    const seeded =
+      pmsPrefs.periodStarts.length > 0
+        ? pmsPrefs
+        : addPeriodStart(pmsPrefs, toYmdLocal(new Date()));
     // The heads-up reminders are the feature's only notification, so ask for
     // permission now. PMS framing still works in-app if she declines.
     await ensureNotificationPermission().catch(() => false);
-    await persistPms({ ...pmsPrefs, pmsMode: true, lastPeriodStart });
+    await persistPms({ ...seeded, pmsMode: true });
   }
 
+  // The "Last period started" field corrects the most recent logged date in
+  // place. Logging a brand-new period is the home screen's "my period's here"
+  // flow, which appends; this never invents a phantom cycle.
   async function handlePmsDateChange(dt: Date) {
-    await persistPms({ ...pmsPrefs, lastPeriodStart: toYmdLocal(dt) });
+    await persistPms(replaceLatestPeriodStart(pmsPrefs, toYmdLocal(dt)));
   }
 
+  // Stepping the cycle length is an explicit override: mark it manual so the
+  // learned average stops driving the prediction until she clears it.
   async function handlePmsCycleLengthChange(delta: number) {
-    const next = Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, pmsPrefs.cycleLength + delta));
-    await persistPms({ ...pmsPrefs, cycleLength: next });
+    const current = effectiveCycleLength(pmsPrefs);
+    const next = Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, current + delta));
+    await persistPms({ ...pmsPrefs, cycleLength: next, manualCycle: true });
+  }
+
+  // Hand control back to the learned average.
+  async function handlePmsCycleReset() {
+    await persistPms({ ...pmsPrefs, manualCycle: false });
   }
 
   const pmsStatus = pmsStatusLine(pmsPrefs);
@@ -379,6 +397,7 @@ export default function MySoulScreen() {
             onToggle={handlePmsToggle}
             onDateChange={handlePmsDateChange}
             onCycleLengthChange={handlePmsCycleLengthChange}
+            onCycleReset={handlePmsCycleReset}
           />
 
           {SHOW_ANALYTICS && (
@@ -803,10 +822,11 @@ function fromYmdLocal(iso: string): Date {
 function pmsStatusLine(prefs: PmsPrefs): string | null {
   if (!prefs.pmsMode || !prefs.lastPeriodStart) return null;
   const now = new Date();
-  if (isInPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, now)) {
+  const len = effectiveCycleLength(prefs);
+  if (isInPmsWindow(prefs.lastPeriodStart, len, now)) {
     return "Looks like you're in your window now.";
   }
-  const days = daysUntilPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, now);
+  const days = daysUntilPmsWindow(prefs.lastPeriodStart, len, now);
   if (days == null) return null;
   if (days <= 0) return 'Your rough week is about to start.';
   if (days === 1) return 'Your rough week starts tomorrow.';
@@ -819,14 +839,24 @@ function PmsCard({
   onToggle,
   onDateChange,
   onCycleLengthChange,
+  onCycleReset,
 }: {
   prefs: PmsPrefs;
   status: string | null;
   onToggle: (on: boolean) => void;
   onDateChange: (d: Date) => void;
   onCycleLengthChange: (delta: number) => void;
+  onCycleReset: () => void;
 }) {
-  const dateSelection = prefs.lastPeriodStart ? fromYmdLocal(prefs.lastPeriodStart) : new Date();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const len = effectiveCycleLength(prefs);
+  const learned = learnedCycleLength(prefs.periodStarts);
+  const dateLabel = prefs.lastPeriodStart
+    ? fromYmdLocal(prefs.lastPeriodStart).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      })
+    : 'Set date';
   return (
     <View style={styles.card}>
       <View style={styles.toggleRow}>
@@ -850,16 +880,18 @@ function PmsCard({
       {prefs.pmsMode && (
         <>
           {status && <Text style={styles.pmsStatus}>{status}</Text>}
-          <View style={styles.pmsEditRow}>
+          <Pressable
+            style={styles.pmsEditRow}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setSheetOpen(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Change the date your last period started"
+          >
             <Text style={styles.cardCopy}>Last period started</Text>
-            <Host matchContents>
-              <DatePicker
-                selection={dateSelection}
-                displayedComponents={['date']}
-                onDateChange={(d) => onDateChange(d)}
-              />
-            </Host>
-          </View>
+            <Text style={styles.pmsValueText}>{dateLabel}</Text>
+          </Pressable>
           <View style={styles.pmsEditRow}>
             <Text style={styles.cardCopy}>Cycle length</Text>
             <View style={styles.pmsStepperRow}>
@@ -872,7 +904,7 @@ function PmsCard({
               >
                 <SymbolView name="minus" tintColor={colors.textPrimary} size={14} weight="medium" />
               </Pressable>
-              <Text style={styles.pmsStepperValue}>{prefs.cycleLength} days</Text>
+              <Text style={styles.pmsStepperValue}>{len} days</Text>
               <Pressable
                 onPress={() => onCycleLengthChange(1)}
                 hitSlop={8}
@@ -884,6 +916,35 @@ function PmsCard({
               </Pressable>
             </View>
           </View>
+          {!prefs.manualCycle && learned != null && (
+            <Text style={styles.pmsLearnedNote}>From your last few cycles.</Text>
+          )}
+          {prefs.manualCycle && (
+            <View style={styles.pmsLearnedRow}>
+              <Text style={styles.pmsLearnedNote}>Your own number.</Text>
+              {learned != null && learned !== prefs.cycleLength && (
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    onCycleReset();
+                  }}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.pmsLearnedAction}>Use {learned}</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+          <PeriodSheet
+            visible={sheetOpen}
+            markedDates={prefs.periodStarts}
+            onClose={() => setSheetOpen(false)}
+            onConfirm={(d) => {
+              setSheetOpen(false);
+              onDateChange(d);
+            }}
+          />
         </>
       )}
     </View>
@@ -1298,6 +1359,33 @@ const styles = StyleSheet.create({
     minWidth: 64,
     textAlign: 'center',
     letterSpacing: 0.2,
+  },
+  pmsValueText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  pmsLearnedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  pmsLearnedNote: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    marginTop: spacing.sm,
+  },
+  pmsLearnedAction: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    marginTop: spacing.sm,
   },
   primarySmallButton: {
     alignSelf: 'center',
