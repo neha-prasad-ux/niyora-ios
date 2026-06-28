@@ -217,9 +217,10 @@ function BreathingSession({
     voice.playEnd('well-done');
     fadeOut();
     // Record first so any earned ring is known before the mood overlay mounts.
-    // When a ring IS earned (the first session lands the Spark), hold the mood
-    // sheet back so the celebration — the light flood, sunburst and sparks —
-    // actually plays out instead of being covered after half a second.
+    // Let the closing animation — the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the sunburst and sparks) — actually play
+    // out before the "Feel better?" card fades in over it, rather than cutting
+    // to it after half a second.
     let earned: Tier | null = null;
     appendSession(technique.id)
       .then((r) => {
@@ -231,7 +232,7 @@ function BreathingSession({
         if (cancelled) return;
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, earned ? 2600 : 500);
+        }, earned ? 2600 : 2200);
       });
     return () => {
       cancelled = true;
