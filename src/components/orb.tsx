@@ -174,9 +174,16 @@ type OrbProps = {
    * warm hue reads as soft and warm, never an alarm.
    */
   hue?: number;
+  /**
+   * Saturation multiplier (0..1) for the sphere body + halo. 1 = the normal
+   * tint; lower values fade the colour toward white. The readiness orb lowers
+   * this with progress so the moon eases from rose to white.
+   */
+  sat?: number;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220 }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220, sat = 1 }: OrbProps) {
+  const satPct = (base: number) => Math.max(0, Math.round(base * sat));
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
@@ -361,10 +368,10 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               fy={center}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0.5" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0" />
-              <Stop offset="0.585" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0.6" />
-              <Stop offset="0.72" stopColor={`hsl(${hue}, 52%, 72%)`} stopOpacity="0.24" />
-              <Stop offset="1" stopColor={`hsl(${hue}, 50%, 70%)`} stopOpacity="0" />
+              <Stop offset="0.5" stopColor={`hsl(${hue}, ${satPct(58)}%, 80%)`} stopOpacity="0" />
+              <Stop offset="0.585" stopColor={`hsl(${hue}, ${satPct(58)}%, 80%)`} stopOpacity="0.6" />
+              <Stop offset="0.72" stopColor={`hsl(${hue}, ${satPct(52)}%, 72%)`} stopOpacity="0.24" />
+              <Stop offset="1" stopColor={`hsl(${hue}, ${satPct(50)}%, 70%)`} stopOpacity="0" />
             </RadialGradient>
 
             {/* Sphere body. radial-gradient circle at 35% 30%, three stops. */}
@@ -378,9 +385,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               gradientUnits="userSpaceOnUse"
             >
               <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
-              <Stop offset="0.42" stopColor={`hsl(${hue}, 25%, 92%)`} stopOpacity="0.96" />
-              <Stop offset="0.92" stopColor={`hsl(${hue}, 38%, 78%)`} stopOpacity="1" />
-              <Stop offset="1" stopColor={`hsl(${hue}, 42%, 74%)`} stopOpacity="1" />
+              <Stop offset="0.42" stopColor={`hsl(${hue}, ${satPct(25)}%, 92%)`} stopOpacity="0.96" />
+              <Stop offset="0.92" stopColor={`hsl(${hue}, ${satPct(38)}%, 78%)`} stopOpacity="1" />
+              <Stop offset="1" stopColor={`hsl(${hue}, ${satPct(42)}%, 74%)`} stopOpacity="1" />
             </RadialGradient>
 
             {/* Inset darkening from bottom-right. Replaces

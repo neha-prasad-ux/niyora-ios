@@ -62,6 +62,17 @@ import { macSoulHue } from '@/lib/mac-soul';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
+import { getPmsPrefs } from '@/store/pms-prefs';
+import { isInPmsWindow } from '@/lib/pms-window';
+import { LutealCard } from '@/components/luteal-card';
+import {
+  getReadiness,
+  readinessDoneCount,
+  LUTEAL_ROSE_HUE,
+  lutealOrbSat,
+  isReadyDone,
+  todayYmd,
+} from '@/store/pms-readiness';
 
 const LAPSE_DAYS = 3;
 
@@ -187,6 +198,32 @@ export default function HomeScreen() {
       syncPmsReminders().catch(() => {});
     }, [])
   );
+
+  // The luteal signature: in PMS mode, during the predicted premenstrual window,
+  // the home warms (orb hue + background) and the luteal card appears above
+  // Begin. Computed live from the cycle, never stored. Off for everyone else.
+  const [inLuteal, setInLuteal] = useState(false);
+  // The orb is shared state: during luteal it eases rose -> calm with today's
+  // readiness progress, so the home "gets better" as she takes care of herself.
+  // lutealDone (done for today) lets the background settle back to calm.
+  const [lutealSat, setLutealSat] = useState(1);
+  const [lutealDone, setLutealDone] = useState(false);
+  const refreshPms = useCallback(() => {
+    getPmsPrefs()
+      .then(async (p) => {
+        const luteal =
+          p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date());
+        setInLuteal(luteal);
+        if (!luteal) return;
+        const today = todayYmd();
+        const [r, last] = await Promise.all([getReadiness(today), getLastSession()]);
+        const calmDone = !!last && last.completedAt.slice(0, 10) === today;
+        setLutealSat(lutealOrbSat(readinessDoneCount(r.checks, calmDone)));
+        setLutealDone(isReadyDone(r.checks, calmDone, r.doneForToday));
+      })
+      .catch(() => setInLuteal(false));
+  }, []);
+  useFocusEffect(refreshPms);
 
   // Bumped on each orb press to replay the ring draw-on sweep, so tapping the
   // Soul makes its rings glide back on alongside the existing tap reaction.
@@ -340,14 +377,14 @@ export default function HomeScreen() {
   if (onboarded !== true) {
     return (
       <View style={styles.root}>
-        <BackgroundGradient />
+        <BackgroundGradient luteal={inLuteal && !lutealDone} />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient />
+      <BackgroundGradient luteal={inLuteal && !lutealDone} />
       <ShootingStar />
       <Animated.View style={[styles.pageFill, pageAnimStyle]}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -366,7 +403,8 @@ export default function HomeScreen() {
             <View pointerEvents="none">
               <Orb
                 size={ORB_SIZE}
-                hue={orbHue}
+                hue={inLuteal ? LUTEAL_ROSE_HUE : orbHue}
+                sat={inLuteal ? lutealSat : 1}
                 tierRingCount={homeRingCount}
                 tierHue={homeTier.hue}
                 ringHues={SOUL_RING_HUES}
@@ -399,6 +437,7 @@ export default function HomeScreen() {
             want to feel" path; browsing stays the quiet option. */}
         {practiced !== undefined && (
           <>
+            {inLuteal && <LutealCard />}
             <Animated.View style={[styles.recommendCard, cardGlowStyle]}>
               <View style={styles.recommendCardHead}>
                 <Text style={styles.recommendCardTitle}>

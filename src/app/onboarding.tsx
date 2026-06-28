@@ -38,6 +38,8 @@ import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
+import { Checklist } from '@/components/checklist';
+import { MoonCard } from '@/components/moon-card';
 import { Orb } from '@/components/orb';
 import { PhaseLabel } from '@/components/phase-label';
 import { colors } from '@/theme/colors';
@@ -61,13 +63,13 @@ import {
 import { isInPmsWindow } from '@/lib/pms-window';
 import { syncPmsReminders } from '@/lib/pms-reminders';
 import {
-  setPmsFactors,
-  DEFAULT_PMS_FACTORS,
-  PMS_FACTOR_IDS,
-  PMS_FACTOR_CONTENT,
-  type PmsFactorId,
-  type PmsFactors,
-} from '@/store/pms-factors';
+  setPmsSymptoms,
+  DEFAULT_PMS_SYMPTOMS,
+  PMS_SYMPTOM_IDS,
+  PMS_SYMPTOM_LABELS,
+  type PmsSymptomId,
+  type PmsSymptoms,
+} from '@/store/pms-symptoms';
 
 const ORB_SIZE = 220;
 // On the PMS offer the orb is the hero: it fills the top of the screen and
@@ -76,16 +78,55 @@ const PMS_ORB_SIZE = 300;
 // On the PMS reveal and factor pages the orb steps back so the words (reveal)
 // and the cards (factors) lead, but it stays present as the calm anchor.
 const PMS_REVEAL_ORB_SIZE = 150;
-const PMS_FACTORS_ORB_SIZE = 104;
 
-// The reveal: three beats of "not your fault", shown one at a time. Beat 2
-// carries the genetics line, the single highest-value education moment. No em
-// dashes; the science link is intentionally omitted until the research
-// appendix exists.
-const REVEAL_BEATS: readonly string[] = [
-  'Your hormones dip in the days before your period.',
-  "Some women are simply born more sensitive to that dip. It's in your genes, not a flaw, not weakness, and not your fault.",
-  'A handful of everyday things quietly turn that feeling up or down. Stress, sleep, steady meals, calcium, and movement. That part we can work on together.',
+// The reveal: a single Normal-vs-sensitive contrast that carries the genetics
+// "not your fault" line, the highest-value education moment. Same hormones,
+// different volume. No "imbalance", concrete factor names, no em dashes; the
+// science link is omitted until the research appendix exists.
+// The two mini "moons" inside the reveal cards: a calm one and a warmer,
+// slightly larger PMS one that reads as reacting more (rose, never alarm-red).
+const REVEAL_CARD_ORB = 46;
+const REVEAL_CARD_ORB_PMS = 52;
+const REVEAL_PMS_HUE = 345; // soft rose
+
+// Page "What affects PMS": the three levers, each in its own theme colour.
+// Informational only, no choosing. The "why" ties straight back to the reveal.
+const WHAT_AFFECTS: readonly { title: string; why: string; tint: string }[] = [
+  {
+    title: 'Stress',
+    why: 'Stress hits your mood harder before your period.',
+    tint: 'rgba(124, 74, 176, 0.26)',
+  },
+  {
+    title: 'Sleep',
+    why: 'Short sleep makes your PMS hit harder the next day.',
+    tint: 'rgba(58, 94, 176, 0.28)',
+  },
+  {
+    title: 'Food',
+    why: 'A blood-sugar crash can feel just like a mood crash.',
+    tint: 'rgba(186, 94, 140, 0.26)',
+  },
+];
+
+// Page "How Niyora helps": the same three, named as the win, on darker
+// moon-surfaced cards. The "how" names what she actually gets.
+const HOW_HELPS: readonly { title: string; how: string; tint: string }[] = [
+  {
+    title: 'Calm mind',
+    how: 'Calming activities, many under a minute.',
+    tint: 'rgba(74, 46, 108, 0.5)',
+  },
+  {
+    title: 'Sleep better',
+    how: 'Sleep activities, plus a nudge on your PMS days.',
+    tint: 'rgba(38, 58, 108, 0.52)',
+  },
+  {
+    title: 'Helpful food',
+    how: 'Food ideas for blood sugar, calcium, and inflammation.',
+    tint: 'rgba(112, 52, 82, 0.5)',
+  },
 ];
 
 // PMS offer orb behaviour: the orb drifts through soft cool shades (the moods of
@@ -245,12 +286,12 @@ export default function OnboardingScreen() {
   // never changes the general flow): the offer, then the reveal beats, then the
   // factor cards, then the existing cycle-setup sheets. Only ever meaningful
   // while step === STEP.pms; 'offer' is the inert default everyone else stays on.
-  const [pmsSubPhase, setPmsSubPhase] = useState<'offer' | 'reveal' | 'factors'>('offer');
-  const [revealBeat, setRevealBeat] = useState(0); // 0..2
-  // The factors she lets Niyora help with. All pre-selected; she taps to remove.
-  // Held locally and committed alongside the cycle in confirmLength, so backing
-  // out of setup commits nothing.
-  const [factors, setFactors] = useState<PmsFactors>(DEFAULT_PMS_FACTORS);
+  const [pmsSubPhase, setPmsSubPhase] = useState<
+    'offer' | 'symptoms' | 'reveal' | 'whatAffects' | 'howHelps'
+  >('offer');
+  // What she feels before her period (opt-in, none pre-selected). Seeds relief
+  // later; committed with the cycle in confirmLength.
+  const [symptoms, setSymptoms] = useState<PmsSymptoms>(DEFAULT_PMS_SYMPTOMS);
   const today = useMemo(() => new Date(), []);
   const basePickerStyles = useDefaultStyles('dark');
   const pickerStyles = useMemo(
@@ -417,20 +458,23 @@ export default function OnboardingScreen() {
   // screen was skipped, so back lands on the PMS offer instead.
   const goBack = useCallback(() => {
     Haptics.selectionAsync();
-    // Walk the PMS sub-flow back before changing step: factors -> last reveal
-    // beat -> earlier beats -> the offer. These all live under STEP.pms.
+    // Walk the PMS sub-flow back before changing step: howHelps -> whatAffects
+    // -> reveal -> symptoms -> the offer. These all live under STEP.pms.
     if (step === STEP.pms) {
-      if (pmsSubPhase === 'factors') {
-        setRevealBeat(REVEAL_BEATS.length - 1);
+      if (pmsSubPhase === 'howHelps') {
+        setPmsSubPhase('whatAffects');
+        return;
+      }
+      if (pmsSubPhase === 'whatAffects') {
         setPmsSubPhase('reveal');
         return;
       }
       if (pmsSubPhase === 'reveal') {
-        if (revealBeat > 0) {
-          setRevealBeat(revealBeat - 1);
-        } else {
-          setPmsSubPhase('offer');
-        }
+        setPmsSubPhase('symptoms');
+        return;
+      }
+      if (pmsSubPhase === 'symptoms') {
+        setPmsSubPhase('offer');
         return;
       }
     }
@@ -440,7 +484,7 @@ export default function OnboardingScreen() {
       if (s === STEP.done && !pmsActivated) return STEP.pms;
       return Math.max(0, s - 1);
     });
-  }, [step, pmsSubPhase, revealBeat, pmsActivated]);
+  }, [step, pmsSubPhase, pmsActivated]);
 
   // After the nudge beat, on to the Smart PMS mode offer.
   const afterNudge = useCallback(() => {
@@ -463,33 +507,47 @@ export default function OnboardingScreen() {
     afterNudge();
   }, [presetIndex, afterNudge]);
 
-  // Activating opens the reveal first (then factors, then cycle setup), all
-  // under STEP.pms. The cycle sheets open later, from the factor page.
+  // Activating opens the symptom step first (then reveal, factors, cycle
+  // setup), all under STEP.pms. The cycle sheets open later, from the factors.
   const activatePms = useCallback(() => {
     Haptics.selectionAsync();
-    setRevealBeat(0);
+    setPmsSubPhase('symptoms');
+  }, []);
+
+  // Symptom rows are opt-in: tap to add what she feels.
+  const toggleSymptom = useCallback((id: PmsSymptomId) => {
+    Haptics.selectionAsync();
+    setSymptoms((s) => ({ ...s, [id]: !s[id] }));
+  }, []);
+
+  // "None of these" clears the lot; it reads as selected when nothing else is.
+  const clearSymptoms = useCallback(() => {
+    Haptics.selectionAsync();
+    setSymptoms(DEFAULT_PMS_SYMPTOMS);
+  }, []);
+  const noneSelected = PMS_SYMPTOM_IDS.every((id) => !symptoms[id]);
+
+  // Symptoms -> the reveal. She can continue without choosing any; we never
+  // trap her on this step.
+  const continueFromSymptoms = useCallback(() => {
+    Haptics.selectionAsync();
     setPmsSubPhase('reveal');
   }, []);
 
-  // Reveal: advance through the three beats, then on to the factor cards.
+  // Reveal -> "What affects PMS".
   const advanceReveal = useCallback(() => {
     Haptics.selectionAsync();
-    if (revealBeat < REVEAL_BEATS.length - 1) {
-      setRevealBeat(revealBeat + 1);
-    } else {
-      setPmsSubPhase('factors');
-    }
-  }, [revealBeat]);
-
-  // Factor cards are default-in: tapping one removes it (opt-out).
-  const toggleFactor = useCallback((id: PmsFactorId) => {
-    Haptics.selectionAsync();
-    setFactors((f) => ({ ...f, [id]: !f[id] }));
+    setPmsSubPhase('whatAffects');
   }, []);
 
-  // From the factor page on into the existing cycle-setup sheets. The selection
-  // is committed later, in confirmLength, so nothing persists if she backs out.
-  const confirmFactors = useCallback(() => {
+  // "What affects PMS" -> "How Niyora helps".
+  const continueWhatAffects = useCallback(() => {
+    Haptics.selectionAsync();
+    setPmsSubPhase('howHelps');
+  }, []);
+
+  // "How Niyora helps" -> the existing cycle-setup sheets.
+  const continueHowHelps = useCallback(() => {
     Haptics.selectionAsync();
     setCycleSheet('date');
   }, []);
@@ -533,9 +591,9 @@ export default function OnboardingScreen() {
         lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
         cycleLength,
       });
-      // Commit the factor selection in the same beat as the cycle, so PMS
-      // activation is all-or-nothing: backing out of setup persists neither.
-      await setPmsFactors(factors);
+      // Commit the symptom selection in the same beat as the cycle, so PMS
+      // activation is all-or-nothing: backing out persists none of it.
+      await setPmsSymptoms(symptoms);
       // The heads-up reminders are this feature's only notification, so ask now
       // (no-op if she already granted it on the reminder step) and schedule the
       // first window. PMS framing still works in-app if she declines.
@@ -549,7 +607,7 @@ export default function OnboardingScreen() {
     setCloserReady(false); // restart the loading beat each time she reaches the closer
     setPmsActivated(true);
     setStep(STEP.done);
-  }, [cycleDate, cycleLength, factors]);
+  }, [cycleDate, cycleLength, symptoms]);
 
   // Orb props per step: breathing on the breath step, Spark rings on My Soul,
   // calm everywhere else. The orb shrinks aside on the cycle-setup screen to
@@ -557,14 +615,9 @@ export default function OnboardingScreen() {
   const isBreathStep = step === STEP.breath;
   const isSoulStep = step === STEP.soul;
   const isPmsStep = step === STEP.pms;
-  // The orb is the hero on the offer, then steps back for the reveal and the
-  // factor cards so the content leads.
-  const pmsOrbSize =
-    pmsSubPhase === 'offer'
-      ? PMS_ORB_SIZE
-      : pmsSubPhase === 'reveal'
-        ? PMS_REVEAL_ORB_SIZE
-        : PMS_FACTORS_ORB_SIZE;
+  // The orb is the hero on the offer, steps back on symptoms, and is hidden on
+  // the reveal / what-affects / how-helps pages (those carry their own art).
+  const pmsOrbSize = pmsSubPhase === 'offer' ? PMS_ORB_SIZE : PMS_REVEAL_ORB_SIZE;
 
   return (
     <View style={styles.root}>
@@ -606,7 +659,12 @@ export default function OnboardingScreen() {
           style={[
             styles.orbArea,
             isPmsStep && pmsSubPhase === 'offer' && styles.orbAreaPms,
-            isPmsStep && pmsSubPhase !== 'offer' && styles.orbAreaPmsCompact,
+            isPmsStep && pmsSubPhase === 'symptoms' && styles.orbAreaPmsCompact,
+            isPmsStep &&
+              (pmsSubPhase === 'reveal' ||
+                pmsSubPhase === 'whatAffects' ||
+                pmsSubPhase === 'howHelps') &&
+              styles.orbAreaReveal,
           ]}
         >
           <Animated.View style={orbDropStyle}>
@@ -643,7 +701,7 @@ export default function OnboardingScreen() {
         </View>
 
         <Animated.View
-          key={`${step}-${breathDone}-${pmsSubPhase}-${revealBeat}`}
+          key={`${step}-${breathDone}-${pmsSubPhase}`}
           entering={FadeIn.duration(450)}
           style={[styles.content, isPmsStep && styles.contentCycle]}
         >
@@ -750,52 +808,101 @@ export default function OnboardingScreen() {
             </View>
           )}
 
-          {isPmsStep && pmsSubPhase === 'reveal' && (
-            <View style={styles.revealBlock}>
-              <Text style={styles.revealText}>{REVEAL_BEATS[revealBeat]}</Text>
+          {isPmsStep && pmsSubPhase === 'symptoms' && (
+            <View style={styles.symptomBlock}>
+              <Text style={styles.symptomHeader}>How do you feel in the days before your period?</Text>
+              <Checklist
+                items={[
+                  ...PMS_SYMPTOM_IDS.map((id) => ({ id, label: PMS_SYMPTOM_LABELS[id] })),
+                  { id: 'none', label: 'None of these' },
+                ]}
+                isChecked={(id) => (id === 'none' ? noneSelected : symptoms[id as PmsSymptomId])}
+                onToggle={(id) =>
+                  id === 'none' ? clearSymptoms() : toggleSymptom(id as PmsSymptomId)
+                }
+              />
             </View>
           )}
 
-          {isPmsStep && pmsSubPhase === 'factors' && (
+          {isPmsStep && pmsSubPhase === 'reveal' && (
             <ScrollView
               style={styles.factorScroll}
-              contentContainerStyle={styles.factorScrollContent}
+              contentContainerStyle={styles.revealContent}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.factorHeader}>Which of these can Niyora help you with?</Text>
-              {PMS_FACTOR_IDS.map((id) => {
-                const c = PMS_FACTOR_CONTENT[id];
-                const selected = factors[id];
-                return (
-                  <Pressable
-                    key={id}
-                    onPress={() => toggleFactor(id)}
-                    style={[styles.factorCard, !selected && styles.factorCardOff]}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    accessibilityLabel={c.label}
-                  >
-                    <View style={styles.factorCardText}>
-                      <Text style={[styles.factorLabel, !selected && styles.factorTextOff]}>
-                        {c.label}
-                      </Text>
-                      <Text style={[styles.factorWhy, !selected && styles.factorTextOff]}>
-                        {c.why}
-                      </Text>
-                    </View>
-                    <View style={[styles.factorCheck, !selected && styles.factorCheckOff]}>
-                      {selected && (
-                        <SymbolView
-                          name="checkmark"
-                          tintColor={colors.textPrimary}
-                          size={13}
-                          weight="bold"
-                        />
-                      )}
-                    </View>
-                  </Pressable>
-                );
-              })}
+              <Text style={styles.revealTitle}>Why PMS hits some of us harder</Text>
+              <View style={styles.flowRow}>
+                <View style={styles.flowCard}>
+                  <View style={styles.flowOrb}>
+                    <Orb size={REVEAL_CARD_ORB} hue={CALM_HUE} still />
+                  </View>
+                  <Text style={styles.flowCardTitle}>A calm cycle</Text>
+                  <Text style={styles.flowStep}>Hormones dip before your period</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowStep}>Feel-good hormones dip</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowOutcome}>You feel a little low</Text>
+                </View>
+
+                <View style={[styles.flowCard, styles.flowCardPms]}>
+                  <View style={styles.flowOrb}>
+                    <Orb size={REVEAL_CARD_ORB_PMS} hue={REVEAL_PMS_HUE} still />
+                  </View>
+                  <Text style={styles.flowCardTitleHi}>A PMS cycle</Text>
+                  <Text style={styles.flowStep}>Hormones dip before your period</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <View style={styles.flowHighlight}>
+                    <Text style={styles.flowHighlightText}>Genetic brain sensitivity</Text>
+                  </View>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowStep}>Feel-good hormones dip too</Text>
+                  <Text style={styles.flowArrow}>↓</Text>
+                  <Text style={styles.flowOutcomeHi}>You feel much lower</Text>
+                </View>
+              </View>
+            </ScrollView>
+          )}
+
+          {isPmsStep && pmsSubPhase === 'whatAffects' && (
+            <ScrollView
+              style={styles.factorScroll}
+              contentContainerStyle={styles.affectContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.affectTitle}>What affects PMS</Text>
+              <Text style={styles.affectSub}>Three things turn it up or down.</Text>
+              {WHAT_AFFECTS.map((f, i) => (
+                <Animated.View
+                  key={f.title}
+                  entering={FadeInDown.delay(120 + i * 130).duration(480)}
+                  style={[styles.affectCard, { backgroundColor: f.tint }]}
+                >
+                  <Text style={styles.affectCardTitle}>{f.title}</Text>
+                  <Text style={styles.affectCardWhy}>{f.why}</Text>
+                </Animated.View>
+              ))}
+            </ScrollView>
+          )}
+
+          {isPmsStep && pmsSubPhase === 'howHelps' && (
+            <ScrollView
+              style={styles.factorScroll}
+              contentContainerStyle={styles.affectContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.affectTitle}>How Niyora helps</Text>
+              <Text style={styles.affectSub}>For each one, here&apos;s what you get.</Text>
+              {HOW_HELPS.map((f, i) => (
+                <Animated.View
+                  key={f.title}
+                  entering={FadeInDown.delay(120 + i * 130).duration(480)}
+                >
+                  <MoonCard color={f.tint} style={styles.helpCard}>
+                    <Text style={styles.affectCardTitle}>{f.title}</Text>
+                    <Text style={styles.helpCardHow}>{f.how}</Text>
+                  </MoonCard>
+                </Animated.View>
+              ))}
             </ScrollView>
           )}
 
@@ -862,11 +969,17 @@ export default function OnboardingScreen() {
               </Pressable>
             </>
           )}
+          {step === STEP.pms && pmsSubPhase === 'symptoms' && (
+            <BeginButton label="Continue" onPress={continueFromSymptoms} />
+          )}
           {step === STEP.pms && pmsSubPhase === 'reveal' && (
             <BeginButton label="Continue" onPress={advanceReveal} />
           )}
-          {step === STEP.pms && pmsSubPhase === 'factors' && (
-            <BeginButton label="Continue" onPress={confirmFactors} />
+          {step === STEP.pms && pmsSubPhase === 'whatAffects' && (
+            <BeginButton label="See what helps" onPress={continueWhatAffects} />
+          )}
+          {step === STEP.pms && pmsSubPhase === 'howHelps' && (
+            <BeginButton label="Let's do this" onPress={continueHowHelps} />
           )}
           {step === STEP.done && (!pmsActivated || closerReady) && (
             <BeginButton label="Begin" onPress={finish} />
@@ -1021,6 +1134,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 0,
   },
+  orbAreaReveal: {
+    // The reveal carries its own two mini-moons inside the cards, so the shared
+    // top orb is collapsed away here.
+    flex: 0,
+    height: 0,
+    marginTop: 0,
+    overflow: 'hidden',
+  },
   orbAreaPmsCompact: {
     // The reveal and factor pages give the words and cards the room; the orb
     // sits small at the top.
@@ -1173,89 +1294,217 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  // The reveal: one beat at a time, centred and unhurried.
-  revealBlock: {
+  // Symptom select: opt-in checkbox rows, none pre-selected.
+  symptomBlock: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 4,
   },
-  revealText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
-    lineHeight: 33,
-    letterSpacing: 0.2,
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  // Factor cards: all pre-selected, tap to remove (opt-out).
-  factorScroll: {
-    flex: 1,
-    width: '100%',
-  },
-  factorScrollContent: {
-    paddingBottom: 16,
-  },
-  factorHeader: {
+  symptomHeader: {
     fontFamily: 'Poppins-Medium',
     fontSize: 22,
     lineHeight: 30,
     color: colors.textPrimary,
     letterSpacing: 0.2,
     textAlign: 'center',
-    marginBottom: 18,
-    paddingHorizontal: 4,
+    marginBottom: 22,
   },
-  factorCard: {
+  symptomList: {
+    alignSelf: 'stretch',
+    gap: 10,
+  },
+  symptomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.beginBorder,
-    backgroundColor: 'rgba(115, 57, 172, 0.22)',
-  },
-  factorCardOff: {
-    // Removed cards stay readable so she can add them back, just dimmed.
-    borderColor: 'rgba(255, 255, 255, 0.14)',
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  factorCardText: {
-    flex: 1,
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  factorLabel: {
-    fontFamily: 'Poppins-Medium',
+  checkboxOn: {
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.45)',
+  },
+  symptomRowText: {
+    fontFamily: 'Poppins-Light',
     fontSize: 16,
-    lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  factorWhy: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSubtitle,
+  // The reveal: two step-flow cards (a calm cycle vs a PMS cycle), the PMS one
+  // carrying the extra "genetic brain sensitivity" step and a warmer moon.
+  revealContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  revealTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 23,
+    lineHeight: 31,
+    color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginTop: 4,
+    marginBottom: 22,
+    paddingHorizontal: 2,
   },
-  factorTextOff: {
-    color: colors.textTertiary,
+  flowRow: {
+    flexDirection: 'row',
+    gap: 11,
+    alignItems: 'stretch',
   },
-  factorCheck: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+  flowCard: {
+    flex: 1,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 11,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+  },
+  flowCardPms: {
+    borderColor: colors.beginBorder,
+    backgroundColor: 'rgba(115, 57, 172, 0.2)',
+  },
+  flowOrb: {
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.beginBorder,
+    marginBottom: 10,
   },
-  factorCheckOff: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
+  flowCardTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginBottom: 14,
+  },
+  flowCardTitleHi: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginBottom: 14,
+  },
+  flowStep: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+  },
+  flowArrow: {
+    fontSize: 12,
+    color: colors.textTagline,
+    marginVertical: 6,
+  },
+  flowHighlight: {
+    backgroundColor: 'rgba(214, 150, 200, 0.3)',
+    borderRadius: 11,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  flowHighlightText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#f0ddff',
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  flowOutcome: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  flowOutcomeHi: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  // Scroll wrapper shared by the reveal, what-affects, and how-helps pages.
+  factorScroll: {
+    flex: 1,
+    width: '100%',
+  },
+  // "What affects PMS" + "How Niyora helps" pages.
+  affectContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  affectTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 25,
+    lineHeight: 33,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+    paddingHorizontal: 2,
+  },
+  affectSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    marginTop: 6,
+    marginBottom: 20,
+    paddingHorizontal: 2,
+  },
+  // Page A: flat colour cards, no border, 26pt continuous corners.
+  affectCard: {
+    borderRadius: 26,
+    borderCurve: 'continuous',
+    paddingVertical: 18,
+    paddingHorizontal: 17,
+    marginBottom: 14,
+  },
+  affectCardTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
+    lineHeight: 23,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  affectCardWhy: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.86)',
+    letterSpacing: 0.2,
+    marginTop: 9,
+  },
+  // Page B: darker cards with the shared moon texture (via MoonCard).
+  helpCard: {
+    paddingVertical: 18,
+    paddingHorizontal: 17,
+    marginBottom: 14,
+  },
+  helpCardHow: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 0.2,
+    marginTop: 9,
   },
   closerLoadingText: {
     fontFamily: 'Poppins-Light',
