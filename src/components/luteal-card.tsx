@@ -100,7 +100,9 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
               accessibilityRole="button"
               accessibilityLabel={doneToday ? 'Open again' : "Let's go"}
             >
-              <Text style={styles.primaryPillText}>{doneToday ? 'Open again' : "Let's go"}</Text>
+              <Text style={[styles.primaryPillText, { color: doneToday ? '#3E8C6E' : '#9E4666' }]}>
+                {doneToday ? 'Open again' : "Let's go"}
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
