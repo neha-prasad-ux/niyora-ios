@@ -23,7 +23,8 @@ import {
   READINESS_CHECK_IDS,
   READINESS_CHECK_CONTENT,
   readinessDoneCount,
-  lutealOrbHue,
+  LUTEAL_ROSE_HUE,
+  lutealOrbSat,
   READINESS_STATE_WORDS,
   todayYmd,
   type ReadinessChecks,
@@ -133,7 +134,7 @@ export default function PmsReadinessScreen() {
 
         <View style={styles.orbHeader}>
           <Animated.View style={orbStyle}>
-            <Orb size={128} hue={lutealOrbHue(doneCount)} still />
+            <Orb size={128} hue={LUTEAL_ROSE_HUE} sat={lutealOrbSat(doneCount)} still />
           </Animated.View>
           <Text style={styles.stateWord}>{stateWord}</Text>
           <Text style={styles.header}>Let&apos;s make you PMS ready</Text>
@@ -151,7 +152,7 @@ export default function PmsReadinessScreen() {
             </View>
             {calmDone ? (
               <View style={styles.calmCheck}>
-                <SymbolView name="checkmark" tintColor="#ffffff" size={14} weight="bold" />
+                <SymbolView name="checkmark" tintColor="#3a2d52" size={14} weight="bold" />
               </View>
             ) : (
               <Pressable onPress={beginCalm} style={styles.beginPill} accessibilityRole="button" accessibilityLabel="Begin a calming activity">
@@ -229,9 +230,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(115, 57, 172, 0.5)',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: colors.beginBorder,
+    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },

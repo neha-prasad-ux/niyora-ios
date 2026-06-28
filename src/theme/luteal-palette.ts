@@ -8,10 +8,10 @@
 // soft and warm, never an alarm".
 export const LUTEAL_ORB_HUE = 332;
 
-// Warm replacements for the two ambient background blobs. Low lightness so the
-// page only glows a little warmer, it does not brighten or turn red.
-export const LUTEAL_BLOB_TOP = 'hsl(312, 44%, 26%)';
-export const LUTEAL_BLOB_BOTTOM = 'hsl(338, 40%, 18%)';
+// Warm replacements for the two ambient background blobs. Kept low-saturation
+// and dim so the home only hints warmer during luteal, never a red wash.
+export const LUTEAL_BLOB_TOP = 'hsl(300, 26%, 19%)';
+export const LUTEAL_BLOB_BOTTOM = 'hsl(326, 24%, 13%)';
 
 // Soft warm fill + border for the luteal card and the week page accents.
 export const LUTEAL_CARD_FILL = 'rgba(190, 110, 150, 0.16)';

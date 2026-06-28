@@ -33,7 +33,7 @@ export function Checklist({
             accessibilityLabel={it.examples ? `${it.label}. ${it.examples}` : it.label}
           >
             <View style={[styles.box, on && styles.boxOn]}>
-              {on && <SymbolView name="checkmark" tintColor="#ffffff" size={13} weight="bold" />}
+              {on && <SymbolView name="checkmark" tintColor="#3a2d52" size={13} weight="bold" />}
             </View>
             <View style={styles.text}>
               <Text style={styles.label}>{it.label}</Text>
@@ -73,8 +73,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   boxOn: {
-    borderColor: colors.beginBorder,
-    backgroundColor: 'rgba(115, 57, 172, 0.5)',
+    borderColor: '#ffffff',
+    backgroundColor: '#ffffff',
   },
   text: {
     flex: 1,

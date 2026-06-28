@@ -68,7 +68,8 @@ import { LutealCard } from '@/components/luteal-card';
 import {
   getReadiness,
   readinessDoneCount,
-  lutealOrbHue,
+  LUTEAL_ROSE_HUE,
+  lutealOrbSat,
   todayYmd,
 } from '@/store/pms-readiness';
 
@@ -204,7 +205,7 @@ export default function HomeScreen() {
   // The orb is shared state: during luteal it eases rose -> calm with today's
   // readiness progress, so the home "gets better" as she takes care of herself.
   // lutealDone (done for today) lets the background settle back to calm.
-  const [lutealHue, setLutealHue] = useState(lutealOrbHue(0));
+  const [lutealSat, setLutealSat] = useState(1);
   const [lutealDone, setLutealDone] = useState(false);
   const refreshPms = useCallback(() => {
     getPmsPrefs()
@@ -216,7 +217,7 @@ export default function HomeScreen() {
         const today = todayYmd();
         const [r, last] = await Promise.all([getReadiness(today), getLastSession()]);
         const calmDone = !!last && last.completedAt.slice(0, 10) === today;
-        setLutealHue(lutealOrbHue(readinessDoneCount(r.checks, calmDone)));
+        setLutealSat(lutealOrbSat(readinessDoneCount(r.checks, calmDone)));
         setLutealDone(r.doneForToday);
       })
       .catch(() => setInLuteal(false));
@@ -401,7 +402,8 @@ export default function HomeScreen() {
             <View pointerEvents="none">
               <Orb
                 size={ORB_SIZE}
-                hue={inLuteal ? lutealHue : orbHue}
+                hue={inLuteal ? LUTEAL_ROSE_HUE : orbHue}
+                sat={inLuteal ? lutealSat : 1}
                 tierRingCount={homeRingCount}
                 tierHue={homeTier.hue}
                 ringHues={SOUL_RING_HUES}

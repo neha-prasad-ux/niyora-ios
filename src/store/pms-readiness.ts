@@ -100,11 +100,13 @@ export function readinessDoneCount(checks: ReadinessChecks, calmDone: boolean): 
   return READINESS_CHECK_IDS.filter((id) => checks[id]).length + (calmDone ? 1 : 0);
 }
 
-// Orb body hue: opens rose (350) and warms toward a calm glow (~298) with
-// progress. Never clinical white, never alarm red.
-export function lutealOrbHue(done: number): number {
+// The orb stays rose in hue and fades its saturation toward white as she acts,
+// so the moon visibly eases from rose-red to white (the "light into the moon").
+export const LUTEAL_ROSE_HUE = 350;
+
+export function lutealOrbSat(done: number): number {
   const t = Math.min(Math.max(done, 0), READINESS_TOTAL) / READINESS_TOTAL;
-  return 350 - t * 52;
+  return 1 - t; // 1 = full rose, 0 = white
 }
 
 // A word under the orb, no numbers. Index 0..6.

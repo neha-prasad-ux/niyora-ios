@@ -18,16 +18,21 @@ import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
 const STARFIELD = require('../../assets/images/starfield.png');
 
 // Distributed cosmic gradient, warm rose core (active) and calm green (done).
-const ACTIVE_GRADIENT: readonly [string, string, string] = [
-  'rgba(106,62,140,0.62)',
-  'rgba(178,82,120,0.66)',
-  'rgba(72,84,156,0.56)',
+// Four soft stops, eased across the whole card so the cosmic blend is smooth,
+// not banded. Warm rose sits in the middle.
+const ACTIVE_GRADIENT: readonly [string, string, string, string] = [
+  'rgba(100,60,138,0.6)',
+  'rgba(150,74,128,0.62)',
+  'rgba(176,82,120,0.62)',
+  'rgba(78,88,150,0.56)',
 ];
-const DONE_GRADIENT: readonly [string, string, string] = [
-  'rgba(70,140,110,0.5)',
+const DONE_GRADIENT: readonly [string, string, string, string] = [
+  'rgba(64,134,108,0.5)',
+  'rgba(86,162,126,0.5)',
   'rgba(92,170,132,0.5)',
-  'rgba(60,112,120,0.5)',
+  'rgba(58,112,120,0.5)',
 ];
+const GRADIENT_LOCATIONS = [0, 0.42, 0.62, 1] as const;
 
 function toYmd(d: Date): string {
   const y = d.getFullYear();
@@ -84,8 +89,9 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
       >
         <LinearGradient
           colors={gradient}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
+          locations={GRADIENT_LOCATIONS}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
         <Image source={STARFIELD} style={styles.stars} resizeMode="cover" accessible={false} />
