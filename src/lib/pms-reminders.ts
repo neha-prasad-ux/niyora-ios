@@ -1,4 +1,4 @@
-import { getPmsPrefs } from '@/store/pms-prefs';
+import { getPmsPrefs, effectiveCycleLength } from '@/store/pms-prefs';
 import { getReminder } from '@/store/reminder-prefs';
 import { nextPmsWindowStartDate } from '@/lib/pms-window';
 import { schedulePmsReminders, cancelPmsReminders } from '@/lib/notifications';
@@ -16,7 +16,7 @@ export async function syncPmsReminders(): Promise<void> {
     await cancelPmsReminders();
     return;
   }
-  const windowStart = nextPmsWindowStartDate(pms.lastPeriodStart, pms.cycleLength, new Date());
+  const windowStart = nextPmsWindowStartDate(pms.lastPeriodStart, effectiveCycleLength(pms), new Date());
   if (!windowStart) {
     await cancelPmsReminders();
     return;

@@ -62,7 +62,7 @@ import { macSoulHue } from '@/lib/mac-soul';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
-import { getPmsPrefs } from '@/store/pms-prefs';
+import { getPmsPrefs, effectiveCycleLength } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 import { LutealCard } from '@/components/luteal-card';
 import {
@@ -212,7 +212,7 @@ export default function HomeScreen() {
     getPmsPrefs()
       .then(async (p) => {
         const luteal =
-          p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date());
+          p.pmsMode && isInPmsWindow(p.lastPeriodStart, effectiveCycleLength(p), new Date());
         setInLuteal(luteal);
         if (!luteal) return;
         const today = todayYmd();

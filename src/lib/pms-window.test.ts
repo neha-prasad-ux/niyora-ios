@@ -3,6 +3,7 @@ import {
   pmsOffsetDays,
   daysUntilPmsWindow,
   nextPmsWindowStartDate,
+  learnedCycleLength,
 } from './pms-window';
 
 // A predicted period start; with a 28-day cycle the next period lands 2026-06-29.
@@ -105,5 +106,55 @@ describe('nextPmsWindowStartDate', () => {
 
   it('is null when no date is set', () => {
     expect(nextPmsWindowStartDate(null, 28, d(2026, 6, 8))).toBeNull();
+  });
+});
+
+describe('learnedCycleLength', () => {
+  it('is null with fewer than two logged periods', () => {
+    expect(learnedCycleLength([])).toBeNull();
+    expect(learnedCycleLength(['2026-06-01'])).toBeNull();
+  });
+
+  it('measures the gap between two periods', () => {
+    expect(learnedCycleLength(['2026-05-02', '2026-05-31'])).toBe(29);
+  });
+
+  it('averages the gaps across several cycles', () => {
+    // gaps: 28, 30 -> mean 29
+    expect(learnedCycleLength(['2026-04-03', '2026-05-01', '2026-05-31'])).toBe(29);
+  });
+
+  it('is order-independent (sorts before measuring)', () => {
+    expect(learnedCycleLength(['2026-05-31', '2026-05-02'])).toBe(29);
+  });
+
+  it('drops an implausibly short gap (spotting / double log)', () => {
+    // 2-day gap is ignored; the real 28-day gap is used.
+    expect(learnedCycleLength(['2026-05-01', '2026-05-03', '2026-05-31'])).toBe(28);
+  });
+
+  it('drops an implausibly long gap (a skipped log)', () => {
+    // 90-day gap ignored; remaining 27-day gap used.
+    expect(learnedCycleLength(['2026-01-01', '2026-04-01', '2026-04-28'])).toBe(27);
+  });
+
+  it('is null when no gap is plausible', () => {
+    expect(learnedCycleLength(['2026-05-01', '2026-05-02'])).toBeNull();
+  });
+
+  it('only averages the most recent six cycles', () => {
+    // Eight dates -> seven gaps: an old 22-day gap then six 30s. Only the last
+    // six (all 30) should count, so the answer is 30 not ~29.
+    const starts = [
+      '2026-01-01',
+      '2026-01-23', // 22-day gap, older than the last-6 window
+      '2026-02-22',
+      '2026-03-24',
+      '2026-04-23',
+      '2026-05-23',
+      '2026-06-22',
+      '2026-07-22',
+    ];
+    expect(learnedCycleLength(starts)).toBe(30);
   });
 });
