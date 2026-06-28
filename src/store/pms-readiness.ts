@@ -91,3 +91,29 @@ export async function getReadiness(today: string = todayYmd()): Promise<Readines
 export async function setReadiness(state: ReadinessState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
+
+// Shared softening state, so the home orb and the readiness orb show the same
+// thing. The orb is her: as she does today's things, it eases rose -> calm.
+export const READINESS_TOTAL = 6; // five checks + the calming activity
+
+export function readinessDoneCount(checks: ReadinessChecks, calmDone: boolean): number {
+  return READINESS_CHECK_IDS.filter((id) => checks[id]).length + (calmDone ? 1 : 0);
+}
+
+// Orb body hue: opens rose (350) and warms toward a calm glow (~298) with
+// progress. Never clinical white, never alarm red.
+export function lutealOrbHue(done: number): number {
+  const t = Math.min(Math.max(done, 0), READINESS_TOTAL) / READINESS_TOTAL;
+  return 350 - t * 52;
+}
+
+// A word under the orb, no numbers. Index 0..6.
+export const READINESS_STATE_WORDS = [
+  'tender',
+  'easing',
+  'softening',
+  'softening',
+  'steadier',
+  'steadier',
+  'calm',
+] as const;

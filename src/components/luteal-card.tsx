@@ -1,24 +1,45 @@
-// The luteal home card. Appears only during the predicted premenstrual window,
-// above Begin. A solid rose card (textured like the onboarding cards) that opens
-// the readiness page. Once she taps "Done for today" it flips to a calm lilac
-// "you took care of today". A quiet "Period's here?" link is a fast off-switch:
-// it sets today as her period start, which rolls the window forward so the card
-// (and the warm palette) ease off until next cycle.
+// The luteal home card. Shows only in the predicted premenstrual window, above
+// Begin, and is the secondary action (Begin stays the loud primary). A compact
+// card with a cosmic gradient (warm rose core) + a faint starfield, a floating
+// tag, and two quiet buttons. Tapping the card (or "Let's go") opens the
+// readiness page; "Got my period" opens the calendar to roll the window forward.
+// Once she is done for today it turns calm green.
 
 import { useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import { Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { MoonCard } from '@/components/moon-card';
-import { getReadiness, todayYmd } from '@/store/pms-readiness';
+import { PeriodSheet } from '@/components/period-sheet';
+import { getReadiness } from '@/store/pms-readiness';
 import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
 
-const ROSE = '#C8455C';
-const LILAC = 'rgba(142, 122, 192, 0.5)';
+const STARFIELD = require('../../assets/images/starfield.png');
+
+// Distributed cosmic gradient, warm rose core (active) and calm green (done).
+const ACTIVE_GRADIENT: readonly [string, string, string] = [
+  'rgba(106,62,140,0.62)',
+  'rgba(178,82,120,0.66)',
+  'rgba(72,84,156,0.56)',
+];
+const DONE_GRADIENT: readonly [string, string, string] = [
+  'rgba(70,140,110,0.5)',
+  'rgba(92,170,132,0.5)',
+  'rgba(60,112,120,0.5)',
+];
+
+function toYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }) {
   const [doneToday, setDoneToday] = useState(false);
+  const [sheet, setSheet] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       let alive = true;
@@ -36,118 +57,155 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
     router.push('/pms-readiness');
   };
 
-  const periodHere = () => {
-    Haptics.selectionAsync();
-    Alert.alert('Has your period started?', "We'll ease off until your next window.", [
-      { text: 'Not yet', style: 'cancel' },
-      {
-        text: 'Yes, it has',
-        onPress: async () => {
-          try {
-            const p = await getPmsPrefs();
-            await setPmsPrefs({ ...p, lastPeriodStart: todayYmd() });
-          } catch {
-            // Storage can throw; never trap the user.
-          }
-          onPeriodStarted?.();
-        },
-      },
-    ]);
+  const confirmPeriod = async (date: Date) => {
+    setSheet(false);
+    try {
+      const p = await getPmsPrefs();
+      await setPmsPrefs({ ...p, lastPeriodStart: toYmd(date) });
+    } catch {
+      // Storage can throw; never trap the user.
+    }
+    onPeriodStarted?.();
   };
 
-  if (doneToday) {
-    return (
-      <MoonCard color={LILAC} style={styles.card} textureOpacity={0.12}>
-        <Text style={styles.doneTitle}>You took care of today</Text>
-        <Text style={styles.doneSub}>Come back tomorrow.</Text>
-      </MoonCard>
-    );
-  }
+  const gradient = doneToday ? DONE_GRADIENT : ACTIVE_GRADIENT;
 
   return (
-    <MoonCard color={ROSE} style={styles.card}>
-      <Text style={styles.eyebrow}>YOUR LUTEAL WEEK</Text>
-      <Text style={styles.title}>PMS will be here.</Text>
-      <Text style={styles.title}>Let&apos;s get you ready.</Text>
+    <View style={styles.wrap}>
+      <View style={[styles.tag, doneToday ? styles.tagDone : styles.tagActive]}>
+        <Text style={styles.tagText}>{doneToday ? 'Well done' : 'Hello!'}</Text>
+      </View>
+
       <Pressable
+        style={styles.card}
         onPress={open}
-        style={styles.cta}
         accessibilityRole="button"
-        accessibilityLabel="I'm in"
+        accessibilityLabel="PMS day prep. Open."
       >
-        <Text style={styles.ctaText}>I&apos;m in</Text>
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Image source={STARFIELD} style={styles.stars} resizeMode="cover" accessible={false} />
+
+        <View style={styles.body}>
+          <Text style={styles.title}>PMS day prep</Text>
+          <Text style={styles.sub}>{doneToday ? 'You took care of today' : "Let's get you ready"}</Text>
+          <View style={styles.btnRow}>
+            <Pressable
+              onPress={open}
+              style={styles.primaryPill}
+              accessibilityRole="button"
+              accessibilityLabel={doneToday ? 'Open again' : "Let's go"}
+            >
+              <Text style={styles.primaryPillText}>{doneToday ? 'Open again' : "Let's go"}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSheet(true);
+              }}
+              hitSlop={8}
+              style={styles.tertiary}
+              accessibilityRole="button"
+              accessibilityLabel="My period is here"
+            >
+              <Text style={styles.tertiaryText}>Got my period</Text>
+            </Pressable>
+          </View>
+        </View>
       </Pressable>
-      <Pressable
-        onPress={periodHere}
-        hitSlop={10}
-        style={styles.periodLink}
-        accessibilityRole="button"
-        accessibilityLabel="My period is here"
-      >
-        <Text style={styles.periodText}>Period&apos;s here?</Text>
-      </Pressable>
-    </MoonCard>
+
+      <PeriodSheet visible={sheet} onClose={() => setSheet(false)} onConfirm={confirmPeriod} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    paddingVertical: 22,
-    paddingHorizontal: 22,
+  wrap: {
     marginBottom: 16,
   },
-  eyebrow: {
+  tag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 10,
+    marginBottom: -10,
+    zIndex: 2,
+  },
+  tagActive: {
+    backgroundColor: 'rgba(190, 95, 135, 0.95)',
+  },
+  tagDone: {
+    backgroundColor: 'rgba(95, 185, 142, 0.95)',
+  },
+  tagText: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 11,
-    letterSpacing: 1.4,
-    color: 'rgba(255, 255, 255, 0.72)',
-    marginBottom: 10,
+    fontSize: 13,
+    color: '#ffffff',
+    letterSpacing: 0.2,
+  },
+  card: {
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+  },
+  stars: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.55,
+  },
+  body: {
+    padding: 16,
   },
   title: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 22,
-    lineHeight: 29,
+    fontSize: 17,
     color: '#ffffff',
     letterSpacing: 0.2,
   },
-  cta: {
-    alignSelf: 'flex-start',
-    marginTop: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-  },
-  ctaText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: '#B83A52',
+  sub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13.5,
+    color: 'rgba(255, 255, 255, 0.75)',
     letterSpacing: 0.2,
+    marginTop: 3,
   },
-  periodLink: {
-    alignSelf: 'flex-start',
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
     marginTop: 14,
   },
-  periodText: {
+  primaryPill: {
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
+  },
+  primaryPillText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: '#9E4666',
+    letterSpacing: 0.2,
+  },
+  tertiary: {
+    paddingVertical: 4,
+  },
+  tertiaryText: {
     fontFamily: 'Poppins-Light',
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: 'rgba(255, 255, 255, 0.7)',
     letterSpacing: 0.2,
-    textDecorationLine: 'underline',
-  },
-  doneTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 19,
-    lineHeight: 25,
-    color: '#ffffff',
-    letterSpacing: 0.2,
-  },
-  doneSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    lineHeight: 20,
-    color: 'rgba(255, 255, 255, 0.75)',
-    letterSpacing: 0.2,
-    marginTop: 5,
   },
 });

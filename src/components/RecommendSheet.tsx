@@ -24,6 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { Checklist } from '@/components/checklist';
 import { Orb } from '@/components/orb';
 import { Pill } from '@/components/Pill';
 import {
@@ -37,6 +38,9 @@ import {
 
 // The Soul orb tints toward the primary selection so it reacts as she taps:
 // warm for cozy/let-it-out, cool for calm/sleepy, etc.
+// Feeling step now uses the shared Checklist (same rows as onboarding).
+const FEELING_ITEMS = FEELINGS.map((f) => ({ id: f.id, label: f.label }));
+
 const FEELING_HUE: Record<string, number> = {
   anxious: 220,
   irritable: 8,
@@ -221,25 +225,26 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
             <Animated.View style={[styles.dot, dot2Style]} />
           </View>
 
-          <Animated.View style={[styles.chipWrap, enterStyle]}>
-            {step === 'feeling'
-              ? FEELINGS.map((f) => (
-                  <Chip
-                    key={f.id}
-                    label={f.label}
-                    selected={selectedFeelings.includes(f.id)}
-                    onPress={() => handleFeeling(f.id)}
-                  />
-                ))
-              : NEEDS.map((n) => (
-                  <Chip
-                    key={n.id}
-                    label={n.label}
-                    selected={selectedNeeds.includes(n.id)}
-                    onPress={() => handleNeed(n.id)}
-                  />
-                ))}
-          </Animated.View>
+          {step === 'feeling' ? (
+            <Animated.View style={[styles.listWrap, enterStyle]}>
+              <Checklist
+                items={FEELING_ITEMS}
+                isChecked={(id) => selectedFeelings.includes(id)}
+                onToggle={handleFeeling}
+              />
+            </Animated.View>
+          ) : (
+            <Animated.View style={[styles.chipWrap, enterStyle]}>
+              {NEEDS.map((n) => (
+                <Chip
+                  key={n.id}
+                  label={n.label}
+                  selected={selectedNeeds.includes(n.id)}
+                  onPress={() => handleNeed(n.id)}
+                />
+              ))}
+            </Animated.View>
+          )}
 
           {step === 'feeling' && (
             <View style={styles.ctaRow}>
@@ -362,6 +367,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    paddingHorizontal: 24,
+  },
+  listWrap: {
+    width: '100%',
     paddingHorizontal: 24,
   },
   chip: {

@@ -38,6 +38,7 @@ import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
+import { Checklist } from '@/components/checklist';
 import { MoonCard } from '@/components/moon-card';
 import { Orb } from '@/components/orb';
 import { PhaseLabel } from '@/components/phase-label';
@@ -810,42 +811,16 @@ export default function OnboardingScreen() {
           {isPmsStep && pmsSubPhase === 'symptoms' && (
             <View style={styles.symptomBlock}>
               <Text style={styles.symptomHeader}>How do you feel in the days before your period?</Text>
-              <View style={styles.symptomList}>
-                {PMS_SYMPTOM_IDS.map((id) => {
-                  const selected = symptoms[id];
-                  return (
-                    <Pressable
-                      key={id}
-                      onPress={() => toggleSymptom(id)}
-                      style={styles.symptomRow}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: selected }}
-                      accessibilityLabel={PMS_SYMPTOM_LABELS[id]}
-                    >
-                      <View style={[styles.checkbox, selected && styles.checkboxOn]}>
-                        {selected && (
-                          <SymbolView name="checkmark" tintColor={colors.textPrimary} size={12} weight="bold" />
-                        )}
-                      </View>
-                      <Text style={styles.symptomRowText}>{PMS_SYMPTOM_LABELS[id]}</Text>
-                    </Pressable>
-                  );
-                })}
-                <Pressable
-                  onPress={clearSymptoms}
-                  style={styles.symptomRow}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: noneSelected }}
-                  accessibilityLabel="None of these"
-                >
-                  <View style={[styles.checkbox, noneSelected && styles.checkboxOn]}>
-                    {noneSelected && (
-                      <SymbolView name="checkmark" tintColor={colors.textPrimary} size={12} weight="bold" />
-                    )}
-                  </View>
-                  <Text style={styles.symptomRowText}>None of these</Text>
-                </Pressable>
-              </View>
+              <Checklist
+                items={[
+                  ...PMS_SYMPTOM_IDS.map((id) => ({ id, label: PMS_SYMPTOM_LABELS[id] })),
+                  { id: 'none', label: 'None of these' },
+                ]}
+                isChecked={(id) => (id === 'none' ? noneSelected : symptoms[id as PmsSymptomId])}
+                onToggle={(id) =>
+                  id === 'none' ? clearSymptoms() : toggleSymptom(id as PmsSymptomId)
+                }
+              />
             </View>
           )}
 

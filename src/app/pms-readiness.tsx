@@ -1,47 +1,36 @@
-// The luteal "get ready" page. A big rose orb that softens toward a warm calm
-// glow as she acts (the only feedback, no percentage, no streaks). Six plainly
-// named cards ordered easiest to hardest: five self-check toggles plus a
-// calming activity that reads as done from today's practice. Runs daily through
-// the window and resets each morning. Two quiet actions at the foot: "Done for
-// today" and "My period's here" (rolls the window forward).
-//
-// Layout note: the locked design places the orb on the left, sticky; on a phone
-// it sits as a sticky header above the scrolling cards instead.
+// The luteal "get ready" page. A glowing orb that softens toward calm as she
+// acts (the only feedback, no numbers; word tender -> calm), the shared
+// checklist rows (same as onboarding and the feeling step), and a calming
+// activity that reads as done from today's practice. Resets each morning. Two
+// quiet actions: "Done for today" and "My period's here" (opens the calendar).
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
-import { MoonCard } from '@/components/moon-card';
+import { Checklist, type ChecklistItem } from '@/components/checklist';
 import { Orb } from '@/components/orb';
+import { PeriodSheet } from '@/components/period-sheet';
 import { colors } from '@/theme/colors';
 import {
   getReadiness,
   setReadiness,
   READINESS_CHECK_IDS,
   READINESS_CHECK_CONTENT,
+  readinessDoneCount,
+  lutealOrbHue,
+  READINESS_STATE_WORDS,
   todayYmd,
   type ReadinessChecks,
   type ReadinessCheckId,
 } from '@/store/pms-readiness';
 import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
 import { getLastSession } from '@/store/session-history';
-
-const CARD_TINT: Record<ReadinessCheckId | 'calm', string> = {
-  calcium: 'rgba(184, 92, 138, 0.3)',
-  micronutrient: 'rgba(184, 92, 138, 0.3)',
-  steady: 'rgba(184, 92, 138, 0.3)',
-  antiInflammatory: 'rgba(184, 92, 138, 0.3)',
-  woundDown: 'rgba(58, 94, 176, 0.32)',
-  calm: 'rgba(124, 74, 176, 0.32)',
-};
-
-// 0..6 done -> a word under the orb. No numbers, ever.
-const STATE_WORDS = ['tender', 'easing', 'softening', 'softening', 'steadier', 'steadier', 'calm'];
 
 const FRESH: ReadinessChecks = {
   calcium: false,
@@ -51,6 +40,12 @@ const FRESH: ReadinessChecks = {
   woundDown: false,
 };
 
+const CHECK_ITEMS: readonly ChecklistItem[] = READINESS_CHECK_IDS.map((id) => ({
+  id,
+  label: READINESS_CHECK_CONTENT[id].title,
+  examples: READINESS_CHECK_CONTENT[id].examples,
+}));
+
 function isToday(iso: string | undefined, today: string): boolean {
   return !!iso && iso.slice(0, 10) === today;
 }
@@ -59,9 +54,8 @@ export default function PmsReadinessScreen() {
   const today = useMemo(() => todayYmd(), []);
   const [checks, setChecks] = useState<ReadinessChecks>(FRESH);
   const [calmDone, setCalmDone] = useState(false);
+  const [sheet, setSheet] = useState(false);
 
-  // Reload on focus so returning from a calming session updates the calm card,
-  // and a new day resets the checks.
   useFocusEffect(
     useCallback(() => {
       let alive = true;
@@ -77,14 +71,24 @@ export default function PmsReadinessScreen() {
     }, [today]),
   );
 
-  const doneCount = READINESS_CHECK_IDS.filter((id) => checks[id]).length + (calmDone ? 1 : 0);
-  // The orb opens rose and warms toward a calm glow as she acts; never white.
-  const orbHue = 350 - (doneCount / 6) * 52; // 350 rose -> ~298 warm calm
-  const stateWord = STATE_WORDS[Math.min(doneCount, 6)];
+  const doneCount = readinessDoneCount(checks, calmDone);
+  const stateWord = READINESS_STATE_WORDS[Math.min(doneCount, READINESS_STATE_WORDS.length - 1)];
 
-  const toggle = (id: ReadinessCheckId) => {
+  // The orb pulses gently each time the count changes, the little "light into
+  // the orb" beat as she acts.
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    pulse.value = withSequence(
+      withTiming(1.06, { duration: 220 }),
+      withTiming(1, { duration: 420 }),
+    );
+  }, [doneCount, pulse]);
+  const orbStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+
+  const toggle = (id: string) => {
     Haptics.selectionAsync();
-    const next = { ...checks, [id]: !checks[id] };
+    const key = id as ReadinessCheckId;
+    const next = { ...checks, [key]: !checks[key] };
     setChecks(next);
     setReadiness({ date: today, checks: next, doneForToday: false }).catch(() => {});
   };
@@ -101,23 +105,15 @@ export default function PmsReadinessScreen() {
       .finally(() => router.back());
   };
 
-  const periodHere = () => {
-    Haptics.selectionAsync();
-    Alert.alert('Has your period started?', 'Rest easy. We will ease off until your next window.', [
-      { text: 'Not yet', style: 'cancel' },
-      {
-        text: 'Yes, it has',
-        onPress: async () => {
-          try {
-            const p = await getPmsPrefs();
-            await setPmsPrefs({ ...p, lastPeriodStart: today });
-          } catch {
-            // Storage can throw; never trap the user.
-          }
-          router.back();
-        },
-      },
-    ]);
+  const confirmPeriod = async (date: Date) => {
+    setSheet(false);
+    try {
+      const p = await getPmsPrefs();
+      await setPmsPrefs({ ...p, lastPeriodStart: todayYmd(date) });
+    } catch {
+      // Storage can throw; never trap the user.
+    }
+    router.back();
   };
 
   const goBack = () => {
@@ -127,7 +123,7 @@ export default function PmsReadinessScreen() {
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient luteal />
+      <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.topBar}>
           <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
@@ -136,104 +132,55 @@ export default function PmsReadinessScreen() {
         </View>
 
         <View style={styles.orbHeader}>
-          <Orb size={132} hue={orbHue} still />
+          <Animated.View style={orbStyle}>
+            <Orb size={128} hue={lutealOrbHue(doneCount)} still />
+          </Animated.View>
           <Text style={styles.stateWord}>{stateWord}</Text>
           <Text style={styles.header}>Let&apos;s make you PMS ready</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {READINESS_CHECK_IDS.map((id) => {
-            const c = READINESS_CHECK_CONTENT[id];
-            const on = checks[id];
-            return (
-              <MoonCard key={id} color={CARD_TINT[id]} style={styles.card}>
-                <Pressable
-                  onPress={() => toggle(id)}
-                  style={styles.cardRow}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: on }}
-                  accessibilityLabel={`${c.title}. ${c.examples}`}
-                >
-                  <View style={styles.cardText}>
-                    <Text style={styles.cardTitle}>{c.title}</Text>
-                    <Text style={styles.cardExamples}>{c.examples}</Text>
-                  </View>
-                  <View style={[styles.check, on && styles.checkOn]}>
-                    {on && <SymbolView name="checkmark" tintColor="#ffffff" size={14} weight="bold" />}
-                  </View>
-                </Pressable>
-              </MoonCard>
-            );
-          })}
+          <Checklist items={CHECK_ITEMS} isChecked={(id) => checks[id as ReadinessCheckId]} onToggle={toggle} />
 
-          {/* The calming activity: not a self-toggle. It reads as done from
-              today's practice, and offers Begin when not yet done. */}
-          <MoonCard color={CARD_TINT.calm} style={styles.card}>
-            <View style={styles.cardRow}>
-              <View style={styles.cardText}>
-                <Text style={styles.cardTitle}>A calming activity</Text>
-                <Text style={styles.cardExamples}>breath, stretch</Text>
-              </View>
-              {calmDone ? (
-                <View style={[styles.check, styles.checkOn]}>
-                  <SymbolView name="checkmark" tintColor="#ffffff" size={14} weight="bold" />
-                </View>
-              ) : (
-                <Pressable
-                  onPress={beginCalm}
-                  style={styles.beginPill}
-                  accessibilityRole="button"
-                  accessibilityLabel="Begin a calming activity"
-                >
-                  <Text style={styles.beginPillText}>Begin</Text>
-                </Pressable>
-              )}
+          {/* The calming activity: not a self-toggle. Reads as done from today's
+              practice, offers Begin otherwise. */}
+          <View style={styles.calmRow}>
+            <View style={styles.calmText}>
+              <Text style={styles.calmTitle}>A calming activity</Text>
+              <Text style={styles.calmExamples}>breath, stretch</Text>
             </View>
-          </MoonCard>
+            {calmDone ? (
+              <View style={styles.calmCheck}>
+                <SymbolView name="checkmark" tintColor="#ffffff" size={14} weight="bold" />
+              </View>
+            ) : (
+              <Pressable onPress={beginCalm} style={styles.beginPill} accessibilityRole="button" accessibilityLabel="Begin a calming activity">
+                <Text style={styles.beginPillText}>Begin</Text>
+              </Pressable>
+            )}
+          </View>
 
           <View style={styles.actions}>
-            <Pressable
-              onPress={doneForToday}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Done for today"
-            >
+            <Pressable onPress={doneForToday} hitSlop={10} accessibilityRole="button" accessibilityLabel="Done for today">
               <Text style={styles.doneText}>Done for today</Text>
             </Pressable>
-            <Pressable
-              onPress={periodHere}
-              hitSlop={10}
-              style={styles.periodLink}
-              accessibilityRole="button"
-              accessibilityLabel="My period is here"
-            >
+            <Pressable onPress={() => { Haptics.selectionAsync(); setSheet(true); }} hitSlop={10} style={styles.periodLink} accessibilityRole="button" accessibilityLabel="My period is here">
               <Text style={styles.periodText}>My period&apos;s here</Text>
             </Pressable>
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <PeriodSheet visible={sheet} onClose={() => setSheet(false)} onConfirm={confirmPeriod} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.backgroundBottom,
-  },
-  safe: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  topBar: {
-    height: 32,
-    justifyContent: 'center',
-  },
-  orbHeader: {
-    alignItems: 'center',
-    paddingTop: 6,
-    paddingBottom: 18,
-  },
+  root: { flex: 1, backgroundColor: colors.backgroundBottom },
+  safe: { flex: 1, paddingHorizontal: 24 },
+  topBar: { height: 32, justifyContent: 'center' },
+  orbHeader: { alignItems: 'center', paddingTop: 6, paddingBottom: 18 },
   stateWord: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
@@ -250,49 +197,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
-  scroll: {
-    paddingBottom: 28,
-  },
-  card: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  cardRow: {
+  scroll: { paddingBottom: 28 },
+  calmRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    marginTop: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  cardText: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontFamily: 'Poppins-Medium',
+  calmText: { flex: 1 },
+  calmTitle: {
+    fontFamily: 'Poppins-Light',
     fontSize: 16,
-    lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  cardExamples: {
+  calmExamples: {
     fontFamily: 'Poppins-Light',
     fontSize: 13,
-    lineHeight: 19,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.55)',
     letterSpacing: 0.2,
-    marginTop: 3,
+    marginTop: 2,
   },
-  check: {
+  calmCheck: {
     width: 28,
     height: 28,
     borderRadius: 14,
+    backgroundColor: 'rgba(115, 57, 172, 0.5)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
+    borderColor: colors.beginBorder,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkOn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
-    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   beginPill: {
     paddingHorizontal: 18,
@@ -306,20 +247,14 @@ const styles = StyleSheet.create({
     color: '#7C40B0',
     letterSpacing: 0.2,
   },
-  actions: {
-    alignItems: 'center',
-    marginTop: 14,
-    gap: 16,
-  },
+  actions: { alignItems: 'center', marginTop: 18, gap: 16 },
   doneText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  periodLink: {
-    paddingVertical: 2,
-  },
+  periodLink: { paddingVertical: 2 },
   periodText: {
     fontFamily: 'Poppins-Light',
     fontSize: 13,

@@ -65,7 +65,12 @@ import { syncPmsReminders } from '@/lib/pms-reminders';
 import { getPmsPrefs } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 import { LutealCard } from '@/components/luteal-card';
-import { LUTEAL_ORB_HUE } from '@/theme/luteal-palette';
+import {
+  getReadiness,
+  readinessDoneCount,
+  lutealOrbHue,
+  todayYmd,
+} from '@/store/pms-readiness';
 
 const LAPSE_DAYS = 3;
 
@@ -196,11 +201,24 @@ export default function HomeScreen() {
   // the home warms (orb hue + background) and the luteal card appears above
   // Begin. Computed live from the cycle, never stored. Off for everyone else.
   const [inLuteal, setInLuteal] = useState(false);
+  // The orb is shared state: during luteal it eases rose -> calm with today's
+  // readiness progress, so the home "gets better" as she takes care of herself.
+  // lutealDone (done for today) lets the background settle back to calm.
+  const [lutealHue, setLutealHue] = useState(lutealOrbHue(0));
+  const [lutealDone, setLutealDone] = useState(false);
   const refreshPms = useCallback(() => {
     getPmsPrefs()
-      .then((p) =>
-        setInLuteal(p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date())),
-      )
+      .then(async (p) => {
+        const luteal =
+          p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date());
+        setInLuteal(luteal);
+        if (!luteal) return;
+        const today = todayYmd();
+        const [r, last] = await Promise.all([getReadiness(today), getLastSession()]);
+        const calmDone = !!last && last.completedAt.slice(0, 10) === today;
+        setLutealHue(lutealOrbHue(readinessDoneCount(r.checks, calmDone)));
+        setLutealDone(r.doneForToday);
+      })
       .catch(() => setInLuteal(false));
   }, []);
   useFocusEffect(refreshPms);
@@ -357,14 +375,14 @@ export default function HomeScreen() {
   if (onboarded !== true) {
     return (
       <View style={styles.root}>
-        <BackgroundGradient luteal={inLuteal} />
+        <BackgroundGradient luteal={inLuteal && !lutealDone} />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient luteal={inLuteal} />
+      <BackgroundGradient luteal={inLuteal && !lutealDone} />
       <ShootingStar />
       <Animated.View style={[styles.pageFill, pageAnimStyle]}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -383,7 +401,7 @@ export default function HomeScreen() {
             <View pointerEvents="none">
               <Orb
                 size={ORB_SIZE}
-                hue={inLuteal ? LUTEAL_ORB_HUE : orbHue}
+                hue={inLuteal ? lutealHue : orbHue}
                 tierRingCount={homeRingCount}
                 tierHue={homeTier.hue}
                 ringHues={SOUL_RING_HUES}
