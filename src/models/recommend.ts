@@ -125,6 +125,10 @@ const ACTIVITY_NEEDS: Record<string, readonly Need[]> = {
 };
 
 const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
+  // Box breath is the versatile safe default: a steady 4-4-4-4 that helps in
+  // almost any state, so it carries the broadest need coverage and is eligible
+  // for every query (it isn't tied to a single feeling in the FEELINGS map).
+  box: ['calm', 'focused', 'relaxed'],
   'be-kind': ['calm', 'cozy'],
   cooling: ['calm', 'relaxed'],
   'five-senses': ['calm', 'focused'],
@@ -270,6 +274,12 @@ export function recommend(
       const aPrim = a.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;
       const bPrim = b.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;
       if (bPrim !== aPrim) return bPrim - aPrim;
+      // Still tied: box breath is the safe default, so it reads first. A
+      // clearly-targeted breath (e.g. cooling for irritable) still wins on
+      // score above; box only leads when nothing else is a stronger match.
+      const aBox = a.techniqueId === 'box' ? 1 : 0;
+      const bBox = b.techniqueId === 'box' ? 1 : 0;
+      if (bBox !== aBox) return bBox - aBox;
       // For short budgets, a fast pick wins; otherwise prefer the shorter item.
       if (b.fast !== a.fast) return Number(b.fast) - Number(a.fast);
       return a.timeSeconds - b.timeSeconds;

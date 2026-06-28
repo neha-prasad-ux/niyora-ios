@@ -105,7 +105,11 @@ export default function RootLayout() {
           <Stack.Screen
             name="session"
             options={{
-              animation: 'slide_from_right',
+              // A soft cross-dissolve into (and out of) the breath, rather than
+              // a hard sideways slide -- the calm entrance the session deserves,
+              // and consistent with the faded onboarding/result screens.
+              animation: 'fade',
+              animationDuration: 420,
               gestureEnabled: true,
             }}
           />
