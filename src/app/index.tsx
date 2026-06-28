@@ -70,6 +70,7 @@ import {
   readinessDoneCount,
   LUTEAL_ROSE_HUE,
   lutealOrbSat,
+  isReadyDone,
   todayYmd,
 } from '@/store/pms-readiness';
 
@@ -218,7 +219,7 @@ export default function HomeScreen() {
         const [r, last] = await Promise.all([getReadiness(today), getLastSession()]);
         const calmDone = !!last && last.completedAt.slice(0, 10) === today;
         setLutealSat(lutealOrbSat(readinessDoneCount(r.checks, calmDone)));
-        setLutealDone(r.doneForToday);
+        setLutealDone(isReadyDone(r.checks, calmDone, r.doneForToday));
       })
       .catch(() => setInLuteal(false));
   }, []);

@@ -12,8 +12,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PeriodSheet } from '@/components/period-sheet';
-import { getReadiness } from '@/store/pms-readiness';
+import { getReadiness, isReadyDone } from '@/store/pms-readiness';
 import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
+import { getLastSession } from '@/store/session-history';
 
 const STARFIELD = require('../../assets/images/starfield.png');
 
@@ -48,8 +49,12 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      getReadiness()
-        .then((r) => alive && setDoneToday(r.doneForToday))
+      Promise.all([getReadiness(), getLastSession()])
+        .then(([r, last]) => {
+          if (!alive) return;
+          const calmDone = !!last && last.completedAt.slice(0, 10) === toYmd(new Date());
+          setDoneToday(isReadyDone(r.checks, calmDone, r.doneForToday));
+        })
         .catch(() => {});
       return () => {
         alive = false;

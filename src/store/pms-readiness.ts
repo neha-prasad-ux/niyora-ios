@@ -29,11 +29,14 @@ export const READINESS_CHECK_CONTENT: Record<
   ReadinessCheckId,
   { title: string; examples: string }
 > = {
-  calcium: { title: 'Calcium-rich food', examples: 'yogurt, cheese, greens' },
-  micronutrient: { title: 'Micronutrient-rich food', examples: 'nuts, seeds, dried fruit' },
-  steady: { title: 'Ate steadily today', examples: 'no big sugar crash' },
-  antiInflammatory: { title: 'Anti-inflammatory food', examples: 'greens, ginger, soup' },
-  woundDown: { title: 'Wound down early', examples: 'screens off, dim lights' },
+  calcium: { title: 'I had calcium-rich food', examples: 'yogurt, cheese, greens' },
+  micronutrient: { title: 'I had micronutrient-rich food', examples: 'nuts, seeds, dried fruit' },
+  steady: { title: 'I ate steadily today', examples: 'no big sugar crash' },
+  antiInflammatory: {
+    title: 'I had anti-inflammatory food',
+    examples: 'greens, ginger, turmeric, oily fish, berries, olive oil',
+  },
+  woundDown: { title: 'I wound down early', examples: 'screens off, dim lights' },
 };
 
 export type ReadinessState = {
@@ -107,6 +110,16 @@ export const LUTEAL_ROSE_HUE = 350;
 export function lutealOrbSat(done: number): number {
   const t = Math.min(Math.max(done, 0), READINESS_TOTAL) / READINESS_TOTAL;
   return 1 - t; // 1 = full rose, 0 = white
+}
+
+// The card goes green (and the home settles calm) when she taps "Done for
+// today" OR when all six are done. Auto-green on all six is the little reward.
+export function isReadyDone(
+  checks: ReadinessChecks,
+  calmDone: boolean,
+  doneForToday: boolean,
+): boolean {
+  return doneForToday || readinessDoneCount(checks, calmDone) >= READINESS_TOTAL;
 }
 
 // A word under the orb, no numbers. Index 0..6.
