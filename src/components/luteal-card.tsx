@@ -99,30 +99,30 @@ export function LutealCard({ onPeriodStarted }: { onPeriodStarted?: () => void }
         <View style={styles.body}>
           <Text style={styles.title}>PMS day prep</Text>
           <Text style={styles.sub}>{doneToday ? 'You took care of today' : "Let's get you ready"}</Text>
-          <View style={styles.btnRow}>
-            <Pressable
-              onPress={open}
-              style={styles.primaryPill}
-              accessibilityRole="button"
-              accessibilityLabel={doneToday ? 'Open again' : "Let's go"}
-            >
-              <Text style={[styles.primaryPillText, { color: doneToday ? '#3E8C6E' : '#9E4666' }]}>
-                {doneToday ? 'Open again' : "Let's go"}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync();
-                setSheet(true);
-              }}
-              hitSlop={8}
-              style={styles.tertiary}
-              accessibilityRole="button"
-              accessibilityLabel="My period is here"
-            >
-              <Text style={styles.tertiaryText}>Got my period</Text>
-            </Pressable>
-          </View>
+          {!doneToday && (
+            <View style={styles.btnRow}>
+              <Pressable
+                onPress={open}
+                style={styles.primaryPill}
+                accessibilityRole="button"
+                accessibilityLabel="Let's go"
+              >
+                <Text style={styles.primaryPillText}>Let&apos;s go</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSheet(true);
+                }}
+                hitSlop={8}
+                style={styles.tertiary}
+                accessibilityRole="button"
+                accessibilityLabel="My period is here"
+              >
+                <Text style={styles.tertiaryText}>Got my period</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </Pressable>
 
