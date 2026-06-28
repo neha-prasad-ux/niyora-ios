@@ -21,12 +21,18 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Orb } from '@/components/orb';
+import { ReflectionFlow } from '@/components/reflection-flow';
 import { alternate } from '@/models/recommend';
 import { TIER_RING_COUNTS, SOUL_RING_HUES, type Tier } from '@/models/tiers';
 import { getSessionCount } from '@/store/session-history';
 import { colors } from '@/theme/colors';
 
-type Phase = 'first' | 'asking' | 'better' | 'another' | 'ring' | 'ringClosing';
+type Phase = 'first' | 'asking' | 'reflect' | 'better' | 'another' | 'ring' | 'ringClosing';
+
+// "Still feeling a little ___": the feeling she chose, or a soft fallback.
+function stillFeelingLabel(feeling?: string): string {
+  return feeling ? `Still feeling a little ${feeling}` : 'Still feeling a little off';
+}
 
 interface PostSessionMoodProps {
   techniqueId: string;
@@ -45,6 +51,9 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
   // starts on the usual "Feel better?" beat. Set at mount so we never flip
   // phase synchronously inside an effect.
   const [phase, setPhase] = useState<Phase>(() => (earnedTier ? 'ring' : 'asking'));
+  // CBT is offered once per journey; after she reflects, the second option
+  // becomes "try a different activity" instead.
+  const [hasReflected, setHasReflected] = useState(false);
   const opacity = useSharedValue(0);
   // Track pending timers so a back-tap (unmount) during a hold cannot fire a
   // late navigation or onDone on a dead screen.
@@ -99,6 +108,12 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
     // "I'm in" is a warm close, not a commitment screen: acknowledge, then home.
     setPhase('ringClosing');
     wait(dismiss, 1500);
+  }
+
+  function handleReflect() {
+    if (phase !== 'asking') return;
+    Haptics.selectionAsync();
+    setPhase('reflect');
   }
 
   function handleAnother() {
@@ -165,27 +180,51 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
 
       {phase === 'asking' && (
         <View style={styles.card}>
-          <Text style={styles.heading}>Feel better?</Text>
-          <View style={styles.buttons}>
+          <Text style={styles.heading}>How are you feeling now?</Text>
+          <View style={styles.optionList}>
             <Pressable
               onPress={handleBetter}
-              hitSlop={8}
-              style={[styles.btn, styles.btnPrimary]}
+              style={[styles.optionCard, styles.optionGreat]}
               accessibilityRole="button"
-              accessibilityLabel="Yes, I feel better"
+              accessibilityLabel="I feel great"
             >
-              <Text style={styles.btnPrimaryText}>Yes</Text>
+              <Text style={styles.optionTitle}>I feel great</Text>
+              <Text style={styles.optionSub}>The activity helped.</Text>
             </Pressable>
-            <Pressable
-              onPress={handleAnother}
-              hitSlop={8}
-              style={styles.btn}
-              accessibilityRole="button"
-              accessibilityLabel="Try another"
-            >
-              <Text style={styles.btnText}>Wanna try another?</Text>
-            </Pressable>
+            {hasReflected ? (
+              <Pressable
+                onPress={handleAnother}
+                style={[styles.optionCard, styles.optionSecondary]}
+                accessibilityRole="button"
+                accessibilityLabel="Try a different activity"
+              >
+                <Text style={styles.optionTitle}>Try a different activity</Text>
+                <Text style={styles.optionSub}>You can breathe, read, move, there&apos;s plenty.</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={handleReflect}
+                style={[styles.optionCard, styles.optionSecondary]}
+                accessibilityRole="button"
+                accessibilityLabel={stillFeelingLabel(feeling)}
+              >
+                <Text style={styles.optionTitle}>{stillFeelingLabel(feeling)}</Text>
+                <Text style={styles.optionSub}>Let&apos;s reflect on the feeling to heal.</Text>
+              </Pressable>
+            )}
           </View>
+        </View>
+      )}
+
+      {phase === 'reflect' && (
+        <View style={styles.reflectFill}>
+          <ReflectionFlow
+            feeling={feeling}
+            onComplete={() => {
+              setHasReflected(true);
+              setPhase('asking');
+            }}
+          />
         </View>
       )}
 
@@ -255,6 +294,44 @@ const styles = StyleSheet.create({
   buttons: {
     alignItems: 'center',
     gap: 14,
+  },
+  // The two-option "How are you feeling now?" cards.
+  optionList: {
+    width: 300,
+    gap: 14,
+    marginTop: 4,
+  },
+  optionCard: {
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 26,
+    borderCurve: 'continuous',
+  },
+  optionGreat: {
+    backgroundColor: 'rgba(64, 104, 150, 0.26)',
+  },
+  optionSecondary: {
+    backgroundColor: 'rgba(124, 74, 176, 0.28)',
+  },
+  optionTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  optionSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.62)',
+    marginTop: 4,
+  },
+  reflectFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   btn: {
     paddingHorizontal: 28,
