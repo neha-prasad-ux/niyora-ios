@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './with-store-lock';
+
 export type CheckInLevel = 'light' | 'okay' | 'heavy';
 
 export type CheckInRecord = {
@@ -20,10 +22,12 @@ function parseRecords(raw: string | null): CheckInRecord[] {
 }
 
 export async function appendCheckIn(level: CheckInLevel): Promise<void> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  const records = parseRecords(raw);
-  records.push({ level, recordedAt: new Date().toISOString() });
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  return withStoreLock(STORAGE_KEY, async () => {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const records = parseRecords(raw);
+    records.push({ level, recordedAt: new Date().toISOString() });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  });
 }
 
 export async function getCheckInRecords(): Promise<CheckInRecord[]> {

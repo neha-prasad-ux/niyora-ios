@@ -80,7 +80,9 @@ export function useSessionVoice(enabled: boolean) {
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
+      // Duck other audio under the spoken guidance so it stays intelligible
+      // (and consistent with the session music's audio mode).
+      interruptionMode: 'duckOthers',
     }).catch(() => {});
   }, []);
 

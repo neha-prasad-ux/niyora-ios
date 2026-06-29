@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './with-store-lock';
+
 // A reset-proof, additive record of distress-loop completions. The count only
 // ever goes up ("23 reflections moved through"), never a streak that can break.
 // The before/after feel-ratings are kept so a later wave can personalise which
@@ -65,11 +67,13 @@ export async function getDistressState(): Promise<DistressState> {
 // Record one completed loop: bump the additive count and append the entry.
 // Returns the new state so the done screen can show the fresh count.
 export async function addDistressEntry(entry: DistressEntry): Promise<DistressState> {
-  const current = await getDistressState();
-  const next: DistressState = {
-    count: current.count + 1,
-    entries: [...current.entries, entry].slice(-MAX_ENTRIES),
-  };
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return next;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const current = await getDistressState();
+    const next: DistressState = {
+      count: current.count + 1,
+      entries: [...current.entries, entry].slice(-MAX_ENTRIES),
+    };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    return next;
+  });
 }

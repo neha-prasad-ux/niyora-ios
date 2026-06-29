@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './with-store-lock';
+
 export type MoodValue = 1 | 2 | 3 | 4 | 5;
 
 export type MoodRecord = {
@@ -29,12 +31,14 @@ export async function appendMood(
   mood: MoodValue,
   feeling?: string,
 ): Promise<void> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  const records = parseRecords(raw);
-  const record: MoodRecord = { techniqueId, mood, recordedAt: new Date().toISOString() };
-  if (feeling) record.feeling = feeling;
-  records.push(record);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  return withStoreLock(STORAGE_KEY, async () => {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const records = parseRecords(raw);
+    const record: MoodRecord = { techniqueId, mood, recordedAt: new Date().toISOString() };
+    if (feeling) record.feeling = feeling;
+    records.push(record);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  });
 }
 
 export async function getMoodRecords(): Promise<MoodRecord[]> {
