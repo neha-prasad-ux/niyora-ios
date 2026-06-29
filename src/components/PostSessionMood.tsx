@@ -199,7 +199,7 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
                 accessibilityLabel="Try a different activity"
               >
                 <Text style={styles.optionTitle}>Try a different activity</Text>
-                <Text style={styles.optionSub}>You can breathe, read, move, there&apos;s plenty.</Text>
+                <Text style={styles.optionSub}>Carry what you found into the next one.</Text>
               </Pressable>
             ) : (
               <Pressable
@@ -220,6 +220,7 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
         <View style={styles.reflectFill}>
           <ReflectionFlow
             feeling={feeling}
+            recordOnComplete
             onComplete={() => {
               setHasReflected(true);
               setPhase('asking');

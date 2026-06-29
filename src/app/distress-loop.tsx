@@ -1,27 +1,20 @@
 // The distress loop: the in-the-moment core of PMS mode. The order is the
 // safety mechanism, so it never changes: name the feeling, rate it, a calming
-// activity FIRST (we never reframe anyone while they are hot), then reflection
-// with a gentle distancing reframe, then rate again, then a done page scaled to
-// the before/after shift. Completing it adds to a reset-proof counter, never a
-// breakable streak.
+// activity FIRST (we never reflect with anyone while they are hot), then the
+// shared reflection (ReflectionFlow: a short Socratic question flow she answers
+// herself), then rate again, then a done page scaled to the before/after shift.
+// Completing it adds to a reset-proof counter, never a breakable streak.
 //
-// Privacy: her written reflection stays on the device and is never sent
-// anywhere. The distancing step reuses the app's vetted, fact-checked feeling
-// reframes (UNDERSTAND_CARDS) rather than an off-device model. A real rephrase
-// of her own words is a later, opt-in wave.
+// The reflection is the same component used by the post-session close, so there
+// is one CBT implementation, not two. It owns its own on-device privacy and
+// crisis-text routing; nothing she taps or types leaves the phone. This screen
+// records the real before/after delta on the done page, so the embedded flow
+// does not record (recordOnComplete stays off) to avoid a double count.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import {
-  Keyboard,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
@@ -29,28 +22,17 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Orb } from '@/components/orb';
 import { PhaseLabel } from '@/components/phase-label';
+import { ReflectionFlow } from '@/components/reflection-flow';
 import { colors } from '@/theme/colors';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import type { BreathPhase } from '@/models/techniques';
 import { PMS_FEELINGS, type PmsFeeling } from '@/models/activities';
-import {
-  UNDERSTAND_CARDS,
-  type UnderstandCard,
-  type UnderstandContext,
-} from '@/models/understand';
+import type { UnderstandContext } from '@/models/understand';
 import { resolveUnderstandContext } from '@/lib/understand-context';
 import { addDistressEntry, getDistressState } from '@/store/distress-history';
 import { CrisisLink } from '@/components/crisis-link';
-import { looksLikeCrisisText } from '@/lib/crisis';
 
-type Phase =
-  | 'entry'
-  | 'ratingBefore'
-  | 'activity'
-  | 'reflect'
-  | 'reframe'
-  | 'ratingAfter'
-  | 'done';
+type Phase = 'entry' | 'ratingBefore' | 'activity' | 'reflect' | 'ratingAfter' | 'done';
 
 const FEELING_LABELS: Record<PmsFeeling, string> = {
   irritable: 'Irritable',
@@ -70,22 +52,6 @@ const BREATH_RANGE = { min: 0.72, max: 1.3 };
 
 const RATING_MIN = 1;
 const RATING_MAX = 5;
-
-// The vetted reframe for a feeling in the current context, falling back to the
-// universal "feeling safe" card when there is no specific feeling.
-function reframeFor(feeling: PmsFeeling | null, ctx: UnderstandContext): UnderstandCard {
-  if (feeling) {
-    const exact = UNDERSTAND_CARDS.find(
-      (c) => c.scope === 'feeling' && c.feeling === feeling && c.context === ctx,
-    );
-    if (exact) return exact;
-    const anyCtx = UNDERSTAND_CARDS.find((c) => c.scope === 'feeling' && c.feeling === feeling);
-    if (anyCtx) return anyCtx;
-  }
-  return (
-    UNDERSTAND_CARDS.find((c) => c.id === 'feeling-safe') ?? UNDERSTAND_CARDS[0]
-  );
-}
 
 // Drives the calming breath and reports completion, mounted only on the
 // activity beat so its timer starts then.
@@ -157,7 +123,6 @@ export default function DistressLoopScreen() {
   const [feeling, setFeeling] = useState<PmsFeeling | null>(null);
   const [before, setBefore] = useState<number | null>(null);
   const [after, setAfter] = useState<number | null>(null);
-  const [reflection, setReflection] = useState('');
   const [breathPhase, setBreathPhase] = useState<BreathPhase | undefined>(undefined);
   const [breathDone, setBreathDone] = useState(false);
   const [ctx, setCtx] = useState<UnderstandContext>('general');
@@ -168,7 +133,7 @@ export default function DistressLoopScreen() {
   const [showReachOut, setShowReachOut] = useState(false);
   const recorded = useRef(false);
 
-  // Resolve the reframe context (PMS vs general) once on mount.
+  // Resolve the context (PMS vs general) once on mount; it tints the orb.
   useEffect(() => {
     let alive = true;
     resolveUnderstandContext()
@@ -179,7 +144,6 @@ export default function DistressLoopScreen() {
     };
   }, []);
 
-  const reframe = useMemo(() => reframeFor(feeling, ctx), [feeling, ctx]);
   const shift = before != null && after != null ? before - after : 0;
   const bigShift = (after != null && after <= 2) || shift >= 2;
 
@@ -208,21 +172,8 @@ export default function DistressLoopScreen() {
 
   const goReflect = useCallback(() => {
     Haptics.selectionAsync();
-    Keyboard.dismiss();
     setPhase('reflect');
   }, []);
-
-  const goReframe = useCallback(() => {
-    Haptics.selectionAsync();
-    Keyboard.dismiss();
-    // Content exit: self-harm-adjacent input goes straight to the crisis
-    // resource, never to a reframe.
-    if (looksLikeCrisisText(reflection)) {
-      router.push('/crisis');
-      return;
-    }
-    setPhase('reframe');
-  }, [reflection]);
 
   const goRatingAfter = useCallback(() => {
     Haptics.selectionAsync();
@@ -358,48 +309,11 @@ export default function DistressLoopScreen() {
         )}
 
         {phase === 'reflect' && (
-          <ScrollView
-            style={styles.phaseScroll}
-            contentContainerStyle={styles.reflectContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={styles.title}>What&apos;s on your mind?</Text>
-            <Text style={styles.sub}>Just for you. It stays on your phone.</Text>
-            <TextInput
-              style={styles.input}
-              value={reflection}
-              onChangeText={setReflection}
-              placeholder="Write as little or as much as you like"
-              placeholderTextColor={colors.textTagline}
-              multiline
-              textAlignVertical="top"
-              accessibilityLabel="Your reflection"
-            />
-            <View style={styles.footer}>
-              <BeginButton label="Continue" onPress={goReframe} />
-            </View>
-          </ScrollView>
-        )}
-
-        {phase === 'reframe' && (
-          <ScrollView style={styles.phaseScroll} contentContainerStyle={styles.reflectContent} showsVerticalScrollIndicator={false}>
-            <Text style={styles.reframeTitle}>{reframe.title}</Text>
-            <Text style={styles.reframeBody}>{reframe.body}</Text>
-            <Text style={styles.reframeAsk}>Does this land?</Text>
-            <View style={styles.footer}>
-              <BeginButton label="Yes" onPress={goRatingAfter} />
-              <Pressable
-                onPress={goRatingAfter}
-                hitSlop={12}
-                style={styles.notNow}
-                accessibilityRole="button"
-                accessibilityLabel="Not quite"
-              >
-                <Text style={styles.notNowText}>Not quite</Text>
-              </Pressable>
-            </View>
-          </ScrollView>
+          <ReflectionFlow
+            embedded
+            feeling={feeling ?? undefined}
+            onComplete={goRatingAfter}
+          />
         )}
 
         {phase === 'ratingAfter' && (
@@ -611,49 +525,6 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  reflectContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 24,
-  },
-  input: {
-    marginTop: 20,
-    minHeight: 120,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.textPrimary,
-  },
-  reframeTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
-    lineHeight: 30,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-    textAlign: 'center',
-  },
-  reframeBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
-    lineHeight: 26,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-    marginTop: 18,
-  },
-  reframeAsk: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginTop: 26,
   },
   footer: {
     alignItems: 'center',
