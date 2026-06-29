@@ -43,6 +43,10 @@ export function ResultDeck({ cards, onBegin }: Props) {
 }
 
 function GridCard({ card, onPress }: { card: RecCard; onPress: () => void }) {
+  // The reframe ("why this happens") reads as a read, not a do: a calm violet
+  // wash instead of a living scene, so it stands apart from the practices.
+  const isReframe = card.source === 'understand';
+  const label = isReframe ? `Why this happens. ${card.title}` : `${card.title}. ${cardBenefit(card)}`;
   return (
     <Pressable
       style={styles.cell}
@@ -51,28 +55,44 @@ function GridCard({ card, onPress }: { card: RecCard; onPress: () => void }) {
         onPress();
       }}
       accessibilityRole="button"
-      accessibilityLabel={`${card.title}. ${cardBenefit(card)}`}
+      accessibilityLabel={label}
     >
-      <View style={StyleSheet.absoluteFill}>
-        {/* Frozen scene (active=false) so a full grid of them stays light. */}
-        <CardScene card={card} active={false} />
-      </View>
-      <LinearGradient
-        colors={['rgba(8,6,14,0.05)', 'transparent', 'rgba(9,6,16,0.82)', 'rgba(8,5,14,0.96)']}
-        locations={[0, 0.32, 0.74, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+      {isReframe ? (
+        <LinearGradient
+          colors={['#3a2a5c', '#241a3c', '#0e0b14']}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : (
+        <>
+          <View style={StyleSheet.absoluteFill}>
+            {/* Frozen scene (active=false) so a full grid of them stays light. */}
+            <CardScene card={card} active={false} />
+          </View>
+          <LinearGradient
+            colors={['rgba(8,6,14,0.05)', 'transparent', 'rgba(9,6,16,0.82)', 'rgba(8,5,14,0.96)']}
+            locations={[0, 0.32, 0.74, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </>
+      )}
       <View style={styles.cellText}>
-        <Text style={styles.tag}>{cardTag(card)}</Text>
+        <Text style={styles.tag}>{isReframe ? 'why this' : cardTag(card)}</Text>
         <Text style={styles.title} numberOfLines={2}>
-          {card.title}
+          {isReframe ? 'Why this happens' : card.title}
         </Text>
-        {cardBenefit(card) ? (
+        {isReframe ? (
+          <Text style={styles.benefit} numberOfLines={2}>
+            {card.title}
+          </Text>
+        ) : cardBenefit(card) ? (
           <Text style={styles.benefit} numberOfLines={1}>
             {cardBenefit(card)}
           </Text>
         ) : null}
-        <Text style={styles.time}>{formatTime(card.timeSeconds)}</Text>
+        <Text style={styles.time}>{isReframe ? 'a short read' : formatTime(card.timeSeconds)}</Text>
       </View>
     </Pressable>
   );

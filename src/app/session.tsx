@@ -223,9 +223,13 @@ function BreathingSession({
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
+        // A ring-earning finish lets its sunburst bloom first (2.6s), then opens
+        // the close on the ring. A normal finish hands straight to the shared
+        // close, whose own "Nicely done" burst is the celebration -- so we mount
+        // it after a short settle rather than holding on the bare snow.
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, earned ? 2600 : 2200);
+        }, earned ? 2600 : 700);
       });
     return () => {
       cancelled = true;
