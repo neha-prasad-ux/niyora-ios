@@ -445,7 +445,7 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={styles.recommendCardSubtitle}>
                   {practiced
-                    ? 'shaped by your stress, your mood, your minutes'
+                    ? 'Shaped by your stress, your mood, your minutes'
                     : 'Tell us how you feel, we will find what helps'}
                 </Text>
               </View>
