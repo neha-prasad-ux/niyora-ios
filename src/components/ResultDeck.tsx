@@ -121,7 +121,8 @@ const styles = StyleSheet.create({
   cell: {
     width: CELL_W,
     height: CELL_H,
-    borderRadius: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',

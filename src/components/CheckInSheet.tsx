@@ -104,8 +104,9 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#13101a',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 18,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 18,
     borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 28,
@@ -127,7 +128,8 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: 24,
     paddingVertical: 11,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },

@@ -316,8 +316,9 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 22,
@@ -367,7 +368,8 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 18,
     paddingVertical: 11,
-    borderRadius: 22,
+    borderRadius: 18,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.18)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',

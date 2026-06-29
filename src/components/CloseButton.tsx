@@ -30,7 +30,8 @@ const styles = StyleSheet.create({
   btn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
