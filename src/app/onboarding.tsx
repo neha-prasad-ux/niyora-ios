@@ -1285,7 +1285,8 @@ const styles = StyleSheet.create({
   pmsCheckBadge: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 12,
+    borderCurve: 'continuous',
     backgroundColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.22)',
@@ -1541,8 +1542,9 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.backgroundTop,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     paddingTop: 12,
@@ -1580,7 +1582,8 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.16)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -1613,7 +1616,8 @@ const styles = StyleSheet.create({
   preset: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',

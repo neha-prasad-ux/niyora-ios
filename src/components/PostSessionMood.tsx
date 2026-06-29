@@ -337,7 +337,8 @@ const styles = StyleSheet.create({
   btn: {
     paddingHorizontal: 28,
     paddingVertical: 13,
-    borderRadius: 26,
+    borderRadius: 22,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.18)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',

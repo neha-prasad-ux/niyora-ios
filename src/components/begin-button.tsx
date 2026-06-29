@@ -186,7 +186,8 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 12,
     paddingHorizontal: 48,
-    borderRadius: 28,
+    borderRadius: 22,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: colors.beginBorder,
     alignItems: 'center',

@@ -229,8 +229,9 @@ const styles = StyleSheet.create({
   },
   pickerSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 22,
@@ -258,7 +259,8 @@ const styles = StyleSheet.create({
   lengthOption: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

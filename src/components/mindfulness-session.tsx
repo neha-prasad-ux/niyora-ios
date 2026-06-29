@@ -161,8 +161,13 @@ export function MindfulnessSession({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     fadeOut();
     // Record first so any earned ring is known before the mood overlay mounts.
+    // Let the closing animation — the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the celebration) — play out before the
+    // "Feel better?" card fades in over it, rather than cutting to it early.
+    let earned: Tier | null = null;
     appendSession(technique.id)
       .then((r) => {
+        earned = r.earnedTier;
         if (!cancelled) setEarnedTier(r.earnedTier);
       })
       .catch(() => {})
@@ -170,7 +175,7 @@ export function MindfulnessSession({
         if (cancelled) return;
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, 800);
+        }, earned ? 2600 : 2200);
       });
     return () => {
       cancelled = true;
@@ -354,7 +359,8 @@ const styles = StyleSheet.create({
     top: 52,
     right: 0,
     backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
+    borderRadius: 12,
+    borderCurve: 'continuous',
     paddingVertical: 4,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,

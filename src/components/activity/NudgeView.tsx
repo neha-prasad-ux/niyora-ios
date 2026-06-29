@@ -301,7 +301,8 @@ const styles = StyleSheet.create({
   stripWrap: { alignItems: 'center', gap: 16 },
   stripContent: { paddingHorizontal: 4, gap: POSE_GAP },
   poseCard: {
-    borderRadius: 18,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: 'rgba(255,255,255,0.04)',
