@@ -34,7 +34,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
+import { PeriodCalendar, rangeDays } from '@/components/period-calendar';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -56,7 +56,10 @@ import { setOnboardingComplete } from '@/store/onboarding-complete';
 import { BREATH_FACTS, pickFact } from '@/lib/onboarding-facts';
 import {
   setPmsPrefs,
+  addPeriodStart,
+  DEFAULT_PMS_PREFS,
   DEFAULT_CYCLE_LENGTH,
+  DEFAULT_PERIOD_LENGTH,
   MIN_CYCLE_LENGTH,
   MAX_CYCLE_LENGTH,
 } from '@/store/pms-prefs';
@@ -168,8 +171,8 @@ const ORB_DROP_DISTANCE = 340;
 // One short guided cycle for the first breath: exhale longer than inhale, the
 // move the science reveal is about. Two rounds of 4-in / 6-out = 20s.
 const ONBOARDING_BREATH: readonly BreathPhase[] = [
-  { type: 'inhale', label: 'breathe in', duration: 4 },
-  { type: 'exhale', label: 'breathe out', duration: 6 },
+  { type: 'inhale', label: 'Breathe in', duration: 4 },
+  { type: 'exhale', label: 'Breathe out', duration: 6 },
 ];
 const ONBOARDING_BREATH_ROUNDS = 2;
 // Dramatic breath amplitude for the first-breath beat: big on inhale, small on
@@ -293,26 +296,11 @@ export default function OnboardingScreen() {
   // later; committed with the cycle in confirmLength.
   const [symptoms, setSymptoms] = useState<PmsSymptoms>(DEFAULT_PMS_SYMPTOMS);
   const today = useMemo(() => new Date(), []);
-  const basePickerStyles = useDefaultStyles('dark');
-  const pickerStyles = useMemo(
-    () => ({
-      ...basePickerStyles,
-      // No marker on today: the outline read as a pre-selection and confused
-      // people about what was chosen.
-      today: { borderWidth: 0, backgroundColor: 'transparent' },
-      // The chosen day is a small glowing moon (a full moon, echoing the orb),
-      // not a flat square.
-      selected: {
-        backgroundColor: 'rgba(228, 233, 255, 0.96)',
-        borderRadius: 999,
-        shadowColor: 'rgb(206, 214, 255)',
-        shadowOpacity: 0.9,
-        shadowRadius: 9,
-        shadowOffset: { width: 0, height: 0 },
-      },
-      selected_label: { color: '#1b1430', fontWeight: '600' as const },
-    }),
-    [basePickerStyles],
+  // The chosen first period glows as a range of full moons, the same calendar
+  // she sees later in My Soul and "My period's here" (one shared PeriodCalendar).
+  const periodMoonDays = useMemo(
+    () => (cycleDate ? new Set(rangeDays(toYmd(cycleDate), DEFAULT_PERIOD_LENGTH)) : new Set<string>()),
+    [cycleDate],
   );
 
   // PMS offer beat: the orb drifts through the week's shades and settles to
@@ -568,8 +556,8 @@ export default function OnboardingScreen() {
     setPmsActivated(false);
     try {
       await setPmsPrefs({
+        ...DEFAULT_PMS_PREFS,
         pmsMode: false,
-        lastPeriodStart: null,
         cycleLength: DEFAULT_CYCLE_LENGTH,
       });
     } catch {
@@ -586,9 +574,13 @@ export default function OnboardingScreen() {
   const confirmLength = useCallback(async () => {
     Haptics.selectionAsync();
     try {
+      // Seed the history with her first logged start; cycleLength is her typed
+      // estimate (manualCycle stays false so the learned average takes over once
+      // she has logged a couple of real periods).
+      const seeded = cycleDate ? addPeriodStart(DEFAULT_PMS_PREFS, toYmd(cycleDate)) : DEFAULT_PMS_PREFS;
       await setPmsPrefs({
+        ...seeded,
         pmsMode: true,
-        lastPeriodStart: cycleDate ? toYmd(cycleDate) : null,
         cycleLength,
       });
       // Commit the symptom selection in the same beat as the cycle, so PMS
@@ -1045,17 +1037,13 @@ export default function OnboardingScreen() {
               <>
                 <Text style={styles.sheetTitle}>When did your last period start?</Text>
                 <View style={styles.calendarWrap}>
-                  <DateTimePicker
-                    mode="single"
-                    date={cycleDate ?? undefined}
+                  <PeriodCalendar
+                    moonDays={periodMoonDays}
                     maxDate={today}
-                    onChange={({ date }) => {
-                      if (date) {
-                        setCycleDate(new Date(date as string | number | Date));
-                        Haptics.selectionAsync();
-                      }
+                    onDayPress={(d) => {
+                      setCycleDate(d);
+                      Haptics.selectionAsync();
                     }}
-                    styles={pickerStyles}
                   />
                 </View>
                 <Text style={styles.cycleNote}>
@@ -1279,7 +1267,8 @@ const styles = StyleSheet.create({
   pmsCheckBadge: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 12,
+    borderCurve: 'continuous',
     backgroundColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.22)',
@@ -1535,8 +1524,9 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.backgroundTop,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 20,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     paddingTop: 12,
@@ -1574,7 +1564,8 @@ const styles = StyleSheet.create({
   stepperBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.16)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -1607,7 +1598,8 @@ const styles = StyleSheet.create({
   preset: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',

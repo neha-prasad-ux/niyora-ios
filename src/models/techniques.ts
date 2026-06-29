@@ -82,15 +82,15 @@ export const TECHNIQUES: readonly Technique[] = [
     // on-ramp, so it leads the breathing list.
     id: 'quick-calm',
     name: 'Quick Calm',
-    subtitle: 'reset in 30 seconds',
+    subtitle: 'Reset in 30 seconds',
     durationSeconds: 30,
     category: 'breathing',
     locked: false,
     instructions: 'In 4, out 6. Let the exhale be the longer one.',
     rounds: 3,
     phases: [
-      { type: 'inhale', label: 'breathe in', duration: 4 },
-      { type: 'exhale', label: 'breathe out', duration: 6 },
+      { type: 'inhale', label: 'Breathe in', duration: 4 },
+      { type: 'exhale', label: 'Breathe out', duration: 6 },
     ],
     colors: {
       inhale: [205, 30, 13],
@@ -106,17 +106,17 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'box',
     name: 'Box Breath',
-    subtitle: 'calms under pressure',
+    subtitle: 'Calms under pressure',
     durationSeconds: 65,
     category: 'breathing',
     locked: false,
     instructions: 'In 4, hold 4, out 4, hold 4. Steady rhythm. Breathe through nose.',
     rounds: 4,
     phases: [
-      { type: 'inhale', label: 'inhale', duration: 4 },
-      { type: 'hold', label: 'hold', duration: 4 },
-      { type: 'exhale', label: 'exhale', duration: 4 },
-      { type: 'hold2', label: 'hold', duration: 4 },
+      { type: 'inhale', label: 'Inhale', duration: 4 },
+      { type: 'hold', label: 'Hold', duration: 4 },
+      { type: 'exhale', label: 'Exhale', duration: 4 },
+      { type: 'hold2', label: 'Hold', duration: 4 },
     ],
     colors: {
       inhale: [230, 28, 12],
@@ -128,7 +128,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'ocean',
     name: 'Ocean Breath',
-    subtitle: 'slows heart rate',
+    subtitle: 'Slows heart rate',
     durationSeconds: 60,
     category: 'breathing',
     locked: true,
@@ -136,8 +136,8 @@ export const TECHNIQUES: readonly Technique[] = [
     context: 'Soft "haaa" sound at the back of your throat',
     rounds: 6,
     phases: [
-      { type: 'inhale', label: 'inhale through nose', duration: 4 },
-      { type: 'exhale', label: 'exhale slowly', duration: 6 },
+      { type: 'inhale', label: 'Inhale through nose', duration: 4 },
+      { type: 'exhale', label: 'Exhale slowly', duration: 6 },
     ],
     colors: {
       inhale: [185, 30, 12],
@@ -149,7 +149,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'cooling',
     name: 'Cooling Breath',
-    subtitle: 'lowers body heat',
+    subtitle: 'Lowers body heat',
     // Hold 2->3s and exhale 6->8s so the spoken cues fit: "hold" needs a clear
     // beat and "exhale through your nose" runs ~7.3s, which the old 6s exhale
     // clipped. 15s a round, 75s total.
@@ -160,9 +160,9 @@ export const TECHNIQUES: readonly Technique[] = [
     context: 'Gently clench your teeth and inhale through them',
     rounds: 5,
     phases: [
-      { type: 'inhale', label: 'inhale through teeth', duration: 4 },
-      { type: 'hold', label: 'hold', duration: 3 },
-      { type: 'exhale', label: 'exhale through nose', duration: 8 },
+      { type: 'inhale', label: 'Inhale through teeth', duration: 4 },
+      { type: 'hold', label: 'Hold', duration: 3 },
+      { type: 'exhale', label: 'Exhale through nose', duration: 8 },
     ],
     colors: {
       inhale: [200, 35, 13],
@@ -174,7 +174,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'alternate-nostril',
     name: 'Alternate Nostril',
-    subtitle: 'reset between tasks',
+    subtitle: 'Reset between tasks',
     // 5-in / 4-hold / 6-out, two sides = 30s a round. The inhale/exhale phases
     // are sized to comfortably fit the full spoken cue ("inhale through your
     // right nostril" runs ~4.5s, the exhale ~5.3s) so voice guidance is never
@@ -186,12 +186,12 @@ export const TECHNIQUES: readonly Technique[] = [
     context: 'Close one nostril, then switch each breath',
     rounds: 3,
     phases: [
-      { type: 'inhale', label: 'inhale left', duration: 5 },
-      { type: 'hold', label: 'hold', duration: 4 },
-      { type: 'exhale', label: 'exhale right', duration: 6 },
-      { type: 'inhale', label: 'inhale right', duration: 5 },
-      { type: 'hold', label: 'hold', duration: 4 },
-      { type: 'exhale', label: 'exhale left', duration: 6 },
+      { type: 'inhale', label: 'Inhale left', duration: 5 },
+      { type: 'hold', label: 'Hold', duration: 4 },
+      { type: 'exhale', label: 'Exhale right', duration: 6 },
+      { type: 'inhale', label: 'Inhale right', duration: 5 },
+      { type: 'hold', label: 'Hold', duration: 4 },
+      { type: 'exhale', label: 'Exhale left', duration: 6 },
     ],
     colors: {
       inhale: [270, 25, 12],
@@ -203,7 +203,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'left-nostril',
     name: 'Left Nostril',
-    subtitle: 'switches into rest',
+    subtitle: 'Switches into rest',
     durationSeconds: 60,
     category: 'breathing',
     locked: true,
@@ -211,9 +211,9 @@ export const TECHNIQUES: readonly Technique[] = [
     context: 'Close your right nostril, breathe through the left',
     rounds: 5,
     phases: [
-      { type: 'inhale', label: 'inhale left', duration: 4 },
-      { type: 'hold', label: 'hold', duration: 2 },
-      { type: 'exhale', label: 'exhale right', duration: 6 },
+      { type: 'inhale', label: 'Inhale left', duration: 4 },
+      { type: 'hold', label: 'Hold', duration: 2 },
+      { type: 'exhale', label: 'Exhale right', duration: 6 },
     ],
     colors: {
       inhale: [220, 18, 13],
@@ -225,15 +225,15 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'belly',
     name: 'Belly Breath',
-    subtitle: 'eases the body',
+    subtitle: 'Eases the body',
     durationSeconds: 60,
     category: 'breathing',
     locked: false,
     instructions: 'Let your belly rise on the in-breath, soften on the out. Breathe through nose.',
     rounds: 6,
     phases: [
-      { type: 'inhale', label: 'breathe into belly', duration: 4 },
-      { type: 'exhale', label: 'release slowly', duration: 6 },
+      { type: 'inhale', label: 'Breathe into belly', duration: 4 },
+      { type: 'exhale', label: 'Release slowly', duration: 6 },
     ],
     colors: {
       inhale: [90, 22, 12],
@@ -245,16 +245,16 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'wind-down',
     name: 'Wind Down',
-    subtitle: 'deep relaxation',
+    subtitle: 'Deep relaxation',
     durationSeconds: 75,
     category: 'breathing',
     locked: false,
     instructions: 'Inhale 4, hold 7, exhale 8. The long exhale is the key.',
     rounds: 4,
     phases: [
-      { type: 'inhale', label: 'inhale', duration: 4 },
-      { type: 'hold', label: 'hold', duration: 7 },
-      { type: 'exhale', label: 'exhale slowly', duration: 8 },
+      { type: 'inhale', label: 'Inhale', duration: 4 },
+      { type: 'hold', label: 'Hold', duration: 7 },
+      { type: 'exhale', label: 'Exhale slowly', duration: 8 },
     ],
     colors: {
       inhale: [270, 25, 13],
@@ -268,7 +268,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'be-kind',
     name: 'Be Kind to Yourself',
-    subtitle: 'softens self-criticism',
+    subtitle: 'Softens self-criticism',
     durationSeconds: 24,
     category: 'mindfulness',
     locked: false,
@@ -288,7 +288,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'let-it-drift',
     name: 'Let It Drift',
-    subtitle: 'loosens stuck thoughts',
+    subtitle: 'Loosens stuck thoughts',
     durationSeconds: 33,
     category: 'mindfulness',
     locked: true,
@@ -310,7 +310,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'bring-someone',
     name: 'Bring Someone to Mind',
-    subtitle: 'warms the mood',
+    subtitle: 'Warms the mood',
     durationSeconds: 24,
     category: 'mindfulness',
     locked: false,
@@ -330,7 +330,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'hold-yourself',
     name: 'Hold Yourself',
-    subtitle: 'signals safety',
+    subtitle: 'Signals safety',
     durationSeconds: 28,
     category: 'mindfulness',
     locked: false,
@@ -351,7 +351,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'kind-words',
     name: 'Kind Words',
-    subtitle: 'quiets the inner critic',
+    subtitle: 'Quiets the inner critic',
     durationSeconds: 28,
     category: 'mindfulness',
     locked: true,
@@ -372,7 +372,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'five-senses',
     name: 'Five Senses',
-    subtitle: 'grounds you in the body',
+    subtitle: 'Grounds you in the body',
     durationSeconds: 33,
     category: 'mindfulness',
     locked: false,
@@ -394,7 +394,7 @@ export const TECHNIQUES: readonly Technique[] = [
   {
     id: 'soft-gaze',
     name: 'Soft Gaze',
-    subtitle: 'relaxes tired eyes',
+    subtitle: 'Relaxes tired eyes',
     durationSeconds: 33,
     category: 'mindfulness',
     locked: true,

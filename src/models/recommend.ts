@@ -33,6 +33,11 @@ export const FEELINGS: readonly Feeling[] = [
   { id: 'low', label: 'Low', short: 'hold-yourself', long: 'belly', oneMin: 'short' },
   { id: 'foggy', label: 'Foggy', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
   { id: 'overwhelmed', label: 'Overwhelmed', short: 'soft-gaze', long: 'ocean', oneMin: 'long' },
+  // Not a distress state, so it stays out of PMS_FEELINGS (which drives the
+  // distress loop). When she already feels good we savour rather than fix: a
+  // soft, open-awareness mindful reset, with a slow belly breath as the longer
+  // option. oneMin is the mindful reset -- a breath here would feel like a fix.
+  { id: 'good', label: 'I feel good', short: 'soft-gaze', long: 'belly', oneMin: 'short' },
 ];
 
 // The need axis: the felt state she's reaching for ("How do you want to feel?").
@@ -63,6 +68,9 @@ export const FEELING_NEED_DEFAULT: Record<PmsFeeling, Need> = {
 };
 
 export function defaultNeedFor(feelingId: string): Need | undefined {
+  // "good" isn't a PMS distress state, so it isn't in the map above; reaching
+  // for "relaxed" matches the savour-not-fix intent.
+  if (feelingId === 'good') return 'relaxed';
   return FEELING_NEED_DEFAULT[feelingId as PmsFeeling];
 }
 
@@ -125,6 +133,10 @@ const ACTIVITY_NEEDS: Record<string, readonly Need[]> = {
 };
 
 const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
+  // Box breath is the versatile safe default: a steady 4-4-4-4 that helps in
+  // almost any state, so it carries the broadest need coverage and is eligible
+  // for every query (it isn't tied to a single feeling in the FEELINGS map).
+  box: ['calm', 'focused', 'relaxed'],
   'be-kind': ['calm', 'cozy'],
   cooling: ['calm', 'relaxed'],
   'five-senses': ['calm', 'focused'],
@@ -142,7 +154,7 @@ const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
 // breathing path); activity cards carry activityId.
 export type RecCard = {
   id: string;
-  source: 'technique' | 'activity';
+  source: 'technique' | 'activity' | 'understand';
   title: string;
   feelings: readonly PmsFeeling[]; // feelings it serves
   needs: readonly Need[]; // needs it serves
@@ -153,6 +165,10 @@ export type RecCard = {
   rounds?: number; // breathing: scaled to the chosen time
   activityId?: string;
   feelingId?: string; // primary feeling carried for session loop-closing
+  // 'understand' cards: a "why this happens" reframe slotted into the deck. It
+  // is a read, not a do -- tapping opens the reframe half-sheet rather than
+  // navigating. Carries the Understand card id to resolve the passage.
+  understandId?: string;
 };
 
 export type RecResult = {
@@ -270,6 +286,12 @@ export function recommend(
       const aPrim = a.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;
       const bPrim = b.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;
       if (bPrim !== aPrim) return bPrim - aPrim;
+      // Still tied: box breath is the safe default, so it reads first. A
+      // clearly-targeted breath (e.g. cooling for irritable) still wins on
+      // score above; box only leads when nothing else is a stronger match.
+      const aBox = a.techniqueId === 'box' ? 1 : 0;
+      const bBox = b.techniqueId === 'box' ? 1 : 0;
+      if (bBox !== aBox) return bBox - aBox;
       // For short budgets, a fast pick wins; otherwise prefer the shorter item.
       if (b.fast !== a.fast) return Number(b.fast) - Number(a.fast);
       return a.timeSeconds - b.timeSeconds;

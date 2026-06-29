@@ -31,7 +31,9 @@ export function useSessionMusic() {
   useEffect(() => {
     setAudioModeAsync({
       playsInSilentMode: true,
-      interruptionMode: 'mixWithOthers',
+      // Duck other audio (Spotify, podcasts) under the session so the guidance
+      // is heard, rather than mixing where it gets buried.
+      interruptionMode: 'duckOthers',
     }).catch(() => {});
     return () => {
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);

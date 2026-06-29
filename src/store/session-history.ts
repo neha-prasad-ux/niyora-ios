@@ -7,6 +7,7 @@ import {
   FREEZE_INTERVAL,
   type FreezeState,
 } from './streak-freeze';
+import { withStoreLock } from './with-store-lock';
 import { earnedTierBetween, type Tier } from '@/models/tiers';
 
 export type SessionRecord = {
@@ -81,36 +82,38 @@ export type AppendResult = {
 };
 
 export async function appendSession(techniqueId: string): Promise<AppendResult> {
-  const [rawSessions, freezeState] = await Promise.all([
-    AsyncStorage.getItem(STORAGE_KEY),
-    readFreezeState(),
-  ]);
+  return withStoreLock(STORAGE_KEY, async () => {
+    const [rawSessions, freezeState] = await Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY),
+      readFreezeState(),
+    ]);
 
-  const records = parseRecords(rawSessions);
-  const now = new Date();
-  const countBefore = records.length;
+    const records = parseRecords(rawSessions);
+    const now = new Date();
+    const countBefore = records.length;
 
-  const sessionDatesBefore = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
-  const { streak: streakBefore } = computeEffectiveStreak(sessionDatesBefore, freezeState, now);
+    const sessionDatesBefore = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
+    const { streak: streakBefore } = computeEffectiveStreak(sessionDatesBefore, freezeState, now);
 
-  records.push({ techniqueId, completedAt: now.toISOString() });
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  const countAfter = records.length;
+    records.push({ techniqueId, completedAt: now.toISOString() });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    const countAfter = records.length;
 
-  const sessionDatesAfter = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
-  const { streak: streakAfter } = computeEffectiveStreak(sessionDatesAfter, freezeState, now);
+    const sessionDatesAfter = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
+    const { streak: streakAfter } = computeEffectiveStreak(sessionDatesAfter, freezeState, now);
 
-  // Award one freeze each time the effective streak crosses a 7-day milestone.
-  const prevMilestones = Math.floor(streakBefore / FREEZE_INTERVAL);
-  const newMilestones = Math.floor(streakAfter / FREEZE_INTERVAL);
-  if (newMilestones > prevMilestones) {
-    await awardFreezes(newMilestones - prevMilestones);
-  }
+    // Award one freeze each time the effective streak crosses a 7-day milestone.
+    const prevMilestones = Math.floor(streakBefore / FREEZE_INTERVAL);
+    const newMilestones = Math.floor(streakAfter / FREEZE_INTERVAL);
+    if (newMilestones > prevMilestones) {
+      await awardFreezes(newMilestones - prevMilestones);
+    }
 
-  return {
-    sessionCount: countAfter,
-    earnedTier: earnedTierBetween(countBefore, countAfter),
-  };
+    return {
+      sessionCount: countAfter,
+      earnedTier: earnedTierBetween(countBefore, countAfter),
+    };
+  });
 }
 
 // Reads the effective streak (with any pending freeze auto-applications) and

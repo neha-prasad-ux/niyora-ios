@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -28,17 +28,9 @@ import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
-import type { MusicTrack } from '@/store/music-prefs';
+import { TRACK_OPTIONS } from '@/lib/track-options';
 import { colors } from '@/theme/colors';
 import { NiyoraSync } from 'niyora-sync';
-
-// Same track set and picker behaviour as the breathing session screen.
-const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
-  { id: 'serene', label: 'Serene', icon: 'music.note' },
-  { id: 'ocean', label: 'Ocean', icon: 'waveform' },
-  { id: 'forest', label: 'Forest', icon: 'leaf' },
-  { id: 'mute', label: 'Mute', icon: 'speaker.slash' },
-];
 
 type HSL = [number, number, number];
 
@@ -169,8 +161,13 @@ export function MindfulnessSession({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     fadeOut();
     // Record first so any earned ring is known before the mood overlay mounts.
+    // Let the closing animation — the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the celebration) — play out before the
+    // "Feel better?" card fades in over it, rather than cutting to it early.
+    let earned: Tier | null = null;
     appendSession(technique.id)
       .then((r) => {
+        earned = r.earnedTier;
         if (!cancelled) setEarnedTier(r.earnedTier);
       })
       .catch(() => {})
@@ -178,7 +175,7 @@ export function MindfulnessSession({
         if (cancelled) return;
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, 800);
+        }, earned ? 2600 : 2200);
       });
     return () => {
       cancelled = true;
@@ -307,17 +304,13 @@ export function MindfulnessSession({
           </View>
         )}
 
-        {!showMood && (
+        {!showMood && !done && (
           <View style={styles.center} pointerEvents="none">
-            {done ? (
-              <Text style={styles.prompt}>well done</Text>
-            ) : (
-              <Animated.View style={promptStyle}>
-                <Text style={styles.prompt} accessibilityLiveRegion="polite">
-                  {technique.prompts[promptIndex].text}
-                </Text>
-              </Animated.View>
-            )}
+            <Animated.View style={promptStyle}>
+              <Text style={styles.prompt} accessibilityLiveRegion="polite">
+                {technique.prompts[promptIndex].text}
+              </Text>
+            </Animated.View>
           </View>
         )}
       </SafeAreaView>
@@ -362,7 +355,8 @@ const styles = StyleSheet.create({
     top: 52,
     right: 0,
     backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
+    borderRadius: 12,
+    borderCurve: 'continuous',
     paddingVertical: 4,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,

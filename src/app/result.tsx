@@ -4,7 +4,7 @@
 // what the user reads to decide. The grid fades straight in (no loading beat).
 // Fully on-device.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
+import { ReframeSheet } from '@/components/reframe-sheet';
 import { CloseButton } from '@/components/CloseButton';
 import { colors } from '@/theme/colors';
 import {
@@ -26,6 +27,14 @@ import {
   type RecCard,
 } from '@/models/recommend';
 import { getTechnique, isBreathing } from '@/models/techniques';
+import { isPmsFeeling } from '@/models/activities';
+import { understandForFeeling, type UnderstandCard } from '@/models/understand';
+import { resolveUnderstandContext } from '@/lib/understand-context';
+
+// Where the "why this happens" reframe sits in the deck: high, but never the
+// lead. The hero + first couple of practices stay first (she came to act); the
+// reframe rides just below as an invitation to understand, not a task.
+const REFRAME_SLOT = 3;
 
 // The header leads with where she's headed (the need), never the feeling she's
 // leaving. A gentle "Let's..." invitation toward feeling better.
@@ -51,7 +60,52 @@ export default function ResultScreen() {
 
   // No time budget: show every option at its authored length.
   const result = useMemo(() => recommend(feelings, needs), [feelings, needs]);
-  const cards = useMemo(() => (result ? [result.hero, ...result.list] : []), [result]);
+
+  // The "why this happens" reframe for the feeling she came in with, resolved in
+  // the right context (general vs PMS). Null until resolved, or when there's no
+  // feeling to key off. Slotted into the deck below.
+  const [reframe, setReframe] = useState<UnderstandCard | null>(null);
+  const [openReframe, setOpenReframe] = useState<UnderstandCard | null>(null);
+  const primaryFeeling = feelings[0];
+  useEffect(() => {
+    let alive = true;
+    // Resolve in an async task so no setState runs synchronously in the effect
+    // body (the lint rule, and a real cascading-render guard).
+    (async () => {
+      if (!isPmsFeeling(primaryFeeling)) {
+        if (alive) setReframe(null);
+        return;
+      }
+      const context = await resolveUnderstandContext();
+      if (!alive) return;
+      const card = understandForFeeling(primaryFeeling, context).find(
+        (c) => c.scope === 'feeling',
+      );
+      setReframe(card ?? null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [primaryFeeling]);
+
+  const cards = useMemo(() => {
+    if (!result) return [];
+    const base: RecCard[] = [result.hero, ...result.list];
+    if (!reframe) return base;
+    const reframeCard: RecCard = {
+      id: `understand-${reframe.id}`,
+      source: 'understand',
+      title: reframe.title,
+      feelings: [],
+      needs: [],
+      timeSeconds: 0,
+      fast: false,
+      score: 0,
+      understandId: reframe.id,
+    };
+    const at = Math.min(REFRAME_SLOT, base.length);
+    return [...base.slice(0, at), reframeCard, ...base.slice(at)];
+  }, [result, reframe]);
 
   const header = needs[0] ? NEED_HEADER[needs[0]] : "Let's find what helps";
 
@@ -84,13 +138,18 @@ export default function ResultScreen() {
   }, [feelings]);
 
   const onBegin = useCallback((card: RecCard) => {
+    // The reframe card is a read: open the half-sheet in place, never navigate.
+    if (card.source === 'understand') {
+      setOpenReframe(reframe);
+      return;
+    }
     const t = card.techniqueId ? getTechnique(card.techniqueId) : undefined;
     if (t && isBreathing(t)) {
       setPending(card);
       return;
     }
     goToCard(card);
-  }, [goToCard]);
+  }, [goToCard, reframe]);
 
   const onPickLength = useCallback((minutes: number) => {
     const card = pending;
@@ -131,6 +190,8 @@ export default function ResultScreen() {
         onPick={onPickLength}
         onClose={() => setPending(null)}
       />
+
+      <ReframeSheet card={openReframe} onClose={() => setOpenReframe(null)} />
     </View>
   );
 }
@@ -229,8 +290,9 @@ const styles = StyleSheet.create({
   },
   pickerSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 22,
@@ -258,7 +320,8 @@ const styles = StyleSheet.create({
   lengthOption: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: 14,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.14)',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

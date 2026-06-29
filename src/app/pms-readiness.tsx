@@ -16,12 +16,14 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { Checklist, type ChecklistItem } from '@/components/checklist';
 import { Orb } from '@/components/orb';
 import { PeriodSheet } from '@/components/period-sheet';
+import { WhySheet } from '@/components/why-sheet';
 import { colors } from '@/theme/colors';
 import {
   getReadiness,
   setReadiness,
   READINESS_CHECK_IDS,
   READINESS_CHECK_CONTENT,
+  READINESS_WHY,
   readinessDoneCount,
   LUTEAL_ROSE_HUE,
   lutealOrbSat,
@@ -30,7 +32,14 @@ import {
   type ReadinessChecks,
   type ReadinessCheckId,
 } from '@/store/pms-readiness';
-import { getPmsPrefs, setPmsPrefs } from '@/store/pms-prefs';
+import {
+  getPmsPrefs,
+  setPmsPrefs,
+  addPeriodStart,
+  removePeriodStart,
+  clampPeriodLength,
+  DEFAULT_PERIOD_LENGTH,
+} from '@/store/pms-prefs';
 import { getLastSession } from '@/store/session-history';
 
 const FRESH: ReadinessChecks = {
@@ -56,6 +65,9 @@ export default function PmsReadinessScreen() {
   const [checks, setChecks] = useState<ReadinessChecks>(FRESH);
   const [calmDone, setCalmDone] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [periodStarts, setPeriodStarts] = useState<string[]>([]);
+  const [periodLength, setPeriodLength] = useState(DEFAULT_PERIOD_LENGTH);
+  const [whyFactor, setWhyFactor] = useState<ReadinessCheckId | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,6 +77,13 @@ export default function PmsReadinessScreen() {
         .catch(() => {});
       getLastSession()
         .then((s) => alive && setCalmDone(isToday(s?.completedAt, today)))
+        .catch(() => {});
+      getPmsPrefs()
+        .then((p) => {
+          if (!alive) return;
+          setPeriodStarts(p.periodStarts);
+          setPeriodLength(p.periodLength);
+        })
         .catch(() => {});
       return () => {
         alive = false;
@@ -110,16 +129,49 @@ export default function PmsReadinessScreen() {
     setSheet(false);
     try {
       const p = await getPmsPrefs();
-      await setPmsPrefs({ ...p, lastPeriodStart: todayYmd(date) });
+      // She's reporting a fresh period: append it to the history (the learned
+      // cycle length reads from these gaps), don't overwrite the last one.
+      const next = addPeriodStart(p, todayYmd(date));
+      await setPmsPrefs(next);
+      setPeriodStarts(next.periodStarts);
     } catch {
       // Storage can throw; never trap the user.
     }
     router.back();
   };
 
+  // Tapping a logged period and removing it. Keep the sheet open so she can
+  // tidy several at once; the moon vanishes as the history updates.
+  const removePeriod = async (startYmd: string) => {
+    try {
+      const p = await getPmsPrefs();
+      const next = removePeriodStart(p, startYmd);
+      await setPmsPrefs(next);
+      setPeriodStarts(next.periodStarts);
+    } catch {
+      // Storage can throw; never trap the user.
+    }
+  };
+
+  const changePeriodLength = async (length: number) => {
+    const clamped = clampPeriodLength(length);
+    setPeriodLength(clamped);
+    try {
+      const p = await getPmsPrefs();
+      await setPmsPrefs({ ...p, periodLength: clamped });
+    } catch {
+      // Storage can throw; never trap the user.
+    }
+  };
+
   const goBack = () => {
     Haptics.selectionAsync();
     router.back();
+  };
+
+  const openWhy = (id: ReadinessCheckId) => {
+    Haptics.selectionAsync();
+    setWhyFactor(id);
   };
 
   return (
@@ -169,10 +221,43 @@ export default function PmsReadinessScreen() {
               <Text style={styles.periodText}>My period&apos;s here</Text>
             </Pressable>
           </View>
+
+          {/* Know why: compact cards in a 2-up grid, like the activities list.
+              Tapping one opens a half-page sheet with the full reason and the
+              research, no new screen. */}
+          <View style={styles.know}>
+            <Text style={styles.knowHeader}>Know why</Text>
+            <View style={styles.whyGrid}>
+              {READINESS_CHECK_IDS.map((id) => {
+                const w = READINESS_WHY[id];
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => openWhy(id)}
+                    style={styles.whyCell}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Know why: ${w.name}`}
+                  >
+                    <Text style={styles.whyName} numberOfLines={2}>{w.name}</Text>
+                    <Text style={styles.whyTeaser} numberOfLines={1}>{w.teaser}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
 
-      <PeriodSheet visible={sheet} onClose={() => setSheet(false)} onConfirm={confirmPeriod} />
+      <PeriodSheet
+        visible={sheet}
+        markedDates={periodStarts}
+        periodLength={periodLength}
+        onClose={() => setSheet(false)}
+        onConfirm={confirmPeriod}
+        onRemove={removePeriod}
+        onPeriodLengthChange={changePeriodLength}
+      />
+      <WhySheet factor={whyFactor} onClose={() => setWhyFactor(null)} />
     </View>
   );
 }
@@ -262,5 +347,45 @@ const styles = StyleSheet.create({
     color: colors.textTagline,
     letterSpacing: 0.2,
     textDecorationLine: 'underline',
+  },
+  know: { marginTop: 36 },
+  knowHeader: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textSubtitle,
+    letterSpacing: 0.3,
+    marginBottom: 14,
+  },
+  whyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  whyCell: {
+    width: '48%',
+    minHeight: 84,
+    justifyContent: 'flex-end',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  whyName: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    lineHeight: 20,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  whyTeaser: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.55)',
+    letterSpacing: 0.2,
+    marginTop: 4,
   },
 });

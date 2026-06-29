@@ -32,8 +32,10 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
   if (!current.canAskAgain) return false;
+  // We never attach a sound to these reminders (and the foreground handler
+  // keeps them quiet), so don't ask for sound permission we'd never use.
   const requested = await Notifications.requestPermissionsAsync({
-    ios: { allowAlert: true, allowBadge: false, allowSound: true },
+    ios: { allowAlert: true, allowBadge: false, allowSound: false },
   });
   return requested.granted;
 }

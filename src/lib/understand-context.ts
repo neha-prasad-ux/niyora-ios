@@ -5,11 +5,11 @@
 // fits.
 
 import type { UnderstandContext } from '@/models/understand';
-import { getPmsPrefs } from '@/store/pms-prefs';
+import { getPmsPrefs, effectiveCycleLength } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 
 export async function resolveUnderstandContext(now: Date = new Date()): Promise<UnderstandContext> {
   const prefs = await getPmsPrefs();
   if (!prefs.pmsMode) return 'general';
-  return isInPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, now) ? 'pms' : 'general';
+  return isInPmsWindow(prefs.lastPeriodStart, effectiveCycleLength(prefs), now) ? 'pms' : 'general';
 }

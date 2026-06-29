@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -24,15 +24,23 @@ export function CheckInSheet({ onDone }: Props) {
   const [phase, setPhase] = useState<'picking' | 'done'>('picking');
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
+  // Pending timeouts so we can cancel them if the sheet unmounts mid-animation,
+  // avoiding an onDone() call (and parent state update) after teardown.
+  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });
     translateY.value = withTiming(0, { duration: 400 });
+    const pending = timeouts.current;
+    return () => {
+      pending.forEach(clearTimeout);
+      pending.length = 0;
+    };
   }, [opacity, translateY]);
 
   function dismiss(recorded: boolean) {
     opacity.value = withTiming(0, { duration: 320 });
-    setTimeout(() => onDone(recorded), 320);
+    timeouts.current.push(setTimeout(() => onDone(recorded), 320));
   }
 
   async function handleLevel(level: CheckInLevel) {
@@ -40,7 +48,7 @@ export function CheckInSheet({ onDone }: Props) {
     Haptics.selectionAsync();
     setPhase('done');
     appendCheckIn(level).catch(() => {});
-    setTimeout(() => dismiss(true), 900);
+    timeouts.current.push(setTimeout(() => dismiss(true), 900));
   }
 
   function handleBackdrop() {
@@ -83,7 +91,7 @@ export function CheckInSheet({ onDone }: Props) {
             </View>
           </>
         ) : (
-          <Text style={styles.noted}>noted</Text>
+          <Text style={styles.noted}>Noted</Text>
         )}
       </Animated.View>
     </Animated.View>
@@ -104,8 +112,9 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#13101a',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 18,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 18,
     borderTopWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 28,
@@ -127,7 +136,8 @@ const styles = StyleSheet.create({
   pill: {
     paddingHorizontal: 24,
     paddingVertical: 11,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     borderWidth: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },

@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './with-store-lock';
+
 // Phase B4 — nudge history (the ground truth).
 //
 // Every "feeling tense?" nudge and the user's Yes / No / Not-now answer is
@@ -47,11 +49,13 @@ async function save(events: NudgeEvent[]): Promise<void> {
 export async function recordNudgeFired(
   event: Omit<NudgeEvent, 'answer'>,
 ): Promise<NudgeEvent> {
-  const events = await getNudgeHistory();
-  const full: NudgeEvent = { ...event, answer: null };
-  events.push(full);
-  await save(events);
-  return full;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const events = await getNudgeHistory();
+    const full: NudgeEvent = { ...event, answer: null };
+    events.push(full);
+    await save(events);
+    return full;
+  });
 }
 
 /**
@@ -62,23 +66,25 @@ export async function recordAnswer(
   answer: NudgeAnswer,
   firedAt?: string,
 ): Promise<boolean> {
-  const events = await getNudgeHistory();
-  let idx = -1;
-  if (firedAt) {
-    idx = events.findIndex((e) => e.firedAt === firedAt);
-  } else {
-    // Most recent still-unanswered nudge.
-    for (let i = events.length - 1; i >= 0; i--) {
-      if (events[i].answer === null) {
-        idx = i;
-        break;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const events = await getNudgeHistory();
+    let idx = -1;
+    if (firedAt) {
+      idx = events.findIndex((e) => e.firedAt === firedAt);
+    } else {
+      // Most recent still-unanswered nudge.
+      for (let i = events.length - 1; i >= 0; i--) {
+        if (events[i].answer === null) {
+          idx = i;
+          break;
+        }
       }
     }
-  }
-  if (idx === -1) return false;
-  events[idx] = { ...events[idx], answer };
-  await save(events);
-  return true;
+    if (idx === -1) return false;
+    events[idx] = { ...events[idx], answer };
+    await save(events);
+    return true;
+  });
 }
 
 // --- Pure helpers (feed the nudge policy's NudgeContext) ---------------------

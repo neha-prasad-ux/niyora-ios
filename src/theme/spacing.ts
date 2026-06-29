@@ -11,8 +11,25 @@ export const spacing = {
   xxl: 24,
 } as const;
 
+// Corner radii. We use iOS continuous-curvature corners (true superellipse,
+// not a plain rounded rectangle) everywhere via `borderCurve: 'continuous'`.
+// Values are kept deliberately tight so corners read native and intentional,
+// not the oversized uniform pills that signal a generic/auto-generated UI.
+// Pair every rounded surface with `continuous` — use the `rounded()` helper.
 export const radius = {
-  card: 16,
-  pill: 18,
-  control: 14,
+  chip: 8, // tags, badges, tiny controls
+  control: 12, // buttons, inputs, segmented controls
+  card: 14, // standard cards
+  lg: 18, // large feature cards, hero buttons
+  sheet: 20, // bottom-sheet top corners
+  pill: 16, // grouped capsule controls
 } as const;
+
+// The iOS continuous-corner curve. Apply to any rounded surface so the corner
+// is a real superellipse rather than a circular-arc rounded rect.
+export const continuous = 'continuous' as const;
+
+// Convenience: spread onto a style to get a continuous-corner radius in one go.
+//   ...rounded(radius.card)
+export const rounded = (r: number) =>
+  ({ borderRadius: r, borderCurve: continuous }) as const;

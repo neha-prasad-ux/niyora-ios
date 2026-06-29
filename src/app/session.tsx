@@ -7,7 +7,7 @@
 
 import * as Haptics from 'expo-haptics';
 import * as StoreReview from 'expo-store-review';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -38,20 +38,13 @@ import { NiyoraSync } from 'niyora-sync';
 
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
-import type { MusicTrack } from '@/store/music-prefs';
+import { TRACK_OPTIONS } from '@/lib/track-options';
 import { getVoiceGuidance, setVoiceGuidance } from '@/store/voice-prefs';
 import { colors } from '@/theme/colors';
 
 // Matches the onboarding breath orb so the Soul-orb techniques feel continuous
 // with the intro.
 const SESSION_ORB_SIZE = 220;
-
-const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
-  { id: 'serene', label: 'Serene', icon: 'music.note' },
-  { id: 'ocean', label: 'Ocean', icon: 'waveform' },
-  { id: 'forest', label: 'Forest', icon: 'leaf' },
-  { id: 'mute', label: 'Mute', icon: 'speaker.slash' },
-];
 
 export default function SessionScreen() {
   const { id, rounds, feeling } = useLocalSearchParams<{
@@ -217,9 +210,10 @@ function BreathingSession({
     voice.playEnd('well-done');
     fadeOut();
     // Record first so any earned ring is known before the mood overlay mounts.
-    // When a ring IS earned (the first session lands the Spark), hold the mood
-    // sheet back so the celebration — the light flood, sunburst and sparks —
-    // actually plays out instead of being covered after half a second.
+    // Let the closing animation — the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the sunburst and sparks) — actually play
+    // out before the "Feel better?" card fades in over it, rather than cutting
+    // to it after half a second.
     let earned: Tier | null = null;
     appendSession(technique.id)
       .then((r) => {
@@ -229,9 +223,13 @@ function BreathingSession({
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
+        // A ring-earning finish lets its sunburst bloom first (2.6s), then opens
+        // the close on the ring. A normal finish hands straight to the shared
+        // close, whose own "Nicely done" burst is the celebration -- so we mount
+        // it after a short settle rather than holding on the bare snow.
         moodTimer = setTimeout(() => {
           if (!cancelled) setShowMood(true);
-        }, earned ? 2600 : 500);
+        }, earned ? 2600 : 700);
       });
     return () => {
       cancelled = true;
@@ -271,10 +269,10 @@ function BreathingSession({
     else resumeMusic();
   }, [paused, cycle.done, pauseMusic, resumeMusic]);
 
-  const labelText = useMemo(() => {
-    if (cycle.done) return 'well done';
-    return cycle.phase.label;
-  }, [cycle.done, cycle.phase.label]);
+  // No end-of-session label: the shared close (PostSessionMood) owns the
+  // celebration with its "Nicely done" burst, so the label only names the
+  // live breath phase and is hidden once the session is done.
+  const labelText = cycle.phase.label;
 
   const nextPhase = technique.phases[(cycle.phaseIndex + 1) % technique.phases.length];
 
@@ -463,9 +461,9 @@ function BreathingSession({
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} />
+                {!cycle.done && <PhaseLabel label={labelText} />}
                 {!cycle.done && (
-                  <Text style={styles.nextPhaseCue}>
+                  <Text style={styles.nextPhaseCue} maxFontSizeMultiplier={1.2}>
                     {'then ' + nextPhase.label.toLowerCase()}
                   </Text>
                 )}
@@ -570,7 +568,8 @@ const styles = StyleSheet.create({
     top: 52,
     right: 0,
     backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
+    borderRadius: 12,
+    borderCurve: 'continuous',
     paddingVertical: 4,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,

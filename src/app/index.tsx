@@ -62,7 +62,7 @@ import { macSoulHue } from '@/lib/mac-soul';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
-import { getPmsPrefs } from '@/store/pms-prefs';
+import { getPmsPrefs, effectiveCycleLength } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 import { LutealCard } from '@/components/luteal-card';
 import {
@@ -212,7 +212,7 @@ export default function HomeScreen() {
     getPmsPrefs()
       .then(async (p) => {
         const luteal =
-          p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date());
+          p.pmsMode && isInPmsWindow(p.lastPeriodStart, effectiveCycleLength(p), new Date());
         setInLuteal(luteal);
         if (!luteal) return;
         const today = todayYmd();
@@ -445,8 +445,8 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={styles.recommendCardSubtitle}>
                   {practiced
-                    ? 'shaped by your stress, your mood, your minutes'
-                    : 'tell us how you feel, we will find what helps'}
+                    ? 'Shaped by your stress, your mood, your minutes'
+                    : 'Tell us how you feel, we will find what helps'}
                 </Text>
               </View>
               <BeginButton label={practiced ? 'Begin' : 'Start'} onPress={handleRecommendOpen} />
@@ -603,7 +603,8 @@ const styles = StyleSheet.create({
     gap: 18,
     paddingVertical: 24,
     paddingHorizontal: 24,
-    borderRadius: 24,
+    borderRadius: 20,
+    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -655,7 +656,8 @@ const styles = StyleSheet.create({
   insightPill: {
     paddingHorizontal: 18,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 16,
+    borderCurve: 'continuous',
     backgroundColor: 'rgba(255, 255, 255, 0.07)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.10)',
@@ -675,8 +677,9 @@ const styles = StyleSheet.create({
   },
   pickerSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderCurve: 'continuous',
+    borderTopRightRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.10)',
     paddingTop: 22,

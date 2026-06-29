@@ -6,19 +6,12 @@
 
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 
 import { useSessionMusic } from '@/hooks/use-session-music';
-import { type MusicTrack } from '@/store/music-prefs';
+import { TRACK_OPTIONS } from '@/lib/track-options';
 import { colors } from '@/theme/colors';
-
-const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
-  { id: 'serene', label: 'Serene', icon: 'music.note' },
-  { id: 'ocean', label: 'Ocean', icon: 'waveform' },
-  { id: 'forest', label: 'Forest', icon: 'leaf' },
-  { id: 'mute', label: 'Mute', icon: 'speaker.slash' },
-];
 
 export function MusicControl() {
   const { track, changeTrack } = useSessionMusic();
@@ -79,7 +72,8 @@ const styles = StyleSheet.create({
     top: 34,
     left: 0,
     backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
+    borderRadius: 12,
+    borderCurve: 'continuous',
     paddingVertical: 4,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,
