@@ -30,8 +30,6 @@ export default function RootLayout() {
     'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
     'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
     'Poppins-Bold': require('../../assets/fonts/Poppins-Bold.ttf'),
-    // Handwriting face, used for the journaling "I feel..." scene.
-    PatrickHand: require('../../assets/fonts/PatrickHand-Regular.ttf'),
   });
 
   useEffect(() => {
