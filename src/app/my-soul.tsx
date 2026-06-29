@@ -57,7 +57,8 @@ import {
   getPmsPrefs,
   setPmsPrefs,
   addPeriodStart,
-  replaceLatestPeriodStart,
+  removePeriodStart,
+  clampPeriodLength,
   effectiveCycleLength,
   DEFAULT_PMS_PREFS,
   MIN_CYCLE_LENGTH,
@@ -240,11 +241,19 @@ export default function MySoulScreen() {
     await persistPms({ ...seeded, pmsMode: true });
   }
 
-  // The "Last period started" field corrects the most recent logged date in
-  // place. Logging a brand-new period is the home screen's "my period's here"
-  // flow, which appends; this never invents a phantom cycle.
+  // The period calendar is now one shared editor: tapping a new day logs a
+  // period (append), tapping a logged one removes it. So this appends, the same
+  // as the home screen's "my period's here" flow.
   async function handlePmsDateChange(dt: Date) {
-    await persistPms(replaceLatestPeriodStart(pmsPrefs, toYmdLocal(dt)));
+    await persistPms(addPeriodStart(pmsPrefs, toYmdLocal(dt)));
+  }
+
+  async function handlePmsPeriodRemove(startYmd: string) {
+    await persistPms(removePeriodStart(pmsPrefs, startYmd));
+  }
+
+  async function handlePmsPeriodLengthChange(length: number) {
+    await persistPms({ ...pmsPrefs, periodLength: clampPeriodLength(length) });
   }
 
   // Stepping the cycle length is an explicit override: mark it manual so the
@@ -396,6 +405,8 @@ export default function MySoulScreen() {
             status={pmsStatus}
             onToggle={handlePmsToggle}
             onDateChange={handlePmsDateChange}
+            onPeriodRemove={handlePmsPeriodRemove}
+            onPeriodLengthChange={handlePmsPeriodLengthChange}
             onCycleLengthChange={handlePmsCycleLengthChange}
             onCycleReset={handlePmsCycleReset}
           />
@@ -838,6 +849,8 @@ function PmsCard({
   status,
   onToggle,
   onDateChange,
+  onPeriodRemove,
+  onPeriodLengthChange,
   onCycleLengthChange,
   onCycleReset,
 }: {
@@ -845,6 +858,8 @@ function PmsCard({
   status: string | null;
   onToggle: (on: boolean) => void;
   onDateChange: (d: Date) => void;
+  onPeriodRemove: (startYmd: string) => void;
+  onPeriodLengthChange: (length: number) => void;
   onCycleLengthChange: (delta: number) => void;
   onCycleReset: () => void;
 }) {
@@ -939,11 +954,14 @@ function PmsCard({
           <PeriodSheet
             visible={sheetOpen}
             markedDates={prefs.periodStarts}
+            periodLength={prefs.periodLength}
             onClose={() => setSheetOpen(false)}
             onConfirm={(d) => {
               setSheetOpen(false);
               onDateChange(d);
             }}
+            onRemove={onPeriodRemove}
+            onPeriodLengthChange={onPeriodLengthChange}
           />
         </>
       )}

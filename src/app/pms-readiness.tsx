@@ -32,7 +32,14 @@ import {
   type ReadinessChecks,
   type ReadinessCheckId,
 } from '@/store/pms-readiness';
-import { getPmsPrefs, setPmsPrefs, addPeriodStart } from '@/store/pms-prefs';
+import {
+  getPmsPrefs,
+  setPmsPrefs,
+  addPeriodStart,
+  removePeriodStart,
+  clampPeriodLength,
+  DEFAULT_PERIOD_LENGTH,
+} from '@/store/pms-prefs';
 import { getLastSession } from '@/store/session-history';
 
 const FRESH: ReadinessChecks = {
@@ -59,6 +66,7 @@ export default function PmsReadinessScreen() {
   const [calmDone, setCalmDone] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [periodStarts, setPeriodStarts] = useState<string[]>([]);
+  const [periodLength, setPeriodLength] = useState(DEFAULT_PERIOD_LENGTH);
   const [whyFactor, setWhyFactor] = useState<ReadinessCheckId | null>(null);
 
   useFocusEffect(
@@ -71,7 +79,11 @@ export default function PmsReadinessScreen() {
         .then((s) => alive && setCalmDone(isToday(s?.completedAt, today)))
         .catch(() => {});
       getPmsPrefs()
-        .then((p) => alive && setPeriodStarts(p.periodStarts))
+        .then((p) => {
+          if (!alive) return;
+          setPeriodStarts(p.periodStarts);
+          setPeriodLength(p.periodLength);
+        })
         .catch(() => {});
       return () => {
         alive = false;
@@ -126,6 +138,30 @@ export default function PmsReadinessScreen() {
       // Storage can throw; never trap the user.
     }
     router.back();
+  };
+
+  // Tapping a logged period and removing it. Keep the sheet open so she can
+  // tidy several at once; the moon vanishes as the history updates.
+  const removePeriod = async (startYmd: string) => {
+    try {
+      const p = await getPmsPrefs();
+      const next = removePeriodStart(p, startYmd);
+      await setPmsPrefs(next);
+      setPeriodStarts(next.periodStarts);
+    } catch {
+      // Storage can throw; never trap the user.
+    }
+  };
+
+  const changePeriodLength = async (length: number) => {
+    const clamped = clampPeriodLength(length);
+    setPeriodLength(clamped);
+    try {
+      const p = await getPmsPrefs();
+      await setPmsPrefs({ ...p, periodLength: clamped });
+    } catch {
+      // Storage can throw; never trap the user.
+    }
   };
 
   const goBack = () => {
@@ -215,8 +251,11 @@ export default function PmsReadinessScreen() {
       <PeriodSheet
         visible={sheet}
         markedDates={periodStarts}
+        periodLength={periodLength}
         onClose={() => setSheet(false)}
         onConfirm={confirmPeriod}
+        onRemove={removePeriod}
+        onPeriodLengthChange={changePeriodLength}
       />
       <WhySheet factor={whyFactor} onClose={() => setWhyFactor(null)} />
     </View>

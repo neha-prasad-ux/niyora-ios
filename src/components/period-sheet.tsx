@@ -1,97 +1,172 @@
 // The "when did your period start?" calendar sheet, reused everywhere a period
-// date is picked (onboarding, the luteal card, the readiness page, My Soul) so
-// she always sees the same Niyora calendar, never the OS one. Past logged starts
-// are dotted on the grid so her history is visible right where she picks.
-// Confirming reports that date, which rolls the predicted window forward.
+// date is picked (onboarding's own sheet aside: the readiness page, My Soul) so
+// she always sees the same Niyora calendar, never the OS one.
+//
+// Tapping a day she has not logged starts a new period: that day plus the next
+// few (periodLength) light up as the glowing moon range, and "Save period"
+// commits the start. Tapping any day inside a logged period selects that whole
+// period and the button turns into "Remove period". A small length control lets
+// her set how many days a period is; it is one shared value and only changes how
+// the calendar draws the range, never the predicted window (which reads starts).
 
 import { useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SymbolView } from 'expo-symbols';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 import type { CalendarDay } from 'react-native-ui-datepicker';
 
 import { BeginButton } from '@/components/begin-button';
+import {
+  DEFAULT_PERIOD_LENGTH,
+  MAX_PERIOD_LENGTH,
+  MIN_PERIOD_LENGTH,
+} from '@/store/pms-prefs';
 import { colors } from '@/theme/colors';
 
 const pad = (n: number) => String(n).padStart(2, '0');
+const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 // CalendarDay.date is a Dayjs at runtime; reduce it to the local YYYY-MM-DD so
 // it can be matched against the logged history without pulling in dayjs here.
 function dayToYmd(date: CalendarDay['date']): string {
   const value = date as unknown as { toDate?: () => Date };
   const js = value?.toDate ? value.toDate() : new Date(date as unknown as string);
-  return `${js.getFullYear()}-${pad(js.getMonth() + 1)}-${pad(js.getDate())}`;
+  return toYmd(js);
+}
+
+// Expand one logged start into the local calendar days it covers (start plus the
+// following length - 1 days), as YYYY-MM-DD strings.
+function rangeDays(startYmd: string, length: number): string[] {
+  const [y, m, d] = startYmd.split('-').map(Number);
+  const out: string[] = [];
+  for (let i = 0; i < length; i++) {
+    out.push(toYmd(new Date(y, m - 1, d + i)));
+  }
+  return out;
 }
 
 export function PeriodSheet({
   visible,
   onClose,
   onConfirm,
+  onRemove,
+  onPeriodLengthChange,
   markedDates = [],
+  periodLength = DEFAULT_PERIOD_LENGTH,
 }: {
   visible: boolean;
   onClose: () => void;
   onConfirm: (date: Date) => void;
+  // Tapping a logged period and confirming removal; absent callers keep the
+  // sheet add-only (no period is removable).
+  onRemove?: (startYmd: string) => void;
+  // Nudging the shared period length; absent callers hide the control.
+  onPeriodLengthChange?: (length: number) => void;
   markedDates?: string[];
+  periodLength?: number;
 }) {
   const today = useMemo(() => new Date(), []);
-  const [date, setDate] = useState<Date | null>(null);
+  // The day she just tapped to start a new (unsaved) period, and the logged
+  // start she tapped to remove. Only one is ever set at a time.
+  const [pendingStart, setPendingStart] = useState<Date | null>(null);
+  const [armedStart, setArmedStart] = useState<string | null>(null);
   const base = useDefaultStyles('dark');
-  const markedSet = useMemo(() => new Set(markedDates), [markedDates]);
 
+  // Map every day to the logged start that owns it, so a tap anywhere in a
+  // period resolves to that period.
+  const startByDay = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const start of markedDates) {
+      for (const day of rangeDays(start, periodLength)) map.set(day, start);
+    }
+    return map;
+  }, [markedDates, periodLength]);
+
+  // Every day that should glow: the saved periods plus the pending one.
+  const moonDays = useMemo(() => {
+    const set = new Set(startByDay.keys());
+    if (pendingStart) for (const day of rangeDays(toYmd(pendingStart), periodLength)) set.add(day);
+    return set;
+  }, [startByDay, pendingStart, periodLength]);
+
+  // We draw the moon ourselves inside each day cell, so the library's own
+  // selected / today backgrounds are switched off.
   const pickerStyles = useMemo(
     () => ({
       ...base,
       today: { borderWidth: 0, backgroundColor: 'transparent' },
-      selected: {
-        backgroundColor: 'rgba(228, 233, 255, 0.96)',
-        borderRadius: 999,
-        shadowColor: 'rgb(206, 214, 255)',
-        shadowOpacity: 0.9,
-        shadowRadius: 9,
-        shadowOffset: { width: 0, height: 0 },
-      },
-      selected_label: { color: '#1b1430', fontWeight: '600' as const },
+      selected: { backgroundColor: 'transparent' },
+      selected_label: { color: colors.textPrimary },
     }),
     [base],
   );
 
-  // Custom day cell so we can dot the days she has logged. The library still
-  // applies the selected pill / today styling around this content, so we only
-  // render the number (with the matching label colors) plus the dot.
   const components = useMemo(
     () => ({
       Day: (day: CalendarDay) => {
-        const marked = markedSet.has(dayToYmd(day.date));
+        const isMoon = moonDays.has(dayToYmd(day.date));
         return (
           <View style={dayStyles.cell}>
-            <Text
-              style={[
-                dayStyles.label,
-                !day.isCurrentMonth && dayStyles.labelOutside,
-                day.isSelected && dayStyles.labelSelected,
-              ]}
-            >
-              {day.text}
-            </Text>
-            {marked && !day.isSelected && <View style={dayStyles.dot} />}
+            <View style={[dayStyles.pill, isMoon && dayStyles.moon]}>
+              <Text
+                style={[
+                  dayStyles.label,
+                  !day.isCurrentMonth && dayStyles.labelOutside,
+                  isMoon && dayStyles.labelMoon,
+                ]}
+              >
+                {day.text}
+              </Text>
+            </View>
           </View>
         );
       },
     }),
-    [markedSet],
+    [moonDays],
   );
 
+  const reset = () => {
+    setPendingStart(null);
+    setArmedStart(null);
+  };
+
   const handleClose = () => {
-    setDate(null);
+    reset();
     onClose();
   };
 
   const handleConfirm = () => {
-    if (!date) return;
-    onConfirm(date);
-    setDate(null);
+    if (!pendingStart) return;
+    onConfirm(pendingStart);
+    reset();
+  };
+
+  const handleRemove = () => {
+    if (!armedStart) return;
+    onRemove?.(armedStart);
+    reset();
+  };
+
+  const handleTap = (d: string | number | Date) => {
+    const tapped = new Date(d);
+    const owning = startByDay.get(toYmd(tapped));
+    if (owning && onRemove) {
+      setArmedStart(owning);
+      setPendingStart(null);
+    } else {
+      setPendingStart(tapped);
+      setArmedStart(null);
+    }
+    Haptics.selectionAsync();
+  };
+
+  const adjustLength = (delta: number) => {
+    const next = Math.min(MAX_PERIOD_LENGTH, Math.max(MIN_PERIOD_LENGTH, periodLength + delta));
+    if (next === periodLength) return;
+    Haptics.selectionAsync();
+    onPeriodLengthChange?.(next);
   };
 
   return (
@@ -110,20 +185,55 @@ export function PeriodSheet({
           <View style={styles.calendarWrap}>
             <DateTimePicker
               mode="single"
-              date={date ?? undefined}
               maxDate={today}
               components={components}
               onChange={({ date: d }) => {
-                if (d) {
-                  setDate(new Date(d as string | number | Date));
-                  Haptics.selectionAsync();
-                }
+                if (d) handleTap(d as string | number | Date);
               }}
               styles={pickerStyles}
             />
           </View>
+
+          {onPeriodLengthChange && (
+            <View style={styles.lengthRow}>
+              <Text style={styles.lengthLabel}>Period length</Text>
+              <View style={styles.stepperRow}>
+                <Pressable
+                  onPress={() => adjustLength(-1)}
+                  hitSlop={8}
+                  style={styles.stepperBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Shorter period"
+                >
+                  <SymbolView name="minus" tintColor={colors.textPrimary} size={14} weight="medium" />
+                </Pressable>
+                <Text style={styles.stepperValue}>{periodLength} days</Text>
+                <Pressable
+                  onPress={() => adjustLength(1)}
+                  hitSlop={8}
+                  style={styles.stepperBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Longer period"
+                >
+                  <SymbolView name="plus" tintColor={colors.textPrimary} size={14} weight="medium" />
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           <View style={styles.footer}>
-            <BeginButton label="That's the day" disabled={!date} onPress={handleConfirm} />
+            {armedStart ? (
+              <Pressable
+                onPress={handleRemove}
+                style={styles.removeBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Remove this period"
+              >
+                <Text style={styles.removeLabel}>Remove period</Text>
+              </Pressable>
+            ) : (
+              <BeginButton label="Save period" disabled={!pendingStart} onPress={handleConfirm} />
+            )}
           </View>
         </Pressable>
       </Pressable>
@@ -138,6 +248,20 @@ const dayStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pill: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moon: {
+    backgroundColor: 'rgba(228, 233, 255, 0.96)',
+    shadowColor: 'rgb(206, 214, 255)',
+    shadowOpacity: 0.9,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 0 },
+  },
   label: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
@@ -146,17 +270,9 @@ const dayStyles = StyleSheet.create({
   labelOutside: {
     color: 'rgba(255, 255, 255, 0.28)',
   },
-  labelSelected: {
+  labelMoon: {
     color: '#1b1430',
     fontFamily: 'Poppins-Medium',
-  },
-  dot: {
-    position: 'absolute',
-    bottom: 3,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(214, 130, 170, 0.95)',
   },
 });
 
@@ -199,8 +315,55 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     marginTop: 12,
   },
+  lengthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 18,
+  },
+  lengthLabel: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepperBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    color: colors.textPrimary,
+    minWidth: 72,
+    textAlign: 'center',
+  },
   footer: {
     marginTop: 18,
     alignItems: 'center',
+  },
+  removeBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 44,
+    borderRadius: 28,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(214, 130, 170, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: 'rgba(232, 154, 184, 0.96)',
   },
 });
