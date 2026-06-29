@@ -1,13 +1,20 @@
 /**
  * PostSessionMood
  *
- * The close of every session, shown over the SessionDoneBackdrop (dark-blue
- * gradient + gentle falling snow particles).
+ * The shared close of every practice -- breathing sessions and activities both.
+ * It opens on a warm "Nicely done" burst from the Soul (a tier-crossing finish
+ * opens on the ring celebration instead), then asks one gentle question:
  *
- * "Feel better?" -> "Yes" carries the calm and goes home. "Wanna try another?"
- * holds the moment, then starts a different technique for the same feeling. The
- * second option is an invitation, never a verdict: the user never has to report
- * that it did not work.
+ *   "I feel good"  -> carries the calm and goes home.
+ *   "Reflect"      -> the Socratic reflection on the feeling, then back here.
+ *
+ * The second option is an invitation, never a verdict: she never has to report
+ * that it did not work. The outcome (good / reflected) is saved once per close,
+ * keyed to the feeling she came in with, so the loop emotion -> practice ->
+ * impact is finally recorded.
+ *
+ * `variant` keeps the breathing-only beats (first-breath aha, "try another
+ * technique", ring tiers) off the activity close, which has none of them.
  */
 
 import * as Haptics from 'expo-haptics';
@@ -15,19 +22,34 @@ import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  FadeIn,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
 import { Orb } from '@/components/orb';
+import { RingCelebration } from '@/components/RingCelebration';
 import { ReflectionFlow } from '@/components/reflection-flow';
 import { alternate } from '@/models/recommend';
 import { TIER_RING_COUNTS, SOUL_RING_HUES, type Tier } from '@/models/tiers';
 import { getSessionCount } from '@/store/session-history';
+import { recordOutcome } from '@/store/mood-history';
 import { colors } from '@/theme/colors';
 
-type Phase = 'first' | 'asking' | 'reflect' | 'better' | 'another' | 'ring' | 'ringClosing';
+type Phase =
+  | 'celebrate'
+  | 'first'
+  | 'asking'
+  | 'reflect'
+  | 'better'
+  | 'another'
+  | 'ring'
+  | 'ringClosing';
+
+// The soft Soul violet for the celebration burst + orb, so the close reads as
+// the same app that lights up after a breath.
+const CELEBRATE_HUE = 265;
 
 // "Still feeling a little ___": the feeling she chose, or a soft fallback.
 function stillFeelingLabel(feeling?: string): string {
@@ -35,24 +57,35 @@ function stillFeelingLabel(feeling?: string): string {
 }
 
 interface PostSessionMoodProps {
+  // Breathing technique id, or `activity:<id>` for an activity. Keys the saved
+  // outcome and (breath only) the "try another" alternate.
   techniqueId: string;
   feeling?: string;
   /**
    * The tier newly reached by the session that just finished, if it crossed a
    * threshold (5/15/40/80). When set, the close becomes the ring-earned
-   * celebration instead of the usual "Feel better?" beat.
+   * celebration instead of the usual "Nicely done" beat. Breath only.
    */
   earnedTier?: Tier | null;
+  // 'breath' keeps the first-breath aha + "try another technique"; 'activity'
+  // is the plain celebrate -> ask -> save close.
+  variant?: 'breath' | 'activity';
   onDone: () => void;
 }
 
-export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: PostSessionMoodProps) {
+export function PostSessionMood({
+  techniqueId,
+  feeling,
+  earnedTier,
+  variant = 'breath',
+  onDone,
+}: PostSessionMoodProps) {
   // Crossing a tier opens straight into the ring celebration; everyone else
-  // starts on the usual "Feel better?" beat. Set at mount so we never flip
-  // phase synchronously inside an effect.
-  const [phase, setPhase] = useState<Phase>(() => (earnedTier ? 'ring' : 'asking'));
+  // opens on the "Nicely done" burst. Set at mount so we never flip phase
+  // synchronously inside an effect.
+  const [phase, setPhase] = useState<Phase>(() => (earnedTier ? 'ring' : 'celebrate'));
   // CBT is offered once per journey; after she reflects, the second option
-  // becomes "try a different activity" instead.
+  // becomes "try a different activity" instead (breath only).
   const [hasReflected, setHasReflected] = useState(false);
   const opacity = useSharedValue(0);
   // Track pending timers so a back-tap (unmount) during a hold cannot fire a
@@ -61,29 +94,48 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
   const wait = (fn: () => void, ms: number) => {
     timers.current.push(setTimeout(fn, ms));
   };
+  // Save the outcome at most once per close: if she reflects and then taps
+  // "I feel good", the reflection already recorded the meaningful outcome.
+  const recordedRef = useRef(false);
+  const recordOnce = (outcome: 'good' | 'reflected') => {
+    if (recordedRef.current) return;
+    recordedRef.current = true;
+    recordOutcome(techniqueId, outcome, feeling).catch(() => {});
+  };
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 480 });
     // Crossing a tier (earning a ring) owns the close: the phase already opened
-    // on 'ring', so here we just mark it with a warm, affirming pulse. It
-    // replaces the usual "Feel better?" question on that rare session.
+    // on 'ring', so here we just mark it with a warm, affirming pulse.
     if (earnedTier) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       return () => {
         timers.current.forEach(clearTimeout);
       };
     }
-    // First-ever completion gets an aha beat before the usual close. The 500ms
-    // gap before this overlay mounts means the session is already counted, so
-    // count === 1 is reliably "their first."
-    getSessionCount()
-      .then((n) => {
-        if (n === 1) {
-          setPhase('first');
-          wait(() => setPhase('asking'), 2600);
-        }
-      })
-      .catch(() => {});
+    // Normal close: a held celebration beat, then the question. The first-ever
+    // breath earns an extra aha beat first (the 500ms gap before this overlay
+    // mounts means the session is already counted, so count === 1 is reliably
+    // "their first").
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (variant === 'breath') {
+      getSessionCount()
+        .then((n) => {
+          wait(() => {
+            if (n === 1) {
+              setPhase('first');
+              wait(() => setPhase('asking'), 2600);
+            } else {
+              setPhase('asking');
+            }
+          }, 1900);
+        })
+        .catch(() => {
+          wait(() => setPhase('asking'), 1900);
+        });
+    } else {
+      wait(() => setPhase('asking'), 1900);
+    }
     return () => {
       timers.current.forEach(clearTimeout);
     };
@@ -97,7 +149,7 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
   function handleBetter() {
     if (phase !== 'asking') return;
     Haptics.selectionAsync();
-    // Snow keeps falling behind; we just carry the calm and leave.
+    recordOnce('good');
     setPhase('better');
     wait(dismiss, 1800);
   }
@@ -137,6 +189,17 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
 
   return (
     <Animated.View style={[styles.overlay, wrapStyle]} pointerEvents="box-none">
+      {phase === 'celebrate' && (
+        <>
+          <RingCelebration hue={CELEBRATE_HUE} />
+          <Animated.View entering={FadeIn.duration(500)} style={styles.celebrateCard}>
+            <Orb size={120} hue={CELEBRATE_HUE} />
+            <Text style={styles.celebrateLead}>Nicely done.</Text>
+            <Text style={styles.celebrateSub}>You took a moment for yourself.</Text>
+          </Animated.View>
+        </>
+      )}
+
       {phase === 'ring' && earnedTier && (
         <View style={styles.ringCard}>
           <Orb
@@ -186,21 +249,23 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
               onPress={handleBetter}
               style={[styles.optionCard, styles.optionGreat]}
               accessibilityRole="button"
-              accessibilityLabel="I feel great"
+              accessibilityLabel="I feel good"
             >
-              <Text style={styles.optionTitle}>I feel great</Text>
-              <Text style={styles.optionSub}>The activity helped.</Text>
+              <Text style={styles.optionTitle}>I feel good</Text>
+              <Text style={styles.optionSub}>Carry it with you.</Text>
             </Pressable>
             {hasReflected ? (
-              <Pressable
-                onPress={handleAnother}
-                style={[styles.optionCard, styles.optionSecondary]}
-                accessibilityRole="button"
-                accessibilityLabel="Try a different activity"
-              >
-                <Text style={styles.optionTitle}>Try a different activity</Text>
-                <Text style={styles.optionSub}>Carry what you found into the next one.</Text>
-              </Pressable>
+              variant === 'breath' ? (
+                <Pressable
+                  onPress={handleAnother}
+                  style={[styles.optionCard, styles.optionSecondary]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try a different activity"
+                >
+                  <Text style={styles.optionTitle}>Try a different activity</Text>
+                  <Text style={styles.optionSub}>Carry what you found into the next one.</Text>
+                </Pressable>
+              ) : null
             ) : (
               <Pressable
                 onPress={handleReflect}
@@ -222,6 +287,7 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
             feeling={feeling}
             recordOnComplete
             onComplete={() => {
+              recordOnce('reflected');
               setHasReflected(true);
               setPhase('asking');
             }}
@@ -251,6 +317,23 @@ const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  celebrateCard: { alignItems: 'center', gap: 18 },
+  celebrateLead: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 24,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    marginTop: 8,
+  },
+  celebrateSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    marginTop: -8,
   },
   ringCard: {
     alignItems: 'center',
@@ -291,10 +374,6 @@ const styles = StyleSheet.create({
   // The first-completion congrats sits close to its sub line, not button-spaced.
   firstHeading: {
     marginBottom: 12,
-  },
-  buttons: {
-    alignItems: 'center',
-    gap: 14,
   },
   // The two-option "How are you feeling now?" cards.
   optionList: {
@@ -352,12 +431,6 @@ const styles = StyleSheet.create({
   btnPrimaryText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,
-    color: colors.textPrimary,
-    letterSpacing: 0.3,
-  },
-  btnText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
