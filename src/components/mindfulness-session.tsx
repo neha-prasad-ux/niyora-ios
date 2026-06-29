@@ -304,17 +304,13 @@ export function MindfulnessSession({
           </View>
         )}
 
-        {!showMood && (
+        {!showMood && !done && (
           <View style={styles.center} pointerEvents="none">
-            {done ? (
-              <Text style={styles.prompt}>Well done</Text>
-            ) : (
-              <Animated.View style={promptStyle}>
-                <Text style={styles.prompt} accessibilityLiveRegion="polite">
-                  {technique.prompts[promptIndex].text}
-                </Text>
-              </Animated.View>
-            )}
+            <Animated.View style={promptStyle}>
+              <Text style={styles.prompt} accessibilityLiveRegion="polite">
+                {technique.prompts[promptIndex].text}
+              </Text>
+            </Animated.View>
           </View>
         )}
       </SafeAreaView>

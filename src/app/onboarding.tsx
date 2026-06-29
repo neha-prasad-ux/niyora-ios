@@ -34,7 +34,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
+import { PeriodCalendar, rangeDays } from '@/components/period-calendar';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -59,6 +59,7 @@ import {
   addPeriodStart,
   DEFAULT_PMS_PREFS,
   DEFAULT_CYCLE_LENGTH,
+  DEFAULT_PERIOD_LENGTH,
   MIN_CYCLE_LENGTH,
   MAX_CYCLE_LENGTH,
 } from '@/store/pms-prefs';
@@ -295,26 +296,11 @@ export default function OnboardingScreen() {
   // later; committed with the cycle in confirmLength.
   const [symptoms, setSymptoms] = useState<PmsSymptoms>(DEFAULT_PMS_SYMPTOMS);
   const today = useMemo(() => new Date(), []);
-  const basePickerStyles = useDefaultStyles('dark');
-  const pickerStyles = useMemo(
-    () => ({
-      ...basePickerStyles,
-      // No marker on today: the outline read as a pre-selection and confused
-      // people about what was chosen.
-      today: { borderWidth: 0, backgroundColor: 'transparent' },
-      // The chosen day is a small glowing moon (a full moon, echoing the orb),
-      // not a flat square.
-      selected: {
-        backgroundColor: 'rgba(228, 233, 255, 0.96)',
-        borderRadius: 999,
-        shadowColor: 'rgb(206, 214, 255)',
-        shadowOpacity: 0.9,
-        shadowRadius: 9,
-        shadowOffset: { width: 0, height: 0 },
-      },
-      selected_label: { color: '#1b1430', fontWeight: '600' as const },
-    }),
-    [basePickerStyles],
+  // The chosen first period glows as a range of full moons, the same calendar
+  // she sees later in My Soul and "My period's here" (one shared PeriodCalendar).
+  const periodMoonDays = useMemo(
+    () => (cycleDate ? new Set(rangeDays(toYmd(cycleDate), DEFAULT_PERIOD_LENGTH)) : new Set<string>()),
+    [cycleDate],
   );
 
   // PMS offer beat: the orb drifts through the week's shades and settles to
@@ -1051,17 +1037,13 @@ export default function OnboardingScreen() {
               <>
                 <Text style={styles.sheetTitle}>When did your last period start?</Text>
                 <View style={styles.calendarWrap}>
-                  <DateTimePicker
-                    mode="single"
-                    date={cycleDate ?? undefined}
+                  <PeriodCalendar
+                    moonDays={periodMoonDays}
                     maxDate={today}
-                    onChange={({ date }) => {
-                      if (date) {
-                        setCycleDate(new Date(date as string | number | Date));
-                        Haptics.selectionAsync();
-                      }
+                    onDayPress={(d) => {
+                      setCycleDate(d);
+                      Haptics.selectionAsync();
                     }}
-                    styles={pickerStyles}
                   />
                 </View>
                 <Text style={styles.cycleNote}>

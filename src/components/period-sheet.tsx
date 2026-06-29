@@ -14,38 +14,15 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
-import type { CalendarDay } from 'react-native-ui-datepicker';
 
 import { BeginButton } from '@/components/begin-button';
+import { PeriodCalendar, rangeDays, toYmd } from '@/components/period-calendar';
 import {
   DEFAULT_PERIOD_LENGTH,
   MAX_PERIOD_LENGTH,
   MIN_PERIOD_LENGTH,
 } from '@/store/pms-prefs';
 import { colors } from '@/theme/colors';
-
-const pad = (n: number) => String(n).padStart(2, '0');
-const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-// CalendarDay.date is a Dayjs at runtime; reduce it to the local YYYY-MM-DD so
-// it can be matched against the logged history without pulling in dayjs here.
-function dayToYmd(date: CalendarDay['date']): string {
-  const value = date as unknown as { toDate?: () => Date };
-  const js = value?.toDate ? value.toDate() : new Date(date as unknown as string);
-  return toYmd(js);
-}
-
-// Expand one logged start into the local calendar days it covers (start plus the
-// following length - 1 days), as YYYY-MM-DD strings.
-function rangeDays(startYmd: string, length: number): string[] {
-  const [y, m, d] = startYmd.split('-').map(Number);
-  const out: string[] = [];
-  for (let i = 0; i < length; i++) {
-    out.push(toYmd(new Date(y, m - 1, d + i)));
-  }
-  return out;
-}
 
 export function PeriodSheet({
   visible,
@@ -72,7 +49,6 @@ export function PeriodSheet({
   // start she tapped to remove. Only one is ever set at a time.
   const [pendingStart, setPendingStart] = useState<Date | null>(null);
   const [armedStart, setArmedStart] = useState<string | null>(null);
-  const base = useDefaultStyles('dark');
 
   // Map every day to the logged start that owns it, so a tap anywhere in a
   // period resolves to that period.
@@ -90,42 +66,6 @@ export function PeriodSheet({
     if (pendingStart) for (const day of rangeDays(toYmd(pendingStart), periodLength)) set.add(day);
     return set;
   }, [startByDay, pendingStart, periodLength]);
-
-  // We draw the moon ourselves inside each day cell, so the library's own
-  // selected / today backgrounds are switched off.
-  const pickerStyles = useMemo(
-    () => ({
-      ...base,
-      today: { borderWidth: 0, backgroundColor: 'transparent' },
-      selected: { backgroundColor: 'transparent' },
-      selected_label: { color: colors.textPrimary },
-    }),
-    [base],
-  );
-
-  const components = useMemo(
-    () => ({
-      Day: (day: CalendarDay) => {
-        const isMoon = moonDays.has(dayToYmd(day.date));
-        return (
-          <View style={dayStyles.cell}>
-            <View style={[dayStyles.pill, isMoon && dayStyles.moon]}>
-              <Text
-                style={[
-                  dayStyles.label,
-                  !day.isCurrentMonth && dayStyles.labelOutside,
-                  isMoon && dayStyles.labelMoon,
-                ]}
-              >
-                {day.text}
-              </Text>
-            </View>
-          </View>
-        );
-      },
-    }),
-    [moonDays],
-  );
 
   const reset = () => {
     setPendingStart(null);
@@ -183,15 +123,7 @@ export function PeriodSheet({
           <View style={styles.handle} />
           <Text style={styles.title}>When did your period start?</Text>
           <View style={styles.calendarWrap}>
-            <DateTimePicker
-              mode="single"
-              maxDate={today}
-              components={components}
-              onChange={({ date: d }) => {
-                if (d) handleTap(d as string | number | Date);
-              }}
-              styles={pickerStyles}
-            />
+            <PeriodCalendar moonDays={moonDays} onDayPress={handleTap} maxDate={today} />
           </View>
 
           {onPeriodLengthChange && (
@@ -240,41 +172,6 @@ export function PeriodSheet({
     </Modal>
   );
 }
-
-const dayStyles = StyleSheet.create({
-  cell: {
-    minWidth: 34,
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pill: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moon: {
-    backgroundColor: 'rgba(228, 233, 255, 0.96)',
-    shadowColor: 'rgb(206, 214, 255)',
-    shadowOpacity: 0.9,
-    shadowRadius: 9,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  label: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  labelOutside: {
-    color: 'rgba(255, 255, 255, 0.28)',
-  },
-  labelMoon: {
-    color: '#1b1430',
-    fontFamily: 'Poppins-Medium',
-  },
-});
 
 const styles = StyleSheet.create({
   backdrop: {

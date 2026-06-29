@@ -269,10 +269,10 @@ function BreathingSession({
     else resumeMusic();
   }, [paused, cycle.done, pauseMusic, resumeMusic]);
 
-  const labelText = useMemo(() => {
-    if (cycle.done) return 'Well done';
-    return cycle.phase.label;
-  }, [cycle.done, cycle.phase.label]);
+  // No end-of-session label: the shared close (PostSessionMood) owns the
+  // celebration with its "Nicely done" burst, so the label only names the
+  // live breath phase and is hidden once the session is done.
+  const labelText = cycle.phase.label;
 
   const nextPhase = technique.phases[(cycle.phaseIndex + 1) % technique.phases.length];
 
@@ -461,7 +461,7 @@ function BreathingSession({
           {!showMood && (
             <>
               <View style={styles.bottomBlock}>
-                <PhaseLabel label={labelText} />
+                {!cycle.done && <PhaseLabel label={labelText} />}
                 {!cycle.done && (
                   <Text style={styles.nextPhaseCue} maxFontSizeMultiplier={1.2}>
                     {'then ' + nextPhase.label.toLowerCase()}
