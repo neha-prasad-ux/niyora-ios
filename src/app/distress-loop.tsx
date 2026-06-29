@@ -62,8 +62,8 @@ const FEELING_LABELS: Record<PmsFeeling, string> = {
 
 // A calming breath for the activity beat: 4 in / 6 out, three rounds (~30s).
 const DISTRESS_BREATH: readonly BreathPhase[] = [
-  { type: 'inhale', label: 'breathe in', duration: 4 },
-  { type: 'exhale', label: 'breathe out', duration: 6 },
+  { type: 'inhale', label: 'Breathe in', duration: 4 },
+  { type: 'exhale', label: 'Breathe out', duration: 6 },
 ];
 const DISTRESS_BREATH_ROUNDS = 3;
 const BREATH_RANGE = { min: 0.72, max: 1.3 };

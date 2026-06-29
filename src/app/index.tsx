@@ -446,7 +446,7 @@ export default function HomeScreen() {
                 <Text style={styles.recommendCardSubtitle}>
                   {practiced
                     ? 'shaped by your stress, your mood, your minutes'
-                    : 'tell us how you feel, we will find what helps'}
+                    : 'Tell us how you feel, we will find what helps'}
                 </Text>
               </View>
               <BeginButton label={practiced ? 'Begin' : 'Start'} onPress={handleRecommendOpen} />

@@ -310,7 +310,7 @@ export function MindfulnessSession({
         {!showMood && (
           <View style={styles.center} pointerEvents="none">
             {done ? (
-              <Text style={styles.prompt}>well done</Text>
+              <Text style={styles.prompt}>Well done</Text>
             ) : (
               <Animated.View style={promptStyle}>
                 <Text style={styles.prompt} accessibilityLiveRegion="polite">

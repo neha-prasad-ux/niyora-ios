@@ -168,8 +168,8 @@ const ORB_DROP_DISTANCE = 340;
 // One short guided cycle for the first breath: exhale longer than inhale, the
 // move the science reveal is about. Two rounds of 4-in / 6-out = 20s.
 const ONBOARDING_BREATH: readonly BreathPhase[] = [
-  { type: 'inhale', label: 'breathe in', duration: 4 },
-  { type: 'exhale', label: 'breathe out', duration: 6 },
+  { type: 'inhale', label: 'Breathe in', duration: 4 },
+  { type: 'exhale', label: 'Breathe out', duration: 6 },
 ];
 const ONBOARDING_BREATH_ROUNDS = 2;
 // Dramatic breath amplitude for the first-breath beat: big on inhale, small on
