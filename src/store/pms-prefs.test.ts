@@ -2,7 +2,9 @@ import {
   parsePmsPrefs,
   addPeriodStart,
   replaceLatestPeriodStart,
+  removePeriodStart,
   effectiveCycleLength,
+  DEFAULT_PERIOD_LENGTH,
   DEFAULT_PMS_PREFS,
   type PmsPrefs,
 } from './pms-prefs';
@@ -41,6 +43,34 @@ describe('parsePmsPrefs', () => {
     );
     expect(parsed.periodStarts).toEqual(['2026-05-02', '2026-05-31']);
     expect(parsed.lastPeriodStart).toBe('2026-05-31');
+  });
+
+  it('defaults period length when absent and clamps out-of-range values', () => {
+    expect(parsePmsPrefs(JSON.stringify({ pmsMode: true })).periodLength).toBe(DEFAULT_PERIOD_LENGTH);
+    expect(parsePmsPrefs(JSON.stringify({ periodLength: 99 })).periodLength).toBe(DEFAULT_PERIOD_LENGTH);
+    expect(parsePmsPrefs(JSON.stringify({ periodLength: 6 })).periodLength).toBe(6);
+  });
+});
+
+describe('removePeriodStart', () => {
+  it('removes a logged period and re-points last at the most recent', () => {
+    const next = removePeriodStart(
+      base({ periodStarts: ['2026-05-01', '2026-05-31'], lastPeriodStart: '2026-05-31' }),
+      '2026-05-31',
+    );
+    expect(next.periodStarts).toEqual(['2026-05-01']);
+    expect(next.lastPeriodStart).toBe('2026-05-01');
+  });
+
+  it('clears last when the final period is removed', () => {
+    const next = removePeriodStart(base({ periodStarts: ['2026-05-01'], lastPeriodStart: '2026-05-01' }), '2026-05-01');
+    expect(next.periodStarts).toEqual([]);
+    expect(next.lastPeriodStart).toBeNull();
+  });
+
+  it('leaves the history untouched when the date is not logged', () => {
+    const next = removePeriodStart(base({ periodStarts: ['2026-05-01'] }), '2026-05-09');
+    expect(next.periodStarts).toEqual(['2026-05-01']);
   });
 });
 

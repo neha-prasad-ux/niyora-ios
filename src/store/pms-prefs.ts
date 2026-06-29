@@ -17,6 +17,8 @@ export type PmsPrefs = {
   periodStarts: string[]; // every logged start, sorted ascending; most recent last
   cycleLength: number; // days; her typed estimate, the seed before we learn
   manualCycle: boolean; // true once she sets the length by hand (overrides learning)
+  periodLength: number; // bleeding days, one shared value; purely how the calendar
+  // draws each logged period as a range. The prediction never reads this.
 };
 
 const STORAGE_KEY = 'niyora:pms';
@@ -24,6 +26,12 @@ const STORAGE_KEY = 'niyora:pms';
 export const DEFAULT_CYCLE_LENGTH = 28;
 export const MIN_CYCLE_LENGTH = 20;
 export const MAX_CYCLE_LENGTH = 40;
+
+// Period (bleeding) length: only shapes the calendar range she sees, not the
+// window math. One value for every period; she can nudge it on the sheet.
+export const DEFAULT_PERIOD_LENGTH = 5;
+export const MIN_PERIOD_LENGTH = 2;
+export const MAX_PERIOD_LENGTH = 8;
 
 // Keep a generous but bounded history so storage never grows without limit; two
 // years of cycles is far more than the learned average ever looks at.
@@ -35,12 +43,21 @@ export const DEFAULT_PMS_PREFS: PmsPrefs = {
   periodStarts: [],
   cycleLength: DEFAULT_CYCLE_LENGTH,
   manualCycle: false,
+  periodLength: DEFAULT_PERIOD_LENGTH,
 };
 
 function clampCycle(value: unknown): number {
   const n = typeof value === 'number' ? Math.round(value) : NaN;
   if (Number.isNaN(n) || n < MIN_CYCLE_LENGTH || n > MAX_CYCLE_LENGTH) {
     return DEFAULT_CYCLE_LENGTH;
+  }
+  return n;
+}
+
+export function clampPeriodLength(value: unknown): number {
+  const n = typeof value === 'number' ? Math.round(value) : NaN;
+  if (Number.isNaN(n) || n < MIN_PERIOD_LENGTH || n > MAX_PERIOD_LENGTH) {
+    return DEFAULT_PERIOD_LENGTH;
   }
   return n;
 }
@@ -80,6 +97,7 @@ export function parsePmsPrefs(raw: string | null): PmsPrefs {
       periodStarts,
       cycleLength: clampCycle(parsed.cycleLength),
       manualCycle: parsed.manualCycle === true,
+      periodLength: clampPeriodLength(parsed.periodLength),
     };
   } catch {
     return DEFAULT_PMS_PREFS;
@@ -120,6 +138,17 @@ export function replaceLatestPeriodStart(prefs: PmsPrefs, ymd: string): PmsPrefs
     ...prefs,
     periodStarts,
     lastPeriodStart: periodStarts[periodStarts.length - 1] ?? null,
+  };
+}
+
+// Remove a logged start (she tapped a period on the calendar to delete it).
+// Re-points lastPeriodStart at whatever is now most recent, or null if none left.
+export function removePeriodStart(prefs: PmsPrefs, ymd: string): PmsPrefs {
+  const periodStarts = prefs.periodStarts.filter((d) => d !== ymd);
+  return {
+    ...prefs,
+    periodStarts,
+    lastPeriodStart: periodStarts.length ? periodStarts[periodStarts.length - 1] : null,
   };
 }
 
