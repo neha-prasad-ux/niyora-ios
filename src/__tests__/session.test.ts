@@ -1,6 +1,6 @@
 // Tests for the next-phase cue derivation used in BreathingSession.
 // The logic is: nextIndex = (phaseIndex + 1) % phases.length,
-// nextLabel = `then ${phases[nextIndex].label}`.
+// nextLabel = `then ${phases[nextIndex].label.toLowerCase()}`.
 //
 // Also covers the completion nextLabel: technique.name when done, null otherwise.
 
@@ -11,7 +11,10 @@ function deriveNextLabel(
   phases: readonly { label: string }[],
 ): string {
   const nextIndex = (phaseIndex + 1) % phases.length;
-  return `then ${phases[nextIndex].label}`;
+  // Mirrors session.tsx: the dim sub-label lowercases the upcoming cue so it
+  // reads as a sentence fragment ("then hold"), while the primary cue keeps the
+  // sentence-cased label ("Hold").
+  return `then ${phases[nextIndex].label.toLowerCase()}`;
 }
 
 describe('next-phase cue derivation', () => {
