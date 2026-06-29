@@ -266,7 +266,7 @@ function BreathingSession({
   }, [paused, cycle.done, pauseMusic, resumeMusic]);
 
   const labelText = useMemo(() => {
-    if (cycle.done) return 'well done';
+    if (cycle.done) return 'Well done';
     return cycle.phase.label;
   }, [cycle.done, cycle.phase.label]);
 

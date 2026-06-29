@@ -91,7 +91,7 @@ export function CheckInSheet({ onDone }: Props) {
             </View>
           </>
         ) : (
-          <Text style={styles.noted}>noted</Text>
+          <Text style={styles.noted}>Noted</Text>
         )}
       </Animated.View>
     </Animated.View>

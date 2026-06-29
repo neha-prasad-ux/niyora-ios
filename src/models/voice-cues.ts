@@ -47,9 +47,12 @@ const LABEL_TO_CLIP: Record<string, VoiceClip> = {
   'release slowly': 'breathe-out',
 };
 
-/** The cue clip for a breath phase label, or undefined if none matches. */
+/** The cue clip for a breath phase label, or undefined if none matches.
+ *  Matched case-insensitively: on-screen labels are sentence-cased ("Breathe
+ *  in") while the map keys stay lowercase, so the display casing and the clip
+ *  lookup can move independently. */
 export function clipForLabel(label: string): VoiceClip | undefined {
-  return LABEL_TO_CLIP[label];
+  return LABEL_TO_CLIP[label.toLowerCase()];
 }
 
 /** The opening sequence for a technique: settle, the Ocean haaa intro (Ocean
