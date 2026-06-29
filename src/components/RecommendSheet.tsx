@@ -1,9 +1,9 @@
 // "How are you feeling?" sheet. Two steps -- feeling, then what you need -- both
-// multi-select chips (up to 3, first tap is primary). Fully on-device: ranks the
-// static library and hands a hero + ordered list back to the caller. No history,
-// no soul-state, nothing leaves the phone.
+// the shared Checklist (multi-select, up to 3, first tap is primary). Fully
+// on-device: ranks the static library and hands a hero + ordered list back to
+// the caller. No history, no soul-state, nothing leaves the phone.
 //
-// Feeling step: tap chips to toggle (first tap is primary, sets orb color and
+// Feeling step: tap rows to toggle (first tap is primary, sets orb color and
 // the need pre-fill). A Continue button appears once at least one feeling is
 // selected; tapping it advances to the need step, which arrives pre-filled from
 // the primary feeling so it's barely a gate. Time is not a question here -- it
@@ -19,7 +19,6 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -38,8 +37,9 @@ import {
 
 // The Soul orb tints toward the primary selection so it reacts as she taps:
 // warm for cozy/let-it-out, cool for calm/sleepy, etc.
-// Feeling step now uses the shared Checklist (same rows as onboarding).
+// Both steps now use the shared Checklist (same rows as onboarding).
 const FEELING_ITEMS = FEELINGS.map((f) => ({ id: f.id, label: f.label }));
+const NEED_ITEMS = NEEDS.map((n) => ({ id: n.id, label: n.label }));
 
 const FEELING_HUE: Record<string, number> = {
   anxious: 220,
@@ -47,6 +47,7 @@ const FEELING_HUE: Record<string, number> = {
   low: 275,
   foggy: 178,
   overwhelmed: 285,
+  good: 45,
 };
 const NEED_HUE: Record<Need, number> = {
   calm: 220,
@@ -234,15 +235,12 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
               />
             </Animated.View>
           ) : (
-            <Animated.View style={[styles.chipWrap, enterStyle]}>
-              {NEEDS.map((n) => (
-                <Chip
-                  key={n.id}
-                  label={n.label}
-                  selected={selectedNeeds.includes(n.id)}
-                  onPress={() => handleNeed(n.id)}
-                />
-              ))}
+            <Animated.View style={[styles.listWrap, enterStyle]}>
+              <Checklist
+                items={NEED_ITEMS}
+                isChecked={(id) => selectedNeeds.includes(id as Need)}
+                onToggle={(id) => handleNeed(id as Need)}
+              />
             </Animated.View>
           )}
 
@@ -264,52 +262,6 @@ export function RecommendSheet({ visible, onClose, onPick }: Props) {
         </Pressable>
       </Pressable>
     </Modal>
-  );
-}
-
-function Chip({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const scale = useSharedValue(1);
-  const press = useSharedValue(0);
-
-  useEffect(() => {
-    if (selected) {
-      scale.value = withSequence(
-        withTiming(1.09, { duration: 120, easing: Easing.out(Easing.quad) }),
-        withTiming(1.0, { duration: 220, easing: Easing.out(Easing.sin) }),
-      );
-    }
-  }, [selected, scale]);
-
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value * (1 - press.value * 0.04) }],
-  }));
-
-  return (
-    <Animated.View style={animStyle}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => {
-          press.value = withTiming(1, { duration: 90 });
-        }}
-        onPressOut={() => {
-          press.value = withTiming(0, { duration: 140 });
-        }}
-        style={[styles.chip, selected && styles.chipSelected]}
-        accessibilityRole="button"
-        accessibilityState={{ selected }}
-        accessibilityLabel={label}
-      >
-        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-      </Pressable>
-    </Animated.View>
   );
 }
 
@@ -363,39 +315,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: 'rgba(190, 170, 255, 0.9)',
   },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    paddingHorizontal: 24,
-  },
   listWrap: {
     width: '100%',
     paddingHorizontal: 24,
-  },
-  chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  // Selected chip is a translucent lavender toggle with a bright rim -- a clear
-  // "this is on", deliberately not the solid gradient of an action button.
-  chipSelected: {
-    borderColor: 'rgba(196, 178, 255, 0.85)',
-    backgroundColor: 'rgba(150, 120, 235, 0.22)',
-  },
-  chipText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  chipTextSelected: {
-    fontFamily: 'Poppins-Medium',
-    color: '#fff',
   },
   ctaRow: {
     marginTop: 20,

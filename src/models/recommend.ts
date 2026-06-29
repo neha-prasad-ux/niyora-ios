@@ -33,6 +33,11 @@ export const FEELINGS: readonly Feeling[] = [
   { id: 'low', label: 'Low', short: 'hold-yourself', long: 'belly', oneMin: 'short' },
   { id: 'foggy', label: 'Foggy', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
   { id: 'overwhelmed', label: 'Overwhelmed', short: 'soft-gaze', long: 'ocean', oneMin: 'long' },
+  // Not a distress state, so it stays out of PMS_FEELINGS (which drives the
+  // distress loop). When she already feels good we savour rather than fix: a
+  // soft, open-awareness mindful reset, with a slow belly breath as the longer
+  // option. oneMin is the mindful reset -- a breath here would feel like a fix.
+  { id: 'good', label: 'I feel good', short: 'soft-gaze', long: 'belly', oneMin: 'short' },
 ];
 
 // The need axis: the felt state she's reaching for ("How do you want to feel?").
@@ -63,6 +68,9 @@ export const FEELING_NEED_DEFAULT: Record<PmsFeeling, Need> = {
 };
 
 export function defaultNeedFor(feelingId: string): Need | undefined {
+  // "good" isn't a PMS distress state, so it isn't in the map above; reaching
+  // for "relaxed" matches the savour-not-fix intent.
+  if (feelingId === 'good') return 'relaxed';
   return FEELING_NEED_DEFAULT[feelingId as PmsFeeling];
 }
 
