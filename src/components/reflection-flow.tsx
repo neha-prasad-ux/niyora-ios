@@ -69,9 +69,18 @@ const PROMPT_INTERVAL_MS = 2800;
 export function ReflectionFlow({
   feeling,
   onComplete,
+  // The post-session close has no before/after rating, so it records the
+  // reflection itself. The distress loop records its own real delta on the done
+  // page, so it leaves this off to avoid a double count.
+  recordOnComplete = false,
+  // When embedded inside a screen that already provides the crisis footer and
+  // horizontal padding (the distress loop), drop our own so they do not double.
+  embedded = false,
 }: {
   feeling?: string;
   onComplete: () => void;
+  recordOnComplete?: boolean;
+  embedded?: boolean;
 }) {
   const [phase, setPhase] = useState<'write' | 'questions' | 'conclusion'>('write');
   const [text, setText] = useState('');
@@ -139,7 +148,7 @@ export function ReflectionFlow({
 
   const finish = () => {
     Haptics.selectionAsync();
-    if (!recorded.current) {
+    if (recordOnComplete && !recorded.current) {
       recorded.current = true;
       // Additive, reset-proof: one more reflection moved through.
       addDistressEntry({
@@ -155,7 +164,7 @@ export function ReflectionFlow({
   const closeLine = CLOSE_LINES[answers.current[1]] ?? DEFAULT_CLOSE;
 
   return (
-    <View style={styles.root}>
+    <View style={embedded ? styles.rootEmbedded : styles.root}>
       {phase === 'write' && (
         <ScrollView
           contentContainerStyle={styles.content}
@@ -224,9 +233,11 @@ export function ReflectionFlow({
         </ScrollView>
       )}
 
-      <View style={styles.crisisFooter}>
-        <CrisisLink />
-      </View>
+      {!embedded && (
+        <View style={styles.crisisFooter}>
+          <CrisisLink />
+        </View>
+      )}
     </View>
   );
 }
@@ -236,6 +247,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignSelf: 'stretch',
     paddingHorizontal: 24,
+  },
+  // Embedded: the host screen owns the horizontal padding and crisis footer.
+  rootEmbedded: {
+    flex: 1,
+    alignSelf: 'stretch',
   },
   content: {
     flexGrow: 1,

@@ -220,6 +220,7 @@ export function PostSessionMood({ techniqueId, feeling, earnedTier, onDone }: Po
         <View style={styles.reflectFill}>
           <ReflectionFlow
             feeling={feeling}
+            recordOnComplete
             onComplete={() => {
               setHasReflected(true);
               setPhase('asking');
