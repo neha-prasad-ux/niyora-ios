@@ -7,7 +7,7 @@
 
 import * as Haptics from 'expo-haptics';
 import * as StoreReview from 'expo-store-review';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -38,20 +38,13 @@ import { NiyoraSync } from 'niyora-sync';
 
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
-import type { MusicTrack } from '@/store/music-prefs';
+import { TRACK_OPTIONS } from '@/lib/track-options';
 import { getVoiceGuidance, setVoiceGuidance } from '@/store/voice-prefs';
 import { colors } from '@/theme/colors';
 
 // Matches the onboarding breath orb so the Soul-orb techniques feel continuous
 // with the intro.
 const SESSION_ORB_SIZE = 220;
-
-const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
-  { id: 'serene', label: 'Serene', icon: 'music.note' },
-  { id: 'ocean', label: 'Ocean', icon: 'waveform' },
-  { id: 'forest', label: 'Forest', icon: 'leaf' },
-  { id: 'mute', label: 'Mute', icon: 'speaker.slash' },
-];
 
 export default function SessionScreen() {
   const { id, rounds, feeling } = useLocalSearchParams<{
@@ -465,7 +458,7 @@ function BreathingSession({
               <View style={styles.bottomBlock}>
                 <PhaseLabel label={labelText} />
                 {!cycle.done && (
-                  <Text style={styles.nextPhaseCue}>
+                  <Text style={styles.nextPhaseCue} maxFontSizeMultiplier={1.2}>
                     {'then ' + nextPhase.label.toLowerCase()}
                   </Text>
                 )}

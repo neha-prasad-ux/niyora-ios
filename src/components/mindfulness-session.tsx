@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { SymbolView } from 'expo-symbols';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -28,17 +28,9 @@ import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
-import type { MusicTrack } from '@/store/music-prefs';
+import { TRACK_OPTIONS } from '@/lib/track-options';
 import { colors } from '@/theme/colors';
 import { NiyoraSync } from 'niyora-sync';
-
-// Same track set and picker behaviour as the breathing session screen.
-const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
-  { id: 'serene', label: 'Serene', icon: 'music.note' },
-  { id: 'ocean', label: 'Ocean', icon: 'waveform' },
-  { id: 'forest', label: 'Forest', icon: 'leaf' },
-  { id: 'mute', label: 'Mute', icon: 'speaker.slash' },
-];
 
 type HSL = [number, number, number];
 

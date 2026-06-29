@@ -28,14 +28,22 @@ export function PhaseLabel({ label, nextLabel }: PhaseLabelProps) {
     <View style={styles.wrap}>
       <View style={styles.chip}>
         <View style={styles.textStack}>
-          <Text style={styles.text} accessibilityLiveRegion="polite">
+          <Text
+            style={styles.text}
+            accessibilityLiveRegion="polite"
+            // The cue sits in a fixed-height stack; cap scaling so large
+            // Dynamic Type can't clip the word.
+            maxFontSizeMultiplier={1.1}
+          >
             {label}
           </Text>
         </View>
       </View>
       {nextLabel ? (
         <View style={styles.nextWrap}>
-          <Text style={styles.nextText}>{nextLabel}</Text>
+          <Text style={styles.nextText} maxFontSizeMultiplier={1.2}>
+            {nextLabel}
+          </Text>
         </View>
       ) : null}
     </View>
