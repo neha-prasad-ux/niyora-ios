@@ -62,6 +62,8 @@ import {
   DEFAULT_PERIOD_LENGTH,
   MIN_CYCLE_LENGTH,
   MAX_CYCLE_LENGTH,
+  MIN_PERIOD_LENGTH,
+  MAX_PERIOD_LENGTH,
 } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 import { syncPmsReminders } from '@/lib/pms-reminders';
@@ -284,6 +286,7 @@ export default function OnboardingScreen() {
   const [cycleDate, setCycleDate] = useState<Date | null>(null);
   const [cycleSheet, setCycleSheet] = useState<'closed' | 'date' | 'length'>('closed');
   const [cycleLength, setCycleLength] = useState(DEFAULT_CYCLE_LENGTH);
+  const [periodLength, setPeriodLength] = useState(DEFAULT_PERIOD_LENGTH);
 
   // PMS-path sub-flow that sits inside STEP.pms (so it shares the PMS dot and
   // never changes the general flow): the offer, then the reveal beats, then the
@@ -299,8 +302,8 @@ export default function OnboardingScreen() {
   // The chosen first period glows as a range of full moons, the same calendar
   // she sees later in My Soul and "My period's here" (one shared PeriodCalendar).
   const periodMoonDays = useMemo(
-    () => (cycleDate ? new Set(rangeDays(toYmd(cycleDate), DEFAULT_PERIOD_LENGTH)) : new Set<string>()),
-    [cycleDate],
+    () => (cycleDate ? new Set(rangeDays(toYmd(cycleDate), periodLength)) : new Set<string>()),
+    [cycleDate, periodLength],
   );
 
   // PMS offer beat: the orb drifts through the week's shades and settles to
@@ -571,6 +574,11 @@ export default function OnboardingScreen() {
     setCycleLength((v) => Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, v + delta)));
   }, []);
 
+  const adjustPeriodLength = useCallback((delta: number) => {
+    Haptics.selectionAsync();
+    setPeriodLength((v) => Math.min(MAX_PERIOD_LENGTH, Math.max(MIN_PERIOD_LENGTH, v + delta)));
+  }, []);
+
   const confirmLength = useCallback(async () => {
     Haptics.selectionAsync();
     try {
@@ -582,6 +590,7 @@ export default function OnboardingScreen() {
         ...seeded,
         pmsMode: true,
         cycleLength,
+        periodLength,
       });
       // Commit the symptom selection in the same beat as the cycle, so PMS
       // activation is all-or-nothing: backing out persists none of it.
@@ -599,7 +608,7 @@ export default function OnboardingScreen() {
     setCloserReady(false); // restart the loading beat each time she reaches the closer
     setPmsActivated(true);
     setStep(STEP.done);
-  }, [cycleDate, cycleLength, symptoms]);
+  }, [cycleDate, cycleLength, periodLength, symptoms]);
 
   // Orb props per step: breathing on the breath step, Spark rings on My Soul,
   // calm everywhere else. The orb shrinks aside on the cycle-setup screen to
@@ -1045,6 +1054,30 @@ export default function OnboardingScreen() {
                       Haptics.selectionAsync();
                     }}
                   />
+                </View>
+                <View style={styles.periodLengthRow}>
+                  <Text style={styles.periodLengthLabel}>Period length</Text>
+                  <View style={styles.periodStepper}>
+                    <Pressable
+                      onPress={() => adjustPeriodLength(-1)}
+                      hitSlop={10}
+                      style={styles.stepperBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Shorter period"
+                    >
+                      <SymbolView name="minus" tintColor={colors.textPrimary} size={16} weight="medium" />
+                    </Pressable>
+                    <Text style={styles.periodStepperValue}>{periodLength} days</Text>
+                    <Pressable
+                      onPress={() => adjustPeriodLength(1)}
+                      hitSlop={10}
+                      style={styles.stepperBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Longer period"
+                    >
+                      <SymbolView name="plus" tintColor={colors.textPrimary} size={16} weight="medium" />
+                    </Pressable>
+                  </View>
                 </View>
                 <Text style={styles.cycleNote}>
                   Stays on your phone. It&apos;s just how we know when to show up.
@@ -1515,6 +1548,33 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     marginTop: 12,
+  },
+  periodLengthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 360,
+    marginTop: 18,
+  },
+  periodLengthLabel: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  periodStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  periodStepperValue: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    minWidth: 72,
+    textAlign: 'center',
+    letterSpacing: 0.2,
   },
   // Period-date bottom sheet (over the dimmed PMS screen).
   sheetBackdrop: {
