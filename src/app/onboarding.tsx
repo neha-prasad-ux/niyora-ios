@@ -161,8 +161,14 @@ const STEP = {
 } as const;
 // Cycle setup (date + length) is done in sheets over the PMS screen, so the
 // steps map 1:1 to the dotted spine.
-const TOTAL_DOTS = 7;
+// The breath intro (guided breath + science fact + Soul reveal) is hidden in
+// this version while we harden it for review; all the code stays, so flipping
+// this back to true restores those three screens.
+const SHOW_BREATH_INTRO = false;
+const TOTAL_DOTS = SHOW_BREATH_INTRO ? 7 : 5;
 function dotIndex(step: number): number {
+  // With breath + soul hidden, collapse their two dots so the spine stays tight.
+  if (!SHOW_BREATH_INTRO && step >= STEP.nudge) return step - 2;
   return step;
 }
 
@@ -473,9 +479,18 @@ export default function OnboardingScreen() {
     setBreathDone(false);
     setStep((s) => {
       if (s === STEP.done && !pmsActivated) return STEP.pms;
+      // Breath + Soul are hidden this version, so nudge steps back to privacy.
+      if (!SHOW_BREATH_INTRO && s === STEP.nudge) return STEP.privacy;
       return Math.max(0, s - 1);
     });
   }, [step, pmsSubPhase, pmsActivated]);
+
+  // From privacy, into the breath intro when it's shown, else straight to the
+  // daily nudge (the breath + Soul screens are hidden this version).
+  const afterPrivacy = useCallback(() => {
+    Haptics.selectionAsync();
+    setStep(SHOW_BREATH_INTRO ? STEP.breath : STEP.nudge);
+  }, []);
 
   // After the nudge beat, on to the Smart PMS mode offer.
   const afterNudge = useCallback(() => {
@@ -936,7 +951,7 @@ export default function OnboardingScreen() {
 
         <View style={styles.footer}>
           {step === STEP.hook && <BeginButton label="Continue" onPress={goNext} />}
-          {step === STEP.privacy && <BeginButton label="Continue" onPress={goNext} />}
+          {step === STEP.privacy && <BeginButton label="Continue" onPress={afterPrivacy} />}
           {step === STEP.breath && breathDone && <BeginButton label="Continue" onPress={goNext} />}
           {step === STEP.soul && <BeginButton label="Continue" onPress={goNext} />}
           {step === STEP.nudge && (
