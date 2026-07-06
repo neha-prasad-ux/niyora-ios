@@ -403,6 +403,18 @@ export default function HomeScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>HK</Text>
           </Pressable>
         )}
+
+        {/* Dev-only preview entry for the V3 PMS-mode onboarding. Never ships in
+            release builds (gated on __DEV__). */}
+        {__DEV__ && (
+          <Pressable
+            style={{ position: 'absolute', bottom: 8, left: 8, padding: 8 }}
+            onPress={() => router.push('/onboarding-v3' as Href)}
+            accessibilityLabel="Preview V3 onboarding"
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>V3</Text>
+          </Pressable>
+        )}
       </SafeAreaView>
       </Animated.View>
 

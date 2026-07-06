@@ -89,6 +89,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="onboarding-v3"
+            options={{
+              animation: 'fade',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
             name="result"
             options={{
               animation: 'fade',
