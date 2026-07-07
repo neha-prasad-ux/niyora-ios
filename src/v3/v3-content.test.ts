@@ -95,13 +95,13 @@ describe('levelSpectrumPosition', () => {
 // --- Levers -----------------------------------------------------------
 
 describe('deriveLevers', () => {
-  it('lists every lever flagged above zero, in order', () => {
-    const a = answers({ levers: { sleep: 2, stress: 0, food: 1, movement: 3 } });
-    expect(deriveLevers(a).map((l) => l.id)).toEqual(['sleep', 'food', 'movement']);
+  it('flags the healthy habits she rarely keeps (rated 0-1), in order', () => {
+    const a = answers({ levers: { sleep: 2, food: 0, movement: 1 } });
+    expect(deriveLevers(a).map((l) => l.id)).toEqual(['food', 'movement']);
   });
 
-  it('returns none when nothing is flagged', () => {
-    expect(deriveLevers(answers({ levers: { sleep: 0, stress: 0 } }))).toEqual([]);
+  it('flags nothing when the habits are kept', () => {
+    expect(deriveLevers(answers({ levers: { sleep: 2, food: 2, movement: 2 } }))).toEqual([]);
   });
 });
 
@@ -191,7 +191,7 @@ describe('cycleLine', () => {
 
   it('produces a dated line when the cycle is known', () => {
     const line = cycleLine({ lastPeriod: '2026-06-20', length: 28, unsure: false }, today);
-    expect(line).toContain('next tougher stretch');
+    expect(line).toContain('next dip');
     expect(line).toContain('July 11');
   });
 

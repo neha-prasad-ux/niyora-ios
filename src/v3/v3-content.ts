@@ -101,25 +101,26 @@ export const ANCHOR_IDS: string[] = PRESENCE_ITEMS.filter((i) => i.anchor).map((
 export const IMPAIRMENT_ITEMS: { id: string; label: string }[] = [
   { id: 'work', label: 'Work' },
   { id: 'relationships', label: 'Relationships' },
-  { id: 'home', label: 'Home life' },
 ];
 
 export const IMPAIRMENT_MAX = 2; // 0 none, 1 a little, 2 a lot
 
 // --- Question screen: root cause / levers -----------------------------
-// Each maps to a lever we can name in the result. `linked` means the evidence
-// is association only, `change it` means it is an intervention.
+// Framed as everyday lifestyle habits (not minimised to the premenstrual
+// window), stated positively and observationally so rating one low never reads
+// as failing. `factor` is the key word to emphasise in the UI. `linked` means
+// the evidence is association only, `change it` means it is an intervention.
 
 export const LEVER_ITEMS: {
-  id: 'sleep' | 'stress' | 'food' | 'movement';
-  label: string;
-  question: string;
+  id: 'sleep' | 'food' | 'movement';
+  label: string; // short area label, used in the result
+  statement: string; // positive lifestyle statement she rates as true or not
+  factor: string; // key word to highlight within the statement
   tag: 'linked' | 'change it';
 }[] = [
-  { id: 'sleep', label: 'Sleep', question: 'Poor sleep before your period', tag: 'linked' },
-  { id: 'stress', label: 'Stress', question: 'High stress before your period', tag: 'linked' },
-  { id: 'food', label: 'Food', question: 'Skipped meals or heavy cravings', tag: 'change it' },
-  { id: 'movement', label: 'Movement', question: 'Little movement before your period', tag: 'change it' },
+  { id: 'sleep', label: 'Sleep', statement: 'I get 7 to 8 hours of sleep', factor: '7 to 8 hours', tag: 'linked' },
+  { id: 'food', label: 'Food', statement: 'I eat regular, full meals', factor: 'meals', tag: 'change it' },
+  { id: 'movement', label: 'Movement', statement: 'I move for 30 minutes most days', factor: '30 minutes', tag: 'change it' },
 ];
 
 // --- Question screen: coping ------------------------------------------
@@ -130,12 +131,16 @@ export const COPING_ITEMS: {
   label: string;
   mode: 'engagement' | 'disengagement';
 }[] = [
-  { id: 'talk', label: 'Talk it through', mode: 'engagement' },
+  { id: 'talk', label: 'Talk it through with someone', mode: 'engagement' },
+  { id: 'withdraw', label: 'Keep to yourself', mode: 'disengagement' },
   { id: 'reframe', label: 'Try to see it differently', mode: 'engagement' },
+  { id: 'ruminate', label: 'Keep replaying it', mode: 'disengagement' },
   { id: 'distract', label: 'Distract yourself', mode: 'engagement' },
-  { id: 'withdraw', label: 'Keep away from people', mode: 'disengagement' },
   { id: 'suppress', label: 'Push it down and carry on', mode: 'disengagement' },
-  { id: 'vent', label: 'Let it out on someone', mode: 'disengagement' },
+  { id: 'engage', label: 'Keep talking it out', mode: 'engagement' },
+  { id: 'vent', label: 'Take it out on someone', mode: 'disengagement' },
+  { id: 'cry', label: 'Cry it out', mode: 'engagement' },
+  { id: 'accept', label: 'Let it pass', mode: 'engagement' },
 ];
 
 // --- Answer shape -----------------------------------------------------
@@ -143,7 +148,12 @@ export const COPING_ITEMS: {
 export interface V3Answers {
   presence: string[];
   impairment: Record<string, number>; // 0..2 per item
-  cycle: { lastPeriod: string | null; length: number | null; unsure: boolean };
+  cycle: {
+    lastPeriod: string | null;
+    length: number | null;
+    periodLength?: number; // bleeding days; only shapes the calendar, not the prediction
+    unsure: boolean;
+  };
   remission: 'yes' | 'no' | 'unsure' | null;
   levers: Record<string, number>; // 0..3 per lever id
   coping: string[];
@@ -190,9 +200,14 @@ export function deriveLevel(a: V3Answers): Level {
   return bandLevel(count, anchor, impact);
 }
 
-/** Levers she flagged (any degree above zero). Result lists all flagged. */
+/**
+ * Levers worth moving: the healthy habits she rarely keeps. Statements are
+ * positive ("I get a full night of sleep"), rated 0 (rarely) to 2 (usually), so
+ * a low rating (0-1, i.e. not "usually") is the habit she could build on.
+ * Unanswered levers default high, so they are never flagged.
+ */
 export function deriveLevers(a: V3Answers): typeof LEVER_ITEMS {
-  return LEVER_ITEMS.filter((l) => (a.levers[l.id] ?? 0) > 0);
+  return LEVER_ITEMS.filter((l) => (a.levers[l.id] ?? 2) <= 1);
 }
 
 export type CopingStanding = 'engaging' | 'mixed' | 'disengaging' | null;
@@ -214,18 +229,18 @@ export function copingStandingCopy(
   switch (standing) {
     case 'disengaging':
       return {
-        line: 'You tend to push feelings down or keep them at a distance.',
-        tail: 'Common, and it is the pattern that keeps them going. Also the most trainable.',
+        line: 'You tend to push feelings down or keep them at a distance',
+        tail: 'Common, and the pattern that keeps them going, also the most trainable',
       };
     case 'engaging':
       return {
-        line: 'You tend to work with the feelings, by talking or reframing.',
-        tail: 'That is the pattern that eases hard days. We build on it.',
+        line: 'You tend to work with the feelings, by talking or reframing',
+        tail: 'That is the pattern that eases things, and we build on it',
       };
     case 'mixed':
       return {
-        line: 'You do a bit of both, working with feelings and pushing some down.',
-        tail: 'The working-with side is the one that helps. That part gets stronger with practice.',
+        line: 'You do a bit of both, working with feelings and pushing some down',
+        tail: 'The working-with side is the one that helps, and it gets stronger with practice',
       };
     default:
       return null;
@@ -266,9 +281,9 @@ export function levelSpectrumPosition(level: Level): number {
 export function remissionLine(remission: V3Answers['remission']): string | null {
   switch (remission) {
     case 'yes':
-      return "Because they lift when your period starts, they're predictable, which is what we work with.";
+      return "Because they lift when your period starts, they're predictable, which is what we work with";
     case 'no':
-      return "These may run beyond the premenstrual window, so it's worth seeing the fuller picture.";
+      return "These may run beyond the premenstrual window, so it's worth seeing the fuller picture";
     default:
       return null;
   }
@@ -318,5 +333,5 @@ export function formatStretchDate(d: Date): string {
 export function cycleLine(cycle: V3Answers['cycle'], today: Date = new Date()): string | null {
   const d = nextTougherStretch(cycle, today);
   if (!d) return null;
-  return `Your next tougher stretch is likely around ${formatStretchDate(d)}.`;
+  return `Your next dip is likely around ${formatStretchDate(d)}`;
 }

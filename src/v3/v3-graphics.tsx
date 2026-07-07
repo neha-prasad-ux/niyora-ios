@@ -8,7 +8,7 @@
 // Colors come from v3-theme (the app's real palette), not the plum register.
 
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -31,6 +31,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg';
 
+import { BRAIN_PATH } from './brain-path';
 import { v3 } from './v3-theme';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -115,125 +116,75 @@ function DrawPath({
 // Oestrogen and progesterone across one cycle, with the pre-period drop
 // emphasised. The curve is identical for everyone; the brain response is not.
 
-export function HormoneCurve({ width = 320, height = 150 }: { width?: number; height?: number }) {
+export function HormoneCurve({ width = 320, height = 190 }: { width?: number; height?: number }) {
   const reduce = useReduceMotion();
   const W = 320;
-  const H = height;
-  const oestrogen =
-    'M 8 118 C 60 112, 78 40, 120 40 C 150 40, 150 96, 180 92 C 210 88, 214 58, 240 62 C 270 66, 286 118, 312 128';
-  const progesterone =
-    'M 8 128 C 90 128, 120 126, 150 120 C 180 114, 196 44, 224 44 C 252 44, 260 118, 312 130';
-
-  const band = useSharedValue(reduce ? 0.12 : 0);
-  useEffect(() => {
-    if (reduce) {
-      band.value = 0.12;
-      return;
-    }
-    band.value = withDelay(1100, withTiming(0.12, { duration: 900 }));
-    return () => cancelAnimation(band);
-  }, [reduce, band]);
-  const bandProps = useAnimatedProps(() => ({ opacity: band.value }));
+  const H = 190;
+  const baseline = H - 14;
+  // One hormone line: a rounded rise, then the steep pre-period drop lands in the
+  // same right-hand lane as the two brains.
+  const curve =
+    'M 8 132 C 52 128, 84 56, 146 54 C 196 52, 214 56, 240 72 C 262 86, 277 152, 300 170';
+  const DROP_X = 272; // the shared lane: the fall and both brains sit here.
 
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} width={width} height={height}>
-      <Line x1={8} y1={H - 12} x2={W - 8} y2={H - 12} stroke={v3.line} strokeWidth={1} />
-      <AnimatedRect
-        x={248}
-        y={8}
-        width={56}
-        height={H - 20}
-        rx={6}
-        fill={v3.activated}
-        animatedProps={bandProps}
-      />
-      <DrawPath d={oestrogen} stroke={v3.accent} length={520} reduce={reduce} duration={1500} />
-      <DrawPath
-        d={progesterone}
-        stroke={v3.regulated}
-        length={520}
-        reduce={reduce}
-        duration={1500}
-        delay={reduce ? 0 : 300}
-      />
-      <SvgText x={276} y={H - 2} textAnchor="middle" fill={v3.activated} fontSize={9} fontFamily={MONO}>
+      <Line x1={8} y1={baseline} x2={W - 8} y2={baseline} stroke={v3.line} strokeWidth={1} />
+      {/* Faint band down the drop lane. */}
+      <Rect x={DROP_X - 36} y={8} width={72} height={H - 26} rx={8} fill={v3.activated} opacity={0.08} />
+      <DrawPath d={curve} stroke={v3.accent} length={420} reduce={reduce} duration={1500} />
+      {/* Two stacked brains in the drop lane: blue calm on top, red reacting below. */}
+      <BrainGlyph cx={DROP_X} cy={46} size={60} tint={v3.regulated} pulse={false} reduce={reduce} />
+      <BrainGlyph cx={DROP_X} cy={118} size={60} tint={BRAIN_REACTS} pulse={!reduce} reduce={reduce} />
+      <SvgText x={DROP_X} y={H - 2} textAnchor="middle" fill={v3.activated} fontSize={9} fontFamily={MONO}>
         the drop
       </SvgText>
       <SvgText x={8} y={H - 2} fill={v3.accent} fontSize={9} fontFamily={MONO}>
-        oestrogen
-      </SvgText>
-      <SvgText x={120} y={H - 2} fill={v3.regulated} fontSize={9} fontFamily={MONO}>
-        progesterone
+        hormones
       </SvgText>
     </Svg>
   );
 }
 
-// --- The two brains (Just hormones screen) ----------------------------
-// One regulated (cool blue, still), one activated (amber, gently pulsing).
+// The reacting (PMS) brain's colour: a soft red, distinct from the cool blue of
+// the calm brain.
+const BRAIN_REACTS = '#FF6B6B';
 
-export function BrainPair() {
-  const reduce = useReduceMotion();
-  return (
-    <View style={styles.brains}>
-      <BrainCard
-        tint={v3.regulated}
-        title="Without PMS"
-        caption="No brain sensitivity to the drop."
-        pulse={false}
-        reduce={reduce}
-      />
-      <BrainCard
-        tint={v3.activated}
-        title="With PMS"
-        caption="The brain is more sensitive to the drop."
-        pulse={!reduce}
-        reduce={reduce}
-      />
-    </View>
-  );
-}
-
-function BrainCard({
+// A single brain glyph placed at (cx, cy) in SVG user space, scaled to `size`.
+// The reacting brain pulses a soft glow; the calm one stays still.
+function BrainGlyph({
+  cx,
+  cy,
+  size,
   tint,
-  title,
-  caption,
   pulse,
   reduce,
 }: {
+  cx: number;
+  cy: number;
+  size: number;
   tint: string;
-  title: string;
-  caption: string;
   pulse: boolean;
   reduce: boolean;
 }) {
-  const glow = useSharedValue(0.06);
+  const s = size / 512;
+  // The reacting brain breathes a soft aura; the calm one is still.
+  const glow = useSharedValue(0.08);
   useEffect(() => {
-    if (!pulse) return;
+    if (!pulse || reduce) return;
     glow.value = withRepeat(
-      withTiming(0.16, { duration: 1200, easing: Easing.inOut(Easing.sin) }),
+      withTiming(0.32, { duration: 1300, easing: Easing.inOut(Easing.sin) }),
       -1,
       true,
     );
     return () => cancelAnimation(glow);
-  }, [pulse, glow]);
-  const glowProps = useAnimatedProps(() => ({ opacity: glow.value }));
-
+  }, [pulse, reduce, glow]);
+  const auraProps = useAnimatedProps(() => ({ opacity: glow.value }));
   return (
-    <View style={styles.brainCard}>
-      <Svg viewBox="0 0 64 60" width={64} height={60}>
-        {pulse && <AnimatedCircle cx={32} cy={30} r={24} fill={tint} animatedProps={glowProps} />}
-        <G fill="none" stroke={tint} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M32 8c-7 0-11 5-11 10 0 2-4 2-5 6-1 4 2 6 3 8-1 4 3 8 7 8 1 3 4 5 6 5" />
-          <Path d="M32 8c7 0 11 5 11 10 0 2 4 2 5 6 1 4-2 6-3 8 1 4-3 8-7 8-1 3-4 5-6 5" />
-          <Path d="M32 12v40" opacity={0.5} />
-          <Path d="M26 22c3 1 3 4 0 5M38 22c-3 1-3 4 0 5" opacity={0.7} />
-          <Path d="M26 36c3 1 3 4 0 5M38 36c-3 1-3 4 0 5" opacity={0.7} />
-        </G>
-      </Svg>
-      <Text style={[styles.brainTitle, { color: tint }]}>{title}</Text>
-      <Text style={styles.brainCaption}>{caption}</Text>
-    </View>
+    <G transform={`translate(${cx - 256 * s} ${cy - 256 * s}) scale(${s})`}>
+      {pulse && <AnimatedCircle cx={256} cy={256} r={252} fill={tint} animatedProps={auraProps} />}
+      <Path d={BRAIN_PATH} fill={tint} />
+    </G>
   );
 }
 
@@ -330,14 +281,15 @@ function GrowBar({
   );
 }
 
-export function DivergingBars({ width = 320, height = 200 }: { width?: number; height?: number }) {
+export function DivergingBars({ width = 340 }: { width?: number }) {
   const reduce = useReduceMotion();
   const W = 320;
-  const H = height;
+  const H = 220; // fixed design height; render height derives from width to keep aspect
   const mid = H / 2;
   const maxBar = mid - 34;
   const slot = W / (LEVER_BARS.length + 1);
-  const barW = 42;
+  const barW = 44;
+  const height = (width * H) / W;
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} width={width} height={height}>
       <Line x1={8} y1={mid} x2={W - 8} y2={mid} stroke={v3.textSoft} strokeWidth={1.4} strokeDasharray="3 3" />
@@ -374,9 +326,6 @@ export function DivergingBars({ width = 320, height = 200 }: { width?: number; h
             <SvgText x={cx} textAnchor="middle" fill={v3.textSoft} fontSize={10} fontFamily={MONO} y={up ? mid + 16 : mid - 8}>
               {b.label}
             </SvgText>
-            <SvgText x={cx} textAnchor="middle" fill={color} fontSize={8} fontFamily={MONO} y={up ? mid + 28 : mid - 20}>
-              {b.tag}
-            </SvgText>
           </G>
         );
       })}
@@ -388,59 +337,36 @@ export function DivergingBars({ width = 320, height = 200 }: { width?: number; h
 // One trigger splits into two responses. No practice -> reacts, hard day.
 // Practice -> trained reflex, just another day.
 
-export function TrainableFork({ width = 320, height = 120 }: { width?: number; height?: number }) {
-  const reduce = useReduceMotion();
-  const W = 320;
-  const H = 120;
-  const labels = useSharedValue(reduce ? 1 : 0);
-  useEffect(() => {
-    if (reduce) {
-      labels.value = 1;
-      return;
-    }
-    labels.value = withDelay(1100, withTiming(1, { duration: 400 }));
-    return () => cancelAnimation(labels);
-  }, [reduce, labels]);
-  const labelProps = useAnimatedProps(() => ({ opacity: labels.value }));
+// A standalone side-profile brain icon (fills its box), for the trainable
+// comparison columns.
+export function BrainIcon({ size, tint }: { size: number; tint: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 512 512">
+      <Path d={BRAIN_PATH} fill={tint} />
+    </Svg>
+  );
+}
 
+// The "Same trigger -> your response" fork that tops the trainable comparison.
+export function TriggerFork({ width = 240 }: { width?: number }) {
+  const W = 240;
+  const H = 104;
+  const height = (width * H) / W;
+  const cx = W / 2;
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} width={width} height={height}>
-      <Circle cx={30} cy={H / 2} r={7} fill={v3.accent} />
-      <SvgText x={30} y={H / 2 + 26} textAnchor="middle" fill={v3.textSoft} fontSize={9} fontFamily={MONO}>
-        same trigger
+      <SvgText x={cx} y={18} textAnchor="middle" fill={v3.text} fontSize={17} fontFamily={LABEL}>
+        Same trigger
       </SvgText>
-      <DrawPath
-        d={`M 37 ${H / 2} C 120 ${H / 2}, 150 26, 250 26`}
-        stroke={v3.activated}
-        length={280}
-        strokeWidth={2.2}
-        reduce={reduce}
-        duration={900}
-        delay={reduce ? 0 : 300}
-      />
-      <DrawPath
-        d={`M 37 ${H / 2} C 120 ${H / 2}, 150 94, 250 94`}
-        stroke={v3.regulated}
-        length={280}
-        strokeWidth={2.2}
-        reduce={reduce}
-        duration={900}
-        delay={reduce ? 0 : 300}
-      />
-      <AnimatedG animatedProps={labelProps}>
-        <SvgText x={256} y={24} fill={v3.activated} fontSize={10} fontFamily={LABEL}>
-          No practice
-        </SvgText>
-        <SvgText x={256} y={36} fill={v3.textSoft} fontSize={9} fontFamily={MONO}>
-          reacts. hard day.
-        </SvgText>
-        <SvgText x={256} y={92} fill={v3.regulated} fontSize={10} fontFamily={LABEL}>
-          Practice
-        </SvgText>
-        <SvgText x={256} y={104} fill={v3.textSoft} fontSize={9} fontFamily={MONO}>
-          trained. just a day.
-        </SvgText>
-      </AnimatedG>
+      <Line x1={cx} y1={30} x2={cx} y2={46} stroke={v3.text} strokeWidth={2} strokeLinecap="round" />
+      {/* Label sits in the gap between the stem and the split, no lines over it. */}
+      <SvgText x={cx} y={62} textAnchor="middle" fill={v3.textSoft} fontSize={11} fontFamily={MONO}>
+        your response
+      </SvgText>
+      <Line x1={cx} y1={70} x2={54} y2={94} stroke={v3.text} strokeWidth={2} strokeLinecap="round" />
+      <Line x1={cx} y1={70} x2={W - 54} y2={94} stroke={v3.text} strokeWidth={2} strokeLinecap="round" />
+      <Path d="M48 90 L60 90 L54 100 Z" fill={v3.text} />
+      <Path d={`M${W - 60} 90 L${W - 48} 90 L${W - 54} 100 Z`} fill={v3.text} />
     </Svg>
   );
 }
@@ -449,10 +375,15 @@ export function TrainableFork({ width = 320, height = 120 }: { width?: number; h
 // The intro shows it empty (mild -> PMDD). The result drops the dot on the SAME
 // bar and slides it to position.
 
+// The spectrum, redrawn as a thick flowing wave instead of a clinical bar: it
+// ripples gently at the "mild" end and swings bigger toward "PMDD", so the shape
+// itself carries the meaning (calm to turbulent). The wave drifts on a slow loop
+// for life. When a `position` is passed (the result screen) a "you" marker
+// slides in to the banded spot on the axis.
 export function SpectrumBar({
   position,
   width = 320,
-  height = 54,
+  height = 130,
 }: {
   position?: number;
   width?: number;
@@ -460,50 +391,94 @@ export function SpectrumBar({
 }) {
   const reduce = useReduceMotion();
   const W = 320;
-  const H = 54;
-  const trackY = 22;
-  const x0 = 14;
-  const x1 = W - 14;
-  const dotX = position != null ? x0 + position * (x1 - x0) : null;
+  const H = 88;
+  const x0 = 24;
+  const x1 = W - 24;
+  const BAND = 30; // slim rainbow band
+  const midY = 34;
+  const bandY = midY - BAND / 2;
+  const SHEEN = 100; // width of the gloss that sweeps across
 
+  // The only motion: a soft gloss sweeps slowly back and forth across the band,
+  // like light moving over the colours. The band and its colours stay put.
+  const sweep = useSharedValue(0);
+  useEffect(() => {
+    if (reduce) return;
+    sweep.value = withRepeat(withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    return () => cancelAnimation(sweep);
+  }, [reduce, sweep]);
+  const sheenProps = useAnimatedProps(() => ({
+    x: x0 + sweep.value * (x1 - x0 - SHEEN),
+  }));
+
+  // Result marker: slide "you" in from the mild end to the banded position.
+  const posX = position != null ? x0 + position * (x1 - x0) : null;
   const slide = useSharedValue(reduce ? 1 : 0);
   useEffect(() => {
-    if (dotX == null) return;
+    if (posX == null) return;
     if (reduce) {
       slide.value = 1;
       return;
     }
-    slide.value = withDelay(300, withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.cubic) }));
+    slide.value = withDelay(400, withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.cubic) }));
     return () => cancelAnimation(slide);
-  }, [dotX, reduce, slide]);
-  // Animate cx directly on the circles: the dot slides from the mild end (x0) to
-  // its banded position, and fades in as it lands.
-  const cx = useDerivedValue(() => (dotX == null ? x0 : x0 + (dotX - x0) * slide.value));
-  const dotOuterProps = useAnimatedProps(() => ({ cx: cx.value, opacity: slide.value }));
-  const dotInnerProps = useAnimatedProps(() => ({ cx: cx.value, opacity: slide.value }));
-  const labelProps = useAnimatedProps(() => ({ x: cx.value, opacity: slide.value }));
+  }, [posX, reduce, slide]);
+  const markX = useDerivedValue(() => (posX == null ? x0 : x0 + (posX - x0) * slide.value));
+  const markProps = useAnimatedProps(() => ({ cx: markX.value, opacity: slide.value }));
+  const markLabelProps = useAnimatedProps(() => ({ x: markX.value, opacity: slide.value }));
 
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} width={width} height={height}>
       <Defs>
+        {/* Full visible-light rainbow, red (mild) to violet (PMDD). */}
         <LinearGradient id="v3-spectrum" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={v3.spectrumStops[0]} />
-          <Stop offset="0.55" stopColor={v3.spectrumStops[1]} />
-          <Stop offset="1" stopColor={v3.spectrumStops[2]} />
+          <Stop offset="0" stopColor="#FF3B30" />
+          <Stop offset="0.17" stopColor="#FF9500" />
+          <Stop offset="0.34" stopColor="#FFD60A" />
+          <Stop offset="0.5" stopColor="#34C759" />
+          <Stop offset="0.66" stopColor="#32ADE6" />
+          <Stop offset="0.83" stopColor="#0A84FF" />
+          <Stop offset="1" stopColor="#8E5BFF" />
+        </LinearGradient>
+        {/* Gloss: soft white in the middle, transparent at the edges. */}
+        <LinearGradient id="v3-sheen" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
+          <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={0.32} />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
         </LinearGradient>
       </Defs>
-      <Rect x={x0} y={trackY - 4} width={x1 - x0} height={8} rx={4} fill="url(#v3-spectrum)" opacity={0.85} />
-      <SvgText x={x0} y={trackY + 22} fill={v3.textSoft} fontSize={10} fontFamily={MONO}>
+      {/* Soft halo behind the band for depth. */}
+      <Rect
+        x={x0 - 4}
+        y={bandY - 8}
+        width={x1 - x0 + 8}
+        height={BAND + 16}
+        rx={14}
+        fill="url(#v3-spectrum)"
+        opacity={0.12}
+      />
+      {/* The thick rainbow band. */}
+      <Rect x={x0} y={bandY} width={x1 - x0} height={BAND} rx={10} fill="url(#v3-spectrum)" />
+      {/* The gloss that sweeps across it. */}
+      <AnimatedRect
+        animatedProps={sheenProps}
+        y={bandY}
+        width={SHEEN}
+        height={BAND}
+        rx={10}
+        fill="url(#v3-sheen)"
+      />
+      <SvgText x={x0} y={H - 8} fill={v3.textSoft} fontSize={11} fontFamily={MONO}>
         mild
       </SvgText>
-      <SvgText x={x1} y={trackY + 22} textAnchor="end" fill={v3.textSoft} fontSize={10} fontFamily={MONO}>
+      <SvgText x={x1} y={H - 8} textAnchor="end" fill={v3.textSoft} fontSize={11} fontFamily={MONO}>
         PMDD
       </SvgText>
-      {dotX != null && (
+      {posX != null && (
         <>
-          <AnimatedCircle cy={trackY} r={9} fill={v3.text} animatedProps={dotOuterProps} />
-          <AnimatedCircle cy={trackY} r={5} fill={v3.accent} animatedProps={dotInnerProps} />
-          <AnimatedSvgText y={trackY - 14} textAnchor="middle" fill={v3.text} fontSize={9} fontFamily={MONO} animatedProps={labelProps}>
+          <AnimatedCircle cy={midY} r={11} fill={v3.text} animatedProps={markProps} />
+          <AnimatedCircle cy={midY} r={6} fill={v3.accent} animatedProps={markProps} />
+          <AnimatedSvgText y={midY - BAND / 2 - 8} textAnchor="middle" fill={v3.text} fontSize={10} fontFamily={MONO} animatedProps={markLabelProps}>
             you
           </AnimatedSvgText>
         </>
@@ -512,32 +487,3 @@ export function SpectrumBar({
   );
 }
 
-const styles = StyleSheet.create({
-  brains: {
-    flexDirection: 'row',
-    gap: 10,
-    marginVertical: 8,
-  },
-  brainCard: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
-    alignItems: 'center',
-    gap: 5,
-  },
-  brainTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
-  },
-  brainCaption: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
-    lineHeight: 15,
-    color: v3.textSoft,
-    textAlign: 'center',
-  },
-});

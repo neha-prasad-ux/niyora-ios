@@ -296,10 +296,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     opacity: haloOpacity.value,
   }));
 
-  // Canvas is 1.8x the sphere so the outer halo has room to fade.
-  const canvas = size * 1.8;
   const sphereRadius = size / 2;
-  const center = canvas / 2;
 
   // Ring geometry — a tilted Saturn band. Each tier adds a concentric ring,
   // so the band visibly widens with the tier. rx reaches past the sphere so the
@@ -312,6 +309,12 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
     const factor = 1 + i * 0.17;
     return { rx: baseRx * factor, ry: baseRy * factor, i };
   });
+  const maxRx = rings.length ? Math.max(...rings.map((r) => r.rx)) : 0;
+
+  // Canvas is 1.8x the sphere for halo room, and grows to fit the widest ring so
+  // high tier counts (4-5 rings) are never clipped at the canvas edge.
+  const canvas = Math.max(size * 1.8, (maxRx + bandStroke) * 2 + size * 0.16);
+  const center = canvas / 2;
 
   // Protection rings: a flattened ellipse, drawn twice on opposing diagonals so
   // the two cross over the orb like a shield. Same back/front split as the tier

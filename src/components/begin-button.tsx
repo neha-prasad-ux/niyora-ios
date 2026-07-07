@@ -27,6 +27,9 @@ type BeginButtonProps = {
   // When true the button dims and ignores presses. Used to hold the user on a
   // step until a required choice is made (e.g. picking the period date).
   disabled?: boolean;
+  // When true the button stretches to fill its container width (a big, easy
+  // tap target) instead of hugging the label.
+  fullWidth?: boolean;
 };
 
 type Burst = {
@@ -42,7 +45,7 @@ type Burst = {
 const BURST_COUNT = 18;
 const BURST_DELAY_MS = 360;
 
-export function BeginButton({ label = 'Begin', onPress, disabled = false }: BeginButtonProps) {
+export function BeginButton({ label = 'Begin', onPress, disabled = false, fullWidth = false }: BeginButtonProps) {
   const pressed = useSharedValue(0);
   const [particles, setParticles] = useState<Burst[]>([]);
   const idRef = useRef(0);
@@ -128,7 +131,7 @@ export function BeginButton({ label = 'Begin', onPress, disabled = false }: Begi
   }, [disabled, reduceMotion, fireBurst, onPress]);
 
   return (
-    <View style={styles.shadowWrap}>
+    <View style={[styles.shadowWrap, fullWidth && styles.shadowWrapFull]}>
       <Pressable
         onPress={handlePress}
         onPressIn={disabled ? undefined : handlePressIn}
@@ -138,7 +141,7 @@ export function BeginButton({ label = 'Begin', onPress, disabled = false }: Begi
         accessibilityLabel={label}
         accessibilityState={{ disabled }}
       >
-        <Animated.View style={[animatedStyle, disabled && styles.disabled]}>
+        <Animated.View style={[animatedStyle, fullWidth && styles.buttonFull, disabled && styles.disabled]}>
           <LinearGradient
             colors={[colors.beginStart, colors.beginEnd]}
             start={{ x: 0, y: 0 }}
@@ -182,6 +185,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.6,
     shadowRadius: 18,
+  },
+  shadowWrapFull: {
+    alignSelf: 'stretch',
+  },
+  buttonFull: {
+    alignSelf: 'stretch',
   },
   button: {
     paddingVertical: 12,
