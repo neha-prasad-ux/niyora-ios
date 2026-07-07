@@ -16,6 +16,20 @@ export const DEFAULT_CYCLE_LENGTH = 28;
 export const MIN_CYCLE_LENGTH = 20;
 export const MAX_CYCLE_LENGTH = 40;
 
+// Period (bleeding) length: only shapes the calendar range she sees, not the
+// window math. Ported from production V2. One value for every period.
+export const DEFAULT_PERIOD_LENGTH = 5;
+export const MIN_PERIOD_LENGTH = 2;
+export const MAX_PERIOD_LENGTH = 8;
+
+export function clampPeriodLength(value: unknown): number {
+  const n = typeof value === 'number' ? Math.round(value) : NaN;
+  if (Number.isNaN(n) || n < MIN_PERIOD_LENGTH || n > MAX_PERIOD_LENGTH) {
+    return DEFAULT_PERIOD_LENGTH;
+  }
+  return n;
+}
+
 export const DEFAULT_PMS_PREFS: PmsPrefs = {
   pmsMode: false,
   lastPeriodStart: null,
