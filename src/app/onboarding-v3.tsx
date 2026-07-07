@@ -32,10 +32,8 @@ import Animated, {
   Easing,
   FadeIn,
   FadeInDown,
-  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
@@ -366,11 +364,11 @@ function StepLayout({
 // line, and a shake of the options) rather than silence. The hint clears itself
 // once the question becomes valid.
 function useAnswerNudge(valid: boolean) {
-  const [showHint, setShowHint] = useState(false);
+  const [nudged, setNudged] = useState(false);
   const shake = useSharedValue(0);
-  useEffect(() => {
-    if (valid && showHint) setShowHint(false);
-  }, [valid, showHint]);
+  // Derived: the hint shows only while nudged and still invalid, so it clears
+  // itself once answered without a state-updating effect.
+  const showHint = nudged && !valid;
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
   const onContinue = useCallback(
     (advance: () => void) => {
@@ -379,7 +377,7 @@ function useAnswerNudge(valid: boolean) {
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      setShowHint(true);
+      setNudged(true);
       shake.value = withSequence(
         withTiming(-6, { duration: 45 }),
         withTiming(6, { duration: 45 }),
