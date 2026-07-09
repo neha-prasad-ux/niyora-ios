@@ -32,7 +32,9 @@ import Animated, {
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
+import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { Orb } from '@/components/orb';
+import { RingCelebration } from '@/components/RingCelebration';
 import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import { WaveMeter } from '@/v3/v3-graphics';
@@ -42,6 +44,8 @@ import {
   KIND_WORD,
   L1_CARDS,
   L1_CLOSE,
+  L1_CONGRATS,
+  L1_INTRO,
   L2_CLOSE,
   L2_SCENES,
   L3_PAYLOAD,
@@ -65,8 +69,14 @@ import {
   recordKindWord,
   recordLevelComplete,
 } from '@/store/training-v3';
+import { SOUL_RING_HUES } from '@/models/tiers';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
+
+// Truth reads calm blue (steady/true); Myth reads brand pink (the soul-ring
+// rose family), so the pair is on-brand rather than a warning amber.
+const TRUTH_BLUE = v3.regulated;
+const MYTH_PINK = 'hsl(330, 68%, 72%)';
 
 export default function GameV3() {
   const { width: screenW } = useWindowDimensions();
@@ -89,6 +99,13 @@ export default function GameV3() {
 
   const meter = waveMeterLabel(skill, false);
   const stripW = Math.min(screenW - 40, 420);
+
+  // Level 1 is the redesigned Truth/Myth arc: a self-contained, full-screen flow
+  // (game intro -> level intro -> play -> congrats), big buttons at the bottom.
+  // Levels 2-6 keep the shared runner below for now.
+  if (!done && index === 0) {
+    return <LevelOne onDone={() => advance(levels[0].id)} onExit={() => router.back()} />;
+  }
 
   return (
     <View style={styles.root}>
@@ -131,6 +148,195 @@ export default function GameV3() {
           <LevelBody key={level!.id} level={level!} onDone={() => advance(level!.id)} />
         )}
       </SafeAreaView>
+    </View>
+  );
+}
+
+// Faint soul orbs (with rings) drifting behind the Level 1 intro screens, so the
+// pages carry the app's own texture instead of reading flat. Decorative only.
+function L1Backdrop() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View style={styles.l1Orb1}>
+        <Orb size={84} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
+      </View>
+      <View style={styles.l1Orb2}>
+        <Orb size={64} tierRingCount={1} ringHues={SOUL_RING_HUES} still />
+      </View>
+      <View style={styles.l1Orb3}>
+        <Orb size={58} tierRingCount={1} ringHues={SOUL_RING_HUES} still />
+      </View>
+      <View style={styles.l1Orb4}>
+        <Orb size={92} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
+      </View>
+    </View>
+  );
+}
+
+// --- Level 1 · the redesigned Truth/Myth arc --------------------------
+// Self-contained, full-screen: game intro -> level intro -> play -> congrats.
+// Big buttons at the bottom, soft retry (never a harsh fail), a brand particle
+// burst on each right answer, and a ring celebration on the congrats page.
+function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [stage, setStage] = useState<'gameIntro' | 'levelIntro' | 'play' | 'congrats'>('gameIntro');
+  const [i, setI] = useState(0);
+  const [guess, setGuess] = useState<boolean | null>(null); // Truth = true, Myth = false
+  const [celebrate, setCelebrate] = useState(false);
+
+  const card = L1_CARDS[i];
+  const answered = guess !== null;
+  const right = answered && guess === card.isTrue;
+
+  const pick = (asTrue: boolean) => {
+    if (answered) return;
+    if (asTrue === card.isTrue) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    }
+    setGuess(asTrue);
+  };
+
+  const next = () => {
+    tap();
+    if (right) {
+      setCelebrate(false);
+      if (i + 1 >= L1_CARDS.length) setStage('congrats');
+      else {
+        setI(i + 1);
+        setGuess(null);
+      }
+    } else {
+      setGuess(null); // soft retry: let her answer again
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={onExit} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            {stage === 'play' ? (
+              <View style={styles.l1Segments}>
+                {L1_CARDS.map((c, idx) => (
+                  <View key={c.id} style={[styles.l1Seg, idx <= i && styles.l1SegOn]} />
+                ))}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <View style={{ width: 22 }} />
+          </View>
+        )}
+
+        {stage === 'gameIntro' && (
+          <View style={styles.l1Body}>
+            <L1Backdrop />
+            <View style={styles.l1Center}>
+              <Text style={styles.l1Kicker}>{L1_INTRO.kicker}</Text>
+              <Text style={styles.l1Subtitle}>{L1_INTRO.subtitle}</Text>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('levelIntro'); }} />
+          </View>
+        )}
+
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L1Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Level}>{L1_INTRO.level}</Text>
+              <View style={styles.l1RoundBadge}>
+                <Text style={styles.l1RoundText}>{L1_INTRO.round}</Text>
+              </View>
+              <View style={styles.l1CardsHero}>
+                <View style={[styles.l1HeroCard, styles.l1HeroTruth]}>
+                  <Text style={styles.l1HeroCardText}>Truth</Text>
+                </View>
+                <View style={[styles.l1HeroCard, styles.l1HeroMyth]}>
+                  <Text style={styles.l1HeroCardText}>Myth</Text>
+                </View>
+              </View>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('play'); }} />
+          </View>
+        )}
+
+        {stage === 'play' && (
+          <View style={styles.l1Body}>
+            <View style={styles.l1Center}>
+              <Text style={styles.l1Statement}>{card.statement}</Text>
+            </View>
+            <View style={styles.l1Bottom}>
+              {!answered ? (
+                <View style={styles.l1Choices}>
+                  <Pressable
+                    style={[styles.l1Choice, styles.l1ChoiceTruth]}
+                    onPress={() => pick(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Truth"
+                  >
+                    <Text style={styles.l1ChoiceLabel}>Truth</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.l1Choice, styles.l1ChoiceMyth]}
+                    onPress={() => pick(false)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Myth"
+                  >
+                    <Text style={styles.l1ChoiceLabel}>Myth</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, right ? styles.l1RevealRight : styles.l1RevealWrong]}>
+                    <Text style={[styles.l1Verdict, { color: right ? v3.regulated : v3.activated }]}>
+                      {right ? `${card.isTrue ? 'True' : 'Myth'}, nice` : 'Not quite'}
+                    </Text>
+                    <Text style={styles.l1RevealText}>{card.reveal}</Text>
+                  </View>
+                  <BeginButton
+                    fullWidth
+                    label={right ? (i + 1 >= L1_CARDS.length ? 'Finish' : 'Next') : 'Try again'}
+                    onPress={next}
+                  />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'congrats' && (
+          <View style={styles.l1Body}>
+            <View style={styles.l1Center}>
+              <Orb size={110} tierRingCount={1} ringHues={SOUL_RING_HUES} accumulate />
+              <Text style={styles.l1CongratsTitle}>{L1_CONGRATS.title}</Text>
+              <Text style={styles.l1CongratsSub}>{L1_CONGRATS.subtitle}</Text>
+              <View style={styles.l1CongratsCard}>
+                <Text style={styles.l1CongratsBody}>{L1_CONGRATS.body}</Text>
+              </View>
+            </View>
+            <BeginButton fullWidth label="On to Level 2" onPress={() => { tap(); onDone(); }} />
+          </View>
+        )}
+      </SafeAreaView>
+
+      {celebrate && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <CelebrationParticles style={StyleSheet.absoluteFill} />
+        </View>
+      )}
+      {stage === 'congrats' && <RingCelebration hue={275} />}
     </View>
   );
 }
@@ -665,6 +871,119 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: 20 },
   topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12 },
   back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
+
+  // Level 1 (Truth/Myth) arc.
+  l1Safe: { flex: 1, paddingHorizontal: 24 },
+  l1TopBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12, marginTop: 4 },
+  l1Segments: { flex: 1, flexDirection: 'row', gap: 6 },
+  l1Seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)' },
+  l1SegOn: { backgroundColor: v3.accent },
+  l1Body: { flex: 1, paddingBottom: 12 },
+  l1Center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  l1Kicker: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 27,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  l1Subtitle: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  l1EmotionChip: {
+    marginTop: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: hsla(v3.accent, 0.42),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: hsla(v3.accent, 0.85),
+  },
+  l1EmotionChipText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  l1Orb1: { position: 'absolute', top: 10, left: -20, opacity: 0.3, transform: [{ rotate: '-18deg' }] },
+  l1Orb2: { position: 'absolute', top: -12, right: -14, opacity: 0.32, transform: [{ rotate: '22deg' }] },
+  l1Orb3: { position: 'absolute', top: '46%', right: 8, opacity: 0.1, transform: [{ rotate: '-9deg' }] },
+  l1Orb4: { position: 'absolute', bottom: 96, left: -24, opacity: 0.3, transform: [{ rotate: '14deg' }] },
+  l1Level: { fontFamily: 'Poppins-SemiBold', fontSize: 30, color: colors.textPrimary, textAlign: 'center' },
+  l1RoundBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: hsla(v3.accent, 0.2),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: hsla(v3.accent, 0.5),
+  },
+  l1RoundText: { fontFamily: 'Poppins-Medium', fontSize: 13, color: colors.textPrimary, letterSpacing: 0.3 },
+  l1CardsHero: { flexDirection: 'row', marginTop: 20, height: 150, alignItems: 'center', justifyContent: 'center' },
+  l1HeroCard: { width: 120, height: 120, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  l1HeroTruth: { backgroundColor: hsla(TRUTH_BLUE, 0.9), transform: [{ rotate: '-8deg' }], marginRight: -18, zIndex: 2 },
+  l1HeroMyth: { backgroundColor: hsla(MYTH_PINK, 0.85), transform: [{ rotate: '7deg' }] },
+  l1HeroCardText: { fontFamily: 'Poppins-Medium', fontSize: 20, color: '#1a1526' },
+  l1Statement: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 24,
+    lineHeight: 33,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  l1Bottom: { gap: 12 },
+  l1Choices: { flexDirection: 'row', gap: 12 },
+  l1Choice: {
+    flex: 1,
+    height: 96,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  l1ChoiceTruth: { backgroundColor: hsla(TRUTH_BLUE, 0.9), borderColor: TRUTH_BLUE },
+  l1ChoiceMyth: { backgroundColor: hsla(MYTH_PINK, 0.88), borderColor: MYTH_PINK },
+  l1ChoiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 22, color: '#1a1526' },
+  l1Reveal: { padding: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
+  l1RevealRight: { backgroundColor: hsla(v3.regulated, 0.16), borderColor: hsla(v3.regulated, 0.5) },
+  l1RevealWrong: { backgroundColor: hsla(v3.activated, 0.16), borderColor: hsla(v3.activated, 0.5) },
+  l1Verdict: { fontFamily: 'Poppins-SemiBold', fontSize: 18, marginBottom: 6 },
+  l1RevealText: { fontFamily: 'Poppins-Light', fontSize: 15, lineHeight: 22, color: colors.textPrimary },
+  l1CongratsTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 18,
+  },
+  l1CongratsSub: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginTop: 4,
+  },
+  l1CongratsCard: {
+    marginTop: 12,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+  },
+  l1CongratsBody: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+
   dots: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 7 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.16)' },
   dotDone: { backgroundColor: v3.accent },

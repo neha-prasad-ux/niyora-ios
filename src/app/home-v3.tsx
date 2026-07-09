@@ -6,7 +6,7 @@
 // screen and, in dev, the "Home" button. Reads pms-prefs (cycle) and the
 // training store (level progress); writes nothing here.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,6 +15,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
+import { LutealCard } from '@/components/luteal-card';
 import { Orb } from '@/components/orb';
 import { RecommendSheet } from '@/components/RecommendSheet';
 import { type RecResult } from '@/models/recommend';
@@ -22,36 +23,53 @@ import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import { CHAPTER } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
-import { DEFAULT_PMS_PREFS, getPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
-import { daysUntilPmsWindow, isInPmsWindow } from '@/lib/pms-window';
+
+// The home moon paces a calm, exhale-biased breath so just looking at it pulls
+// you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
+// and the easiest to fall into passively; a longer 4:8 is more demanding to ride.
+// No hold: a pause would break a casual viewer's entrainment.
+const BREATH_IN = 4; // seconds, inhale
+const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
 export default function HomeV3() {
   const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
-  const [prefs, setPrefs] = useState<PmsPrefs>(DEFAULT_PMS_PREFS);
 
-  // Reload on focus so returning from the game shows fresh progress.
+  // Drive the moon's inhale/exhale on a loop. Phase starts on inhale (initial
+  // state) and only flips inside a timer, so no synchronous set-state-in-effect.
+  const [breathPhase, setBreathPhase] = useState<'inhale' | 'exhale'>('inhale');
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = (current: 'inhale' | 'exhale') => {
+      const secs = current === 'inhale' ? BREATH_IN : BREATH_OUT;
+      timer = setTimeout(() => {
+        if (!alive) return;
+        const next = current === 'inhale' ? 'exhale' : 'inhale';
+        setBreathPhase(next);
+        schedule(next);
+      }, secs * 1000);
+    };
+    schedule('inhale');
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, []);
+  const breathDuration = breathPhase === 'inhale' ? BREATH_IN : BREATH_OUT;
+
+  // Reload on focus so returning from the game shows fresh progress. The luteal
+  // card reads its own cycle/readiness state.
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      Promise.all([getTraining(), getPmsPrefs()]).then(([t, p]) => {
-        if (alive) {
-          setTraining(t);
-          setPrefs(p);
-        }
+      getTraining().then((t) => {
+        if (alive) setTraining(t);
       });
       return () => {
         alive = false;
       };
     }, []),
   );
-
-  const today = new Date();
-  const inWindow = prefs.pmsMode
-    ? isInPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, today)
-    : false;
-  const daysUntil = prefs.pmsMode
-    ? daysUntilPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, today)
-    : null;
 
   const chapterDone = training.completed.length >= CHAPTER.levels.length;
   const started = training.completed.length > 0;
@@ -81,8 +99,12 @@ export default function HomeV3() {
           {/* The soul: a big calm moon, always here. Keeps whatever ring the orb
               itself carries; no wave. */}
           <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
-            <Orb size={260} />
-            <Text style={styles.heroLine}>You can always match your breath with this</Text>
+            <Orb
+              size={260}
+              phase={breathPhase}
+              phaseDuration={breathDuration}
+              breathRange={{ min: 0.97, max: 1.11 }}
+            />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(120).duration(500)}>
@@ -94,11 +116,7 @@ export default function HomeV3() {
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(280).duration(500)}>
-            <PmsModeCard
-              inWindow={inWindow}
-              daysUntil={daysUntil}
-              onBegin={() => router.push('/pms-readiness')}
-            />
+            <LutealCard />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(360).duration(500)}>
@@ -169,34 +187,6 @@ function CalmCard({ onBegin }: { onBegin: () => void }) {
   );
 }
 
-// PMS mode · brought over from Smart PMS mode: where she is in her cycle, framed
-// as prep, plus the day's check list.
-function PmsModeCard({
-  inWindow,
-  daysUntil,
-  onBegin,
-}: {
-  inWindow: boolean;
-  daysUntil: number | null;
-  onBegin: () => void;
-}) {
-  const status = inWindow
-    ? 'You are in your window now. Go gentle.'
-    : daysUntil != null && daysUntil > 0
-      ? `About ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'} to your PMS window.`
-      : daysUntil != null
-        ? 'Your window is starting.'
-        : 'Turn on Smart PMS mode to track your window.';
-  return (
-    <Card accent={colorAlpha(v3.activated, 0.35)}>
-      <Text style={styles.pmsStatus}>{status}</Text>
-      <CardHead>PMS check list</CardHead>
-      <Text style={styles.cardBody}>A light set of reps for today, softer in your window.</Text>
-      <BeginButton fullWidth label="Begin" onPress={onBegin} />
-    </Card>
-  );
-}
-
 // Women's health facts · a quick myth-buster, self-validation over trivia.
 const FACT_OPTIONS = [
   { text: 'PMS is just in your head.', correct: false },
@@ -261,14 +251,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 12 },
   hero: { alignItems: 'center', marginBottom: 8, marginTop: 4 },
-  heroLine: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginTop: 14,
-  },
   card: {
     width: '100%',
     padding: 16,
@@ -290,13 +272,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: colors.textSubtitle,
     marginBottom: 12,
-  },
-  pmsStatus: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12.5,
-    letterSpacing: 0.3,
-    color: v3.activated,
-    marginBottom: 6,
   },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   dot: {

@@ -120,43 +120,64 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
   },
 ];
 
-// L1 cards. Cards 3 and 4 stay general (no PMS stat) per the content gate; card
-// 5 states the long-exhale physiology softly and pays off in L5.
+// L1 cards, Truth / Myth. Each statement is a clean positive claim so the choice
+// is crisp. The hunger/sleep card stays general (no PMS-specific number) per the
+// content gate; the prevalence card cites the verified figure among PMS sufferers
+// (StatPearls / NIH: irritability ~95%, the most-reported PMS symptom), NOT 95%
+// of all women.
 export const L1_CARDS: L1Card[] = [
   {
-    id: 'l1-hormones',
-    statement: 'When PMS makes you snappy, something is wrong with your hormones.',
-    isTrue: false,
+    id: 'l1-train',
+    statement: 'Learning to handle your emotions can make PMS easier.',
+    isTrue: true,
     reveal:
-      'Nope. Your hormones are normal. Your brain is just more sensitive to them right now. That is a real difference, and you are not broken.',
+      'Handling hard feelings is a skill, not a fixed trait. The more you practice, the lighter your rough weeks get. That is exactly what we are building here.',
   },
   {
     id: 'l1-common',
-    statement: 'Getting irritable before your period is common and normal.',
+    statement: 'Irritability is the number one PMS symptom.',
     isTrue: true,
-    reveal: 'About half of women get this. You are in big company.',
+    reveal:
+      'Of everyone who gets PMS, about 95 percent feel irritable. That beats the mood swings, the sadness, and the anxiety. You are in very good company.',
+  },
+  {
+    id: 'l1-hormones',
+    statement: 'If PMS makes you snap, your hormones must be off.',
+    isTrue: false,
+    reveal:
+      'Your hormones are completely normal. Your brain is just reading them louder this week. That is a real thing, and it does not mean something is wrong with you.',
   },
   {
     id: 'l1-hungry',
-    statement: 'Being hungry makes you more irritable.',
+    statement: 'Skipping meals or sleep makes you more irritable.',
     isTrue: true,
     reveal:
-      'Low blood sugar turns the volume up on everything. Hangry is real, so eat something before you decide you hate everyone.',
-  },
-  {
-    id: 'l1-sleep',
-    statement: 'Bad sleep gives you a shorter fuse the next day.',
-    isTrue: true,
-    reveal: 'Less sleep, less patience. That is biology, not weakness.',
+      'When your blood sugar dips or you are low on sleep, everything feels more annoying. So before you spiral, eat something and get some rest.',
   },
   {
     id: 'l1-exhale',
-    statement: 'Breathing out longer than you breathe in helps you calm down.',
-    isTrue: true,
+    statement: 'To calm down, breathe in longer than you breathe out.',
+    isTrue: false,
     reveal:
-      'A long exhale tells your body to stand down. We will do the real thing, Wind Down, in a moment.',
+      'It is actually the other way around. A slow, long exhale is what tells your body to relax. We will practice the real thing, Wind Down, soon.',
   },
 ];
+
+// Intro + congrats copy for the Level 1 arc. Warm Californian voice: clear,
+// specific, simple. No exclamation, no hype.
+export const L1_INTRO = {
+  kicker: 'Train your mind',
+  subtitle: 'Simple, science-backed skills to handle hard feelings.',
+  emotion: 'Emotion: Irritability',
+  level: 'Level 1',
+  round: 'Easy round',
+};
+
+export const L1_CONGRATS = {
+  title: 'Congratulations',
+  subtitle: 'You passed Level 1',
+  body: 'That is the groundwork laid. Ready to see how you handle Level 2?',
+};
 
 export const L1_CLOSE =
   'So before you help anyone, check the basics. Is she hungry? Wiped out? That is step one.';

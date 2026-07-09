@@ -146,6 +146,16 @@ export function readinessDoneCount(checks: ReadinessChecks, calmDone: boolean): 
   return READINESS_CHECK_IDS.filter((id) => checks[id]).length + (calmDone ? 1 : 0);
 }
 
+// The card settles to "done" when she taps "Done for today" OR all six are done.
+// Auto-done on all six is the little reward.
+export function isReadyDone(
+  checks: ReadinessChecks,
+  calmDone: boolean,
+  doneForToday: boolean,
+): boolean {
+  return doneForToday || readinessDoneCount(checks, calmDone) >= READINESS_TOTAL;
+}
+
 // A word under the orb, no numbers. Index 0..6.
 export const READINESS_STATE_WORDS = [
   'tender',
