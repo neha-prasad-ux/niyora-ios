@@ -222,6 +222,43 @@ export function deriveCopingStanding(a: V3Answers): CopingStanding {
   return 'mixed';
 }
 
+/**
+ * Coping standing mapped to a starting skill band (0..10) for the wave meter.
+ * Someone already working with their feelings keeps a steadier line; someone
+ * pushing them down starts choppier, but never at zero and never shamed. This
+ * drives the water's steadiness and its label on the result screen.
+ */
+export function standingSkill(standing: CopingStanding): number {
+  switch (standing) {
+    case 'engaging':
+      return 7; // works with feelings already -> "Steady in the swell"
+    case 'mixed':
+      return 5; // -> "Riding the wave"
+    case 'disengaging':
+      return 3; // the most trainable pattern -> "Finding your footing"
+    default:
+      return 1; // no read yet -> "Learning the water"
+  }
+}
+
+/**
+ * A two-line, plain-language read of where she stands with regulation right now,
+ * phrased about her and matched to the wave-meter band. No jargon, no "trainable"
+ * lecture, no shame. Used under the water on the result screen.
+ */
+export function regulationBlurb(standing: CopingStanding): string {
+  switch (standing) {
+    case 'engaging':
+      return 'You already work with your feelings more than most. On the hard days you mostly keep your footing.';
+    case 'mixed':
+      return 'Some days you ride it well, some days it rides you. We even that out so the hard days sting less.';
+    case 'disengaging':
+      return "You're still finding your footing. Big feelings can pull you under before you catch them, and that is the part we steady.";
+    default:
+      return "You're just learning the water. We start simple, one small steady step at a time.";
+  }
+}
+
 /** Named coping standing for the result. Never a personality label. */
 export function copingStandingCopy(
   standing: CopingStanding,
@@ -268,6 +305,52 @@ export function levelSpectrumPosition(level: Level): number {
     case 'severe':
       return 0.85;
   }
+}
+
+// --- Wave meter (the recurring "riding the wave" surface) -------------
+// The wave meter reads two things at once: water *height* is activation (how
+// worked up / how high the cycle window pushes her), and the top line's
+// choppiness is her *skill* band. Severity becomes water height, so the old
+// horizontal "mild -> PMDD" verdict is redrawn as calm-vs-high water.
+
+/**
+ * Baseline water height (activation, 0..1) for a severity level, before any
+ * in-window bump. Mild sits low and calm; severe sits high. Deliberately never
+ * reaches the top of the tank so the in-window bump still has room to read.
+ */
+export function levelActivation(level: Level): number {
+  switch (level) {
+    case 'mild':
+      return 0.32;
+    case 'moderate':
+      return 0.5;
+    case 'severe':
+      return 0.66;
+  }
+}
+
+/**
+ * The wave meter's label, driven by skill band, with a soft in-window note.
+ * The band never drops when she is in her window; a rough week only adds the
+ * note and raises the water. `skill` is 0..10 (0 at the result debut, before any
+ * training). Copy obeys the game voice: no em dashes, no hype.
+ */
+export function waveMeterLabel(
+  skill: number,
+  inWindow: boolean,
+): { label: string; note: string | null } {
+  const s = Math.max(0, Math.min(10, skill));
+  const label =
+    s <= 2
+      ? 'Learning the water'
+      : s <= 4
+        ? 'Finding your footing'
+        : s <= 6
+          ? 'Riding the wave'
+          : s <= 8
+            ? 'Steady in the swell'
+            : 'Calm in the current';
+  return { label, note: inWindow ? "and the water's high this week" : null };
 }
 
 // --- Remission line (decision 3) --------------------------------------
@@ -333,5 +416,5 @@ export function formatStretchDate(d: Date): string {
 export function cycleLine(cycle: V3Answers['cycle'], today: Date = new Date()): string | null {
   const d = nextTougherStretch(cycle, today);
   if (!d) return null;
-  return `Your next dip is likely around ${formatStretchDate(d)}`;
+  return `Your next PMS window is likely around ${formatStretchDate(d)}. You won't walk into it cold.`;
 }

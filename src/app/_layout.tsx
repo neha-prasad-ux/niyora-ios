@@ -103,6 +103,27 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="home-v3"
+            options={{
+              animation: 'fade',
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
+            name="game-v3"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
+            name="pms-readiness"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
             name="activity"
             options={{
               animation: 'slide_from_right',
