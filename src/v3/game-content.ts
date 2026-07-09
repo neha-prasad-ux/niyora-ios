@@ -244,55 +244,130 @@ export const L2_CONGRATS = {
 export const L2_CLOSE =
   'That is the whole skill. Read the size first. Nail that and the rest is easy.';
 
+// Level 3 intro + the cheat code (the solution flips with the size) + four
+// scenes reusing the Level 2 situations, so reading the size now drives the
+// solution. Options are concrete (the actual thought or action), not abstract
+// labels, so picking one is doing the skill. Push-it-down is always the worst
+// and is flagged red in the UI. Best-fit flips with the size (Sheppes).
+export const L3_INTRO = {
+  level: 'Level 3',
+  title: 'What helps most?',
+  lead: 'Two things handle irritability best.',
+  points: [
+    { term: 'Reframe it', def: 'swap the harsh story for a kinder, likelier one' },
+    { term: 'Take 20', def: 'a gap to cool down, then come back' },
+  ],
+};
+
+export const L3_CHEAT = {
+  kicker: 'Cheat code',
+  title: 'When to reframe, when to take 20',
+  rows: [
+    { label: 'Reframe it', small: 'works best', big: 'not the best, it stings her', bad: false },
+    { label: 'Take 20', small: 'skips an easy fix', big: 'best, helps her calm down', bad: false },
+    { label: 'Push it down', small: 'not a good choice', big: 'comes back louder', bad: true },
+  ],
+};
+
 export const L3_SCENES: L3Scene[] = [
   {
-    id: 'l3-little',
+    id: 'l3-text',
     intensity: 'little',
-    prompt: `${FRIEND_NAME} is a little annoyed. What helps?`,
+    prompt: `${FRIEND_NAME} is annoyed her partner did not text back. What helps most?`,
     options: [
       {
-        label: 'Help her see it another way',
-        tier: 'best',
-        future: 'When she is only a little worked up, talking it through actually works.',
-      },
-      {
-        label: 'Give her space',
-        tier: 'lesser',
-        future: 'She did not need space. You two could have just talked it out.',
-      },
-      {
-        label: 'Tell her to push it down',
+        label: 'It is not a big deal, let it go',
         tier: 'worst',
-        future: 'That never works. It just comes back louder.',
+        future: 'Waving it off buries it. It comes back louder.',
+      },
+      {
+        label: 'He is probably slammed at work',
+        tier: 'best',
+        future: 'A fairer read, and it lands because she can still think. The annoyance eases.',
+      },
+      {
+        label: 'Take 20 and get some space',
+        tier: 'lesser',
+        future: 'Fine, but this one is small. A quick reframe would have sorted it.',
       },
     ],
   },
   {
-    id: 'l3-lot',
+    id: 'l3-sleep',
     intensity: 'lot',
-    prompt: `${FRIEND_NAME} is flooded, running on no sleep. What helps?`,
+    prompt: `${FRIEND_NAME} has not slept, her partner blew off her hard work, and her voice is shaking. What helps most?`,
     options: [
       {
-        label: 'Help her see it another way',
-        tier: 'lesser',
-        future: 'Not right now. When she is this worked up, logic bounces off.',
-      },
-      {
-        label: 'Give her space',
+        label: 'Take 20 and let her body settle',
         tier: 'best',
-        future: 'You cannot talk someone out of a flood. You wait for it to drop first.',
+        future: 'She is flooded. The gap lets the wave drop, then she can think.',
       },
       {
-        label: 'Tell her to push it down',
+        label: 'She is tough, she can power through',
         tier: 'worst',
-        future: 'Same deal. It comes back louder.',
+        future: 'Powering through a flood does not calm it. It leaks out later.',
+      },
+      {
+        label: 'He probably did not mean it',
+        tier: 'lesser',
+        future: 'A fair read, but mid-flood it bounces right off. Her thinking is offline.',
+      },
+    ],
+  },
+  {
+    id: 'l3-passport',
+    intensity: 'lot',
+    prompt: `${FRIEND_NAME}'s passport just expired at the gate. Her hands are shaking. What helps most?`,
+    options: [
+      {
+        label: 'The agent is only doing their job',
+        tier: 'lesser',
+        future: 'True, but she is too worked up to hear it. The reframe has to wait.',
+      },
+      {
+        label: 'Step away for 20 and breathe',
+        tier: 'best',
+        future: 'Flooded and shaking. First her body settles, then she sorts the passport.',
+      },
+      {
+        label: 'Stay composed and keep it in',
+        tier: 'worst',
+        future: 'Clamping down mid-crisis piles on pressure. It comes back louder.',
+      },
+    ],
+  },
+  {
+    id: 'l3-snapping',
+    intensity: 'little',
+    prompt: `${FRIEND_NAME} is snapping at little stuff, but she laughs when you point it out. What helps most?`,
+    options: [
+      {
+        label: 'It is a rough day, not everyone turning on her',
+        tier: 'best',
+        future: 'Still reachable, so a fairer read lands and she softens.',
+      },
+      {
+        label: 'Tell her to ignore it',
+        tier: 'worst',
+        future: 'Ignoring it lets it stack up. Small now, bigger later.',
+      },
+      {
+        label: 'Send her off alone for 20',
+        tier: 'lesser',
+        future: 'Overkill. She did not need space, a quick reframe would do it.',
       },
     ],
   },
 ];
 
+export const L3_CONGRATS = {
+  title: 'Congratulations',
+  subtitle: 'You passed Level 3',
+  body: 'You can pick the solution that fits the size now. That is the move the whole game builds to.',
+};
+
 export const L3_PAYLOAD =
-  'Same three choices. The only thing that changed was how worked up she was, and that flipped the right answer. That is the whole game.';
+  'Same three solutions every time. All that changed was the size, and that flipped what helped. That is the whole game.';
 
 export const L4_SCENE = `Her partner genuinely blew off something ${FRIEND_NAME} cared about. That is real, not just PMS. When does she say something?`;
 

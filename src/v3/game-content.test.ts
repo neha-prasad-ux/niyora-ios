@@ -26,20 +26,24 @@ describe('game-content structure', () => {
     expect(new Set(IRRITABILITY_LEVELS.map((l) => l.kind)).size).toBe(6);
   });
 
-  it('L3 flips best-fit with intensity: reframe wins low, space wins high', () => {
-    const little = L3_SCENES.find((s) => s.intensity === 'little')!;
-    const lot = L3_SCENES.find((s) => s.intensity === 'lot')!;
-    expect(little.options.find((o) => o.tier === 'best')!.label).toMatch(/see it another way/i);
-    expect(lot.options.find((o) => o.tier === 'best')!.label).toMatch(/space/i);
-    // Suppression is always the worst future, never scolded away.
-    for (const s of L3_SCENES) {
-      expect(s.options.some((o) => o.tier === 'worst' && /push it down/i.test(o.label))).toBe(true);
+  it('L3 flips best-fit with the size: reframe wins small, take-20 wins big', () => {
+    // Small scenes: the best solution is a fairer read (reframe), not stepping away.
+    for (const s of L3_SCENES.filter((x) => x.intensity === 'little')) {
+      const bestLabel = s.options.find((o) => o.tier === 'best')!.label.toLowerCase();
+      expect(bestLabel).not.toMatch(/20|space|step|settle/);
+    }
+    // Big scenes: the best solution is taking 20 / stepping away, not a reframe.
+    for (const s of L3_SCENES.filter((x) => x.intensity === 'lot')) {
+      const bestLabel = s.options.find((o) => o.tier === 'best')!.label.toLowerCase();
+      expect(bestLabel).toMatch(/20|step|space|settle/);
     }
   });
 
-  it('each L3 scene has exactly one best-fit', () => {
+  it('each L3 scene has one best, one lesser, one worst', () => {
     for (const s of L3_SCENES) {
       expect(s.options.filter((o) => o.tier === 'best')).toHaveLength(1);
+      expect(s.options.filter((o) => o.tier === 'lesser')).toHaveLength(1);
+      expect(s.options.filter((o) => o.tier === 'worst')).toHaveLength(1);
     }
   });
 

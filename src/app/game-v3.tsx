@@ -17,7 +17,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -51,6 +51,9 @@ import {
   L2_CONGRATS,
   L2_INTRO,
   L2_SCENES,
+  L3_CHEAT,
+  L3_CONGRATS,
+  L3_INTRO,
   L3_PAYLOAD,
   L3_SCENES,
   L4_SCENE,
@@ -88,15 +91,36 @@ const SMALL_PINK = 'hsl(330, 68%, 74%)';
 const BIG_CORAL = 'hsl(8, 72%, 68%)';
 const STRESS_HUES = [8, 275, 330, 8] as const; // coral, violet, pink, coral
 
+// The one place we mark a harmful choice: a muted brick red for "push it down"
+// (suppression), never an alarm neon.
+const SUPPRESS_RED = 'hsl(2, 55%, 56%)';
+
 export default function GameV3() {
   const { width: screenW } = useWindowDimensions();
   const levels = IRRITABILITY_LEVELS;
   const [index, setIndex] = useState(0);
   const [skill, setSkill] = useState(SEED_SKILL);
+  const [ready, setReady] = useState(false);
 
+  // Optional deep-link jump: /game-v3?level=3 opens Level 3 directly (1-indexed).
+  const { level: levelParam } = useLocalSearchParams<{ level?: string }>();
+
+  // Resume where she left off: start at the first level she has not completed
+  // (or a jumped-to level, or the beginning if the chapter is done).
   useEffect(() => {
-    getTraining().then((t) => setSkill(t.skill));
-  }, []);
+    getTraining()
+      .then((t) => {
+        setSkill(t.skill);
+        const jump = levelParam ? Number(levelParam) - 1 : NaN;
+        if (Number.isInteger(jump) && jump >= 0 && jump < levels.length) {
+          setIndex(jump);
+          return;
+        }
+        const firstIncomplete = levels.findIndex((l) => !t.completed.includes(l.id));
+        setIndex(firstIncomplete === -1 ? 0 : firstIncomplete);
+      })
+      .finally(() => setReady(true));
+  }, [levels, levelParam]);
 
   const done = index >= levels.length;
   const level = done ? undefined : levels[index];
@@ -110,6 +134,16 @@ export default function GameV3() {
   const meter = waveMeterLabel(skill, false);
   const stripW = Math.min(screenW - 40, 420);
 
+  // Hold the first paint until we know the resume point, so we never flash
+  // Level 1 before jumping to where she left off.
+  if (!ready) {
+    return (
+      <View style={styles.root}>
+        <BackgroundGradient />
+      </View>
+    );
+  }
+
   // Level 1 is the redesigned Truth/Myth arc: a self-contained, full-screen flow
   // (game intro -> level intro -> play -> congrats), big buttons at the bottom.
   // Levels 2-6 keep the shared runner below for now.
@@ -118,6 +152,9 @@ export default function GameV3() {
   }
   if (!done && index === 1) {
     return <LevelTwo onDone={() => advance(levels[1].id)} onExit={() => router.back()} />;
+  }
+  if (!done && index === 2) {
+    return <LevelThree onDone={() => advance(levels[2].id)} onExit={() => router.back()} />;
   }
 
   return (
@@ -225,13 +262,26 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
     }
   };
 
+  const back = () => {
+    tap();
+    if (stage === 'play') {
+      setGuess(null);
+      setCelebrate(false);
+      setStage('levelIntro');
+    } else if (stage === 'levelIntro') {
+      setStage('gameIntro');
+    } else {
+      onExit();
+    }
+  };
+
   return (
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
         {stage !== 'congrats' && (
           <View style={styles.l1TopBar}>
-            <Pressable onPress={onExit} hitSlop={12} accessibilityLabel="Back">
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
               <Text style={styles.back}>‹</Text>
             </Pressable>
             {stage === 'play' ? (
@@ -257,7 +307,7 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
                 <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
               </View>
             </View>
-            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('levelIntro'); }} />
+            <BeginButton fullWidth label="Let's go" onPress={() => { tap(); setStage('levelIntro'); }} />
           </View>
         )}
 
@@ -413,13 +463,26 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
     }
   };
 
+  const back = () => {
+    tap();
+    if (stage === 'play') {
+      setGuess(null);
+      setCelebrate(false);
+      setStage('cheat');
+    } else if (stage === 'cheat') {
+      setStage('levelIntro');
+    } else {
+      onExit();
+    }
+  };
+
   return (
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
         {stage !== 'congrats' && (
           <View style={styles.l1TopBar}>
-            <Pressable onPress={onExit} hitSlop={12} accessibilityLabel="Back">
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
               <Text style={styles.back}>‹</Text>
             </Pressable>
             {stage === 'play' ? (
@@ -442,7 +505,7 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
               <View style={styles.l1EmotionChip}>
                 <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
               </View>
-              <Text style={styles.l1Level}>{L2_INTRO.level}</Text>
+              <Text style={styles.l1Eyebrow}>{L2_INTRO.level}</Text>
               <Text style={styles.l2Title}>{L2_INTRO.title}</Text>
               <Text style={styles.l2Subtitle}>{L2_INTRO.subtitle}</Text>
               <View style={styles.l1CardsHero}>
@@ -543,6 +606,246 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
               </View>
             </View>
             <BeginButton fullWidth label="On to Level 3" onPress={() => { tap(); onDone(); }} />
+          </View>
+        )}
+      </SafeAreaView>
+
+      {celebrate && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <CelebrationParticles style={StyleSheet.absoluteFill} />
+        </View>
+      )}
+      {stage === 'congrats' && <RingCelebration hue={275} />}
+    </View>
+  );
+}
+
+// Level 3 backdrop: 15 soft static particles scattered around the edges (kept
+// out of the central reading band), a calm speckle instead of a live field.
+const L3_PARTICLES: { top: `${number}%`; left: `${number}%`; size: number; opacity: number }[] = [
+  { top: '6%', left: '12%', size: 5, opacity: 0.5 },
+  { top: '10%', left: '82%', size: 4, opacity: 0.4 },
+  { top: '4%', left: '48%', size: 3, opacity: 0.35 },
+  { top: '17%', left: '91%', size: 5, opacity: 0.45 },
+  { top: '20%', left: '5%', size: 4, opacity: 0.4 },
+  { top: '38%', left: '93%', size: 3, opacity: 0.3 },
+  { top: '44%', left: '5%', size: 5, opacity: 0.45 },
+  { top: '58%', left: '95%', size: 4, opacity: 0.4 },
+  { top: '62%', left: '4%', size: 3, opacity: 0.3 },
+  { top: '78%', left: '88%', size: 5, opacity: 0.5 },
+  { top: '82%', left: '13%', size: 4, opacity: 0.4 },
+  { top: '90%', left: '50%', size: 3, opacity: 0.35 },
+  { top: '92%', left: '78%', size: 5, opacity: 0.45 },
+  { top: '86%', left: '30%', size: 4, opacity: 0.4 },
+  { top: '30%', left: '85%', size: 3, opacity: 0.3 },
+];
+function L3Backdrop() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {L3_PARTICLES.map((p, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            top: p.top,
+            left: p.left,
+            width: p.size,
+            height: p.size,
+            borderRadius: p.size / 2,
+            backgroundColor: 'rgba(214, 202, 246, 1)',
+            opacity: p.opacity,
+            shadowColor: 'rgba(200, 190, 245, 0.9)',
+            shadowOpacity: 0.9,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 0 },
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+// --- Level 3 · What helps most (the solution flips with the size) -----
+// Reuses the Level 2 arc. Concrete per-scene solutions (reframe / take 20 /
+// push it down), best-fit flips with the size, push-it-down flagged red,
+// 3-tier gentle feedback with soft retry to the best solution.
+function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'play' | 'congrats'>('levelIntro');
+  const [i, setI] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
+
+  const scene = L3_SCENES[i];
+  const chosen = picked != null ? scene.options[picked] : null;
+  const best = chosen?.tier === 'best';
+
+  const pick = (idx: number) => {
+    if (picked != null) return;
+    if (scene.options[idx].tier === 'best') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    }
+    setPicked(idx);
+  };
+
+  const next = () => {
+    tap();
+    if (best) {
+      setCelebrate(false);
+      if (i + 1 >= L3_SCENES.length) setStage('congrats');
+      else {
+        setI(i + 1);
+        setPicked(null);
+      }
+    } else {
+      setPicked(null); // soft retry toward the solution that fits
+    }
+  };
+
+  const verdict = (tier: MoveTier) =>
+    tier === 'best' ? 'That is the one' : tier === 'lesser' ? 'That can work, not here though' : 'That one backfires';
+  const verdictColor = (tier: MoveTier) => (tier === 'best' ? v3.regulated : v3.activated);
+
+  const back = () => {
+    tap();
+    if (stage === 'play') {
+      setPicked(null);
+      setCelebrate(false);
+      setStage('cheat');
+    } else if (stage === 'cheat') {
+      setStage('levelIntro');
+    } else {
+      onExit();
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            {stage === 'play' ? (
+              <View style={styles.l1Segments}>
+                {L3_SCENES.map((s, idx) => (
+                  <View key={s.id} style={[styles.l1Seg, idx <= i && styles.l1SegOn]} />
+                ))}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <View style={{ width: 22 }} />
+          </View>
+        )}
+
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L3Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Eyebrow}>{L3_INTRO.level}</Text>
+              <Text style={styles.l2Title}>{L3_INTRO.title}</Text>
+              <View style={styles.l3Points}>
+                <Text style={styles.l3IntroLead}>{L3_INTRO.lead}</Text>
+                <Text style={styles.l3Point}>
+                  <Text style={[styles.l3PointTerm, { color: TRUTH_BLUE }]}>
+                    {L3_INTRO.points[0].term}
+                  </Text>
+                  {`  ${L3_INTRO.points[0].def}`}
+                </Text>
+                <Text style={styles.l3PointOr}>or</Text>
+                <Text style={styles.l3Point}>
+                  <Text style={[styles.l3PointTerm, { color: BIG_CORAL }]}>
+                    {L3_INTRO.points[1].term}
+                  </Text>
+                  {`  ${L3_INTRO.points[1].def}`}
+                </Text>
+              </View>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('cheat'); }} />
+          </View>
+        )}
+
+        {stage === 'cheat' && (
+          <View style={styles.l1Body}>
+            <L3Backdrop />
+            <View style={styles.l2CheatCenter}>
+              <Text style={styles.l2CheatKicker}>{L3_CHEAT.kicker}</Text>
+              <Text style={styles.l2CheatTitle}>{L3_CHEAT.title}</Text>
+              <View style={styles.l2Table}>
+                <View style={styles.l2TableHead}>
+                  <Text style={styles.l2RowLabel} />
+                  <Text style={[styles.l2TableHeadCell, { color: SMALL_PINK }]}>Small</Text>
+                  <Text style={[styles.l2TableHeadCell, { color: BIG_CORAL }]}>Big</Text>
+                </View>
+                {L3_CHEAT.rows.map((r) => (
+                  <View key={r.label} style={[styles.l2TableRow, r.bad && styles.l2TableRowBad]}>
+                    <Text style={[styles.l2RowLabel, r.bad && styles.l2RowCellBad]}>{r.label}</Text>
+                    <Text style={[styles.l2RowCell, r.bad && styles.l2RowCellBad]}>{r.small}</Text>
+                    <Text style={[styles.l2RowCell, r.bad && styles.l2RowCellBad]}>{r.big}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <BeginButton fullWidth label="Got it" onPress={() => { tap(); setStage('play'); }} />
+          </View>
+        )}
+
+        {stage === 'play' && (
+          <View style={styles.l1Body}>
+            <Text style={styles.l3Prompt}>{scene.prompt}</Text>
+            <View style={styles.l3PlayBottom}>
+              {picked == null ? (
+                <View style={styles.l3Solutions}>
+                  {scene.options.map((o, idx) => (
+                    <Pressable
+                      key={o.label}
+                      style={styles.l3Solution}
+                      onPress={() => pick(idx)}
+                      accessibilityRole="button"
+                      accessibilityLabel={o.label}
+                    >
+                      <Text style={styles.l3SolutionText}>{o.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, best ? styles.l1RevealRight : styles.l1RevealWrong]}>
+                    <Text style={[styles.l1Verdict, { color: verdictColor(chosen!.tier) }]}>
+                      {verdict(chosen!.tier)}
+                    </Text>
+                    <Text style={styles.l1RevealText}>{chosen!.future}</Text>
+                  </View>
+                  <BeginButton
+                    fullWidth
+                    label={best ? (i + 1 >= L3_SCENES.length ? 'Finish' : 'Next') : 'Try another'}
+                    onPress={next}
+                  />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'congrats' && (
+          <View style={styles.l1Body}>
+            <View style={styles.l1Center}>
+              <Orb size={110} tierRingCount={3} ringHues={SOUL_RING_HUES} accumulate />
+              <Text style={styles.l1CongratsTitle}>{L3_CONGRATS.title}</Text>
+              <Text style={styles.l1CongratsSub}>{L3_CONGRATS.subtitle}</Text>
+              <View style={styles.l1CongratsCard}>
+                <Text style={styles.l1CongratsBody}>{L3_CONGRATS.body}</Text>
+              </View>
+            </View>
+            <BeginButton fullWidth label="On to Level 4" onPress={() => { tap(); onDone(); }} />
           </View>
         )}
       </SafeAreaView>
@@ -1130,6 +1433,15 @@ const styles = StyleSheet.create({
   l1Orb3: { position: 'absolute', top: '46%', right: 8, opacity: 0.1, transform: [{ rotate: '-9deg' }] },
   l1Orb4: { position: 'absolute', bottom: 96, left: -24, opacity: 0.3, transform: [{ rotate: '14deg' }] },
   l1Level: { fontFamily: 'Poppins-SemiBold', fontSize: 30, color: colors.textPrimary, textAlign: 'center' },
+  // Small eyebrow above a level's name, for clear hierarchy (LEVEL 3 > the name).
+  l1Eyebrow: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textSubtitle,
+    textAlign: 'center',
+  },
   l1RoundBadge: {
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -1201,7 +1513,13 @@ const styles = StyleSheet.create({
   },
 
   // Level 2 (Big vs Small) extras.
-  l2Title: { fontFamily: 'Poppins-SemiBold', fontSize: 28, color: colors.textPrimary, textAlign: 'center' },
+  l2Title: { fontFamily: 'Poppins-SemiBold', fontSize: 31, lineHeight: 38, color: colors.textPrimary, textAlign: 'center' },
+  // L3 intro, point-wise: a lead line, then the two solutions highlighted, "or" between.
+  l3Points: { alignSelf: 'stretch', gap: 9, paddingHorizontal: 8, marginTop: 2 },
+  l3IntroLead: { fontFamily: 'Poppins-Light', fontSize: 15, color: colors.textSubtitle, textAlign: 'center', marginBottom: 2 },
+  l3Point: { fontFamily: 'Poppins-Light', fontSize: 16, lineHeight: 23, color: colors.textPrimary, textAlign: 'center' },
+  l3PointTerm: { fontFamily: 'Poppins-SemiBold' },
+  l3PointOr: { fontFamily: 'Poppins-Light', fontSize: 13, color: colors.textSubtitle, textAlign: 'center' },
   l2Subtitle: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
@@ -1219,7 +1537,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
-  l2CheatCenter: { flex: 1, justifyContent: 'center', gap: 8 },
+  // Cheat page: top-aligned like the rest, roomy table, bigger text to skim.
+  l2CheatCenter: { flex: 1, gap: 14, paddingTop: 8 },
   l2CheatKicker: {
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
@@ -1228,33 +1547,36 @@ const styles = StyleSheet.create({
     color: v3.accent,
     textAlign: 'center',
   },
-  l2CheatTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 24, color: colors.textPrimary, textAlign: 'center' },
+  l2CheatTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 25, lineHeight: 32, color: colors.textPrimary, textAlign: 'center' },
   l2Table: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
     overflow: 'hidden',
+    marginTop: 4,
   },
   l2TableHead: {
     flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
   },
-  l2TableHeadCell: { flex: 1, fontFamily: 'Poppins-SemiBold', fontSize: 13, letterSpacing: 0.3 },
+  l2TableHeadCell: { flex: 1, fontFamily: 'Poppins-SemiBold', fontSize: 16, letterSpacing: 0.3 },
   l2TableRow: {
     flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 8,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    gap: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  l2RowLabel: { width: 62, fontFamily: 'Poppins-Medium', fontSize: 13, color: colors.textSubtitle },
-  l2RowCell: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 13, lineHeight: 18, color: colors.textPrimary },
+  l2RowLabel: { width: 76, fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textSubtitle },
+  l2RowCell: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
+  l2TableRowBad: { backgroundColor: hsla(SUPPRESS_RED, 0.16) },
+  l2RowCellBad: { color: SUPPRESS_RED },
   l2Choice: {
     flex: 1,
     minHeight: 108,
@@ -1267,6 +1589,38 @@ const styles = StyleSheet.create({
   },
   l2ChoiceSmall: { backgroundColor: hsla(SMALL_PINK, 0.9), borderColor: SMALL_PINK },
   l2ChoiceBig: { backgroundColor: hsla(BIG_CORAL, 0.9), borderColor: BIG_CORAL },
+
+  // Level 3 (What helps most) extras.
+  l3HeroReframe: { backgroundColor: hsla(TRUTH_BLUE, 0.85), transform: [{ rotate: '-8deg' }], marginRight: -18, zIndex: 2 },
+  l3HeroSpace: { backgroundColor: hsla(BIG_CORAL, 0.82), transform: [{ rotate: '7deg' }] },
+  l3Prompt: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 21,
+    lineHeight: 29,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  l3PlayBottom: { flex: 1, justifyContent: 'flex-end', gap: 12 },
+  l3Solutions: { gap: 10 },
+  l3Solution: {
+    minHeight: 56,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  l3SolutionText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15.5,
+    lineHeight: 21,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
 
   dots: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 7 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.16)' },
