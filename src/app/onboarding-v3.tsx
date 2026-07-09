@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import {
   AccessibilityInfo,
   Pressable,
@@ -55,15 +55,17 @@ import {
   LEVER_ITEMS,
   PRESENCE_ITEMS,
   SOURCES,
-  copingStandingCopy,
   cycleLine,
   deriveCopingStanding,
+  regulationBlurb,
   deriveLevel,
   deriveLevers,
+  levelActivation,
   levelSpectrumPosition,
   remissionLine,
+  standingSkill,
+  waveMeterLabel,
   type PresenceItem,
-  type Source,
   type V3Answers,
 } from '@/v3/v3-content';
 import {
@@ -72,7 +74,10 @@ import {
   HormoneCurve,
   SpectrumBar,
   TriggerFork,
+  WaveMeter,
+  waveTint,
 } from '@/v3/v3-graphics';
+import { isInPmsWindow } from '@/lib/pms-window';
 
 type UpdateFn = (patch: (a: V3Answers) => Partial<V3Answers>) => void;
 
@@ -89,7 +94,8 @@ type StepId =
   | 'coping'
   | 'fact_trainable'
   | 'loading'
-  | 'result';
+  | 'result'
+  | 'goal';
 
 const SEQUENCE: StepId[] = [
   'splash',
@@ -105,6 +111,7 @@ const SEQUENCE: StepId[] = [
   'fact_trainable', // final fact: your response is trainable
   'loading',
   'result',
+  'goal', // pick-up: her goal + how Niyora will help, then home
 ];
 
 // The flow groups into five sections. The soul earns a ring when each section's
@@ -181,6 +188,7 @@ export default function OnboardingV3Screen() {
     step !== 'splash' &&
     step !== 'privacy' &&
     step !== 'result' &&
+    step !== 'goal' &&
     !step.startsWith('fact_');
 
   const onBack = useCallback(() => {
@@ -316,7 +324,10 @@ function RenderStep({
     case 'loading':
       return <Loading onDone={advance} />;
     case 'result':
-      return <Result answers={answers} onDone={finish} />;
+      return <Result answers={answers} onNext={advance} />;
+    case 'goal':
+      // "But I'm ready" lands on the new PMS dashboard, not back where she came.
+      return <Goal onDone={() => router.replace('/home-v3' as Href)} />;
   }
 }
 
@@ -991,84 +1002,188 @@ function Loading({ onDone }: { onDone: () => void }) {
 
 // --- Result ------------------------------------------------------------
 
-function Result({ answers, onDone }: { answers: V3Answers; onDone: () => void }) {
+function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void }) {
+  const { width: screenW } = useWindowDimensions();
   const level = deriveLevel(answers);
   const levers = deriveLevers(answers);
   const standing = deriveCopingStanding(answers);
-  const standingCopy = copingStandingCopy(standing);
-  const foodFlagged = levers.some((l) => l.id === 'food');
   const remLine = remissionLine(answers.remission);
   const cycLine = cycleLine(answers.cycle);
   const levelWord = level.charAt(0).toUpperCase() + level.slice(1);
-  const levelColor =
-    level === 'severe' ? '#FF6B6B' : level === 'moderate' ? v3.activated : v3.regulated;
+
+  // Two reads, two visuals. Severity keeps the mild -> PMDD spectrum (card 1).
+  // Emotional regulation becomes the water (card 2): its HEIGHT is how hard PMS
+  // is pushing (severity, bumped if she is in her window today), and the top
+  // line's STEADINESS is her regulation skill, seeded from her coping standing.
+  const cyc = answers.cycle;
+  const inWindow =
+    !cyc.unsure && cyc.lastPeriod != null && cyc.length != null
+      ? isInPmsWindow(cyc.lastPeriod, cyc.length, new Date())
+      : false;
+  const baseActivation = levelActivation(level);
+  const activation = inWindow ? Math.min(0.82, baseActivation + 0.16) : baseActivation;
+  const skill = standingSkill(standing);
+  const meter = waveMeterLabel(skill, inWindow);
+  const levelColor = waveTint(activation);
+  // Fill the card's inner width (content ~ screenW-40, card padding 16 each side).
+  const fillWidth = Math.min(screenW - 72, 368);
 
   useEffect(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
   }, []);
 
   return (
-    <StepLayout footer={<BeginButton fullWidth label="Start" onPress={onDone} />}>
-      {/* The destination orb from the journey bar arrives here at full size:
-          the "?" has resolved into her read. */}
-      <Animated.View entering={FadeIn.duration(600)} style={styles.reward}>
-        <Orb
-          size={76}
-          tierRingCount={TOTAL_RINGS}
-          ringHues={SOUL_RING_HUES}
-          accumulate
-          revealKey={TOTAL_RINGS}
-        />
-        <Text style={styles.rewardLabel}>your read is ready</Text>
-      </Animated.View>
-
-      <Text style={styles.title}>Your read</Text>
-
-      {/* Hero: the level, big and colour-coded, over the spectrum. */}
-      <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.card}>
-        <Text style={styles.resultLabel}>Your PMS reads as</Text>
+    <StepLayout
+      footer={<BeginButton fullWidth label="Wanna know what's next?" onPress={onNext} />}
+    >
+      {/* Card 1 — severity on the mild -> PMDD spectrum, filling the card. */}
+      <Animated.View
+        entering={FadeInDown.delay(150).duration(600)}
+        style={[styles.card, { borderColor: colorAlpha(levelColor, 0.35) }]}
+      >
+        <Text style={styles.cardHeadingText}>Your PMS reads as</Text>
         <Text style={[styles.resultLevel, { color: levelColor }]}>{levelWord}</Text>
-        <View style={styles.graph}>
-          <SpectrumBar position={levelSpectrumPosition(level)} />
+        <View style={styles.graphFill}>
+          <SpectrumBar
+            position={levelSpectrumPosition(level)}
+            width={fillWidth}
+            height={Math.round((fillWidth * 88) / 320)}
+          />
         </View>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(550).duration(600)} style={styles.card}>
-        <Text style={styles.cardHead}>
-          {levers.length > 0
-            ? `Yours to move: ${levers.map((l) => l.label).join(', ')}`
-            : 'No clear levers yet, we keep watching'}
-        </Text>
-        {foodFlagged && (
+      {/* Card 2 — emotional regulation, drawn as the water, with a plain read. */}
+      <Animated.View
+        entering={FadeInDown.delay(400).duration(600)}
+        style={[styles.card, { borderColor: colorAlpha(v3.regulated, 0.35) }]}
+      >
+        <Text style={styles.cardHeadingText}>Emotional regulation</Text>
+        <View style={styles.graphFill}>
+          <WaveMeter
+            activation={activation}
+            skill={skill}
+            inWindow={inWindow}
+            label={meter.label}
+            note={meter.note}
+            width={fillWidth}
+          />
+        </View>
+        <Text style={styles.waterCaption}>{regulationBlurb(standing)}</Text>
+      </Animated.View>
+
+      {/* Card 3 — what makes PMS worse: her flagged levers as colour chips. */}
+      <Animated.View
+        entering={FadeInDown.delay(650).duration(600)}
+        style={[styles.card, { borderColor: colorAlpha(v3.activated, 0.35) }]}
+      >
+        <Text style={styles.cardHeadingText}>Things making PMS worse</Text>
+        {levers.length > 0 ? (
           <>
-            <Text style={styles.cardBody}>{SOURCES.calcium.claim}</Text>
-            <SourceLine source={SOURCES.calcium} />
+            <View style={styles.chipWrap}>
+              {levers.map((l) => {
+                const w = LEVER_WORSE[l.id];
+                return (
+                  <View
+                    key={l.id}
+                    style={[
+                      styles.worseChip,
+                      {
+                        backgroundColor: colorAlpha(w.color, 0.16),
+                        borderColor: colorAlpha(w.color, 0.5),
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.worseChipText, { color: w.color }]}>{w.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={styles.cardBody}>
+              Poor sleep, skipped meals, and too little movement each make PMS
+              harder. Easing even one takes real pressure off.
+            </Text>
           </>
+        ) : (
+          <Text style={styles.cardBody}>Nothing clear here yet. We keep watching.</Text>
         )}
       </Animated.View>
 
-      {standingCopy && (
-        <Animated.View entering={FadeInDown.delay(900).duration(600)} style={styles.card}>
-          <Text style={styles.cardHead}>{standingCopy.line}</Text>
-          <Text style={styles.cardBody}>{standingCopy.tail}</Text>
-        </Animated.View>
-      )}
-
+      {/* Card 4 — next window, framed as prep, not dread. */}
       {(remLine || cycLine) && (
-        <Animated.View entering={FadeInDown.delay(1150).duration(600)} style={styles.card}>
-          {remLine && <Text style={styles.cardBody}>{remLine}</Text>}
+        <Animated.View
+          entering={FadeInDown.delay(900).duration(600)}
+          style={[styles.card, { borderColor: colorAlpha(v3.accent, 0.35) }]}
+        >
+          <Text style={styles.cardHeadingText}>Your next window</Text>
           {cycLine && <Text style={styles.cardBodyStrong}>{cycLine}</Text>}
+          {remLine && <Text style={styles.cardBody}>{remLine}</Text>}
         </Animated.View>
       )}
 
-      <Animated.Text entering={FadeInDown.delay(1400).duration(600)} style={styles.strong}>
-        Managing hard emotions isn&apos;t a fixed trait, it&apos;s a skill, and skills get stronger every time you use them
+      <Animated.Text entering={FadeInDown.delay(1150).duration(600)} style={styles.strong}>
+        These are all trainable, not a fixed trait.
       </Animated.Text>
     </StepLayout>
   );
 }
 
+// --- Goal (pick-up beat before home) ----------------------------------
+
+// What the practice covers, each dot colour-swept from the palette.
+const GOAL_HELP: { text: string; color: string }[] = [
+  { text: 'Train your brain what to react to', color: v3.regulated },
+  { text: 'Practise a calming activity', color: v3.activated },
+  { text: 'Match your breath with Niyora', color: v3.accent },
+  { text: 'Learn the research behind it all', color: v3.regulated },
+];
+
+function Goal({ onDone }: { onDone: () => void }) {
+  return (
+    <StepLayout footer={<BeginButton fullWidth label="But I'm ready" onPress={onDone} />}>
+      <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.goalHero}>
+        <Text style={styles.goalKicker}>Your goal</Text>
+        <Text style={styles.goalTitle}>Win one symptom at a time</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(350).duration(600)} style={styles.card}>
+        <Text style={styles.cardHeadingText}>Niyora will help you</Text>
+        <View style={styles.goalList}>
+          {GOAL_HELP.map((h) => (
+            <View key={h.text} style={styles.goalRow}>
+              <View style={[styles.goalDot, { backgroundColor: h.color }]} />
+              <Text style={styles.goalItem}>{h.text}</Text>
+            </View>
+          ))}
+        </View>
+      </Animated.View>
+    </StepLayout>
+  );
+}
+
 // --- Reusable pieces ---------------------------------------------------
+
+// Turn a theme colour (hsl or rgba) into a translucent variant, so card borders
+// and chips can pick up their accent hue softly.
+function colorAlpha(color: string, alpha: number): string {
+  if (color.startsWith('hsl(')) return color.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`);
+  const m = color.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const [r, g, b] = m[1].split(',').map((s) => s.trim());
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
+}
+
+// The flagged levers, phrased as what is making PMS worse, each with an accent
+// colour for its chip on the result screen.
+const LEVER_WORSE: Record<
+  (typeof LEVER_ITEMS)[number]['id'],
+  { label: string; color: string }
+> = {
+  sleep: { label: 'Poor sleep', color: v3.regulated },
+  food: { label: 'Unhealthy food', color: v3.activated },
+  movement: { label: 'Too little movement', color: v3.accent },
+};
 
 function ChipToggle({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
@@ -1122,14 +1237,6 @@ function DegreeChoice({
         })}
       </View>
     </View>
-  );
-}
-
-function SourceLine({ source }: { source: Source }) {
-  return (
-    <Text style={styles.source}>
-      {source.citation} · <Text style={styles.sourceConfirm}>{source.confirm}</Text>
-    </Text>
   );
 }
 
@@ -1524,16 +1631,6 @@ const styles = StyleSheet.create({
   radioLabel: { fontFamily: 'Poppins-Light', fontSize: 15, color: colors.textPrimary },
 
 
-  // Sources
-  sources: { gap: 4, marginVertical: 6, alignItems: 'center' },
-  source: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.textTagline,
-    textAlign: 'center',
-  },
-  sourceConfirm: { fontStyle: 'italic' },
 
   // Result
   card: {
@@ -1547,13 +1644,6 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   // Result hero: the level, big and colour-coded.
-  resultLabel: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    letterSpacing: 0.4,
-    color: colors.textTagline,
-    marginBottom: 2,
-  },
   resultLevel: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 34,
@@ -1582,12 +1672,66 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: 6,
   },
-  reward: { alignItems: 'center', gap: 8, marginBottom: 10 },
-  rewardLabel: {
-    fontFamily: 'Poppins-Light',
+  // Result card heading: an uppercase, muted label per card.
+  cardHeadingText: {
+    fontFamily: 'Poppins-Medium',
     fontSize: 12,
-    color: colors.textTagline,
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.textSubtitle,
+    marginBottom: 8,
+  },
+  // A graph/meter that fills the card's inner width.
+  graphFill: { alignSelf: 'stretch', alignItems: 'center', marginVertical: 6 },
+  // The water card's plain-language, two-line read.
+  waterCaption: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    marginTop: 12,
+    marginBottom: 2,
+  },
+  // "Things making PMS worse" chips: colour-swept pills.
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  worseChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  worseChipText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13.5,
+    letterSpacing: 0.2,
+  },
+  // Goal pick-up screen.
+  goalHero: { alignItems: 'center', marginTop: 8, marginBottom: 14 },
+  goalKicker: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.textSubtitle,
+    marginBottom: 8,
+  },
+  goalTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    lineHeight: 33,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  goalList: { gap: 15, marginTop: 4 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  goalDot: { width: 9, height: 9, borderRadius: 5 },
+  goalItem: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textPrimary,
+    flex: 1,
   },
 
   // Completion / congrats beat

@@ -415,6 +415,15 @@ export default function HomeScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>V3</Text>
           </Pressable>
         )}
+        {__DEV__ && (
+          <Pressable
+            style={{ position: 'absolute', bottom: 8, left: 44, padding: 8 }}
+            onPress={() => router.push('/home-v3' as Href)}
+            accessibilityLabel="Preview V3 dashboard"
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>Home</Text>
+          </Pressable>
+        )}
       </SafeAreaView>
       </Animated.View>
 

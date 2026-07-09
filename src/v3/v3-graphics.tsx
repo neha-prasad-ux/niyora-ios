@@ -8,7 +8,7 @@
 // Colors come from v3-theme (the app's real palette), not the plum register.
 
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -21,6 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, {
   Circle,
+  ClipPath,
   Defs,
   G,
   Line,
@@ -485,4 +486,287 @@ export function SpectrumBar({
     </Svg>
   );
 }
+
+// --- The wave meter (the "riding the wave" spine) ---------------------
+// One live water element that recurs across the game. Two channels carry two
+// variables: water HEIGHT is activation (how worked up / how high her cycle
+// window pushes the water), and the top LINE's choppiness is her skill band
+// (beginner = choppy; mastery = a near-flat glassy line). The tint runs
+// blue (calm) to amber (worked up) with activation. Debuts on the result screen
+// where severity becomes the starting water height.
+//
+// This is the wave promised by SpectrumBar's comment ("a thick flowing wave"),
+// now with the two live variables instead of a fixed rainbow. Physics mirror the
+// approved motion prototype; exact reanimated tuning can follow.
+
+const WM_BLUE: [number, number, number] = [156, 180, 226]; // v3.regulated ~#9cb4e2
+const WM_AMBER: [number, number, number] = [226, 169, 90]; // v3.activated ~#e2a95a
+const WM_WHITE: [number, number, number] = [255, 255, 255];
+const WM_INK: [number, number, number] = [12, 16, 34]; // near the app background
+
+function wmMix(
+  a: [number, number, number],
+  b: [number, number, number],
+  t: number,
+): [number, number, number] {
+  const k = Math.max(0, Math.min(1, t));
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * k),
+    Math.round(a[1] + (b[1] - a[1]) * k),
+    Math.round(a[2] + (b[2] - a[2]) * k),
+  ];
+}
+
+function wmRgba([r, g, b]: [number, number, number], alpha: number): string {
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
+ * The water's tint for a given activation (0..1): blue (calm) to amber (worked
+ * up). Exposed so text that sits beside the meter (e.g. the result level word)
+ * can take the same hue as the water, and never alarm-red.
+ */
+export function waveTint(activation: number): string {
+  return wmRgba(wmMix(WM_BLUE, WM_AMBER, activation), 1);
+}
+
+// Water surface height at x, from three sine components of a single phase p: a
+// slow broad swell (always present, so even glassy water breathes), the primary
+// wave, and a counter-moving chop that only grows as skill drops. Combining
+// same/opposite drift directions makes the surface morph like real water rather
+// than a rigid sliding sine. A worklet so the UI thread can call it per frame.
+function wmSurfaceY(
+  x: number,
+  p: number,
+  top: number,
+  amp: number,
+  chop: number,
+  swell: number,
+  k0: number,
+  k1: number,
+  k2: number,
+): number {
+  'worklet';
+  return (
+    top +
+    swell * Math.sin(p * 0.55 + k0 * x) +
+    amp * Math.sin(p + k1 * x) +
+    chop * Math.sin(-p * 1.3 + k2 * x)
+  );
+}
+
+// Build a smooth wave path by curving through the sampled surface points with
+// quadratic Béziers (control = each point, endpoint = the midpoint to the next),
+// which reads far silkier than straight segments. `close` seals the water body.
+function wmWavePath(
+  p: number,
+  top: number,
+  W: number,
+  H: number,
+  steps: number,
+  close: boolean,
+  amp: number,
+  chop: number,
+  swell: number,
+  k0: number,
+  k1: number,
+  k2: number,
+): string {
+  'worklet';
+  const y0 = wmSurfaceY(0, p, top, amp, chop, swell, k0, k1, k2);
+  let d = `M 0 ${y0}`;
+  let prevX = 0;
+  let prevY = y0;
+  for (let i = 1; i <= steps; i++) {
+    const x = (i / steps) * W;
+    const y = wmSurfaceY(x, p, top, amp, chop, swell, k0, k1, k2);
+    const mx = (prevX + x) / 2;
+    const my = (prevY + y) / 2;
+    d += ` Q ${prevX} ${prevY} ${mx} ${my}`;
+    prevX = x;
+    prevY = y;
+  }
+  d += ` L ${W} ${prevY}`;
+  if (close) d += ` L ${W} ${H} L 0 ${H} Z`;
+  return d;
+}
+
+export function WaveMeter({
+  activation,
+  skill,
+  inWindow = false,
+  label,
+  note,
+  showYou = true,
+  width = 320,
+  height,
+}: {
+  activation: number; // 0..1 water height
+  skill: number; // 0..10 line steadiness
+  inWindow?: boolean;
+  label?: string; // meter label (from waveMeterLabel)
+  note?: string | null; // in-window amber note (from waveMeterLabel)
+  showYou?: boolean; // the "you" crest marker
+  width?: number;
+  height?: number;
+}) {
+  const reduce = useReduceMotion();
+  const W = 320;
+  const H = 150;
+  const renderH = height ?? (width * H) / W;
+
+  const act = Math.max(0, Math.min(1, activation));
+  const turbulence = Math.max(0, Math.min(1, 1 - skill / 10));
+  const amp = 3 + turbulence * 20; // primary wave: choppy when unskilled, calm when skilled
+  const chop = turbulence * 7; // counter-moving chop, only when unsteady
+  const swell = 3.5; // gentle broad swell, always present
+  const targetTop = (0.8 - act * 0.55) * H; // higher activation -> higher water
+  const K0 = (2 * Math.PI) / (W * 1.15); // broad swell wavelength
+  const K1 = (2 * Math.PI) / (W * 0.8); // primary wavelength
+  const K2 = (2 * Math.PI) / (W * 0.34); // chop wavelength
+  const STEPS = 46; // more samples -> smoother curve
+
+  // Tint runs blue -> amber with activation; deeper at the base for water depth.
+  const tint = wmMix(WM_BLUE, WM_AMBER, act);
+  const tintDeep = wmMix(tint, WM_INK, 0.4);
+  const lineCol = wmMix(tint, WM_WHITE, 0.5);
+
+  // Slow continuous drift of the crest.
+  const phase = useSharedValue(0);
+  useEffect(() => {
+    if (reduce) return;
+    phase.value = withRepeat(
+      withTiming(Math.PI * 2, { duration: 6800, easing: Easing.linear }),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(phase);
+  }, [reduce, phase]);
+
+  // Entrance: the water rises from the base up to its activation height.
+  const rise = useSharedValue(reduce ? 1 : 0);
+  useEffect(() => {
+    if (reduce) {
+      rise.value = 1;
+      return;
+    }
+    rise.value = withDelay(300, withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }));
+    return () => cancelAnimation(rise);
+  }, [reduce, rise]);
+
+  // The "you" crest marker slides/fades in once the water has settled.
+  const dotIn = useSharedValue(reduce ? 1 : 0);
+  useEffect(() => {
+    if (!showYou) return;
+    if (reduce) {
+      dotIn.value = 1;
+      return;
+    }
+    dotIn.value = withDelay(1250, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }));
+    return () => cancelAnimation(dotIn);
+  }, [showYou, reduce, dotIn]);
+
+  const bodyProps = useAnimatedProps(() => {
+    const top = H - (H - targetTop) * rise.value;
+    return { d: wmWavePath(phase.value, top, W, H, STEPS, true, amp, chop, swell, K0, K1, K2) };
+  });
+
+  const lineProps = useAnimatedProps(() => {
+    const top = H - (H - targetTop) * rise.value;
+    return { d: wmWavePath(phase.value, top, W, H, STEPS, false, amp, chop, swell, K0, K1, K2) };
+  });
+
+  const dotProps = useAnimatedProps(() => {
+    const top = H - (H - targetTop) * rise.value;
+    const y = wmSurfaceY(W / 2, phase.value, top, amp, chop, swell, K0, K1, K2);
+    return { cx: W / 2, cy: y, opacity: dotIn.value };
+  });
+  const dotLabelProps = useAnimatedProps(() => {
+    const top = H - (H - targetTop) * rise.value;
+    const y = wmSurfaceY(W / 2, phase.value, top, amp, chop, swell, K0, K1, K2);
+    return { y: y - 16, opacity: dotIn.value };
+  });
+
+  return (
+    <View style={{ width, alignItems: 'center' }}>
+      <Svg viewBox={`0 0 ${W} ${H}`} width={width} height={renderH}>
+        <Defs>
+          <LinearGradient id="wm-water" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={wmRgba(tint, 0.5)} />
+            <Stop offset="1" stopColor={wmRgba(tintDeep, 0.9)} />
+          </LinearGradient>
+          <ClipPath id="wm-clip">
+            <Rect x={0} y={0} width={W} height={H} rx={20} />
+          </ClipPath>
+        </Defs>
+        {/* The tank. */}
+        <Rect x={0} y={0} width={W} height={H} rx={20} fill="rgba(255, 255, 255, 0.04)" />
+        <G clipPath="url(#wm-clip)">
+          <AnimatedPath animatedProps={bodyProps} fill="url(#wm-water)" />
+          {/* The steadiness line: the top edge, brighter, is what smooths as she
+              gains skill. */}
+          <AnimatedPath
+            animatedProps={lineProps}
+            fill="none"
+            stroke={wmRgba(lineCol, 0.92)}
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </G>
+        <Rect
+          x={0}
+          y={0}
+          width={W}
+          height={H}
+          rx={20}
+          fill="none"
+          stroke={v3.panelBorder}
+          strokeWidth={1}
+        />
+        {showYou && (
+          <>
+            <AnimatedCircle animatedProps={dotProps} r={6} fill={v3.text} />
+            <AnimatedSvgText
+              animatedProps={dotLabelProps}
+              x={W / 2}
+              textAnchor="middle"
+              fill={v3.text}
+              fontSize={10}
+              fontFamily={MONO}
+            >
+              you
+            </AnimatedSvgText>
+          </>
+        )}
+      </Svg>
+      {label != null && (
+        <Text style={waveStyles.label}>
+          {label}
+          {note ? (
+            <Text style={waveStyles.note}>
+              {'  ·  '}
+              {note}
+            </Text>
+          ) : null}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+const waveStyles = StyleSheet.create({
+  label: {
+    fontFamily: LABEL,
+    fontSize: 14,
+    letterSpacing: 0.3,
+    color: v3.text,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  note: {
+    fontFamily: MONO,
+    color: v3.activated,
+  },
+});
 

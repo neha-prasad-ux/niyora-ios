@@ -5,8 +5,14 @@ What the app becomes *after* the V3 PMS assessment and result. Pairs with
 onboarding in `src/app/onboarding-v3.tsx`. Obeys `DESIGN.md` and the copy voice
 in `niyora-pms-HANDOFF.md`.
 
-Status: **agreed shape, not yet built.** Visual design of each card is owned by
-Neha; this doc fixes the architecture, data wiring, tone, and open questions.
+Status: **first cut BUILT (2026-07-08).** `src/app/home-v3.tsx` (dashboard, 5
+cards + cycle-aware ordering + live wave strip) and `src/app/game-v3.tsx` (the
+Irritability chapter, all six interactions + kind word), backed by
+`src/store/training-v3.ts` and `src/v3/game-content.ts`. Flow: onboarding-v3 →
+result → goal → `/home-v3` → Level card → `/game-v3`. Still stubbed: the read is
+not persisted (skill seeds at a default, not the assessment), Today reps + Fact
+game are light, only Irritability exists, goal screen is informational. This doc
+still fixes the intended architecture, data wiring, tone, and open questions.
 
 ---
 

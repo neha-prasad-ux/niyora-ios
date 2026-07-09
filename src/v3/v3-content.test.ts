@@ -8,9 +8,13 @@ import {
   deriveLevel,
   deriveLevers,
   formatStretchDate,
+  levelActivation,
   levelSpectrumPosition,
   nextTougherStretch,
+  regulationBlurb,
   remissionLine,
+  standingSkill,
+  waveMeterLabel,
   type V3Answers,
 } from './v3-content';
 
@@ -191,7 +195,8 @@ describe('cycleLine', () => {
 
   it('produces a dated line when the cycle is known', () => {
     const line = cycleLine({ lastPeriod: '2026-06-20', length: 28, unsure: false }, today);
-    expect(line).toContain('next dip');
+    expect(line).toContain('PMS window');
+    expect(line).not.toContain('dip'); // say PMS, not "dip"
     expect(line).toContain('July 11');
   });
 
@@ -203,5 +208,89 @@ describe('cycleLine', () => {
   it('never uses an em dash', () => {
     const line = cycleLine({ lastPeriod: '2026-06-20', length: 28, unsure: false }, today);
     expect(line).not.toContain('—');
+  });
+});
+
+describe('levelActivation (severity -> water height)', () => {
+  it('rises with severity and always leaves room for the in-window bump', () => {
+    expect(levelActivation('mild')).toBeLessThan(levelActivation('moderate'));
+    expect(levelActivation('moderate')).toBeLessThan(levelActivation('severe'));
+    expect(levelActivation('severe')).toBeLessThan(0.82); // room to bump higher in-window
+  });
+});
+
+describe('standingSkill (coping standing -> starting water steadiness)', () => {
+  it('ranks engaging steadier than mixed, mixed steadier than disengaging', () => {
+    expect(standingSkill('engaging')).toBeGreaterThan(standingSkill('mixed'));
+    expect(standingSkill('mixed')).toBeGreaterThan(standingSkill('disengaging'));
+  });
+
+  it('never starts anyone at zero and never above the band (no shame, no hype)', () => {
+    for (const s of ['engaging', 'mixed', 'disengaging', null] as const) {
+      const v = standingSkill(s);
+      expect(v).toBeGreaterThan(0);
+      expect(v).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('maps each standing to the intended meter label', () => {
+    expect(waveMeterLabel(standingSkill('engaging'), false).label).toBe('Steady in the swell');
+    expect(waveMeterLabel(standingSkill('mixed'), false).label).toBe('Riding the wave');
+    expect(waveMeterLabel(standingSkill('disengaging'), false).label).toBe('Finding your footing');
+    expect(waveMeterLabel(standingSkill(null), false).label).toBe('Learning the water');
+  });
+});
+
+describe('regulationBlurb (plain-language water description)', () => {
+  it('gives a distinct, non-empty read for each standing', () => {
+    const all = (['engaging', 'mixed', 'disengaging', null] as const).map(regulationBlurb);
+    for (const b of all) expect(b.length).toBeGreaterThan(20);
+    expect(new Set(all).size).toBe(4); // all different
+  });
+
+  it('explains the "finding your footing" band in plain words', () => {
+    expect(regulationBlurb('disengaging').toLowerCase()).toContain('finding your footing');
+  });
+
+  it('never lectures about being trainable, and stays quiet (no em dash / bang)', () => {
+    for (const s of ['engaging', 'mixed', 'disengaging', null] as const) {
+      const b = regulationBlurb(s);
+      expect(b.toLowerCase()).not.toContain('trainable');
+      expect(b).not.toMatch(/[—!]/);
+    }
+  });
+});
+
+describe('waveMeterLabel (skill band + in-window note)', () => {
+  it('bands skill 0..10 into the five labels', () => {
+    expect(waveMeterLabel(0, false).label).toBe('Learning the water');
+    expect(waveMeterLabel(3, false).label).toBe('Finding your footing');
+    expect(waveMeterLabel(6, false).label).toBe('Riding the wave');
+    expect(waveMeterLabel(8, false).label).toBe('Steady in the swell');
+    expect(waveMeterLabel(10, false).label).toBe('Calm in the current');
+  });
+
+  it('debuts at "Learning the water" (skill 0)', () => {
+    expect(waveMeterLabel(0, true).label).toBe('Learning the water');
+  });
+
+  it('adds the amber note only in-window, and never drops the band', () => {
+    expect(waveMeterLabel(6, false).note).toBeNull();
+    expect(waveMeterLabel(6, true).note).toContain("water's high");
+    // The band is unchanged by the window: rough water, not lost ground.
+    expect(waveMeterLabel(6, true).label).toBe(waveMeterLabel(6, false).label);
+  });
+
+  it('clamps out-of-range skill without throwing', () => {
+    expect(waveMeterLabel(-3, false).label).toBe('Learning the water');
+    expect(waveMeterLabel(42, false).label).toBe('Calm in the current');
+  });
+
+  it('keeps copy free of em dashes and exclamation points', () => {
+    for (const s of [0, 3, 6, 8, 10]) {
+      const { label, note } = waveMeterLabel(s, true);
+      expect(label).not.toMatch(/[—!]/);
+      expect(note ?? '').not.toMatch(/[—!]/);
+    }
   });
 });
