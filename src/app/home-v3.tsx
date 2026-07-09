@@ -74,12 +74,8 @@ export default function HomeV3() {
   const chapterDone = training.completed.length >= CHAPTER.levels.length;
   const started = training.completed.length > 0;
 
-  // In dev, jump straight to the level under construction so we do not replay
-  // earlier levels each time. Production resumes where she left off.
-  const openGame = () =>
-    __DEV__
-      ? router.push({ pathname: '/game-v3', params: { level: '3' } })
-      : router.push('/game-v3');
+  // The game resumes at her first incomplete level on its own.
+  const openGame = () => router.push('/game-v3');
 
   // The Calm card is the real home's acute path, unchanged: open the same
   // RecommendSheet, then hand off to the /result deck exactly as index.tsx does.

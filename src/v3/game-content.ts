@@ -44,22 +44,14 @@ export interface L3Scene {
   options: L3Option[];
 }
 
-// L4 — say it or save it, slider on a timeline.
-export interface L4Zone {
-  id: 'now' | 'take20' | 'never';
-  label: string;
-  best: boolean;
-  future: string;
-}
-
-// L6 — your move next time, tap-to-assemble chips.
-export interface L6Slot {
+// L5 — your move next time, tap-to-assemble chips.
+export interface L5Slot {
   id: string;
   lead: string; // the words before the blank
   options: string[];
 }
 
-export type LevelKind = 'swipe' | 'tap' | 'preview' | 'slider' | 'breathe' | 'chips';
+export type LevelKind = 'swipe' | 'tap' | 'preview' | 'breathe' | 'chips';
 
 export interface GameLevel {
   id: string;
@@ -97,22 +89,14 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
   {
     id: 'irr-l4',
     n: 4,
-    title: 'Say it, or save it',
-    kind: 'slider',
+    title: 'Rehearse',
+    kind: 'breathe',
     intro:
-      'Sometimes the annoyance is pointing at something real. The move is not swallowing it, it is saying it when she will actually be heard.',
+      "Remember that long exhale from before? Let's actually do it. This is what taking 20 feels like from the inside.",
   },
   {
     id: 'irr-l5',
     n: 5,
-    title: 'Rehearse',
-    kind: 'breathe',
-    intro:
-      "Remember that long exhale from before? Let's actually do it. This is what giving her space feels like from the inside.",
-  },
-  {
-    id: 'irr-l6',
-    n: 6,
     title: 'Your move next time',
     kind: 'chips',
     intro:
@@ -369,36 +353,37 @@ export const L3_CONGRATS = {
 export const L3_PAYLOAD =
   'Same three solutions every time. All that changed was the size, and that flipped what helped. That is the whole game.';
 
-export const L4_SCENE = `Her partner genuinely blew off something ${FRIEND_NAME} cared about. That is real, not just PMS. When does she say something?`;
+// Level 4 · Rehearse. The long exhale from L1, done for real. A self-contained
+// 4-7-8 breath: the technique she has been pointed at all game, now felt from the
+// inside. No right or wrong, so the reward here is simply doing it.
+export const L4_INTRO = {
+  level: 'Level 4',
+  title: 'Rehearse',
+  subtitle: 'You know the moves. Now feel the one that settles a big wave, from the inside.',
+};
 
-export const L4_ZONES: L4Zone[] = [
-  {
-    id: 'now',
-    label: 'Right now, mid-meltdown',
-    best: false,
-    future: 'Too flooded. It turns into a fight and nothing gets fixed.',
-  },
-  {
-    id: 'take20',
-    label: 'Take 20, then say it straight',
-    best: true,
-    future: 'Calm enough that it actually lands.',
-  },
-  {
-    id: 'never',
-    label: 'Let it go, say nothing',
-    best: false,
-    future: 'It does not disappear, it piles up. Swallowing it is not the goal.',
-  },
-];
+export const L4_TEACH = {
+  kicker: 'Cheat code',
+  title: 'The 4-7-8 breath',
+  body: 'In for 4, hold for 7, out for 8. The long exhale is the part that tells your body to calm down. That is the whole trick.',
+};
 
-// L5 reuses the built Wind Down 4-7-8 technique (id in models/techniques.ts).
-export const L5_TECHNIQUE_ID = 'wind-down';
-export const L5_TEACH =
-  'In for 4, hold 7, out for 8. The long exhale is the part that calms you down. That is the whole trick.';
+export const L4_CONGRATS = {
+  title: 'Congratulations',
+  subtitle: 'You passed Level 4',
+  body: 'That long exhale is yours now. It is what taking 20 feels like from the inside.',
+};
 
-export const L6_TEMPLATE = 'When I am {intensity} worked up and {trigger}, before I react I will {action}.';
-export const L6_SLOTS: L6Slot[] = [
+// Level 5 · Your move next time. Turn the whole chapter into one if-then plan in
+// her own words, tap-to-assemble. The chapter closes here, with the kind word.
+export const L5_INTRO = {
+  level: 'Level 5',
+  title: 'Your move next time',
+  subtitle: 'Turn all of this into one plan, in your own words, ready before you need it.',
+};
+
+export const L5_TEMPLATE = 'When I am {intensity} worked up and {trigger}, before I react I will {action}.';
+export const L5_SLOTS: L5Slot[] = [
   { id: 'intensity', lead: 'When I am', options: ['a little', 'a lot'] },
   {
     id: 'trigger',
@@ -411,6 +396,12 @@ export const L6_SLOTS: L6Slot[] = [
     options: ['take 20 minutes', 'step outside', 'breathe out slow', 'say it later'],
   },
 ];
+
+export const L5_CONGRATS = {
+  title: 'Congratulations',
+  subtitle: 'You finished Irritability',
+  body: 'You can read the size, pick the move that fits, and you have a plan for next time. That is the whole chapter.',
+};
 
 export const KIND_WORD = {
   title: 'One kind thing to yourself',
@@ -426,7 +417,7 @@ export const CHAPTER = {
   levels: IRRITABILITY_LEVELS,
 };
 
-// Build the assembled L6 sentence from chosen slot values (id -> option).
-export function buildL6Sentence(choices: Record<string, string>): string {
-  return L6_TEMPLATE.replace(/\{(\w+)\}/g, (_, k: string) => choices[k] ?? '...');
+// Build the assembled L5 sentence from chosen slot values (id -> option).
+export function buildL5Sentence(choices: Record<string, string>): string {
+  return L5_TEMPLATE.replace(/\{(\w+)\}/g, (_, k: string) => choices[k] ?? '...');
 }

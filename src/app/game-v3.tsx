@@ -6,27 +6,15 @@
 //
 // Content lives in v3/game-content.ts; progress persists via store/training-v3.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  LayoutChangeEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  FadeIn,
-  FadeInDown,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -37,44 +25,31 @@ import { Orb } from '@/components/orb';
 import { RingCelebration } from '@/components/RingCelebration';
 import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
-import { WaveMeter } from '@/v3/v3-graphics';
-import { waveMeterLabel } from '@/v3/v3-content';
 import {
   IRRITABILITY_LEVELS,
   KIND_WORD,
   L1_CARDS,
-  L1_CLOSE,
   L1_CONGRATS,
   L1_INTRO,
   L2_CHEAT,
-  L2_CLOSE,
   L2_CONGRATS,
   L2_INTRO,
   L2_SCENES,
   L3_CHEAT,
   L3_CONGRATS,
   L3_INTRO,
-  L3_PAYLOAD,
   L3_SCENES,
-  L4_SCENE,
-  L4_ZONES,
-  L5_TEACH,
-  L5_TECHNIQUE_ID,
-  L6_SLOTS,
-  buildL6Sentence,
-  type GameLevel,
+  L4_CONGRATS,
+  L4_INTRO,
+  L4_TEACH,
+  L5_CONGRATS,
+  L5_INTRO,
+  L5_SLOTS,
+  buildL5Sentence,
   type Intensity,
-  type L3Option,
   type MoveTier,
 } from '@/v3/game-content';
-import {
-  LEVEL_SKILL_GAIN,
-  MAX_SKILL,
-  SEED_SKILL,
-  getTraining,
-  recordKindWord,
-  recordLevelComplete,
-} from '@/store/training-v3';
+import { getTraining, recordKindWord, recordLevelComplete } from '@/store/training-v3';
 import { SOUL_RING_HUES } from '@/models/tiers';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -95,14 +70,20 @@ const STRESS_HUES = [8, 275, 330, 8] as const; // coral, violet, pink, coral
 // (suppression), never an alarm neon.
 const SUPPRESS_RED = 'hsl(2, 55%, 56%)';
 
+// The clean-run reward: finish a graded level with no wrong answers and the
+// congrats orb wears a warm gold ring (instead of the usual soul hues) and the
+// burst flares gold. A retry anywhere in the level drops it back to the soul ring.
+const GOLD_HUE = 45;
+const GOLD_RING_HUES = [GOLD_HUE, GOLD_HUE, GOLD_HUE] as const;
+const VIOLET_BURST = 275;
+
 export default function GameV3() {
-  const { width: screenW } = useWindowDimensions();
   const levels = IRRITABILITY_LEVELS;
   const [index, setIndex] = useState(0);
-  const [skill, setSkill] = useState(SEED_SKILL);
   const [ready, setReady] = useState(false);
 
-  // Optional deep-link jump: /game-v3?level=3 opens Level 3 directly (1-indexed).
+  // Optional deep-link jump: /game-v3?level=4 opens a level directly (1-indexed),
+  // handy for testing a single level without replaying the earlier ones.
   const { level: levelParam } = useLocalSearchParams<{ level?: string }>();
 
   // Resume where she left off: start at the first level she has not completed
@@ -110,7 +91,6 @@ export default function GameV3() {
   useEffect(() => {
     getTraining()
       .then((t) => {
-        setSkill(t.skill);
         const jump = levelParam ? Number(levelParam) - 1 : NaN;
         if (Number.isInteger(jump) && jump >= 0 && jump < levels.length) {
           setIndex(jump);
@@ -122,17 +102,19 @@ export default function GameV3() {
       .finally(() => setReady(true));
   }, [levels, levelParam]);
 
-  const done = index >= levels.length;
-  const level = done ? undefined : levels[index];
-
+  // Record the level, nudge the wave steadier (in the store), and step forward.
   const advance = useCallback((levelId: string) => {
     recordLevelComplete(levelId).catch(() => {});
-    setSkill((s) => Math.min(MAX_SKILL, s + LEVEL_SKILL_GAIN));
     setIndex((i) => i + 1);
   }, []);
 
-  const meter = waveMeterLabel(skill, false);
-  const stripW = Math.min(screenW - 40, 420);
+  // The last level records completion, then hands back to the dashboard.
+  const finish = useCallback((levelId: string) => {
+    recordLevelComplete(levelId).catch(() => {});
+    router.back();
+  }, []);
+
+  const exit = useCallback(() => router.back(), []);
 
   // Hold the first paint until we know the resume point, so we never flash
   // Level 1 before jumping to where she left off.
@@ -144,62 +126,20 @@ export default function GameV3() {
     );
   }
 
-  // Level 1 is the redesigned Truth/Myth arc: a self-contained, full-screen flow
-  // (game intro -> level intro -> play -> congrats), big buttons at the bottom.
-  // Levels 2-6 keep the shared runner below for now.
-  if (!done && index === 0) {
-    return <LevelOne onDone={() => advance(levels[0].id)} onExit={() => router.back()} />;
+  // Every level is a self-contained, full-screen arc (intro -> [cheat] -> play ->
+  // congrats), big buttons at the bottom, soft retry, a gold ring for a clean run.
+  switch (index) {
+    case 0:
+      return <LevelOne onDone={() => advance(levels[0].id)} onExit={exit} />;
+    case 1:
+      return <LevelTwo onDone={() => advance(levels[1].id)} onExit={exit} />;
+    case 2:
+      return <LevelThree onDone={() => advance(levels[2].id)} onExit={exit} />;
+    case 3:
+      return <LevelFour onDone={() => advance(levels[3].id)} onExit={exit} />;
+    default:
+      return <LevelFive onDone={() => finish(levels[4].id)} onExit={exit} />;
   }
-  if (!done && index === 1) {
-    return <LevelTwo onDone={() => advance(levels[1].id)} onExit={() => router.back()} />;
-  }
-  if (!done && index === 2) {
-    return <LevelThree onDone={() => advance(levels[2].id)} onExit={() => router.back()} />;
-  }
-
-  return (
-    <View style={styles.root}>
-      <BackgroundGradient />
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back">
-            <Text style={styles.back}>‹</Text>
-          </Pressable>
-          <View style={styles.dots}>
-            {levels.map((l, i) => (
-              <View
-                key={l.id}
-                style={[
-                  styles.dot,
-                  i < index && styles.dotDone,
-                  i === index && styles.dotActive,
-                ]}
-              />
-            ))}
-          </View>
-          <View style={{ width: 22 }} />
-        </View>
-
-        <View style={styles.waveHeader}>
-          <WaveMeter
-            activation={0.5}
-            skill={skill}
-            label={meter.label}
-            note={meter.note}
-            showYou={false}
-            width={stripW}
-            height={66}
-          />
-        </View>
-
-        {done ? (
-          <Completion onClose={() => router.back()} />
-        ) : (
-          <LevelBody key={level!.id} level={level!} onDone={() => advance(level!.id)} />
-        )}
-      </SafeAreaView>
-    </View>
-  );
 }
 
 // Faint soul orbs (with rings) drifting behind the Level 1 intro screens, so the
@@ -223,6 +163,56 @@ function L1Backdrop() {
   );
 }
 
+// The shared "Congratulations" page every level ends on: the soul orb wearing N
+// accumulated rings, the level's copy, and a big forward button. A clean run
+// (gold = true) swaps the soul hues for a warm gold ring and tags the page.
+// Optional children slot in below the card (the chapter-end kind word).
+function LevelCongrats({
+  ringCount,
+  gold,
+  congrats,
+  buttonLabel,
+  onNext,
+  children,
+}: {
+  ringCount: number;
+  gold: boolean;
+  congrats: { title: string; subtitle: string; body: string };
+  buttonLabel: string;
+  onNext: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View style={styles.l1Body}>
+      <ScrollView
+        contentContainerStyle={styles.congratsScroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.l1Center}>
+          {gold && (
+            <View style={styles.cleanRunTag}>
+              <Text style={styles.cleanRunText}>Clean run</Text>
+            </View>
+          )}
+          <Orb
+            size={110}
+            tierRingCount={ringCount}
+            ringHues={gold ? GOLD_RING_HUES : SOUL_RING_HUES}
+            accumulate
+          />
+          <Text style={styles.l1CongratsTitle}>{congrats.title}</Text>
+          <Text style={styles.l1CongratsSub}>{congrats.subtitle}</Text>
+          <View style={styles.l1CongratsCard}>
+            <Text style={styles.l1CongratsBody}>{congrats.body}</Text>
+          </View>
+          {children}
+        </View>
+      </ScrollView>
+      <BeginButton fullWidth label={buttonLabel} onPress={onNext} />
+    </View>
+  );
+}
+
 // --- Level 1 · the redesigned Truth/Myth arc --------------------------
 // Self-contained, full-screen: game intro -> level intro -> play -> congrats.
 // Big buttons at the bottom, soft retry (never a harsh fail), a brand particle
@@ -232,6 +222,7 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
   const [i, setI] = useState(0);
   const [guess, setGuess] = useState<boolean | null>(null); // Truth = true, Myth = false
   const [celebrate, setCelebrate] = useState(false);
+  const [flawless, setFlawless] = useState(true); // no wrong answers -> gold ring
 
   const card = L1_CARDS[i];
   const answered = guess !== null;
@@ -244,6 +235,7 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
       setCelebrate(true);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
     }
     setGuess(asTrue);
   };
@@ -380,17 +372,13 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
         )}
 
         {stage === 'congrats' && (
-          <View style={styles.l1Body}>
-            <View style={styles.l1Center}>
-              <Orb size={110} tierRingCount={1} ringHues={SOUL_RING_HUES} accumulate />
-              <Text style={styles.l1CongratsTitle}>{L1_CONGRATS.title}</Text>
-              <Text style={styles.l1CongratsSub}>{L1_CONGRATS.subtitle}</Text>
-              <View style={styles.l1CongratsCard}>
-                <Text style={styles.l1CongratsBody}>{L1_CONGRATS.body}</Text>
-              </View>
-            </View>
-            <BeginButton fullWidth label="On to Level 2" onPress={() => { tap(); onDone(); }} />
-          </View>
+          <LevelCongrats
+            ringCount={1}
+            gold={flawless}
+            congrats={L1_CONGRATS}
+            buttonLabel="On to Level 2"
+            onNext={() => { tap(); onDone(); }}
+          />
         )}
       </SafeAreaView>
 
@@ -399,7 +387,7 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
           <CelebrationParticles style={StyleSheet.absoluteFill} />
         </View>
       )}
-      {stage === 'congrats' && <RingCelebration hue={275} />}
+      {stage === 'congrats' && <RingCelebration hue={flawless ? GOLD_HUE : VIOLET_BURST} />}
     </View>
   );
 }
@@ -433,6 +421,7 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
   const [i, setI] = useState(0);
   const [guess, setGuess] = useState<Intensity | null>(null);
   const [celebrate, setCelebrate] = useState(false);
+  const [flawless, setFlawless] = useState(true); // no wrong answers -> gold ring
 
   const scene = L2_SCENES[i];
   const answered = guess !== null;
@@ -445,6 +434,7 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
       setCelebrate(true);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
     }
     setGuess(g);
   };
@@ -596,17 +586,13 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
         )}
 
         {stage === 'congrats' && (
-          <View style={styles.l1Body}>
-            <View style={styles.l1Center}>
-              <Orb size={110} tierRingCount={2} ringHues={SOUL_RING_HUES} accumulate />
-              <Text style={styles.l1CongratsTitle}>{L2_CONGRATS.title}</Text>
-              <Text style={styles.l1CongratsSub}>{L2_CONGRATS.subtitle}</Text>
-              <View style={styles.l1CongratsCard}>
-                <Text style={styles.l1CongratsBody}>{L2_CONGRATS.body}</Text>
-              </View>
-            </View>
-            <BeginButton fullWidth label="On to Level 3" onPress={() => { tap(); onDone(); }} />
-          </View>
+          <LevelCongrats
+            ringCount={2}
+            gold={flawless}
+            congrats={L2_CONGRATS}
+            buttonLabel="On to Level 3"
+            onNext={() => { tap(); onDone(); }}
+          />
         )}
       </SafeAreaView>
 
@@ -615,7 +601,7 @@ function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }
           <CelebrationParticles style={StyleSheet.absoluteFill} />
         </View>
       )}
-      {stage === 'congrats' && <RingCelebration hue={275} />}
+      {stage === 'congrats' && <RingCelebration hue={flawless ? GOLD_HUE : VIOLET_BURST} />}
     </View>
   );
 }
@@ -674,6 +660,7 @@ function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [celebrate, setCelebrate] = useState(false);
+  const [flawless, setFlawless] = useState(true); // only best-fit first tries -> gold ring
 
   const scene = L3_SCENES[i];
   const chosen = picked != null ? scene.options[picked] : null;
@@ -686,6 +673,7 @@ function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void
       setCelebrate(true);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
     }
     setPicked(idx);
   };
@@ -836,17 +824,13 @@ function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void
         )}
 
         {stage === 'congrats' && (
-          <View style={styles.l1Body}>
-            <View style={styles.l1Center}>
-              <Orb size={110} tierRingCount={3} ringHues={SOUL_RING_HUES} accumulate />
-              <Text style={styles.l1CongratsTitle}>{L3_CONGRATS.title}</Text>
-              <Text style={styles.l1CongratsSub}>{L3_CONGRATS.subtitle}</Text>
-              <View style={styles.l1CongratsCard}>
-                <Text style={styles.l1CongratsBody}>{L3_CONGRATS.body}</Text>
-              </View>
-            </View>
-            <BeginButton fullWidth label="On to Level 4" onPress={() => { tap(); onDone(); }} />
-          </View>
+          <LevelCongrats
+            ringCount={3}
+            gold={flawless}
+            congrats={L3_CONGRATS}
+            buttonLabel="On to Level 4"
+            onNext={() => { tap(); onDone(); }}
+          />
         )}
       </SafeAreaView>
 
@@ -855,484 +839,269 @@ function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void
           <CelebrationParticles style={StyleSheet.absoluteFill} />
         </View>
       )}
-      {stage === 'congrats' && <RingCelebration hue={275} />}
+      {stage === 'congrats' && <RingCelebration hue={flawless ? GOLD_HUE : VIOLET_BURST} />}
     </View>
   );
 }
 
-// Routes each level to its interaction, with a shared intro header.
-function LevelBody({ level, onDone }: { level: GameLevel; onDone: () => void }) {
-  return (
-    <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-      <Animated.View entering={FadeInDown.duration(450)}>
-        <Text style={styles.levelKicker}>
-          Level {level.n} · {level.title}
-        </Text>
-        <Text style={styles.intro}>{level.intro}</Text>
-      </Animated.View>
-      {level.kind === 'swipe' && <LevelSwipe onDone={onDone} />}
-      {level.kind === 'tap' && <LevelTap onDone={onDone} />}
-      {level.kind === 'preview' && <LevelPreview onDone={onDone} />}
-      {level.kind === 'slider' && <LevelSlider onDone={onDone} />}
-      {level.kind === 'breathe' && <LevelBreathe onDone={onDone} />}
-      {level.kind === 'chips' && <LevelChips onDone={onDone} />}
-    </ScrollView>
-  );
-}
 
-// --- L1 · swipe true / myth -------------------------------------------
+// --- Level 4 · Rehearse (the 4-7-8 breath, felt from the inside) -------
+// A self-contained guided breath: in 4, hold 7, out 8, for a few rounds. The
+// long exhale from Level 1, done for real. No right or wrong here.
+const BREATH = { inhale: 4, hold: 7, exhale: 8 } as const;
+const BREATH_LABEL = { inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out' } as const;
+const BREATH_ROUNDS = 3;
+type BreathPhase = keyof typeof BREATH;
 
-function LevelSwipe({ onDone }: { onDone: () => void }) {
-  const [i, setI] = useState(0);
-  const [side, setSide] = useState<null | 'true' | 'myth'>(null);
-  const card = L1_CARDS[i];
-  const tx = useSharedValue(0);
-  const THRESH = 90;
+function LevelFour({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [stage, setStage] = useState<'levelIntro' | 'teach' | 'breathe' | 'congrats'>('levelIntro');
+  const [phase, setPhase] = useState<BreathPhase>('inhale');
+  const [round, setRound] = useState(1);
+  const [breathDone, setBreathDone] = useState(false);
 
-  const commit = useCallback((s: 'true' | 'myth') => {
+  // Guided 4-7-8. Start on inhale (initial state) and only flip phases inside
+  // the timer, so there is no synchronous set-state in the effect. Each finished
+  // exhale counts a round; after the last one the breath rests.
+  useEffect(() => {
+    if (stage !== 'breathe' || breathDone) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    let completed = 0;
+    const schedule = (current: BreathPhase) => {
+      timer = setTimeout(() => {
+        if (!alive) return;
+        if (current === 'exhale') {
+          completed += 1;
+          if (completed >= BREATH_ROUNDS) {
+            setBreathDone(true);
+            return;
+          }
+          setRound(completed + 1);
+          setPhase('inhale');
+          schedule('inhale');
+        } else {
+          const next: BreathPhase = current === 'inhale' ? 'hold' : 'exhale';
+          setPhase(next);
+          schedule(next);
+        }
+      }, BREATH[current] * 1000);
+    };
+    schedule('inhale');
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [stage, breathDone]);
+
+  const back = () => {
     tap();
-    setSide(s);
-  }, []);
-
-  const pan = Gesture.Pan()
-    .enabled(side === null)
-    .onUpdate((e) => {
-      tx.value = e.translationX;
-    })
-    .onEnd((e) => {
-      if (e.translationX > THRESH) {
-        tx.value = withTiming(360);
-        runOnJS(commit)('true');
-      } else if (e.translationX < -THRESH) {
-        tx.value = withTiming(-360);
-        runOnJS(commit)('myth');
-      } else {
-        tx.value = withSpring(0);
-      }
-    });
-
-  const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { rotateZ: `${tx.value / 22}deg` }],
-  }));
-  const trueHint = useAnimatedStyle(() => ({ opacity: Math.max(0, Math.min(1, tx.value / THRESH)) }));
-  const mythHint = useAnimatedStyle(() => ({ opacity: Math.max(0, Math.min(1, -tx.value / THRESH)) }));
-
-  const next = () => {
-    tap();
-    tx.value = 0;
-    setSide(null);
-    if (i + 1 >= L1_CARDS.length) onDone();
-    else setI(i + 1);
+    if (stage === 'breathe') setStage('teach');
+    else if (stage === 'teach') setStage('levelIntro');
+    else onExit();
   };
 
-  const gotItRight = side != null && (side === 'true') === card.isTrue;
+  const startBreath = () => {
+    tap();
+    setRound(1);
+    setPhase('inhale');
+    setBreathDone(false);
+    setStage('breathe');
+  };
 
   return (
-    <View style={styles.interaction}>
-      {side == null ? (
-        <GestureDetector gesture={pan}>
-          <Animated.View style={[styles.swipeCard, cardStyle]}>
-            <Animated.Text style={[styles.swipeHintRight, trueHint]}>TRUE ▶</Animated.Text>
-            <Animated.Text style={[styles.swipeHintLeft, mythHint]}>◀ MYTH</Animated.Text>
-            <Text style={styles.swipeStatement}>{card.statement}</Text>
-            <Text style={styles.swipeHelp}>Swipe right if true, left if myth</Text>
-          </Animated.View>
-        </GestureDetector>
-      ) : (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.revealCard}>
-          <Text style={[styles.verdict, { color: card.isTrue ? v3.regulated : v3.activated }]}>
-            {card.isTrue ? 'True' : 'Myth'}
-          </Text>
-          <Text style={styles.revealBody}>{card.reveal}</Text>
-          {!gotItRight && <Text style={styles.gentleNote}>Good one to know. No stress.</Text>}
-        </Animated.View>
-      )}
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <View style={{ width: 22 }} />
+          </View>
+        )}
 
-      <Text style={styles.counter}>
-        {i + 1} of {L1_CARDS.length}
-      </Text>
-      {side != null && (
-        <BeginButton
-          fullWidth
-          label={i + 1 >= L1_CARDS.length ? 'Done' : 'Next'}
-          onPress={next}
-        />
-      )}
-      {i + 1 >= L1_CARDS.length && side != null && <Text style={styles.close}>{L1_CLOSE}</Text>}
-    </View>
-  );
-}
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L1Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Eyebrow}>{L4_INTRO.level}</Text>
+              <Text style={styles.l2Title}>{L4_INTRO.title}</Text>
+              <Text style={styles.l2Subtitle}>{L4_INTRO.subtitle}</Text>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('teach'); }} />
+          </View>
+        )}
 
-// --- L2 · binary tap (A little / A lot) -------------------------------
+        {stage === 'teach' && (
+          <View style={styles.l1Body}>
+            <L1Backdrop />
+            <View style={styles.l2CheatCenter}>
+              <Text style={styles.l2CheatKicker}>{L4_TEACH.kicker}</Text>
+              <Text style={styles.l2CheatTitle}>{L4_TEACH.title}</Text>
+              <View style={styles.l1CongratsCard}>
+                <Text style={styles.l1CongratsBody}>{L4_TEACH.body}</Text>
+              </View>
+            </View>
+            <BeginButton fullWidth label="Let's breathe" onPress={startBreath} />
+          </View>
+        )}
 
-function LevelTap({ onDone }: { onDone: () => void }) {
-  const [i, setI] = useState(0);
-  const [pick, setPick] = useState<Intensity | null>(null);
-  const scene = L2_SCENES[i];
-  const choose = (p: Intensity) => {
-    tap();
-    setPick(p);
-  };
-  const next = () => {
-    tap();
-    setPick(null);
-    if (i + 1 >= L2_SCENES.length) onDone();
-    else setI(i + 1);
-  };
-  const right = pick != null && pick === scene.answer;
-  return (
-    <View style={styles.interaction}>
-      <View style={styles.sceneCard}>
-        <Text style={styles.sceneText}>{scene.scene}</Text>
-      </View>
-      <View style={styles.choiceRow}>
-        <ChoiceButton
-          label="A little"
-          sub="Annoyed, still reachable"
-          on={pick === 'little'}
-          dim={pick != null && pick !== 'little'}
-          onPress={() => choose('little')}
-          disabled={pick != null}
-          color={v3.regulated}
-        />
-        <ChoiceButton
-          label="A lot"
-          sub="Flooded, past talking"
-          on={pick === 'lot'}
-          dim={pick != null && pick !== 'lot'}
-          onPress={() => choose('lot')}
-          disabled={pick != null}
-          color={v3.activated}
-        />
-      </View>
-      {pick != null && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.whyCard}>
-          <Text style={styles.whyLead}>{right ? 'Yes.' : 'Look again.'}</Text>
-          <Text style={styles.revealBody}>{scene.why}</Text>
-        </Animated.View>
-      )}
-      <Text style={styles.counter}>
-        {i + 1} of {L2_SCENES.length}
-      </Text>
-      {pick != null && (
-        <BeginButton fullWidth label={i + 1 >= L2_SCENES.length ? 'Done' : 'Next'} onPress={next} />
-      )}
-      {i + 1 >= L2_SCENES.length && pick != null && <Text style={styles.close}>{L2_CLOSE}</Text>}
-    </View>
-  );
-}
+        {stage === 'breathe' && (
+          <View style={styles.l1Body}>
+            <View style={styles.l4BreatheCenter}>
+              <Orb size={150} phase={phase} phaseDuration={BREATH[phase]} />
+              <Text style={styles.l4PhaseLabel}>
+                {breathDone ? 'Nicely done' : BREATH_LABEL[phase]}
+              </Text>
+              <Text style={styles.l4RoundLabel}>
+                {breathDone ? 'Feel that settle' : `Round ${round} of ${BREATH_ROUNDS}`}
+              </Text>
+            </View>
+            {breathDone ? (
+              <BeginButton fullWidth label="Finish" onPress={() => { tap(); setStage('congrats'); }} />
+            ) : (
+              <Pressable
+                onPress={() => { tap(); setStage('congrats'); }}
+                style={styles.l4Skip}
+                accessibilityRole="button"
+              >
+                <Text style={styles.l4SkipText}>I'm good</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
 
-function ChoiceButton({
-  label,
-  sub,
-  on,
-  dim,
-  onPress,
-  disabled,
-  color,
-}: {
-  label: string;
-  sub: string;
-  on: boolean;
-  dim: boolean;
-  onPress: () => void;
-  disabled: boolean;
-  color: string;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.choiceBtn,
-        on && { borderColor: color, backgroundColor: hsla(color, 0.16) },
-        dim && { opacity: 0.4 },
-      ]}
-      accessibilityRole="button"
-    >
-      <Text style={styles.choiceLabel}>{label}</Text>
-      <Text style={styles.choiceSub}>{sub}</Text>
-    </Pressable>
-  );
-}
-
-// --- L3 · card pick, press-and-hold to preview the future --------------
-
-function LevelPreview({ onDone }: { onDone: () => void }) {
-  const [i, setI] = useState(0);
-  const [committed, setCommitted] = useState<number | null>(null);
-  const scene = L3_SCENES[i];
-
-  const commit = (optIndex: number) => {
-    tap();
-    setCommitted(optIndex);
-  };
-  const next = () => {
-    tap();
-    setCommitted(null);
-    if (i + 1 >= L3_SCENES.length) onDone();
-    else setI(i + 1);
-  };
-  const committedOpt = committed != null ? scene.options[committed] : null;
-
-  return (
-    <View style={styles.interaction}>
-      <View style={styles.sceneCard}>
-        <IntensityBadge intensity={scene.intensity} />
-        <Text style={styles.sceneText}>{scene.prompt}</Text>
-      </View>
-      <View style={styles.moveList}>
-        {scene.options.map((o, idx) => (
-          <MoveCard
-            key={o.label}
-            option={o}
-            committed={committed === idx}
-            faded={committed != null && committed !== idx}
-            onCommit={() => commit(idx)}
+        {stage === 'congrats' && (
+          <LevelCongrats
+            ringCount={3}
+            gold={false}
+            congrats={L4_CONGRATS}
+            buttonLabel="On to Level 5"
+            onNext={() => { tap(); onDone(); }}
           />
-        ))}
-      </View>
-      {committedOpt && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.whyCard}>
-          <Text style={[styles.whyLead, { color: tierColor(committedOpt.tier) }]}>
-            {committedOpt.tier === 'best' ? 'Best fit.' : 'That is one way.'}
-          </Text>
-          <Text style={styles.revealBody}>{committedOpt.future}</Text>
-        </Animated.View>
-      )}
-      <Text style={styles.counter}>
-        {i + 1} of {L3_SCENES.length}
-      </Text>
-      {committed != null && (
-        <BeginButton fullWidth label={i + 1 >= L3_SCENES.length ? 'Done' : 'Next'} onPress={next} />
-      )}
-      {i + 1 >= L3_SCENES.length && committed != null && (
-        <Text style={styles.close}>{L3_PAYLOAD}</Text>
-      )}
+        )}
+      </SafeAreaView>
+
+      {stage === 'congrats' && <RingCelebration hue={VIOLET_BURST} />}
     </View>
   );
 }
 
-// A move card: press-and-hold (~260ms) to peek its future; quick tap to commit.
-function MoveCard({
-  option,
-  committed,
-  faded,
-  onCommit,
-}: {
-  option: L3Option;
-  committed: boolean;
-  faded: boolean;
-  onCommit: () => void;
-}) {
-  const [peeking, setPeeking] = useState(false);
-  const heldRef = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const onPressIn = () => {
-    heldRef.current = false;
-    timer.current = setTimeout(() => {
-      heldRef.current = true;
-      setPeeking(true);
-    }, 260);
-  };
-  const onPressOut = () => {
-    if (timer.current) clearTimeout(timer.current);
-    if (heldRef.current) {
-      setPeeking(false); // was a hold-to-preview; release retracts
-    } else if (!committed) {
-      onCommit(); // was a quick tap; commit
-    }
-  };
-
-  const show = peeking || committed;
-  return (
-    <Pressable
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      style={[
-        styles.moveCard,
-        committed && { borderColor: tierColor(option.tier), backgroundColor: hsla(tierColor(option.tier), 0.14) },
-        faded && { opacity: 0.4 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={option.label}
-    >
-      <Text style={styles.moveLabel}>{option.label}</Text>
-      {show ? (
-        <Text style={[styles.moveFuture, peeking && !committed && styles.moveFutureGhost]}>
-          {option.future}
-        </Text>
-      ) : (
-        <Text style={styles.moveHint}>Hold to preview · tap to pick</Text>
-      )}
-    </Pressable>
-  );
-}
-
-function IntensityBadge({ intensity }: { intensity: Intensity }) {
-  const little = intensity === 'little';
-  const color = little ? v3.regulated : v3.activated;
-  return (
-    <View style={[styles.badge, { borderColor: hsla(color, 0.6), backgroundColor: hsla(color, 0.14) }]}>
-      <Text style={[styles.badgeText, { color }]}>{little ? 'A little' : 'A lot'}</Text>
-    </View>
-  );
-}
-
-// --- L4 · slider on a timeline ----------------------------------------
-
-function LevelSlider({ onDone }: { onDone: () => void }) {
-  const [trackW, setTrackW] = useState(0);
-  const [zoneIdx, setZoneIdx] = useState(1); // start at the middle (best-fit)
-  const [locked, setLocked] = useState(false);
-  const x = useSharedValue(0.5);
-
-  const onLayout = (e: LayoutChangeEvent) => setTrackW(e.nativeEvent.layout.width);
-
-  const setZoneFromFraction = useCallback((f: number) => {
-    const idx = f < 0.34 ? 0 : f < 0.67 ? 1 : 2;
-    setZoneIdx((prev) => {
-      if (prev !== idx) tap();
-      return idx;
-    });
-  }, []);
-
-  const pan = Gesture.Pan()
-    .enabled(!locked && trackW > 0)
-    .onUpdate((e) => {
-      const f = Math.max(0, Math.min(1, e.x / trackW));
-      x.value = f;
-      runOnJS(setZoneFromFraction)(f);
-    });
-
-  const thumbStyle = useAnimatedStyle(() => ({ left: `${x.value * 100}%` }));
-  const zone = L4_ZONES[zoneIdx];
-
-  return (
-    <View style={styles.interaction}>
-      <View style={styles.sceneCard}>
-        <Text style={styles.sceneText}>{L4_SCENE}</Text>
-      </View>
-
-      <GestureDetector gesture={pan}>
-        <View style={styles.track} onLayout={onLayout}>
-          <View style={[styles.trackZone, { backgroundColor: hsla(v3.activated, 0.18) }]} />
-          <View style={[styles.trackZone, { backgroundColor: hsla(v3.regulated, 0.22) }]} />
-          <View style={[styles.trackZone, { backgroundColor: 'rgba(255,255,255,0.06)' }]} />
-          <Animated.View style={[styles.thumb, thumbStyle]} />
-        </View>
-      </GestureDetector>
-      <View style={styles.trackLabels}>
-        <Text style={styles.trackEnd}>now</Text>
-        <Text style={styles.trackEnd}>take 20</Text>
-        <Text style={styles.trackEnd}>never</Text>
-      </View>
-
-      <Animated.View key={zone.id} entering={FadeIn.duration(220)} style={styles.whyCard}>
-        <Text style={[styles.whyLead, { color: zone.best ? v3.regulated : v3.activated }]}>
-          {zone.label}
-        </Text>
-        <Text style={styles.revealBody}>{zone.future}</Text>
-      </Animated.View>
-
-      {!locked ? (
-        <BeginButton fullWidth label="Lock it in" onPress={() => { tap(); setLocked(true); }} />
-      ) : (
-        <>
-          <Text style={styles.close}>
-            {zone.best
-              ? 'That is it. Say the real thing, just not mid-flood.'
-              : 'Notice the cost at each end. The middle is where it lands.'}
-          </Text>
-          <BeginButton fullWidth label="Done" onPress={onDone} />
-        </>
-      )}
-    </View>
-  );
-}
-
-// --- L5 · rehearse: the built Wind Down breath ------------------------
-
-function LevelBreathe({ onDone }: { onDone: () => void }) {
-  return (
-    <View style={styles.interaction}>
-      <View style={styles.breatheOrb}>
-        <Orb size={140} />
-      </View>
-      <Text style={styles.teach}>{L5_TEACH}</Text>
-      <BeginButton
-        fullWidth
-        label="Breathe with Niyora"
-        onPress={() => {
-          tap();
-          router.push({ pathname: '/session', params: { id: L5_TECHNIQUE_ID } });
-        }}
-      />
-      <Pressable onPress={onDone} style={styles.secondary} accessibilityRole="button">
-        <Text style={styles.secondaryText}>Continue</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-// --- L6 · tap-to-assemble if-then chips -------------------------------
-
-function LevelChips({ onDone }: { onDone: () => void }) {
+// --- Level 5 · Your move next time (assemble the if-then plan) ---------
+// The chapter closes here: build one plan in her own words, then the woven kind
+// word. No right or wrong, so the reward is finishing.
+function LevelFive({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [stage, setStage] = useState<'levelIntro' | 'play' | 'congrats'>('levelIntro');
   const [choices, setChoices] = useState<Record<string, string>>({});
-  const allFilled = L6_SLOTS.every((s) => choices[s.id]);
+  const allFilled = L5_SLOTS.every((s) => choices[s.id]);
+  const sentence = buildL5Sentence(choices);
+
   const set = (slot: string, opt: string) => {
     tap();
     setChoices((c) => ({ ...c, [slot]: opt }));
   };
-  return (
-    <View style={styles.interaction}>
-      <View style={[styles.sceneCard, allFilled && { borderColor: hsla(v3.accent, 0.6) }]}>
-        <Text style={styles.sentence}>
-          {allFilled ? buildL6Sentence(choices) : 'Fill in the blanks below.'}
-        </Text>
-        {allFilled && <View style={styles.seal} />}
-      </View>
 
-      {L6_SLOTS.map((slot) => (
-        <View key={slot.id} style={styles.slotGroup}>
-          <Text style={styles.slotLead}>{slot.lead}…</Text>
-          <View style={styles.chipRow}>
-            {slot.options.map((opt) => {
-              const on = choices[slot.id] === opt;
-              return (
-                <Pressable
-                  key={opt}
-                  onPress={() => set(slot.id, opt)}
-                  style={[styles.chip, on && { borderColor: v3.accent, backgroundColor: hsla(v3.accent, 0.18) }]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.chipText, on && { color: colors.textPrimary }]}>{opt}</Text>
-                </Pressable>
-              );
-            })}
+  const back = () => {
+    tap();
+    if (stage === 'play') setStage('levelIntro');
+    else onExit();
+  };
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <View style={{ width: 22 }} />
           </View>
-        </View>
-      ))}
+        )}
 
-      {allFilled && <BeginButton fullWidth label="Seal it" onPress={onDone} />}
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L1Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Eyebrow}>{L5_INTRO.level}</Text>
+              <Text style={styles.l2Title}>{L5_INTRO.title}</Text>
+              <Text style={styles.l2Subtitle}>{L5_INTRO.subtitle}</Text>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('play'); }} />
+          </View>
+        )}
+
+        {stage === 'play' && (
+          <View style={styles.l1Body}>
+            <ScrollView
+              contentContainerStyle={styles.l5PlayScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={[styles.l5SentenceCard, allFilled && { borderColor: hsla(v3.accent, 0.6) }]}>
+                <Text style={styles.sentence}>
+                  {allFilled ? sentence : 'Fill in the blanks below.'}
+                </Text>
+                {allFilled && <View style={styles.seal} />}
+              </View>
+              {L5_SLOTS.map((slot) => (
+                <View key={slot.id} style={styles.slotGroup}>
+                  <Text style={styles.slotLead}>{slot.lead}…</Text>
+                  <View style={styles.chipRow}>
+                    {slot.options.map((opt) => {
+                      const on = choices[slot.id] === opt;
+                      return (
+                        <Pressable
+                          key={opt}
+                          onPress={() => set(slot.id, opt)}
+                          style={[styles.chip, on && { borderColor: v3.accent, backgroundColor: hsla(v3.accent, 0.18) }]}
+                          accessibilityRole="button"
+                        >
+                          <Text style={[styles.chipText, on && { color: colors.textPrimary }]}>{opt}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <BeginButton
+              fullWidth
+              label="Seal it"
+              disabled={!allFilled}
+              onPress={() => { tap(); setStage('congrats'); }}
+            />
+          </View>
+        )}
+
+        {stage === 'congrats' && (
+          <LevelCongrats
+            ringCount={3}
+            gold={false}
+            congrats={L5_CONGRATS}
+            buttonLabel="Back to home"
+            onNext={() => { tap(); onDone(); }}
+          >
+            <View style={styles.l5PlanCard}>
+              <Text style={styles.l5PlanLabel}>Your plan</Text>
+              <Text style={styles.l5PlanText}>{sentence}</Text>
+            </View>
+            <KindWord />
+          </LevelCongrats>
+        )}
+      </SafeAreaView>
+
+      {stage === 'congrats' && <RingCelebration hue={VIOLET_BURST} />}
     </View>
-  );
-}
-
-// --- Completion + the woven kind word ---------------------------------
-
-function Completion({ onClose }: { onClose: () => void }) {
-  return (
-    <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-      <Animated.View entering={FadeInDown.duration(500)} style={{ alignItems: 'center' }}>
-        <Orb size={92} />
-        <Text style={styles.doneTitle}>Chapter done</Text>
-        <Text style={styles.doneBody}>You read the wave and picked the move. The water is steadier for it.</Text>
-      </Animated.View>
-      <KindWord />
-      <BeginButton fullWidth label="Back to home" onPress={onClose} />
-    </ScrollView>
   );
 }
 
@@ -1381,14 +1150,8 @@ function hsla(color: string, alpha: number): string {
   return color;
 }
 
-function tierColor(tier: MoveTier): string {
-  return tier === 'best' ? v3.regulated : tier === 'lesser' ? v3.activated : v3.activated;
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 20 },
-  topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12 },
   back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
 
   // Level 1 (Truth/Myth) arc.
@@ -1591,8 +1354,6 @@ const styles = StyleSheet.create({
   l2ChoiceBig: { backgroundColor: hsla(BIG_CORAL, 0.9), borderColor: BIG_CORAL },
 
   // Level 3 (What helps most) extras.
-  l3HeroReframe: { backgroundColor: hsla(TRUTH_BLUE, 0.85), transform: [{ rotate: '-8deg' }], marginRight: -18, zIndex: 2 },
-  l3HeroSpace: { backgroundColor: hsla(BIG_CORAL, 0.82), transform: [{ rotate: '7deg' }] },
   l3Prompt: {
     fontFamily: 'Poppins-Medium',
     fontSize: 21,
@@ -1622,156 +1383,63 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  dots: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 7 },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.16)' },
-  dotDone: { backgroundColor: v3.accent },
-  dotActive: { backgroundColor: colors.textPrimary },
-  waveHeader: { alignItems: 'center', marginTop: 4, marginBottom: 6 },
-  body: { paddingBottom: 28, gap: 14 },
-
-  levelKicker: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: colors.textSubtitle,
-    marginBottom: 8,
+  // Congrats page: clean-run gold tag + centering scroll wrapper.
+  congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 12 },
+  cleanRunTag: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: `hsl(${GOLD_HUE}, 78%, 62%)`,
   },
-  intro: { fontFamily: 'Poppins-Light', fontSize: 17, lineHeight: 25, color: colors.textPrimary },
-  interaction: { gap: 14, marginTop: 4 },
-
-  // Swipe
-  swipeCard: {
-    minHeight: 180,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
-    padding: 20,
-    justifyContent: 'center',
+  cleanRunText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
+    color: '#2a2010',
+    letterSpacing: 0.5,
   },
-  swipeStatement: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 20,
-    lineHeight: 28,
+
+  // Level 4 · Rehearse (the guided 4-7-8 breath).
+  l4BreatheCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  l4PhaseLabel: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 24,
     color: colors.textPrimary,
     textAlign: 'center',
+    marginTop: 28,
   },
-  swipeHelp: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12.5,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginTop: 14,
-  },
-  swipeHintRight: {
-    position: 'absolute',
-    right: 16,
-    top: 14,
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    letterSpacing: 1,
-    color: v3.regulated,
-  },
-  swipeHintLeft: {
-    position: 'absolute',
-    left: 16,
-    top: 14,
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    letterSpacing: 1,
-    color: v3.activated,
-  },
-  revealCard: {
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
-    padding: 20,
-  },
-  verdict: { fontFamily: 'Poppins-SemiBold', fontSize: 24, marginBottom: 8 },
-  revealBody: { fontFamily: 'Poppins-Light', fontSize: 15, lineHeight: 22, color: colors.textPrimary },
-  gentleNote: { fontFamily: 'Poppins-Light', fontSize: 13, color: colors.textSubtitle, marginTop: 10 },
-  counter: { fontFamily: 'Poppins-Light', fontSize: 12, color: colors.textSubtitle, textAlign: 'center' },
-  close: { fontFamily: 'Poppins-Light', fontSize: 14, lineHeight: 21, color: colors.textSubtitle, textAlign: 'center' },
+  l4RoundLabel: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle, textAlign: 'center' },
+  l4Skip: { alignItems: 'center', paddingVertical: 14 },
+  l4SkipText: { fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textSubtitle },
 
-  // Scene / choices
-  sceneCard: {
+  // Level 5 · Your move next time (chip builder + plan readback).
+  l5PlayScroll: { paddingTop: 8, paddingBottom: 20, gap: 16 },
+  l5SentenceCard: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
     padding: 18,
-    gap: 10,
   },
-  sceneText: { fontFamily: 'Poppins-Light', fontSize: 17, lineHeight: 25, color: colors.textPrimary },
-  choiceRow: { flexDirection: 'row', gap: 12 },
-  choiceBtn: {
-    flex: 1,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    padding: 14,
-    minHeight: 76,
-  },
-  choiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary },
-  choiceSub: { fontFamily: 'Poppins-Light', fontSize: 12.5, color: colors.textSubtitle, marginTop: 3 },
-  whyCard: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+  l5PlanCard: {
+    alignSelf: 'stretch',
+    marginTop: 12,
     padding: 16,
-  },
-  whyLead: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary, marginBottom: 4 },
-
-  // Move cards (L3)
-  moveList: { gap: 10 },
-  moveCard: {
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    padding: 15,
+    borderColor: hsla(v3.accent, 0.5),
+    backgroundColor: hsla(v3.accent, 0.12),
   },
-  moveLabel: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary },
-  moveHint: { fontFamily: 'Poppins-Light', fontSize: 12, color: colors.textSubtitle, marginTop: 5 },
-  moveFuture: { fontFamily: 'Poppins-Light', fontSize: 14, lineHeight: 20, color: colors.textPrimary, marginTop: 7 },
-  moveFutureGhost: { color: colors.textSubtitle, fontStyle: 'italic' },
-  badge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: StyleSheet.hairlineWidth },
-  badgeText: { fontFamily: 'Poppins-Medium', fontSize: 12, letterSpacing: 0.3 },
-
-  // Slider (L4)
-  track: {
-    flexDirection: 'row',
-    height: 46,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 6,
+  l5PlanLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.textSubtitle,
+    marginBottom: 6,
   },
-  trackZone: { flex: 1, height: '100%' },
-  thumb: {
-    position: 'absolute',
-    top: -4,
-    marginLeft: -13,
-    width: 26,
-    height: 54,
-    borderRadius: 13,
-    backgroundColor: colors.textPrimary,
-    borderWidth: 2,
-    borderColor: v3.accent,
-  },
-  trackLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  trackEnd: { fontFamily: 'Poppins-Light', fontSize: 12, color: colors.textSubtitle },
+  l5PlanText: { fontFamily: 'Poppins-Medium', fontSize: 15, lineHeight: 22, color: colors.textPrimary },
 
-  // Breathe (L5)
-  breatheOrb: { alignItems: 'center', marginVertical: 8 },
-  teach: { fontFamily: 'Poppins-Light', fontSize: 16, lineHeight: 24, color: colors.textPrimary, textAlign: 'center' },
-  secondary: { alignItems: 'center', paddingVertical: 12 },
-  secondaryText: { fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textSubtitle },
-
-  // Chips (L6)
+  // Chips (L5)
   sentence: { fontFamily: 'Poppins-Medium', fontSize: 17, lineHeight: 26, color: colors.textPrimary },
   seal: { height: 2, borderRadius: 1, backgroundColor: v3.accent, marginTop: 8 },
   slotGroup: { gap: 8 },
@@ -1787,16 +1455,7 @@ const styles = StyleSheet.create({
   },
   chipText: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle },
 
-  // Completion + kind word
-  doneTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 22, color: colors.textPrimary, marginTop: 16 },
-  doneBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    marginTop: 8,
-  },
+  // Kind word
   cardBody: { fontFamily: 'Poppins-Light', fontSize: 14, lineHeight: 21, color: colors.textPrimary },
   kindWrap: {
     alignItems: 'center',
