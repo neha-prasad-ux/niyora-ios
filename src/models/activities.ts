@@ -140,7 +140,7 @@ export const ACTIVITIES: readonly Activity[] = [
   },
   {
     id: 'slow-stretches',
-    title: 'A few slow stretches',
+    title: 'A few desk stretches',
     modality: 'movement',
     cardType: 'nudge',
     fits: ['irritable', 'overwhelmed'],
@@ -148,7 +148,7 @@ export const ACTIVITIES: readonly Activity[] = [
     fast: false,
     mode: 'active',
     benefit: "Loosens what's clenched.",
-    how: 'Reach your arms up, then fold gently side to side and forward. Slow, no pushing, follow whatever feels tight.',
+    how: 'Work through these slow, right where you are. No pushing, just follow whatever feels tight.',
     why: 'Slow stretching unwinds the muscle tension that quietly stacks up across your back and middle, so your body stops bracing.',
   },
   {

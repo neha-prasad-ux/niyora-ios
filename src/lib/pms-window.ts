@@ -70,6 +70,34 @@ export function daysUntilPmsWindow(
   return windowStart - t;
 }
 
+// The next predicted PMS window-start date on or after `today` (the day the
+// premenstrual stretch begins). Always returns a future-or-today calendar day,
+// rolling forward a cycle when today is already inside or past a window, so it
+// can drive the heads-up reminders. Returned as a local Date at midnight of that
+// calendar day. null when there is no usable last-period date.
+export function nextPmsWindowStartDate(
+  lastPeriodStart: string | null,
+  cycleLength: number,
+  today: Date,
+): Date | null {
+  if (!lastPeriodStart) return null;
+  const start = parseDayNumber(lastPeriodStart);
+  if (start == null) return null;
+  const len = clampLength(cycleLength);
+  const t = dayNumberLocal(today);
+  // Smallest cycle whose window start is on or after today.
+  let k = Math.ceil((t - start + PMS_WINDOW_BEFORE_DAYS) / len);
+  let windowStartDay = start + k * len - PMS_WINDOW_BEFORE_DAYS;
+  while (windowStartDay < t) {
+    k += 1;
+    windowStartDay = start + k * len - PMS_WINDOW_BEFORE_DAYS;
+  }
+  // windowStartDay is a UTC-midnight day number; rebuild it as local midnight of
+  // the same calendar day so the reminder fires on the user's local clock.
+  const utc = new Date(windowStartDay * MS_PER_DAY);
+  return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
+}
+
 // True when today falls in the predicted premenstrual window: from
 // PMS_WINDOW_BEFORE_DAYS before the next period through PMS_GRACE_AFTER_DAYS
 // after the predicted start (the grace catches a period that runs late).

@@ -6,10 +6,12 @@
 // - Tap anywhere to pause/resume (pause.fill overlay when frozen).
 
 import * as Haptics from 'expo-haptics';
+import * as StoreReview from 'expo-store-review';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useKeepAwake } from 'expo-keep-awake';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BreathingParticles } from '@/components/BreathingParticles';
@@ -19,6 +21,7 @@ import { PhaseLabel } from '@/components/phase-label';
 import { PostSessionMood } from '@/components/PostSessionMood';
 import { SessionBackground } from '@/components/session-background';
 import { SessionDoneBackdrop } from '@/components/SessionDoneBackdrop';
+import { RingCelebration } from '@/components/RingCelebration';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import {
@@ -34,6 +37,7 @@ import {
 import { NiyoraSync } from 'niyora-sync';
 
 import { appendSession } from '@/store/session-history';
+import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
 import { getVoiceGuidance, setVoiceGuidance } from '@/store/voice-prefs';
 import { colors } from '@/theme/colors';
@@ -95,6 +99,9 @@ function BreathingSession({
   roundsOverride?: number;
   feeling?: string;
 }) {
+  // Keep the screen awake for the whole session: eyes are often closed during a
+  // breath, so the display must not sleep mid-practice.
+  useKeepAwake();
   const rounds = roundsOverride ?? technique.rounds;
   // Scale the reported duration to the actual rounds run, keeping per-round
   // cadence fixed so paired-device stats stay honest.
@@ -116,6 +123,7 @@ function BreathingSession({
   const { track, changeTrack, fadeOut, pause: pauseMusic, resume: resumeMusic } = useSessionMusic();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [showMood, setShowMood] = useState(false);
+  const [earnedTier, setEarnedTier] = useState<Tier | null>(null);
 
   // Resolve the voice preference once, then either play the opening sequence
   // (settle → optional Ocean haaa intro → begin) and release the breath when it
@@ -193,26 +201,67 @@ function BreathingSession({
         : technique.colors.hold;
 
   useEffect(() => {
-    if (cycle.done) {
-      appendSession(technique.id).catch(() => {});
-      // Report to the paired Mac (no-op when not paired).
-      NiyoraSync.recordSession({
-        techniqueName: technique.name,
-        techniqueKind: technique.category,
-        durationSec,
-        intendedDurationSec: durationSec,
-        completed: true,
-        recordedAt: new Date().toISOString(),
+    if (!cycle.done) return;
+    let cancelled = false;
+    let moodTimer: ReturnType<typeof setTimeout> | undefined;
+    // Report to the paired Mac (no-op when not paired).
+    NiyoraSync.recordSession({
+      techniqueName: technique.name,
+      techniqueKind: technique.category,
+      durationSec,
+      intendedDurationSec: durationSec,
+      completed: true,
+      recordedAt: new Date().toISOString(),
+    });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    voice.playEnd('well-done');
+    fadeOut();
+    // Record first so any earned ring is known before the mood overlay mounts.
+    // Let the closing animation — the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the sunburst and sparks) — actually play
+    // out before the "Feel better?" card fades in over it, rather than cutting
+    // to it after half a second.
+    let earned: Tier | null = null;
+    appendSession(technique.id)
+      .then((r) => {
+        earned = r.earnedTier;
+        if (!cancelled) setEarnedTier(r.earnedTier);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled) return;
+        moodTimer = setTimeout(() => {
+          if (!cancelled) setShowMood(true);
+        }, earned ? 2600 : 2200);
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      voice.playEnd('well-done');
-      fadeOut();
-      // Give the "well done" label a moment to appear before the mood overlay fades in
-      const t = setTimeout(() => setShowMood(true), 500);
-      return () => clearTimeout(t);
-    }
+    return () => {
+      cancelled = true;
+      if (moodTimer) clearTimeout(moodTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fadeOut is stable; omitting avoids double-fire on track change
   }, [cycle.done, technique.id]);
+
+  // The very first completed session earns the Spark ring. Right after that
+  // celebration — the one genuine peak in v1 — ask for an App Store review.
+  // Gating on Spark means it can only ever fire on session one (later rings
+  // are Glow/Shine/Radiance), and requestReview is itself system-throttled and
+  // a no-op in TestFlight, so this never nags.
+  useEffect(() => {
+    if (earnedTier?.id !== 'spark') return;
+    let cancelled = false;
+    // Let the ring bloom settle before the prompt surfaces over the moment.
+    const t = setTimeout(() => {
+      StoreReview.isAvailableAsync()
+        .then((available) => {
+          if (!cancelled && available) return StoreReview.requestReview();
+        })
+        .catch(() => {});
+    }, 2200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [earnedTier]);
 
   // Pause the music with the breath: tapping to pause freezes the visuals, so
   // the soundtrack should stop too (and resume on the next tap). When the
@@ -284,7 +333,16 @@ function BreathingSession({
           />
         )}
 
-        {cycle.done && <SessionDoneBackdrop />}
+        {/* The done backdrop (dark gradient + falling snow) seats the closing
+            copy on every finish. On a tier-earned finish the burst layers on
+            top of it, so "You earned your first ring" reads on a solid calm
+            backdrop instead of the see-through live breathing scene. */}
+        {cycle.done && (
+          <>
+            <SessionDoneBackdrop />
+            {earnedTier ? <RingCelebration hue={earnedTier.hue} /> : null}
+          </>
+        )}
 
         <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
           <View style={styles.topRow}>
@@ -302,19 +360,38 @@ function BreathingSession({
               />
             </Pressable>
 
-            <Pressable
-              onPress={() => setPickerVisible((v) => !v)}
-              hitSlop={20}
-              accessibilityRole="button"
-              accessibilityLabel={musicLabel}
-            >
-              <SymbolView
-                name="music.note"
-                tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
-                size={22}
-                weight="medium"
-              />
-            </Pressable>
+            <View style={styles.topRowRight}>
+              {/* Voice guidance is a first-class, visible control here (not just
+                  a buried row in the music menu) so people discover it exists. */}
+              <Pressable
+                onPress={toggleVoice}
+                hitSlop={16}
+                accessibilityRole="switch"
+                accessibilityLabel="Voice guidance"
+                accessibilityState={{ checked: voiceOn === true }}
+              >
+                <SymbolView
+                  name={voiceOn === true ? 'speaker.wave.2.fill' : 'speaker.wave.2'}
+                  tintColor={voiceOn === true ? colors.textPrimary : colors.textSubtitle}
+                  size={22}
+                  weight="medium"
+                />
+              </Pressable>
+
+              <Pressable
+                onPress={() => setPickerVisible((v) => !v)}
+                hitSlop={20}
+                accessibilityRole="button"
+                accessibilityLabel={musicLabel}
+              >
+                <SymbolView
+                  name="music.note"
+                  tintColor={pickerVisible ? colors.textPrimary : colors.textSubtitle}
+                  size={22}
+                  weight="medium"
+                />
+              </Pressable>
+            </View>
           </View>
 
           {pickerVisible && (
@@ -438,6 +515,7 @@ function BreathingSession({
           <PostSessionMood
             techniqueId={technique.id}
             feeling={feeling}
+            earnedTier={earnedTier}
             onDone={() => router.back()}
           />
         )}
@@ -482,6 +560,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 8,
+  },
+  topRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 22,
   },
   pickerCard: {
     position: 'absolute',

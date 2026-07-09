@@ -18,7 +18,8 @@ export const typography = {
   } satisfies TextStyle,
 
   techniqueName: {
-    fontFamily: 'Poppins-Light',
+    // Technique names are weight 600 per DESIGN.md (emphasis), not Light.
+    fontFamily: 'Poppins-SemiBold',
     fontSize: 24,
     letterSpacing: 0.3,
   } satisfies TextStyle,

@@ -1,34 +1,31 @@
-// Result page: the hero + ranked list as a calm swipe deck. Reached from the
+// Result page: the hero + ranked list as a calm poster grid. Reached from the
 // recommend sheet with the chosen feelings + needs. Time is not a question and
 // not a toggle -- every option shows its own length on the card, and that is
-// what the user reads to decide. Fully on-device.
-//
-// A brief "finding what helps" loading beat (the Soul orb breathing + pulsing
-// dots) plays before the deck fades in, so the moment feels personal rather
-// than an instant cut.
+// what the user reads to decide. The grid fades straight in (no loading beat).
+// Fully on-device.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
-import Animated, {
-  Easing,
-  FadeIn,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
-import { Orb } from '@/components/orb';
+import { CloseButton } from '@/components/CloseButton';
 import { colors } from '@/theme/colors';
-import { recommend, type Need, type RecCard } from '@/models/recommend';
+import {
+  DURATIONS,
+  recommend,
+  scaleRounds,
+  type DurationOption,
+  type Need,
+  type RecCard,
+} from '@/models/recommend';
+import { getTechnique, isBreathing } from '@/models/techniques';
 
 // The header leads with where she's headed (the need), never the feeling she's
 // leaving. A gentle "Let's..." invitation toward feeling better.
@@ -40,18 +37,6 @@ const NEED_HEADER: Record<Need, string> = {
   cozy: "Let's get cozy",
   'let-it-out': "Let's let it out",
 };
-
-// Orb hue per need, matching the recommend sheet so the orb carries through.
-const NEED_HUE: Record<Need, number> = {
-  calm: 220,
-  focused: 186,
-  relaxed: 150,
-  sleepy: 250,
-  cozy: 28,
-  'let-it-out': 295,
-};
-
-const LOADING_MS = 1300;
 
 export default function ResultScreen() {
   const params = useLocalSearchParams<{ feelings?: string; needs?: string }>();
@@ -69,19 +54,20 @@ export default function ResultScreen() {
   const cards = useMemo(() => (result ? [result.hero, ...result.list] : []), [result]);
 
   const header = needs[0] ? NEED_HEADER[needs[0]] : "Let's find what helps";
-  const orbHue = needs[0] ? NEED_HUE[needs[0]] : undefined;
 
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), LOADING_MS);
-    return () => clearTimeout(t);
-  }, []);
+  // Breathing is the only practice whose length is the user's to choose: its
+  // rounds scale to any duration. Tapping one opens the length picker; mindful
+  // techniques and activities run at their authored length and tap straight in.
+  const [pending, setPending] = useState<RecCard | null>(null);
 
-  const onBegin = useCallback((card: RecCard) => {
+  // Push to the session/activity screen. `rounds` overrides the card's own when
+  // the length picker has scaled a breathing technique.
+  const goToCard = useCallback((card: RecCard, rounds?: number) => {
     if (card.techniqueId) {
       const p: Record<string, string> = { id: card.techniqueId };
       if (card.feelingId) p.feeling = card.feelingId;
-      if (card.rounds != null) p.rounds = String(card.rounds);
+      const r = rounds ?? card.rounds;
+      if (r != null) p.rounds = String(r);
       router.push({ pathname: '/session', params: p });
       return;
     }
@@ -97,106 +83,199 @@ export default function ResultScreen() {
     }
   }, [feelings]);
 
+  const onBegin = useCallback((card: RecCard) => {
+    const t = card.techniqueId ? getTechnique(card.techniqueId) : undefined;
+    if (t && isBreathing(t)) {
+      setPending(card);
+      return;
+    }
+    goToCard(card);
+  }, [goToCard]);
+
+  const onPickLength = useCallback((minutes: number) => {
+    const card = pending;
+    if (!card?.techniqueId) return;
+    const t = getTechnique(card.techniqueId);
+    const rounds = t ? scaleRounds(t, minutes * 60) : undefined;
+    setPending(null);
+    if (card) goToCard(card, rounds);
+  }, [pending, goToCard]);
+
   return (
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom', 'left', 'right']}>
+        {/* Title and close share one line, so the grid gets the space the old
+            stacked header + big top gap used to eat. */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.back()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <SymbolView name="xmark" tintColor={colors.textSubtitle} size={16} weight="medium" />
-          </Pressable>
+          <View style={styles.headerSide} />
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {header}
+          </Text>
+          <View style={styles.headerSide}>
+            <CloseButton onPress={() => router.back()} />
+          </View>
         </View>
 
-        {loading ? (
-          <View style={styles.loadingWrap}>
-            <LoadingOrb hue={orbHue} />
-            <View style={{ height: 26 }} />
-            <LoadingDots />
-          </View>
-        ) : (
-          <Animated.View entering={FadeIn.duration(450)} style={styles.loaded}>
-            <Text style={styles.ctx}>{header}</Text>
-            {cards.length > 0 ? (
-              <ResultDeck cards={cards} onBegin={onBegin} />
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
-          </Animated.View>
-        )}
+        <Animated.View entering={FadeIn.duration(450)} style={styles.loaded}>
+          {cards.length > 0 ? (
+            <ResultDeck cards={cards} onBegin={onBegin} />
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
+        </Animated.View>
       </SafeAreaView>
+
+      <LengthPicker
+        card={pending}
+        onPick={onPickLength}
+        onClose={() => setPending(null)}
+      />
     </View>
   );
 }
 
-// One smooth swell during the loading beat: the orb grows, then settles -- a
-// single calming breath, not a repeating pulse.
-function LoadingOrb({ hue }: { hue?: number }) {
-  const reduced = useReducedMotion();
-  const scale = useSharedValue(reduced ? 1 : 0.92);
-  useEffect(() => {
-    if (reduced) return;
-    scale.value = withSequence(
-      withTiming(1.12, { duration: 680, easing: Easing.inOut(Easing.sin) }),
-      withTiming(1.0, { duration: 620, easing: Easing.inOut(Easing.sin) }),
-    );
-  }, [reduced, scale]);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+// The breathing length picker: tap a breathing card, choose how long. Rounds
+// scale to the chosen minutes; the on-screen cue carries the per-phase timing.
+function LengthPicker({
+  card,
+  onPick,
+  onClose,
+}: {
+  card: RecCard | null;
+  onPick: (minutes: number) => void;
+  onClose: () => void;
+}) {
   return (
-    <Animated.View style={style}>
-      <Orb size={116} hue={hue} />
-    </Animated.View>
+    <Modal
+      visible={card != null}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable
+        style={styles.pickerBackdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
+        <Pressable style={styles.pickerSheet} onPress={() => {}}>
+          <LinearGradient
+            colors={['#1b1430', '#0e0b14', colors.backgroundBottom]}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.pickerHeaderRow}>
+            <Text style={styles.pickerTitle}>How long?</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <SymbolView name="xmark" tintColor={colors.textSubtitle} size={15} weight="medium" />
+            </Pressable>
+          </View>
+          <View style={styles.lengthRow}>
+            {DURATIONS.map((d: DurationOption) => (
+              <Pressable
+                key={d.minutes}
+                style={styles.lengthOption}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  onPick(d.minutes);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={d.label}
+              >
+                <Text style={styles.lengthMinutes}>{d.minutes}</Text>
+                <Text style={styles.lengthUnit}>min</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
-}
-
-function LoadingDots() {
-  return (
-    <View style={styles.dotsRow}>
-      {[0, 1, 2].map((i) => (
-        <LoadingDot key={i} delay={i * 200} />
-      ))}
-    </View>
-  );
-}
-
-function LoadingDot({ delay }: { delay: number }) {
-  const reduced = useReducedMotion();
-  const o = useSharedValue(reduced ? 0.6 : 0.3);
-  useEffect(() => {
-    if (reduced) return;
-    o.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 600, easing: Easing.inOut(Easing.quad) }), -1, true),
-    );
-  }, [delay, reduced, o]);
-  const style = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[styles.ldot, style]} />;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 22 },
-  header: { flexDirection: 'row', justifyContent: 'flex-end', height: 24, marginBottom: 4 },
-  loaded: { flex: 1, width: '100%' },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  dotsRow: { flexDirection: 'row', gap: 9 },
-  ldot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: 'rgba(190, 170, 255, 0.9)',
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 2,
+    marginBottom: 14,
   },
-  ctx: {
+  headerSide: { width: 32, alignItems: 'flex-end' },
+  headerTitle: {
+    flex: 1,
     fontFamily: 'Poppins-Medium',
-    fontSize: 23,
+    fontSize: 20,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
-    marginTop: 48,
+  },
+  loaded: { flex: 1, width: '100%' },
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: colors.backgroundBottom,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    paddingTop: 22,
+    paddingBottom: 44,
+    overflow: 'hidden',
+  },
+  pickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
     marginBottom: 22,
+  },
+  pickerTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  lengthRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  lengthOption: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lengthMinutes: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 34,
+    color: colors.textPrimary,
+    lineHeight: 38,
+  },
+  lengthUnit: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    color: colors.textSubtitle,
+    letterSpacing: 0.4,
+    marginTop: 2,
   },
 });

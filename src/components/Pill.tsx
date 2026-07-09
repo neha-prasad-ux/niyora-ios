@@ -92,9 +92,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   solid: { borderColor: colors.beginBorder },
-  ghost: { borderColor: 'rgba(255, 255, 255, 0.22)', backgroundColor: 'transparent' },
+  // Filled translucent panel + brighter rim so the secondary action stays legible
+  // over busy living-scene backgrounds (it used to be transparent and washed out).
+  ghost: { borderColor: 'rgba(255, 255, 255, 0.30)', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
   disabled: { borderColor: 'transparent', backgroundColor: 'rgba(255, 255, 255, 0.06)' },
   solidLabel: { color: '#fff' },
-  ghostLabel: { color: colors.textSubtitle },
+  ghostLabel: { color: colors.textPrimary },
   disabledLabel: { color: 'rgba(255, 255, 255, 0.35)' },
 });

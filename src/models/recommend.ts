@@ -125,6 +125,10 @@ const ACTIVITY_NEEDS: Record<string, readonly Need[]> = {
 };
 
 const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
+  // Box breath is the versatile safe default: a steady 4-4-4-4 that helps in
+  // almost any state, so it carries the broadest need coverage and is eligible
+  // for every query (it isn't tied to a single feeling in the FEELINGS map).
+  box: ['calm', 'focused', 'relaxed'],
   'be-kind': ['calm', 'cozy'],
   cooling: ['calm', 'relaxed'],
   'five-senses': ['calm', 'focused'],
@@ -161,6 +165,14 @@ export type RecResult = {
   feelingIds: readonly string[];
   needIds: readonly Need[];
 };
+
+// True for a breathing-technique card. Used to float breath to the top of the
+// ranked list (see the sort in recommend()).
+function isBreathCard(card: RecCard): boolean {
+  if (card.source !== 'technique' || !card.techniqueId) return false;
+  const t = getTechnique(card.techniqueId);
+  return !!t && isBreathing(t);
+}
 
 // Which feelings a technique serves, derived from the FEELINGS map (a technique
 // serves feeling F if it is F.short or F.long).
@@ -251,11 +263,23 @@ export function recommend(
     .filter((c) => c.score > 0)
     .filter((c) => !hasBudget || c.source === 'technique' || c.timeSeconds === 0 || c.timeSeconds <= budgetSeconds)
     .sort((a, b) => {
+      // Breathing always leads. Paced breath is the fastest-acting, highest-
+      // evidence reset for an acute moment, so a relevant breathing technique
+      // ranks ahead of everything else; activities + mindfulness fill in below.
+      const aBreath = isBreathCard(a) ? 1 : 0;
+      const bBreath = isBreathCard(b) ? 1 : 0;
+      if (bBreath !== aBreath) return bBreath - aBreath;
       if (b.score !== a.score) return b.score - a.score;
       // Same score: prefer items serving the PRIMARY feeling.
       const aPrim = a.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;
       const bPrim = b.feelings.includes(primaryId as PmsFeeling) ? 1 : 0;
       if (bPrim !== aPrim) return bPrim - aPrim;
+      // Still tied: box breath is the safe default, so it reads first. A
+      // clearly-targeted breath (e.g. cooling for irritable) still wins on
+      // score above; box only leads when nothing else is a stronger match.
+      const aBox = a.techniqueId === 'box' ? 1 : 0;
+      const bBox = b.techniqueId === 'box' ? 1 : 0;
+      if (bBox !== aBox) return bBox - aBox;
       // For short budgets, a fast pick wins; otherwise prefer the shorter item.
       if (b.fast !== a.fast) return Number(b.fast) - Number(a.fast);
       return a.timeSeconds - b.timeSeconds;

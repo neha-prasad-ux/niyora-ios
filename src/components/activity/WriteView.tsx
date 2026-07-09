@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -32,6 +33,9 @@ export function WriteView({ activity, onComplete }: Props) {
   const insets = useSafeAreaInsets();
 
   const onDisappear = () => {
+    // Drop the keyboard so it slides away with the words, instead of sitting
+    // there after everything has dissolved.
+    Keyboard.dismiss();
     fade.value = withTiming(0, { duration: 850, easing: Easing.in(Easing.cubic) }, (done) => {
       if (done) runOnJS(onComplete)();
     });

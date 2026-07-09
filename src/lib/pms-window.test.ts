@@ -1,4 +1,9 @@
-import { isInPmsWindow, pmsOffsetDays, daysUntilPmsWindow } from './pms-window';
+import {
+  isInPmsWindow,
+  pmsOffsetDays,
+  daysUntilPmsWindow,
+  nextPmsWindowStartDate,
+} from './pms-window';
 
 // A predicted period start; with a 28-day cycle the next period lands 2026-06-29.
 const START = '2026-06-01';
@@ -71,5 +76,34 @@ describe('daysUntilPmsWindow', () => {
 
   it('is null when no date is set', () => {
     expect(daysUntilPmsWindow(null, 28, d(2026, 6, 15))).toBeNull();
+  });
+});
+
+describe('nextPmsWindowStartDate', () => {
+  // 28-day cycle from 2026-06-01: window opens 06-22, next one 07-20.
+  const ymd = (date: Date | null) =>
+    date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : null;
+
+  it('returns the upcoming window start mid-cycle', () => {
+    expect(ymd(nextPmsWindowStartDate(START, 28, d(2026, 6, 8)))).toBe('2026-06-22');
+  });
+
+  it('returns today when today is exactly the window start', () => {
+    expect(ymd(nextPmsWindowStartDate(START, 28, d(2026, 6, 22)))).toBe('2026-06-22');
+  });
+
+  it('rolls forward to the next cycle once inside or past a window', () => {
+    expect(ymd(nextPmsWindowStartDate(START, 28, d(2026, 6, 25)))).toBe('2026-07-20'); // inside current window
+    expect(ymd(nextPmsWindowStartDate(START, 28, d(2026, 7, 5)))).toBe('2026-07-20'); // just past it
+  });
+
+  it('returns a local Date at midnight', () => {
+    const date = nextPmsWindowStartDate(START, 28, d(2026, 6, 8));
+    expect(date?.getHours()).toBe(0);
+    expect(date?.getMinutes()).toBe(0);
+  });
+
+  it('is null when no date is set', () => {
+    expect(nextPmsWindowStartDate(null, 28, d(2026, 6, 8))).toBeNull();
   });
 });
