@@ -11,12 +11,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
@@ -27,7 +21,6 @@ import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import {
   IRRITABILITY_LEVELS,
-  KIND_WORD,
   L1_CARDS,
   L1_CONGRATS,
   L1_INTRO,
@@ -42,14 +35,17 @@ import {
   L4_CONGRATS,
   L4_INTRO,
   L4_TEACH,
+  L5_BREATH_Q,
+  L5_CAPSTONE,
   L5_CONGRATS,
   L5_INTRO,
-  L5_SLOTS,
-  buildL5Sentence,
+  L5_REORDER,
   type Intensity,
   type MoveTier,
 } from '@/v3/game-content';
-import { getTraining, recordKindWord, recordLevelComplete } from '@/store/training-v3';
+import { getTraining, recordLevelComplete } from '@/store/training-v3';
+import { useBreathCycle } from '@/hooks/use-breath-cycle';
+import type { BreathPhase } from '@/models/techniques';
 import { SOUL_RING_HUES } from '@/models/tiers';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -74,7 +70,7 @@ const SUPPRESS_RED = 'hsl(2, 55%, 56%)';
 // congrats orb wears a warm gold ring (instead of the usual soul hues) and the
 // burst flares gold. A retry anywhere in the level drops it back to the soul ring.
 const GOLD_HUE = 45;
-const GOLD_RING_HUES = [GOLD_HUE, GOLD_HUE, GOLD_HUE] as const;
+const GOLD_RING_HUES = [GOLD_HUE, GOLD_HUE, GOLD_HUE, GOLD_HUE] as const;
 const VIOLET_BURST = 275;
 
 export default function GameV3() {
@@ -174,13 +170,15 @@ function LevelCongrats({
   buttonLabel,
   onNext,
   children,
+  finale = false,
 }: {
   ringCount: number;
   gold: boolean;
-  congrats: { title: string; subtitle: string; body: string };
+  congrats: { title: string; subtitle?: string; body: string };
   buttonLabel: string;
   onNext: () => void;
   children?: React.ReactNode;
+  finale?: boolean;
 }) {
   return (
     <View style={styles.l1Body}>
@@ -195,13 +193,13 @@ function LevelCongrats({
             </View>
           )}
           <Orb
-            size={110}
+            size={finale ? 140 : 110}
             tierRingCount={ringCount}
             ringHues={gold ? GOLD_RING_HUES : SOUL_RING_HUES}
             accumulate
           />
           <Text style={styles.l1CongratsTitle}>{congrats.title}</Text>
-          <Text style={styles.l1CongratsSub}>{congrats.subtitle}</Text>
+          {congrats.subtitle ? <Text style={styles.l1CongratsSub}>{congrats.subtitle}</Text> : null}
           <View style={styles.l1CongratsCard}>
             <Text style={styles.l1CongratsBody}>{congrats.body}</Text>
           </View>
@@ -845,67 +843,79 @@ function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void
 }
 
 
-// --- Level 4 · Rehearse (the 4-7-8 breath, felt from the inside) -------
-// A self-contained guided breath: in 4, hold 7, out 8, for a few rounds. The
-// long exhale from Level 1, done for real. No right or wrong here.
-const BREATH = { inhale: 4, hold: 7, exhale: 8 } as const;
-const BREATH_LABEL = { inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out' } as const;
-const BREATH_ROUNDS = 3;
-type BreathPhase = keyof typeof BREATH;
+// One big soul, faint and centered, behind the Level 4 intro + cheat pages.
+function L4Backdrop() {
+  return (
+    <View pointerEvents="none" style={styles.l4Backdrop}>
+      <Orb size={300} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
+    </View>
+  );
+}
 
+// The guided breath itself: five slow rounds of a 4s inhale / 8s exhale, driving
+// the same growing orb as Quick Calm (breathRange) via useBreathCycle. Mounted
+// only once she taps in, so each run starts fresh from round 1. No skipping.
+const POWER_PHASES: BreathPhase[] = [
+  { type: 'inhale', label: 'breathe in', duration: 4 },
+  { type: 'exhale', label: 'breathe out', duration: 8 },
+];
+const POWER_ROUNDS = 5;
+const POWER_BREATH_RANGE = { min: 0.7, max: 1.4 };
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function PowerBreath({
+  onFinish,
+  rounds = POWER_ROUNDS,
+  finishLabel = 'Finish',
+}: {
+  onFinish: () => void;
+  rounds?: number;
+  finishLabel?: string;
+}) {
+  const cycle = useBreathCycle(POWER_PHASES, rounds, false);
+  return (
+    <View style={styles.l1Body}>
+      <View style={styles.l4BreatheCenter}>
+        <Orb
+          size={200}
+          phase={cycle.phase.type === 'hold2' ? 'hold' : cycle.phase.type}
+          phaseDuration={cycle.phase.duration}
+          breathRange={POWER_BREATH_RANGE}
+        />
+        <Text style={styles.l4PhaseLabel}>{cycle.done ? 'Well done' : cap(cycle.phase.label)}</Text>
+        <Text style={styles.l4RoundLabel}>
+          {cycle.done ? 'That is your power move' : `Round ${cycle.round} of ${rounds}`}
+        </Text>
+      </View>
+      {cycle.done ? (
+        <BeginButton fullWidth label={finishLabel} onPress={onFinish} />
+      ) : (
+        <View style={styles.l4Spacer} />
+      )}
+    </View>
+  );
+}
+
+// --- Level 4 · The power move (teach the long exhale, then breathe) ----
+// We have not covered breathing yet, so this level introduces it: what the move
+// is, why the long exhale calms you, then five rounds done together. No skip.
 function LevelFour({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
-  const [stage, setStage] = useState<'levelIntro' | 'teach' | 'breathe' | 'congrats'>('levelIntro');
-  const [phase, setPhase] = useState<BreathPhase>('inhale');
-  const [round, setRound] = useState(1);
-  const [breathDone, setBreathDone] = useState(false);
-
-  // Guided 4-7-8. Start on inhale (initial state) and only flip phases inside
-  // the timer, so there is no synchronous set-state in the effect. Each finished
-  // exhale counts a round; after the last one the breath rests.
-  useEffect(() => {
-    if (stage !== 'breathe' || breathDone) return;
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    let completed = 0;
-    const schedule = (current: BreathPhase) => {
-      timer = setTimeout(() => {
-        if (!alive) return;
-        if (current === 'exhale') {
-          completed += 1;
-          if (completed >= BREATH_ROUNDS) {
-            setBreathDone(true);
-            return;
-          }
-          setRound(completed + 1);
-          setPhase('inhale');
-          schedule('inhale');
-        } else {
-          const next: BreathPhase = current === 'inhale' ? 'hold' : 'exhale';
-          setPhase(next);
-          schedule(next);
-        }
-      }, BREATH[current] * 1000);
-    };
-    schedule('inhale');
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [stage, breathDone]);
+  const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'breathe' | 'congrats'>('levelIntro');
+  const [started, setStarted] = useState(false);
 
   const back = () => {
     tap();
-    if (stage === 'breathe') setStage('teach');
-    else if (stage === 'teach') setStage('levelIntro');
-    else onExit();
-  };
-
-  const startBreath = () => {
-    tap();
-    setRound(1);
-    setPhase('inhale');
-    setBreathDone(false);
-    setStage('breathe');
+    if (stage === 'breathe') {
+      setStarted(false);
+      setStage('cheat');
+    } else if (stage === 'cheat') {
+      setStage('levelIntro');
+    } else {
+      onExit();
+    }
   };
 
   return (
@@ -924,7 +934,7 @@ function LevelFour({ onDone, onExit }: { onDone: () => void; onExit: () => void 
 
         {stage === 'levelIntro' && (
           <View style={styles.l1Body}>
-            <L1Backdrop />
+            <L4Backdrop />
             <View style={styles.l1Center}>
               <View style={styles.l1EmotionChip}>
                 <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
@@ -933,47 +943,45 @@ function LevelFour({ onDone, onExit }: { onDone: () => void; onExit: () => void 
               <Text style={styles.l2Title}>{L4_INTRO.title}</Text>
               <Text style={styles.l2Subtitle}>{L4_INTRO.subtitle}</Text>
             </View>
-            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('teach'); }} />
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('cheat'); }} />
           </View>
         )}
 
-        {stage === 'teach' && (
+        {stage === 'cheat' && (
           <View style={styles.l1Body}>
-            <L1Backdrop />
+            <L4Backdrop />
             <View style={styles.l2CheatCenter}>
               <Text style={styles.l2CheatKicker}>{L4_TEACH.kicker}</Text>
               <Text style={styles.l2CheatTitle}>{L4_TEACH.title}</Text>
-              <View style={styles.l1CongratsCard}>
-                <Text style={styles.l1CongratsBody}>{L4_TEACH.body}</Text>
+              <Text style={styles.l4TeachRule}>{L4_TEACH.rule}</Text>
+              <View style={styles.l4DoseTable}>
+                {L4_TEACH.doses.map((d, idx) => (
+                  <View key={d.size} style={[styles.l4DoseRow, idx > 0 && styles.l4DoseRowDivider]}>
+                    <Text style={[styles.l4DoseSize, { color: idx === 0 ? SMALL_PINK : BIG_CORAL }]}>
+                      {d.size}
+                    </Text>
+                    <Text style={styles.l4DoseAmount}>{d.amount}</Text>
+                  </View>
+                ))}
               </View>
             </View>
-            <BeginButton fullWidth label="Let's breathe" onPress={startBreath} />
+            <BeginButton fullWidth label={L4_TEACH.cta} onPress={() => { tap(); setStage('breathe'); }} />
           </View>
         )}
 
-        {stage === 'breathe' && (
+        {stage === 'breathe' && !started && (
           <View style={styles.l1Body}>
             <View style={styles.l4BreatheCenter}>
-              <Orb size={150} phase={phase} phaseDuration={BREATH[phase]} />
-              <Text style={styles.l4PhaseLabel}>
-                {breathDone ? 'Nicely done' : BREATH_LABEL[phase]}
-              </Text>
-              <Text style={styles.l4RoundLabel}>
-                {breathDone ? 'Feel that settle' : `Round ${round} of ${BREATH_ROUNDS}`}
-              </Text>
+              <Orb size={200} still />
+              <Text style={styles.l4PhaseLabel}>Ready when you are</Text>
+              <Text style={styles.l4RoundLabel}>Three long exhales. I will count them with you.</Text>
             </View>
-            {breathDone ? (
-              <BeginButton fullWidth label="Finish" onPress={() => { tap(); setStage('congrats'); }} />
-            ) : (
-              <Pressable
-                onPress={() => { tap(); setStage('congrats'); }}
-                style={styles.l4Skip}
-                accessibilityRole="button"
-              >
-                <Text style={styles.l4SkipText}>I'm good</Text>
-              </Pressable>
-            )}
+            <BeginButton fullWidth label="I can do it" onPress={() => { tap(); setStarted(true); }} />
           </View>
+        )}
+
+        {stage === 'breathe' && started && (
+          <PowerBreath rounds={3} onFinish={() => { tap(); setStarted(false); setStage('congrats'); }} />
         )}
 
         {stage === 'congrats' && (
@@ -992,24 +1000,169 @@ function LevelFour({ onDone, onExit }: { onDone: () => void; onExit: () => void 
   );
 }
 
-// --- Level 5 · Your move next time (assemble the if-then plan) ---------
-// The chapter closes here: build one plan in her own words, then the woven kind
-// word. No right or wrong, so the reward is finishing.
-function LevelFive({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
-  const [stage, setStage] = useState<'levelIntro' | 'play' | 'congrats'>('levelIntro');
-  const [choices, setChoices] = useState<Record<string, string>>({});
-  const allFilled = L5_SLOTS.every((s) => choices[s.id]);
-  const sentence = buildL5Sentence(choices);
 
-  const set = (slot: string, opt: string) => {
-    tap();
-    setChoices((c) => ({ ...c, [slot]: opt }));
+// Level 5 pattern: one huge soul zoomed in and tilted, so its rings sweep across
+// the intro on a diagonal. The finale's own texture, distinct from the scattered
+// soul-moons of L1-L3 and the single centered soul of L4.
+function L5Backdrop() {
+  return (
+    <View pointerEvents="none" style={styles.l5Backdrop}>
+      <View style={styles.l5BackdropOrb}>
+        <Orb size={460} tierRingCount={4} ringHues={SOUL_RING_HUES} still />
+      </View>
+    </View>
+  );
+}
+
+// --- Level 5 · The last test (a graded recap: read, move, breath, order) ----
+// Four beats testing the whole chapter: read the size (L2), pick the move (L3),
+// answer the breath (L4, as knowledge), then put the whole method in order. Each
+// beat is graded, so a fully clean run earns gold. A big celebration on the last
+// page. The scramble the reorder pool is shown in (indices into L5_REORDER.steps).
+const L5_SCRAMBLE = [2, 0, 3, 1];
+
+function LevelFive({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [stage, setStage] = useState<'levelIntro' | 'size' | 'move' | 'breath' | 'reorder' | 'congrats'>('levelIntro');
+  const [sizeGuess, setSizeGuess] = useState<Intensity | null>(null);
+  const [movePick, setMovePick] = useState<number | null>(null);
+  const [breathPick, setBreathPick] = useState<number | null>(null);
+  const [placed, setPlaced] = useState<number[]>([]);
+  const [solved, setSolved] = useState(false); // reorder locked in correctly
+  const [nudge, setNudge] = useState(false); // last check was wrong, try again
+  const [celebrate, setCelebrate] = useState(false);
+  const [flawless, setFlawless] = useState(true);
+
+  const scene = L5_CAPSTONE;
+  const sizeAnswered = sizeGuess !== null;
+  const sizeRight = sizeAnswered && sizeGuess === scene.size;
+  const chosen = movePick != null ? scene.options[movePick] : null;
+  const moveBest = chosen?.tier === 'best';
+  const breathAnswered = breathPick !== null;
+  const breathRight = breathAnswered && L5_BREATH_Q.options[breathPick].correct;
+  const allPlaced = placed.length === L5_REORDER.steps.length;
+  const beat = stage === 'size' ? 0 : stage === 'move' ? 1 : stage === 'breath' ? 2 : stage === 'reorder' ? 3 : -1;
+
+  const pickSize = (g: Intensity) => {
+    if (sizeAnswered) return;
+    if (g === scene.size) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
+    }
+    setSizeGuess(g);
   };
+
+  const nextSize = () => {
+    tap();
+    if (sizeRight) {
+      setCelebrate(false);
+      setStage('move');
+    } else {
+      setSizeGuess(null);
+    }
+  };
+
+  const pickMove = (idx: number) => {
+    if (movePick != null) return;
+    if (scene.options[idx].tier === 'best') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
+    }
+    setMovePick(idx);
+  };
+
+  const nextMove = () => {
+    tap();
+    if (moveBest) {
+      setCelebrate(false);
+      setStage('breath');
+    } else {
+      setMovePick(null);
+    }
+  };
+
+  const pickBreath = (idx: number) => {
+    if (breathAnswered) return;
+    if (L5_BREATH_Q.options[idx].correct) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
+    }
+    setBreathPick(idx);
+  };
+
+  const nextBreath = () => {
+    tap();
+    if (breathRight) {
+      setCelebrate(false);
+      setStage('reorder');
+    } else {
+      setBreathPick(null);
+    }
+  };
+
+  const placeStep = (idx: number) => {
+    if (solved || placed.includes(idx)) return;
+    tap();
+    setNudge(false);
+    setPlaced((p) => [...p, idx]);
+  };
+
+  const unplaceStep = (idx: number) => {
+    if (solved) return;
+    tap();
+    setNudge(false);
+    setPlaced((p) => p.filter((x) => x !== idx));
+  };
+
+  // She cannot move on until the order is right: a wrong check nudges her to
+  // rearrange (and costs the clean-run ring), it never reveals the answer.
+  const checkOrder = () => {
+    tap();
+    if (placed.every((v, i) => v === i)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+      setSolved(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setFlawless(false);
+      setNudge(true);
+    }
+  };
+
+  const verdict = (tier: MoveTier) =>
+    tier === 'best' ? 'That is the one' : tier === 'lesser' ? 'That can work, not here though' : 'That one backfires';
 
   const back = () => {
     tap();
-    if (stage === 'play') setStage('levelIntro');
-    else onExit();
+    if (stage === 'reorder') {
+      setPlaced([]);
+      setSolved(false);
+      setNudge(false);
+      setCelebrate(false);
+      setStage('breath');
+    } else if (stage === 'breath') {
+      setBreathPick(null);
+      setCelebrate(false);
+      setStage('move');
+    } else if (stage === 'move') {
+      setMovePick(null);
+      setCelebrate(false);
+      setStage('size');
+    } else if (stage === 'size') {
+      setSizeGuess(null);
+      setCelebrate(false);
+      setStage('levelIntro');
+    } else {
+      onExit();
+    }
   };
 
   return (
@@ -1021,14 +1174,22 @@ function LevelFive({ onDone, onExit }: { onDone: () => void; onExit: () => void 
             <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
               <Text style={styles.back}>‹</Text>
             </Pressable>
-            <View style={{ flex: 1 }} />
+            {beat >= 0 ? (
+              <View style={styles.l1Segments}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View key={i} style={[styles.l1Seg, i <= beat && styles.l1SegOn]} />
+                ))}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
             <View style={{ width: 22 }} />
           </View>
         )}
 
         {stage === 'levelIntro' && (
           <View style={styles.l1Body}>
-            <L1Backdrop />
+            <L5Backdrop />
             <View style={styles.l1Center}>
               <View style={styles.l1EmotionChip}>
                 <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
@@ -1037,108 +1198,170 @@ function LevelFive({ onDone, onExit }: { onDone: () => void; onExit: () => void 
               <Text style={styles.l2Title}>{L5_INTRO.title}</Text>
               <Text style={styles.l2Subtitle}>{L5_INTRO.subtitle}</Text>
             </View>
-            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('play'); }} />
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('size'); }} />
           </View>
         )}
 
-        {stage === 'play' && (
+        {stage === 'size' && (
           <View style={styles.l1Body}>
-            <ScrollView
-              contentContainerStyle={styles.l5PlayScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={[styles.l5SentenceCard, allFilled && { borderColor: hsla(v3.accent, 0.6) }]}>
-                <Text style={styles.sentence}>
-                  {allFilled ? sentence : 'Fill in the blanks below.'}
-                </Text>
-                {allFilled && <View style={styles.seal} />}
-              </View>
-              {L5_SLOTS.map((slot) => (
-                <View key={slot.id} style={styles.slotGroup}>
-                  <Text style={styles.slotLead}>{slot.lead}…</Text>
-                  <View style={styles.chipRow}>
-                    {slot.options.map((opt) => {
-                      const on = choices[slot.id] === opt;
-                      return (
-                        <Pressable
-                          key={opt}
-                          onPress={() => set(slot.id, opt)}
-                          style={[styles.chip, on && { borderColor: v3.accent, backgroundColor: hsla(v3.accent, 0.18) }]}
-                          accessibilityRole="button"
-                        >
-                          <Text style={[styles.chipText, on && { color: colors.textPrimary }]}>{opt}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+            <View style={styles.l1Center}>
+              <Text style={styles.l5StepLabel}>First, read the size</Text>
+              <Text style={styles.l2Scene}>{scene.scene}</Text>
+            </View>
+            <View style={styles.l1Bottom}>
+              {!sizeAnswered ? (
+                <View style={styles.l1Choices}>
+                  <Pressable style={[styles.l2Choice, styles.l2ChoiceSmall]} onPress={() => pickSize('little')} accessibilityRole="button" accessibilityLabel="Small">
+                    <Text style={styles.l1ChoiceLabel}>Small</Text>
+                  </Pressable>
+                  <Pressable style={[styles.l2Choice, styles.l2ChoiceBig]} onPress={() => pickSize('lot')} accessibilityRole="button" accessibilityLabel="Big">
+                    <Text style={styles.l1ChoiceLabel}>Big</Text>
+                  </Pressable>
                 </View>
-              ))}
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, sizeRight ? styles.l1RevealRight : styles.l1RevealWrong]}>
+                    <Text style={[styles.l1Verdict, { color: sizeRight ? BIG_CORAL : v3.activated }]}>
+                      {sizeRight ? 'Big, yes' : 'Look again'}
+                    </Text>
+                    <Text style={styles.l1RevealText}>{scene.sizeWhy}</Text>
+                  </View>
+                  <BeginButton fullWidth label={sizeRight ? 'Next' : 'Try again'} onPress={nextSize} />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'move' && (
+          <View style={styles.l1Body}>
+            <Text style={styles.l5StepLabel}>Now, pick the move</Text>
+            <Text style={styles.l3Prompt}>{scene.prompt}</Text>
+            <View style={styles.l3PlayBottom}>
+              {movePick == null ? (
+                <View style={styles.l3Solutions}>
+                  {scene.options.map((o, idx) => (
+                    <Pressable key={o.label} style={styles.l3Solution} onPress={() => pickMove(idx)} accessibilityRole="button" accessibilityLabel={o.label}>
+                      <Text style={styles.l3SolutionText}>{o.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, moveBest ? styles.l1RevealRight : styles.l1RevealWrong]}>
+                    <Text style={[styles.l1Verdict, { color: moveBest ? v3.regulated : v3.activated }]}>
+                      {verdict(chosen!.tier)}
+                    </Text>
+                    <Text style={styles.l1RevealText}>{chosen!.future}</Text>
+                  </View>
+                  <BeginButton fullWidth label={moveBest ? 'Next' : 'Try another'} onPress={nextMove} />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'breath' && (
+          <View style={styles.l1Body}>
+            <Text style={styles.l5StepLabel}>{L5_BREATH_Q.stepLabel}</Text>
+            <Text style={styles.l3Prompt}>{L5_BREATH_Q.prompt}</Text>
+            <View style={styles.l3PlayBottom}>
+              {!breathAnswered ? (
+                <View style={styles.l3Solutions}>
+                  {L5_BREATH_Q.options.map((o, idx) => (
+                    <Pressable key={o.label} style={styles.l3Solution} onPress={() => pickBreath(idx)} accessibilityRole="button" accessibilityLabel={o.label}>
+                      <Text style={styles.l3SolutionText}>{o.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, breathRight ? styles.l1RevealRight : styles.l1RevealWrong]}>
+                    <Text style={[styles.l1Verdict, { color: breathRight ? v3.regulated : v3.activated }]}>
+                      {breathRight ? 'That is it' : 'Not quite'}
+                    </Text>
+                    <Text style={styles.l1RevealText}>
+                      {breathRight ? L5_BREATH_Q.whyRight : L5_BREATH_Q.whyWrong}
+                    </Text>
+                  </View>
+                  <BeginButton fullWidth label={breathRight ? 'Next' : 'Try again'} onPress={nextBreath} />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'reorder' && (
+          <View style={styles.l1Body}>
+            <Text style={styles.l5StepLabel}>{L5_REORDER.stepLabel}</Text>
+            <Text style={styles.l3Prompt}>{L5_REORDER.prompt}</Text>
+            <ScrollView contentContainerStyle={styles.l5ReorderScroll} showsVerticalScrollIndicator={false}>
+              <View style={styles.l5Slots}>
+                {placed.map((stepIdx, pos) => (
+                  <Pressable
+                    key={stepIdx}
+                    disabled={solved}
+                    onPress={() => unplaceStep(stepIdx)}
+                    style={styles.l5Slot}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.l5SlotNum}>{pos + 1}</Text>
+                    <Text style={styles.l5SlotText}>{L5_REORDER.steps[stepIdx]}</Text>
+                  </Pressable>
+                ))}
+                {!allPlaced && (
+                  <View style={styles.l5SlotEmpty}>
+                    <Text style={styles.l5SlotNum}>{placed.length + 1}</Text>
+                    <Text style={styles.l5SlotEmptyText}>Tap a step below</Text>
+                  </View>
+                )}
+              </View>
+
+              {!solved && (
+                <View style={styles.l5Pool}>
+                  {L5_SCRAMBLE.filter((i) => !placed.includes(i)).map((i) => (
+                    <Pressable key={i} onPress={() => placeStep(i)} style={styles.l5PoolCard} accessibilityRole="button">
+                      <Text style={styles.l5PoolText}>{L5_REORDER.steps[i]}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {nudge && !solved && <Text style={styles.l5Nudge}>{L5_REORDER.whyWrong}</Text>}
+
+              {solved && (
+                <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                  <Text style={[styles.l1Verdict, { color: v3.regulated }]}>That is the order</Text>
+                  <Text style={styles.l1RevealText}>{L5_REORDER.whyRight}</Text>
+                </View>
+              )}
             </ScrollView>
-            <BeginButton
-              fullWidth
-              label="Seal it"
-              disabled={!allFilled}
-              onPress={() => { tap(); setStage('congrats'); }}
-            />
+            {!solved ? (
+              <BeginButton fullWidth label="Check" disabled={!allPlaced} onPress={checkOrder} />
+            ) : (
+              <BeginButton fullWidth label="Finish" onPress={() => { tap(); setCelebrate(false); setStage('congrats'); }} />
+            )}
           </View>
         )}
 
         {stage === 'congrats' && (
           <LevelCongrats
-            ringCount={3}
-            gold={false}
+            ringCount={4}
+            gold={flawless}
             congrats={L5_CONGRATS}
-            buttonLabel="Back to home"
+            buttonLabel="Done"
             onNext={() => { tap(); onDone(); }}
-          >
-            <View style={styles.l5PlanCard}>
-              <Text style={styles.l5PlanLabel}>Your plan</Text>
-              <Text style={styles.l5PlanText}>{sentence}</Text>
-            </View>
-            <KindWord />
-          </LevelCongrats>
+            finale
+          />
         )}
       </SafeAreaView>
 
-      {stage === 'congrats' && <RingCelebration hue={VIOLET_BURST} />}
-    </View>
-  );
-}
-
-// Press-and-hold ~3s to fill; it tints blue -> violet like a slow breath.
-function KindWord() {
-  const [filled, setFilled] = useState(false);
-  const progress = useSharedValue(0);
-  const HOLD_MS = 3000;
-
-  const complete = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    recordKindWord().catch(() => {});
-    setFilled(true);
-  }, []);
-
-  const start = () => {
-    if (filled) return;
-    progress.value = withTiming(1, { duration: HOLD_MS }, (done) => {
-      if (done) runOnJS(complete)();
-    });
-  };
-  const end = () => {
-    if (!filled) progress.value = withTiming(0, { duration: 350 });
-  };
-
-  const fillStyle = useAnimatedStyle(() => ({ transform: [{ scale: 0.6 + progress.value * 0.4 }], opacity: 0.4 + progress.value * 0.6 }));
-
-  return (
-    <View style={styles.kindWrap}>
-      <Text style={styles.kindTitle}>{KIND_WORD.title}</Text>
-      <Text style={styles.cardBody}>{KIND_WORD.body}</Text>
-      <Pressable onPressIn={start} onPressOut={end} disabled={filled} accessibilityLabel={KIND_WORD.hold}>
-        <View style={styles.kindOrbWrap}>
-          <Animated.View style={[styles.kindOrb, fillStyle]} />
+      {(celebrate || stage === 'congrats') && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <CelebrationParticles style={StyleSheet.absoluteFill} />
         </View>
-      </Pressable>
-      <Text style={styles.kindHint}>{filled ? KIND_WORD.done : KIND_WORD.hold}</Text>
+      )}
+      {stage === 'congrats' && <RingCelebration hue={flawless ? GOLD_HUE : VIOLET_BURST} />}
     </View>
   );
 }
@@ -1398,7 +1621,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Level 4 · Rehearse (the guided 4-7-8 breath).
+  // Level 4 · The power move (teach + guided breath).
+  l4Backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.12,
+  },
+  l4TeachRule: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 17,
+    lineHeight: 25,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 8,
+  },
+  l4DoseTable: {
+    marginTop: 18,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+    overflow: 'hidden',
+  },
+  l4DoseRow: { paddingVertical: 16, paddingHorizontal: 18, gap: 4 },
+  l4DoseRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.06)' },
+  l4DoseSize: { fontFamily: 'Poppins-SemiBold', fontSize: 16, letterSpacing: 0.3 },
+  l4DoseAmount: { fontFamily: 'Poppins-Light', fontSize: 16, lineHeight: 22, color: colors.textPrimary },
   l4BreatheCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   l4PhaseLabel: {
     fontFamily: 'Poppins-SemiBold',
@@ -1408,75 +1662,74 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   l4RoundLabel: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle, textAlign: 'center' },
-  l4Skip: { alignItems: 'center', paddingVertical: 14 },
-  l4SkipText: { fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textSubtitle },
+  l4Spacer: { height: 52 },
 
-  // Level 5 · Your move next time (chip builder + plan readback).
-  l5PlayScroll: { paddingTop: 8, paddingBottom: 20, gap: 16 },
-  l5SentenceCard: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
-    padding: 18,
+  // Level 5 · The last test (step label above each reused beat + the reorder).
+  l5StepLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: v3.accent,
+    textAlign: 'center',
+    marginTop: 10,
   },
-  l5PlanCard: {
-    alignSelf: 'stretch',
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 16,
+  l5ReorderScroll: { paddingTop: 4, paddingBottom: 16, gap: 16 },
+  l5Slots: { gap: 8 },
+  l5Slot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: hsla(v3.accent, 0.5),
     backgroundColor: hsla(v3.accent, 0.12),
+    paddingVertical: 14,
+    paddingHorizontal: 14,
   },
-  l5PlanLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    color: colors.textSubtitle,
-    marginBottom: 6,
-  },
-  l5PlanText: { fontFamily: 'Poppins-Medium', fontSize: 15, lineHeight: 22, color: colors.textPrimary },
-
-  // Chips (L5)
-  sentence: { fontFamily: 'Poppins-Medium', fontSize: 17, lineHeight: 26, color: colors.textPrimary },
-  seal: { height: 2, borderRadius: 1, backgroundColor: v3.accent, marginTop: 8 },
-  slotGroup: { gap: 8 },
-  slotLead: { fontFamily: 'Poppins-Light', fontSize: 13, color: colors.textSubtitle },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  chipText: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle },
-
-  // Kind word
-  cardBody: { fontFamily: 'Poppins-Light', fontSize: 14, lineHeight: 21, color: colors.textPrimary },
-  kindWrap: {
+  l5SlotNum: { fontFamily: 'Poppins-SemiBold', fontSize: 15, color: v3.accent, width: 18, textAlign: 'center' },
+  l5SlotText: { flex: 1, fontFamily: 'Poppins-Medium', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
+  l5SlotEmpty: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 18,
-    borderRadius: 16,
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+    borderColor: v3.panelBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  l5SlotEmptyText: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle },
+  l5Pool: { gap: 8 },
+  l5PoolCard: {
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
   },
-  kindTitle: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary },
-  kindOrbWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+  l5PoolText: { fontFamily: 'Poppins-Medium', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
+  l5Nudge: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    lineHeight: 20,
+    color: v3.activated,
+    textAlign: 'center',
+  },
+  l5Backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 6,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
+    overflow: 'hidden',
   },
-  kindOrb: { width: 72, height: 72, borderRadius: 36, backgroundColor: v3.accent },
-  kindHint: { fontFamily: 'Poppins-Light', fontSize: 12.5, color: colors.textSubtitle },
+  l5BackdropOrb: {
+    opacity: 0.14,
+    transform: [{ rotate: '-18deg' }, { translateX: 46 }, { translateY: -34 }],
+  },
 });

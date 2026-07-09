@@ -44,13 +44,6 @@ export interface L3Scene {
   options: L3Option[];
 }
 
-// L5 — your move next time, tap-to-assemble chips.
-export interface L5Slot {
-  id: string;
-  lead: string; // the words before the blank
-  options: string[];
-}
-
 export type LevelKind = 'swipe' | 'tap' | 'preview' | 'breathe' | 'chips';
 
 export interface GameLevel {
@@ -89,18 +82,18 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
   {
     id: 'irr-l4',
     n: 4,
-    title: 'Rehearse',
+    title: 'The power move',
     kind: 'breathe',
     intro:
-      "Remember that long exhale from before? Let's actually do it. This is what taking 20 feels like from the inside.",
+      'The one move that brings you back to steady: a long, slow exhale. Here is how it works, then we do it together.',
   },
   {
     id: 'irr-l5',
     n: 5,
-    title: 'Your move next time',
+    title: 'The last test',
     kind: 'chips',
     intro:
-      "Last thing. Let's turn this into a plan for you, in your own words, so it is ready before you need it.",
+      'Last one. Put the whole chapter into a single plan, in your own words, so it is ready before you need it.',
   },
 ];
 
@@ -353,61 +346,106 @@ export const L3_CONGRATS = {
 export const L3_PAYLOAD =
   'Same three solutions every time. All that changed was the size, and that flipped what helped. That is the whole game.';
 
-// Level 4 · Rehearse. The long exhale from L1, done for real. A self-contained
-// 4-7-8 breath: the technique she has been pointed at all game, now felt from the
-// inside. No right or wrong, so the reward here is simply doing it.
+// Level 4 · The power move. We have not taught a breath yet, so this level
+// establishes it from scratch: the long exhale, why it works, then five slow
+// rounds done together. No right or wrong, so the reward is doing it.
 export const L4_INTRO = {
   level: 'Level 4',
-  title: 'Rehearse',
-  subtitle: 'You know the moves. Now feel the one that settles a big wave, from the inside.',
+  title: 'The power move',
+  subtitle: 'You can read your emotions now. Here is the one move that brings you back to safe and steady.',
 };
 
 export const L4_TEACH = {
-  kicker: 'Cheat code',
-  title: 'The 4-7-8 breath',
-  body: 'In for 4, hold for 7, out for 8. The long exhale is the part that tells your body to calm down. That is the whole trick.',
+  kicker: 'The cheat code',
+  title: 'Make your exhale longer',
+  rule: 'Breathe in for 4, out for 8. The long exhale is the part that calms you.',
+  doses: [
+    { size: 'Small feeling', amount: '3 slow rounds' },
+    { size: 'Big feeling', amount: 'Get 20 minutes away, breathing slow' },
+  ],
+  cta: "Let's breathe",
 };
 
 export const L4_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 4',
-  body: 'That long exhale is yours now. It is what taking 20 feels like from the inside.',
+  body: 'That long exhale is your power move now. Five slow rounds, any time you need to come back to steady.',
 };
 
-// Level 5 · Your move next time. Turn the whole chapter into one if-then plan in
-// her own words, tap-to-assemble. The chapter closes here, with the kind word.
+// Level 5 · The last test. A capstone: one real moment run end to end. She reads
+// the size (L2), picks the move (L3), then does the power move (L4). The chapter
+// closes here, with the kind word. Reuses the L3 best/lesser/worst tiers.
 export const L5_INTRO = {
   level: 'Level 5',
-  title: 'Your move next time',
-  subtitle: 'Turn all of this into one plan, in your own words, ready before you need it.',
+  title: 'The last test',
+  subtitle: 'One real moment, start to finish. Read it, handle it, breathe.',
 };
 
-export const L5_TEMPLATE = 'When I am {intensity} worked up and {trigger}, before I react I will {action}.';
-export const L5_SLOTS: L5Slot[] = [
-  { id: 'intensity', lead: 'When I am', options: ['a little', 'a lot'] },
-  {
-    id: 'trigger',
-    lead: 'and',
-    options: ['someone blows me off', 'I am running on no sleep', 'I am hungry and snappy'],
-  },
-  {
-    id: 'action',
-    lead: 'before I react I will',
-    options: ['take 20 minutes', 'step outside', 'breathe out slow', 'say it later'],
-  },
-];
+export interface L5Capstone {
+  scene: string;
+  size: Intensity;
+  sizeWhy: string;
+  prompt: string;
+  options: L3Option[];
+}
+
+export const L5_CAPSTONE: L5Capstone = {
+  scene: `It is a rough PMS day. ${FRIEND_NAME} just snapped at her partner, her chest is tight, and she is close to tears over something small.`,
+  size: 'lot',
+  sizeWhy: 'Chest tight and close to tears. Her body is flooded, so thinking will not land yet.',
+  prompt: 'What helps her most right now?',
+  options: [
+    {
+      label: 'Take 20 and let her body settle',
+      tier: 'best',
+      future: 'The gap lets the wave drop. Then she can think, and talk.',
+    },
+    {
+      label: 'Talk it out with her partner now',
+      tier: 'worst',
+      future: 'Mid-flood it turns into a fight. It has to wait until she is calm.',
+    },
+    {
+      label: 'Tell herself it is not a big deal',
+      tier: 'lesser',
+      future: 'A fair thought, but flooded it bounces off. Her thinking is offline.',
+    },
+  ],
+};
+
+// Beat 3: the breath, as knowledge (she practiced the doing in Level 4). The
+// long exhale is the answer, and it is the same whatever the size.
+export const L5_BREATH_Q = {
+  stepLabel: 'The breath',
+  prompt: 'To feel calm, big or small, how do you breathe?',
+  options: [
+    { label: 'Breathe in and out the same', correct: false },
+    { label: 'Breathe in longer than you breathe out', correct: false },
+    { label: 'Breathe out longer than you breathe in', correct: true },
+  ],
+  whyRight: 'The long exhale is the part that calms you. Out longer than in, every time, big or small.',
+  whyWrong: 'It is the exhale that calms you. You breathe out longer than you breathe in.',
+};
+
+// Beat 4: put the whole method in order. The array is the correct sequence;
+// the UI presents it scrambled. No fail, so a wrong order still reveals the right
+// one, it only costs the clean-run ring.
+export const L5_REORDER = {
+  stepLabel: 'Put it in order',
+  prompt: 'When you get irritated, what do you do?',
+  steps: [
+    'Check if I am hungry or tired',
+    'Read the size, big or small',
+    'Small feeling, rephrase it',
+    'Big feeling, take 20 and breathe slow',
+  ],
+  whyRight: 'That is the whole method, start to finish.',
+  whyWrong: 'Not the order yet. Move the steps around and try again.',
+};
 
 export const L5_CONGRATS = {
   title: 'Congratulations',
-  subtitle: 'You finished Irritability',
-  body: 'You can read the size, pick the move that fits, and you have a plan for next time. That is the whole chapter.',
-};
-
-export const KIND_WORD = {
-  title: 'One kind thing to yourself',
-  body: 'You are doing something hard here. That counts.',
-  hold: 'Hold to give yourself a break',
-  done: 'That counts. Come back to it any time.',
+  body: 'You have crossed every level in mastering irritability. Try to apply them in real life, and share your thoughts with me. I would love to know.',
 };
 
 // The chapter, for the dashboard's Level card.
@@ -417,7 +455,3 @@ export const CHAPTER = {
   levels: IRRITABILITY_LEVELS,
 };
 
-// Build the assembled L5 sentence from chosen slot values (id -> option).
-export function buildL5Sentence(choices: Record<string, string>): string {
-  return L5_TEMPLATE.replace(/\{(\w+)\}/g, (_, k: string) => choices[k] ?? '...');
-}

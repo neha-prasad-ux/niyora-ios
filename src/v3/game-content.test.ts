@@ -16,10 +16,10 @@ import {
   L4_TEACH,
   L4_CONGRATS,
   L5_INTRO,
-  L5_SLOTS,
+  L5_CAPSTONE,
+  L5_BREATH_Q,
+  L5_REORDER,
   L5_CONGRATS,
-  KIND_WORD,
-  buildL5Sentence,
 } from './game-content';
 
 // Every user-facing string in the chapter, flattened, for copy-rule checks.
@@ -37,12 +37,21 @@ const ALL_COPY: string[] = [
   ...L3_CHEAT.rows.flatMap((r) => [r.small, r.big]),
   L3_CONGRATS.body,
   L4_INTRO.subtitle,
-  L4_TEACH.body,
+  L4_TEACH.rule,
+  ...L4_TEACH.doses.flatMap((d) => [d.size, d.amount]),
+  L4_TEACH.cta,
   L4_CONGRATS.body,
   L5_INTRO.subtitle,
-  ...L5_SLOTS.flatMap((s) => [s.lead, ...s.options]),
+  L5_CAPSTONE.scene,
+  L5_CAPSTONE.sizeWhy,
+  L5_CAPSTONE.prompt,
+  ...L5_CAPSTONE.options.flatMap((o) => [o.label, o.future]),
+  L5_BREATH_Q.prompt,
+  ...L5_BREATH_Q.options.map((o) => o.label),
+  L5_BREATH_Q.whyRight,
+  L5_REORDER.prompt,
+  ...L5_REORDER.steps,
   L5_CONGRATS.body,
-  KIND_WORD.body,
 ];
 
 describe('game-content structure', () => {
@@ -73,9 +82,22 @@ describe('game-content structure', () => {
     }
   });
 
-  it('builds the L5 sentence from chosen chips', () => {
-    const s = buildL5Sentence({ intensity: 'a lot', trigger: 'I am hungry and snappy', action: 'step outside' });
-    expect(s).toBe('When I am a lot worked up and I am hungry and snappy, before I react I will step outside.');
+  it('L5 capstone has one best, one lesser, one worst move', () => {
+    expect(L5_CAPSTONE.options.filter((o) => o.tier === 'best')).toHaveLength(1);
+    expect(L5_CAPSTONE.options.filter((o) => o.tier === 'lesser')).toHaveLength(1);
+    expect(L5_CAPSTONE.options.filter((o) => o.tier === 'worst')).toHaveLength(1);
+  });
+
+  it('L5 breath question has exactly one correct answer (the long exhale)', () => {
+    const correct = L5_BREATH_Q.options.filter((o) => o.correct);
+    expect(correct).toHaveLength(1);
+    expect(correct[0].label).toMatch(/out longer than you breathe in/i);
+  });
+
+  it('L5 reorder is a 4-step method with basics first and the big/take-20 move last', () => {
+    expect(L5_REORDER.steps).toHaveLength(4);
+    expect(L5_REORDER.steps[0]).toMatch(/hungry or tired/i);
+    expect(L5_REORDER.steps[L5_REORDER.steps.length - 1]).toMatch(/take 20/i);
   });
 });
 
