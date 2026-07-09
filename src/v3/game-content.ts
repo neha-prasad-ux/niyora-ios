@@ -182,29 +182,67 @@ export const L1_CONGRATS = {
 export const L1_CLOSE =
   'So before you help anyone, check the basics. Is she hungry? Wiped out? That is step one.';
 
+// Level 2 intro + the "cheat code" teaching page + the sublabels on the two
+// buttons. Warm Californian voice; the science of reading intensity in plain
+// words (Sheppes intensity flip, Gottman flooding, prefrontal shutdown), taught
+// before she practices it.
+export const L2_INTRO = {
+  level: 'Level 2',
+  title: 'Big or small?',
+  subtitle: 'Emotions come big or small. Noticing which comes before any fix.',
+};
+
+export const L2_CHEAT = {
+  kicker: 'Cheat code',
+  title: 'How to spot the size',
+  rows: [
+    { label: 'Thinking', small: 'can still think it through', big: 'logic bounces off, tunnel vision' },
+    { label: 'Body', small: 'mostly calm', big: 'heart racing, hot, shaky' },
+    { label: 'Control', small: 'bugged, still in control', big: 'the feeling is running her' },
+  ],
+};
+
 export const L2_SCENES: L2Scene[] = [
   {
     id: 'l2-a',
-    scene: `${FRIEND_NAME} is a little annoyed her partner did not text back.`,
+    scene: `${FRIEND_NAME} is annoyed her partner did not text back.`,
     answer: 'little',
-    why: 'Bugged, but she can still think straight.',
+    why: 'She is bugged, but she can still think it through.',
   },
   {
     id: 'l2-b',
-    scene: `${FRIEND_NAME} has not slept, her partner blew off something she worked really hard on, and her voice is shaking.`,
+    scene: `${FRIEND_NAME} has not slept, her partner blew off something she worked hard on, and her voice is shaking.`,
     answer: 'lot',
-    why: 'She is flooded. Words are not getting through right now.',
+    why: 'No sleep and a shaking voice. Her body is flooded, so logic will not land yet.',
   },
   {
     id: 'l2-c',
-    scene: `${FRIEND_NAME} is snapping at little stuff, but laughs when you point it out.`,
+    scene: `${FRIEND_NAME} is snapping at little stuff, but she laughs when you point it out.`,
     answer: 'little',
-    why: 'Still reachable.',
+    why: 'Still reachable. She is not past talking.',
+  },
+  {
+    id: 'l2-d',
+    scene: `${FRIEND_NAME} is running for her flight when the desk says her passport is expired. Her hands are shaking and the words will not come.`,
+    answer: 'lot',
+    why: 'About as big as it gets. You cannot reason through a flood, so she takes ten minutes first, then sorts it out.',
+  },
+  {
+    id: 'l2-e',
+    scene: `${FRIEND_NAME}'s boss picks apart her work in front of the whole team. She goes quiet and her jaw is tight.`,
+    answer: 'lot',
+    why: 'Quiet is not the same as calm. The tight jaw and the silence say she is flooded. Ten minutes before she says a word.',
   },
 ];
 
+export const L2_CONGRATS = {
+  title: 'Congratulations',
+  subtitle: 'You passed Level 2',
+  body: 'You can read the size now. That is the read the whole game turns on.',
+};
+
 export const L2_CLOSE =
-  'That is the whole skill. Clock how worked up she is first. Nail that and the rest is easy.';
+  'That is the whole skill. Read the size first. Nail that and the rest is easy.';
 
 export const L3_SCENES: L3Scene[] = [
   {

@@ -46,7 +46,10 @@ import {
   L1_CLOSE,
   L1_CONGRATS,
   L1_INTRO,
+  L2_CHEAT,
   L2_CLOSE,
+  L2_CONGRATS,
+  L2_INTRO,
   L2_SCENES,
   L3_PAYLOAD,
   L3_SCENES,
@@ -78,6 +81,13 @@ const tap = () => Haptics.selectionAsync().catch(() => {});
 const TRUTH_BLUE = v3.regulated;
 const MYTH_PINK = 'hsl(330, 68%, 72%)';
 
+// Level 2 "size" colours: Small is cool pink, Big is warm coral (heat, not
+// alarm red). The backdrop moons drift through the stress stages coral -> violet
+// -> pink.
+const SMALL_PINK = 'hsl(330, 68%, 74%)';
+const BIG_CORAL = 'hsl(8, 72%, 68%)';
+const STRESS_HUES = [8, 275, 330, 8] as const; // coral, violet, pink, coral
+
 export default function GameV3() {
   const { width: screenW } = useWindowDimensions();
   const levels = IRRITABILITY_LEVELS;
@@ -105,6 +115,9 @@ export default function GameV3() {
   // Levels 2-6 keep the shared runner below for now.
   if (!done && index === 0) {
     return <LevelOne onDone={() => advance(levels[0].id)} onExit={() => router.back()} />;
+  }
+  if (!done && index === 1) {
+    return <LevelTwo onDone={() => advance(levels[1].id)} onExit={() => router.back()} />;
   }
 
   return (
@@ -327,6 +340,209 @@ function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }
               </View>
             </View>
             <BeginButton fullWidth label="On to Level 2" onPress={() => { tap(); onDone(); }} />
+          </View>
+        )}
+      </SafeAreaView>
+
+      {celebrate && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <CelebrationParticles style={StyleSheet.absoluteFill} />
+        </View>
+      )}
+      {stage === 'congrats' && <RingCelebration hue={275} />}
+    </View>
+  );
+}
+
+// Level 2 backdrop: the same ringed soul moons as L1, now tinted through the
+// stress stages (coral -> violet -> pink) so the pattern itself says "big / small".
+function L2Backdrop() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View style={styles.l1Orb1}>
+        <Orb size={84} hue={STRESS_HUES[0]} still />
+      </View>
+      <View style={styles.l1Orb2}>
+        <Orb size={64} hue={STRESS_HUES[1]} still />
+      </View>
+      <View style={styles.l1Orb3}>
+        <Orb size={58} hue={STRESS_HUES[2]} still />
+      </View>
+      <View style={styles.l1Orb4}>
+        <Orb size={92} hue={STRESS_HUES[3]} still />
+      </View>
+    </View>
+  );
+}
+
+// --- Level 2 · Recognise the size (Big vs Small) ----------------------
+// Reuses the Level 1 arc, with a "cheat code" teaching page before play that
+// spells out how to read the size. Big = coral (hot), Small = pink (cool).
+function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'play' | 'congrats'>('levelIntro');
+  const [i, setI] = useState(0);
+  const [guess, setGuess] = useState<Intensity | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
+
+  const scene = L2_SCENES[i];
+  const answered = guess !== null;
+  const right = answered && guess === scene.answer;
+
+  const pick = (g: Intensity) => {
+    if (answered) return;
+    if (g === scene.answer) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setCelebrate(true);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    }
+    setGuess(g);
+  };
+
+  const next = () => {
+    tap();
+    if (right) {
+      setCelebrate(false);
+      if (i + 1 >= L2_SCENES.length) setStage('congrats');
+      else {
+        setI(i + 1);
+        setGuess(null);
+      }
+    } else {
+      setGuess(null);
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={onExit} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            {stage === 'play' ? (
+              <View style={styles.l1Segments}>
+                {L2_SCENES.map((s, idx) => (
+                  <View key={s.id} style={[styles.l1Seg, idx <= i && styles.l1SegOn]} />
+                ))}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <View style={{ width: 22 }} />
+          </View>
+        )}
+
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L2Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Level}>{L2_INTRO.level}</Text>
+              <Text style={styles.l2Title}>{L2_INTRO.title}</Text>
+              <Text style={styles.l2Subtitle}>{L2_INTRO.subtitle}</Text>
+              <View style={styles.l1CardsHero}>
+                <View style={[styles.l1HeroCard, styles.l2HeroSmall]}>
+                  <Text style={styles.l1HeroCardText}>Small</Text>
+                </View>
+                <View style={[styles.l1HeroCard, styles.l2HeroBig]}>
+                  <Text style={styles.l1HeroCardText}>Big</Text>
+                </View>
+              </View>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('cheat'); }} />
+          </View>
+        )}
+
+        {stage === 'cheat' && (
+          <View style={styles.l1Body}>
+            <L2Backdrop />
+            <View style={styles.l2CheatCenter}>
+              <Text style={styles.l2CheatKicker}>{L2_CHEAT.kicker}</Text>
+              <Text style={styles.l2CheatTitle}>{L2_CHEAT.title}</Text>
+              <View style={styles.l2Table}>
+                <View style={styles.l2TableHead}>
+                  <Text style={styles.l2RowLabel} />
+                  <Text style={[styles.l2TableHeadCell, { color: SMALL_PINK }]}>Small</Text>
+                  <Text style={[styles.l2TableHeadCell, { color: BIG_CORAL }]}>Big</Text>
+                </View>
+                {L2_CHEAT.rows.map((r) => (
+                  <View key={r.label} style={styles.l2TableRow}>
+                    <Text style={styles.l2RowLabel}>{r.label}</Text>
+                    <Text style={styles.l2RowCell}>{r.small}</Text>
+                    <Text style={styles.l2RowCell}>{r.big}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <BeginButton fullWidth label="Got it" onPress={() => { tap(); setStage('play'); }} />
+          </View>
+        )}
+
+        {stage === 'play' && (
+          <View style={styles.l1Body}>
+            <View style={styles.l1Center}>
+              <Text style={styles.l2Scene}>{scene.scene}</Text>
+            </View>
+            <View style={styles.l1Bottom}>
+              {!answered ? (
+                <View style={styles.l1Choices}>
+                  <Pressable
+                    style={[styles.l2Choice, styles.l2ChoiceSmall]}
+                    onPress={() => pick('little')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Small"
+                  >
+                    <Text style={styles.l1ChoiceLabel}>Small</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.l2Choice, styles.l2ChoiceBig]}
+                    onPress={() => pick('lot')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Big"
+                  >
+                    <Text style={styles.l1ChoiceLabel}>Big</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, right ? styles.l1RevealRight : styles.l1RevealWrong]}>
+                    <Text
+                      style={[
+                        styles.l1Verdict,
+                        { color: right ? (scene.answer === 'lot' ? BIG_CORAL : SMALL_PINK) : v3.activated },
+                      ]}
+                    >
+                      {right ? `${scene.answer === 'lot' ? 'Big' : 'Small'}, yes` : 'Look again'}
+                    </Text>
+                    <Text style={styles.l1RevealText}>{scene.why}</Text>
+                  </View>
+                  <BeginButton
+                    fullWidth
+                    label={right ? (i + 1 >= L2_SCENES.length ? 'Finish' : 'Next') : 'Try again'}
+                    onPress={next}
+                  />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'congrats' && (
+          <View style={styles.l1Body}>
+            <View style={styles.l1Center}>
+              <Orb size={110} tierRingCount={2} ringHues={SOUL_RING_HUES} accumulate />
+              <Text style={styles.l1CongratsTitle}>{L2_CONGRATS.title}</Text>
+              <Text style={styles.l1CongratsSub}>{L2_CONGRATS.subtitle}</Text>
+              <View style={styles.l1CongratsCard}>
+                <Text style={styles.l1CongratsBody}>{L2_CONGRATS.body}</Text>
+              </View>
+            </View>
+            <BeginButton fullWidth label="On to Level 3" onPress={() => { tap(); onDone(); }} />
           </View>
         )}
       </SafeAreaView>
@@ -983,6 +1199,74 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
+
+  // Level 2 (Big vs Small) extras.
+  l2Title: { fontFamily: 'Poppins-SemiBold', fontSize: 28, color: colors.textPrimary, textAlign: 'center' },
+  l2Subtitle: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    paddingHorizontal: 18,
+  },
+  l2HeroSmall: { backgroundColor: hsla(SMALL_PINK, 0.88), transform: [{ rotate: '-8deg' }], marginRight: -18, zIndex: 2 },
+  l2HeroBig: { backgroundColor: hsla(BIG_CORAL, 0.85), transform: [{ rotate: '7deg' }] },
+  l2Scene: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 22,
+    lineHeight: 31,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  l2CheatCenter: { flex: 1, justifyContent: 'center', gap: 8 },
+  l2CheatKicker: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: v3.accent,
+    textAlign: 'center',
+  },
+  l2CheatTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 24, color: colors.textPrimary, textAlign: 'center' },
+  l2Table: {
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+    overflow: 'hidden',
+  },
+  l2TableHead: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+  },
+  l2TableHeadCell: { flex: 1, fontFamily: 'Poppins-SemiBold', fontSize: 13, letterSpacing: 0.3 },
+  l2TableRow: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  l2RowLabel: { width: 62, fontFamily: 'Poppins-Medium', fontSize: 13, color: colors.textSubtitle },
+  l2RowCell: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 13, lineHeight: 18, color: colors.textPrimary },
+  l2Choice: {
+    flex: 1,
+    minHeight: 108,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  l2ChoiceSmall: { backgroundColor: hsla(SMALL_PINK, 0.9), borderColor: SMALL_PINK },
+  l2ChoiceBig: { backgroundColor: hsla(BIG_CORAL, 0.9), borderColor: BIG_CORAL },
 
   dots: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 7 },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.16)' },
