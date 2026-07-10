@@ -9,19 +9,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
-import { BeginButton } from '@/components/begin-button';
+import { Header } from '@/components/header';
 import { LutealCard } from '@/components/luteal-card';
 import { Orb } from '@/components/orb';
 import { RecommendSheet } from '@/components/RecommendSheet';
 import { type RecResult } from '@/models/recommend';
+import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
-import { v3 } from '@/v3/v3-theme';
-import { CHAPTER } from '@/v3/game-content';
+import { CHAPTERS } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
@@ -71,11 +73,11 @@ export default function HomeV3() {
     }, []),
   );
 
-  const chapterDone = training.completed.length >= CHAPTER.levels.length;
-  const started = training.completed.length > 0;
-
-  // The game resumes at her first incomplete level on its own.
-  const openGame = () => router.push('/game-v3');
+  // The training card opens the chapters page, where she picks an emotion.
+  const openTrain = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/train');
+  };
 
   // The Calm card is the real home's acute path, unchanged: open the same
   // RecommendSheet, then hand off to the /result deck exactly as index.tsx does.
@@ -96,6 +98,7 @@ export default function HomeV3() {
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <Header onPressProfile={() => router.push('/my-soul')} />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* The soul: a big calm moon, always here. Keeps whatever ring the orb
               itself carries; no wave. */}
@@ -104,24 +107,22 @@ export default function HomeV3() {
               size={260}
               phase={breathPhase}
               phaseDuration={breathDuration}
-              breathRange={{ min: 0.97, max: 1.11 }}
+              breathRange={{ min: 0.72, max: 1.16 }}
             />
           </Animated.View>
 
+          {/* Train your mind: one summary card that opens the chapters page,
+              where she picks an emotion and trains it one at a time. */}
           <Animated.View entering={FadeInDown.delay(120).duration(500)}>
-            <Level1Card done={chapterDone} started={started} onStart={openGame} />
+            <TrainCard training={training} onOpen={openTrain} />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <Animated.View entering={FadeInDown.delay(400).duration(500)}>
             <CalmCard onBegin={openCalm} />
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(280).duration(500)}>
+          <Animated.View entering={FadeInDown.delay(470).duration(500)}>
             <LutealCard />
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(360).duration(500)}>
-            <FactGameCard />
           </Animated.View>
 
           <View style={{ height: 12 }} />
@@ -141,162 +142,210 @@ export default function HomeV3() {
 
 // --- Cards -------------------------------------------------------------
 
-function Card({ accent, children }: { accent?: string; children: React.ReactNode }) {
-  return <View style={[styles.card, accent ? { borderColor: accent } : null]}>{children}</View>;
-}
-
-function CardHead({ children }: { children: React.ReactNode }) {
-  return <Text style={styles.cardHead}>{children}</Text>;
-}
-
-// Level 1 · the game entry. Plain: a status dot + the task + Start. No wave.
-function Level1Card({
-  done,
-  started,
-  onStart,
-}: {
-  done: boolean;
-  started: boolean;
-  onStart: () => void;
-}) {
-  return (
-    <Card accent={colorAlpha(v3.accent, 0.4)}>
-      <CardHead>Level 1</CardHead>
-      <View style={styles.taskRow}>
-        <View style={[styles.dot, done && { backgroundColor: v3.accent, borderColor: v3.accent }]} />
-        <Text style={styles.taskText}>
-          {done ? 'You helped Neha through it' : 'Help Neha with her emotions'}
-        </Text>
-      </View>
-      <BeginButton
-        fullWidth
-        label={done ? 'Play again' : started ? 'Continue' : 'Start'}
-        onPress={onStart}
-      />
-    </Card>
-  );
-}
-
-// Calm · the acute path, unchanged in spirit: one tap to a breath.
-function CalmCard({ onBegin }: { onBegin: () => void }) {
-  return (
-    <Card>
-      <CardHead>Calm based on your emotions</CardHead>
-      <Text style={styles.cardBody}>Worked up right now? Drop straight into a breath.</Text>
-      <BeginButton fullWidth label="Begin" onPress={onBegin} />
-    </Card>
-  );
-}
-
-// Women's health facts · a quick myth-buster, self-validation over trivia.
-const FACT_OPTIONS = [
-  { text: 'PMS is just in your head.', correct: false },
-  { text: 'You should be able to push through it.', correct: false },
-  { text: 'Your brain gets more sensitive to normal hormones.', correct: true },
+// The training summary card: the home's single entry into "train your mind". It
+// surfaces the next action so tapping in resumes the right chapter, and opens the
+// /train page for the full list. Its violet field sits between Calm's blue and
+// Luteal's pink; a pair of ringed soul-moons carries the app's texture.
+const TRAIN_GRADIENT: readonly [string, string, string] = [
+  'hsl(258, 44%, 28%)',
+  'hsl(276, 42%, 30%)',
+  'hsl(292, 40%, 31%)',
 ];
 
-function FactGameCard() {
-  const [started, setStarted] = useState(false);
-  const [picked, setPicked] = useState<number | null>(null);
+// The next thing to do across all chapters: continue the one in progress, else
+// start the first untouched one, else everything is done.
+function trainSummary(training: TrainingState): { statusWord: string; detail: string } {
+  const inProgress = CHAPTERS.find((c) => {
+    const done = c.levels.filter((l) => training.completed.includes(l.id)).length;
+    return done > 0 && done < c.levels.length;
+  });
+  if (inProgress) {
+    const idx = inProgress.levels.findIndex((l) => !training.completed.includes(l.id));
+    return { statusWord: 'Continue', detail: `${inProgress.emotion}, Level ${inProgress.levels[idx].n}` };
+  }
+  const untouched = CHAPTERS.find((c) => !c.levels.some((l) => training.completed.includes(l.id)));
+  if (untouched) {
+    return { statusWord: 'Start', detail: `Begin with ${untouched.emotion}` };
+  }
+  return { statusWord: 'Complete', detail: 'You have trained them all' };
+}
+
+function TrainCard({ training, onOpen }: { training: TrainingState; onOpen: () => void }) {
+  const { statusWord, detail } = trainSummary(training);
   return (
-    <Card accent={colorAlpha(v3.regulated, 0.3)}>
-      <CardHead>Women&apos;s health facts game</CardHead>
-      {!started ? (
-        <>
-          <Text style={styles.cardBody}>One quick true-or-myth. A small win for the day.</Text>
-          <BeginButton fullWidth label="Begin" onPress={() => setStarted(true)} />
-        </>
-      ) : (
-        <>
-          <Text style={[styles.cardBody, { marginBottom: 8 }]}>Which one is true?</Text>
-          <View style={styles.factList}>
-            {FACT_OPTIONS.map((o, i) => {
-              const chosen = picked === i;
-              const reveal = picked != null;
-              return (
-                <Pressable
-                  key={o.text}
-                  onPress={() => setPicked(i)}
-                  disabled={reveal}
-                  style={[
-                    styles.factOption,
-                    reveal && o.correct && styles.factOptionGood,
-                    reveal && chosen && !o.correct && styles.factOptionMiss,
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.factOptionText}>{o.text}</Text>
-                </Pressable>
-              );
-            })}
+    <View style={styles.chapterWrap}>
+      <View style={styles.chapterTag}>
+        <Text style={styles.tagText}>{statusWord}</Text>
+      </View>
+      <Pressable
+        style={styles.chapterCard}
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={`Train your mind. ${detail}. ${statusWord}.`}
+      >
+        <LinearGradient
+          colors={TRAIN_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={styles.chapterBackdrop}>
+          <View style={styles.patTopRight}>
+            <Orb size={82} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
           </View>
-          {picked != null && (
-            <Text style={[styles.cardBody, { marginTop: 10 }]}>
-              Your hormones are normal. Your brain is just more sensitive to them right now. That is
-              real, and it is not in your head.
-            </Text>
-          )}
-        </>
-      )}
-    </Card>
+          <View style={styles.patBotLeft}>
+            <Orb size={60} tierRingCount={1} ringHues={SOUL_RING_HUES} still />
+          </View>
+        </View>
+        <View style={styles.cardRow}>
+          <View style={styles.cardTextCol}>
+            <Text style={styles.chapterTitle}>Train your mind</Text>
+            <Text style={styles.cardSub}>{detail}</Text>
+          </View>
+          <SymbolView
+            name="chevron.right"
+            tintColor="rgba(255, 255, 255, 0.7)"
+            size={15}
+            weight="semibold"
+            style={styles.cardChevron}
+          />
+        </View>
+      </Pressable>
+    </View>
   );
 }
 
-function colorAlpha(color: string, alpha: number): string {
-  if (color.startsWith('hsl(')) return color.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`);
-  return color;
+// Calm · the acute path. Its own world: a clean cool colour field (no moons, no
+// stars), a floating tag, and the whole card taps straight into a breath.
+const CALM_GRADIENT: readonly [string, string, string] = [
+  'hsl(206, 48%, 30%)',
+  'hsl(232, 44%, 31%)',
+  'hsl(258, 42%, 33%)',
+];
+
+function CalmCard({ onBegin }: { onBegin: () => void }) {
+  return (
+    <View style={styles.calmWrap}>
+      <View style={styles.calmTag}>
+        <Text style={styles.tagText}>Calm now</Text>
+      </View>
+      <Pressable
+        style={styles.calmCard}
+        onPress={onBegin}
+        accessibilityRole="button"
+        accessibilityLabel="Feeling worked up? Get activities based on your feeling. Open."
+      >
+        <LinearGradient
+          colors={CALM_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.calmBody, styles.cardRow]}>
+          <View style={styles.cardTextCol}>
+            <Text style={styles.calmTitle}>Feeling worked up?</Text>
+            <Text style={styles.cardSub}>Get activities based on your feeling.</Text>
+          </View>
+          <SymbolView
+            name="chevron.right"
+            tintColor="rgba(255, 255, 255, 0.7)"
+            size={15}
+            weight="semibold"
+            style={styles.cardChevron}
+          />
+        </View>
+      </Pressable>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 12 },
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
   hero: { alignItems: 'center', marginBottom: 8, marginTop: 4 },
-  card: {
-    width: '100%',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+
+  // Shared card interior: a text column plus a disclosure chevron, so the
+  // whole-card tap stays discoverable now that the CTA buttons are gone.
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cardTextCol: { flex: 1 },
+  cardChevron: { opacity: 0.55, marginRight: -2 },
+
+  // --- Type scale (shared across cards) ------------------------------------
+  // eyebrow: 12 Medium · title: SemiBold (primary 21 / secondary 18) ·
+  // subtitle: 13.5 Regular @ 0.72. One system so the cards read as a set.
+  tagText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#ffffff', letterSpacing: 0.5 },
+  cardSub: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(255, 255, 255, 0.72)',
+    letterSpacing: 0.1,
+    marginTop: 3,
   },
-  cardHead: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  cardBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.textSubtitle,
-    marginBottom: 12,
-  },
-  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
-  dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: v3.panelBorder,
-    backgroundColor: 'transparent',
-  },
-  taskText: { fontFamily: 'Poppins-Light', fontSize: 15, color: colors.textPrimary, flex: 1 },
-  factList: { gap: 8, marginTop: 2 },
-  factOption: {
-    paddingVertical: 12,
+
+  // Calm card (secondary · its own cool colour field, whole-card tap)
+  calmWrap: { marginBottom: 4 },
+  calmTag: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 10,
+    marginBottom: -10,
+    zIndex: 2,
+    backgroundColor: 'rgba(110, 150, 205, 0.95)',
+  },
+  calmCard: {
+    minHeight: 104,
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    justifyContent: 'center',
   },
-  factOptionGood: {
-    borderColor: colorAlpha(v3.regulated, 0.7),
-    backgroundColor: colorAlpha(v3.regulated, 0.16),
+  calmBody: { paddingHorizontal: 20, paddingVertical: 18 },
+  calmTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    lineHeight: 23,
+    color: '#ffffff',
+    letterSpacing: 0.15,
   },
-  factOptionMiss: { borderColor: colorAlpha(v3.activated, 0.6) },
-  factOptionText: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textPrimary },
+
+  // Chapter card (primary · the game · the biggest title + a touch more height)
+  chapterWrap: { marginBottom: 4 },
+  chapterTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 10,
+    marginBottom: -10,
+    zIndex: 2,
+    backgroundColor: 'rgba(150, 110, 205, 0.95)',
+  },
+  chapterCard: {
+    width: '100%',
+    minHeight: 120,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  chapterBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
+  patTopRight: { position: 'absolute', top: -24, right: -16, opacity: 0.3, transform: [{ rotate: '18deg' }] },
+  patBotLeft: { position: 'absolute', bottom: -24, left: -18, opacity: 0.24, transform: [{ rotate: '-12deg' }] },
+  chapterTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 21,
+    lineHeight: 26,
+    color: '#ffffff',
+    letterSpacing: 0.15,
+  },
 });

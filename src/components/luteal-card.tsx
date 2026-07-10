@@ -10,6 +10,7 @@ import { useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SymbolView } from 'expo-symbols';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getReadiness, isReadyDone } from '@/store/pms-readiness';
@@ -113,8 +114,17 @@ export function LutealCard() {
         <Image source={STARFIELD} style={styles.stars} resizeMode="cover" accessible={false} />
 
         <View style={styles.body}>
-          <Text style={styles.title}>{s.title}</Text>
-          <Text style={styles.sub}>{s.sub}</Text>
+          <View style={styles.textCol}>
+            <Text style={styles.title}>{s.title}</Text>
+            <Text style={styles.sub}>{s.sub}</Text>
+          </View>
+          <SymbolView
+            name="chevron.right"
+            tintColor="rgba(255, 255, 255, 0.7)"
+            size={15}
+            weight="semibold"
+            style={styles.chevron}
+          />
         </View>
       </Pressable>
     </View>
@@ -129,18 +139,17 @@ function resolveState(
 ): CardState {
   if (inWindow) {
     return doneToday
-      ? { tag: 'Well done', tagStyle: styles.tagDone, gradient: DONE_GRADIENT, title: 'PMS day prep', sub: 'You took care of today' }
-      : { tag: 'Your window', tagStyle: styles.tagActive, gradient: ACTIVE_GRADIENT, title: 'PMS day prep', sub: "Let's get you ready" };
+      ? { tag: 'On Your window', tagStyle: styles.tagDone, gradient: DONE_GRADIENT, title: 'PMS day prep', sub: 'You took care of today' }
+      : { tag: 'On Your window', tagStyle: styles.tagActive, gradient: ACTIVE_GRADIENT, title: 'PMS day prep', sub: "Let's get you ready" };
   }
-  // Out of window: a gentle heads-up toward the next one.
-  const sub =
+  // Out of window: always show the countdown to the next window in the tag.
+  const tag =
     daysUntil != null && daysUntil > 0
-      ? `About ${daysUntil} ${daysUntil === 1 ? 'day' : 'days'} away. Tap to prep early.`
-      : hasCycle
-        ? 'Coming up soon. Tap to prep early.'
-        : 'A little prep for your rough week.';
+      ? `${daysUntil} ${daysUntil === 1 ? 'day' : 'days'} away`
+      : 'Coming up';
+  const sub = hasCycle ? 'Tap to prep early.' : 'A little prep for your rough week.';
   return {
-    tag: 'Coming up',
+    tag,
     tagStyle: styles.tagSoon,
     gradient: SOON_GRADIENT,
     title: hasCycle ? 'Your next PMS window' : 'PMS day prep',
@@ -164,9 +173,9 @@ const styles = StyleSheet.create({
   tagSoon: { backgroundColor: 'rgba(120, 108, 190, 0.95)' },
   tagText: {
     fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontSize: 12,
     color: '#ffffff',
-    letterSpacing: 0.2,
+    letterSpacing: 0.5,
   },
   card: {
     borderRadius: 22,
@@ -185,18 +194,29 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0.3,
   },
-  body: { padding: 16 },
+  body: {
+    minHeight: 104,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  textCol: { flex: 1 },
+  chevron: { opacity: 0.55, marginRight: -2 },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    lineHeight: 23,
     color: '#ffffff',
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
   },
   sub: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: 'Poppins-Regular',
     fontSize: 13.5,
-    color: 'rgba(255, 255, 255, 0.75)',
-    letterSpacing: 0.2,
+    lineHeight: 19,
+    color: 'rgba(255, 255, 255, 0.72)',
+    letterSpacing: 0.1,
     marginTop: 3,
   },
 });

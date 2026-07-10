@@ -20,26 +20,8 @@ import { RingCelebration } from '@/components/RingCelebration';
 import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import {
-  IRRITABILITY_LEVELS,
-  L1_CARDS,
-  L1_CONGRATS,
-  L1_INTRO,
-  L2_CHEAT,
-  L2_CONGRATS,
-  L2_INTRO,
-  L2_SCENES,
-  L3_CHEAT,
-  L3_CONGRATS,
-  L3_INTRO,
-  L3_SCENES,
-  L4_CONGRATS,
-  L4_INTRO,
-  L4_TEACH,
-  L5_BREATH_Q,
-  L5_CAPSTONE,
-  L5_CONGRATS,
-  L5_INTRO,
-  L5_REORDER,
+  getChapter,
+  type Chapter,
   type Intensity,
   type MoveTier,
 } from '@/v3/game-content';
@@ -74,13 +56,16 @@ const GOLD_RING_HUES = [GOLD_HUE, GOLD_HUE, GOLD_HUE, GOLD_HUE] as const;
 const VIOLET_BURST = 275;
 
 export default function GameV3() {
-  const levels = IRRITABILITY_LEVELS;
+  // Which emotion's chapter to play: /game-v3?chapter=anxiety. Falls back to
+  // Irritability when the param is missing or unknown.
+  const { level: levelParam, chapter: chapterParam } = useLocalSearchParams<{
+    level?: string;
+    chapter?: string;
+  }>();
+  const ch = getChapter(chapterParam);
+  const levels = ch.levels;
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
-
-  // Optional deep-link jump: /game-v3?level=4 opens a level directly (1-indexed),
-  // handy for testing a single level without replaying the earlier ones.
-  const { level: levelParam } = useLocalSearchParams<{ level?: string }>();
 
   // Resume where she left off: start at the first level she has not completed
   // (or a jumped-to level, or the beginning if the chapter is done).
@@ -126,15 +111,15 @@ export default function GameV3() {
   // congrats), big buttons at the bottom, soft retry, a gold ring for a clean run.
   switch (index) {
     case 0:
-      return <LevelOne onDone={() => advance(levels[0].id)} onExit={exit} />;
+      return <LevelOne ch={ch} onDone={() => advance(levels[0].id)} onExit={exit} />;
     case 1:
-      return <LevelTwo onDone={() => advance(levels[1].id)} onExit={exit} />;
+      return <LevelTwo ch={ch} onDone={() => advance(levels[1].id)} onExit={exit} />;
     case 2:
-      return <LevelThree onDone={() => advance(levels[2].id)} onExit={exit} />;
+      return <LevelThree ch={ch} onDone={() => advance(levels[2].id)} onExit={exit} />;
     case 3:
-      return <LevelFour onDone={() => advance(levels[3].id)} onExit={exit} />;
+      return <LevelFour ch={ch} onDone={() => advance(levels[3].id)} onExit={exit} />;
     default:
-      return <LevelFive onDone={() => finish(levels[4].id)} onExit={exit} />;
+      return <LevelFive ch={ch} onDone={() => finish(levels[4].id)} onExit={exit} />;
   }
 }
 
@@ -215,7 +200,8 @@ function LevelCongrats({
 // Self-contained, full-screen: game intro -> level intro -> play -> congrats.
 // Big buttons at the bottom, soft retry (never a harsh fail), a brand particle
 // burst on each right answer, and a ring celebration on the congrats page.
-function LevelOne({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+function LevelOne({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_CARDS, L1_INTRO, L1_CONGRATS } = ch;
   const [stage, setStage] = useState<'gameIntro' | 'levelIntro' | 'play' | 'congrats'>('gameIntro');
   const [i, setI] = useState(0);
   const [guess, setGuess] = useState<boolean | null>(null); // Truth = true, Myth = false
@@ -414,7 +400,8 @@ function L2Backdrop() {
 // --- Level 2 · Recognise the size (Big vs Small) ----------------------
 // Reuses the Level 1 arc, with a "cheat code" teaching page before play that
 // spells out how to read the size. Big = coral (hot), Small = pink (cool).
-function LevelTwo({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_INTRO, L2_INTRO, L2_CHEAT, L2_SCENES, L2_CONGRATS } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'play' | 'congrats'>('levelIntro');
   const [i, setI] = useState(0);
   const [guess, setGuess] = useState<Intensity | null>(null);
@@ -653,7 +640,8 @@ function L3Backdrop() {
 // Reuses the Level 2 arc. Concrete per-scene solutions (reframe / take 20 /
 // push it down), best-fit flips with the size, push-it-down flagged red,
 // 3-tier gentle feedback with soft retry to the best solution.
-function LevelThree({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+function LevelThree({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_INTRO, L3_INTRO, L3_CHEAT, L3_SCENES, L3_CONGRATS } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'play' | 'congrats'>('levelIntro');
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
@@ -902,7 +890,8 @@ function PowerBreath({
 // --- Level 4 · The power move (teach the long exhale, then breathe) ----
 // We have not covered breathing yet, so this level introduces it: what the move
 // is, why the long exhale calms you, then five rounds done together. No skip.
-function LevelFour({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+function LevelFour({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_INTRO, L4_INTRO, L4_TEACH, L4_CONGRATS } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'breathe' | 'congrats'>('levelIntro');
   const [started, setStarted] = useState(false);
 
@@ -1021,7 +1010,8 @@ function L5Backdrop() {
 // page. The scramble the reorder pool is shown in (indices into L5_REORDER.steps).
 const L5_SCRAMBLE = [2, 0, 3, 1];
 
-function LevelFive({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_INTRO, L5_INTRO, L5_CAPSTONE, L5_BREATH_Q, L5_CONGRATS, L5_REORDER } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'size' | 'move' | 'breath' | 'reorder' | 'congrats'>('levelIntro');
   const [sizeGuess, setSizeGuess] = useState<Intensity | null>(null);
   const [movePick, setMovePick] = useState<number | null>(null);

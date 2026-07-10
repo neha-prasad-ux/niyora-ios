@@ -6,7 +6,6 @@
 // - Tap anywhere to pause/resume (pause.fill overlay when frozen).
 
 import * as Haptics from 'expo-haptics';
-import * as StoreReview from 'expo-store-review';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -251,9 +250,12 @@ function BreathingSession({
     let cancelled = false;
     // Let the ring bloom settle before the prompt surfaces over the moment.
     const t = setTimeout(() => {
-      StoreReview.isAvailableAsync()
-        .then((available) => {
-          if (!cancelled && available) return StoreReview.requestReview();
+      // Load expo-store-review lazily: its native module may be absent (e.g. an
+      // older dev build), and a missing binding must never crash the app.
+      import('expo-store-review')
+        .then(async (StoreReview) => {
+          const available = await StoreReview.isAvailableAsync();
+          if (!cancelled && available) await StoreReview.requestReview();
         })
         .catch(() => {});
     }, 2200);

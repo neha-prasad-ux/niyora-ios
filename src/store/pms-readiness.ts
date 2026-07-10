@@ -156,13 +156,3 @@ export function isReadyDone(
   return doneForToday || readinessDoneCount(checks, calmDone) >= READINESS_TOTAL;
 }
 
-// A word under the orb, no numbers. Index 0..6.
-export const READINESS_STATE_WORDS = [
-  'tender',
-  'easing',
-  'softening',
-  'softening',
-  'steadier',
-  'steadier',
-  'calm',
-] as const;
