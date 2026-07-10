@@ -7,22 +7,14 @@
 // sheet is dropped (cycle editing lives in My Soul, and it needs pms-prefs
 // period-history that this branch does not carry). Everything else is faithful.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import { router, useFocusEffect } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
-
 import { BackgroundGradient } from '@/components/background-gradient';
 import { Checklist, type ChecklistItem } from '@/components/checklist';
-import { Orb } from '@/components/orb';
 import { WhySheet } from '@/components/why-sheet';
 import { colors } from '@/theme/colors';
 import {
@@ -31,8 +23,6 @@ import {
   READINESS_CHECK_IDS,
   READINESS_CHECK_CONTENT,
   READINESS_WHY,
-  readinessDoneCount,
-  READINESS_STATE_WORDS,
   todayYmd,
   type ReadinessChecks,
   type ReadinessCheckId,
@@ -78,20 +68,6 @@ export default function PmsReadinessScreen() {
     }, [today]),
   );
 
-  const doneCount = readinessDoneCount(checks, calmDone);
-  const stateWord = READINESS_STATE_WORDS[Math.min(doneCount, READINESS_STATE_WORDS.length - 1)];
-
-  // The orb pulses gently each time the count changes: the little "light into
-  // the orb" beat as she acts.
-  const pulse = useSharedValue(1);
-  useEffect(() => {
-    pulse.value = withSequence(
-      withTiming(1.06, { duration: 220 }),
-      withTiming(1, { duration: 420 }),
-    );
-  }, [doneCount, pulse]);
-  const orbStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
-
   const toggle = (id: string) => {
     Haptics.selectionAsync();
     const key = id as ReadinessCheckId;
@@ -103,13 +79,6 @@ export default function PmsReadinessScreen() {
   const beginCalm = () => {
     Haptics.selectionAsync();
     router.push({ pathname: '/session', params: { id: 'quick-calm' } });
-  };
-
-  const doneForToday = () => {
-    Haptics.selectionAsync();
-    setReadiness({ date: today, checks, doneForToday: true })
-      .catch(() => {})
-      .finally(() => router.back());
   };
 
   const goBack = () => {
@@ -133,11 +102,10 @@ export default function PmsReadinessScreen() {
         </View>
 
         <View style={styles.orbHeader}>
-          <Animated.View style={orbStyle}>
-            <Orb size={128} still />
-          </Animated.View>
-          <Text style={styles.stateWord}>{stateWord}</Text>
           <Text style={styles.header}>Let&apos;s make you PMS ready</Text>
+          <Text style={styles.subhead}>
+            These are science backed daily habits shown to ease PMS.
+          </Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -159,12 +127,6 @@ export default function PmsReadinessScreen() {
                 <Text style={styles.beginPillText}>Begin</Text>
               </Pressable>
             )}
-          </View>
-
-          <View style={styles.actions}>
-            <Pressable onPress={doneForToday} hitSlop={10} accessibilityRole="button" accessibilityLabel="Done for today">
-              <Text style={styles.doneText}>Done for today</Text>
-            </Pressable>
           </View>
 
           {/* Know why: compact cards in a 2-up grid. Tapping one opens a
@@ -202,13 +164,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, paddingHorizontal: 24 },
   topBar: { height: 32, justifyContent: 'center' },
   orbHeader: { alignItems: 'center', paddingTop: 6, paddingBottom: 18 },
-  stateWord: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    color: colors.textSubtitle,
-    letterSpacing: 0.4,
-    marginTop: 14,
-  },
   header: {
     fontFamily: 'Poppins-Medium',
     fontSize: 23,
@@ -217,6 +172,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     textAlign: 'center',
     marginTop: 10,
+  },
+  subhead: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 8,
   },
   scroll: { paddingBottom: 28 },
   calmRow: {
@@ -266,13 +231,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Medium',
     fontSize: 14,
     color: '#7C40B0',
-    letterSpacing: 0.2,
-  },
-  actions: { alignItems: 'center', marginTop: 18, gap: 16 },
-  doneText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   know: { marginTop: 36 },

@@ -117,6 +117,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="train"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          <Stack.Screen
             name="pms-readiness"
             options={{
               animation: 'slide_from_right',
