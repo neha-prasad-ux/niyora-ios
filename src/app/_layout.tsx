@@ -137,6 +137,12 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          {/* Couples: the "Us vs. the PMS" shelf and its four activities. */}
+          <Stack.Screen name="couples" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
+          <Stack.Screen name="couples-quiz" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
+          <Stack.Screen name="couples-texts" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
+          <Stack.Screen name="couples-prep" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
+          <Stack.Screen name="couples-reconnect" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
           <Stack.Screen
             name="session"
             options={{

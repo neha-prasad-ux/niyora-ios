@@ -25,6 +25,7 @@ import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { CHAPTERS } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
+import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
@@ -35,6 +36,8 @@ const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
 export default function HomeV3() {
   const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
+  // Whether she has an unfinished V3 onboarding to pick back up.
+  const [resumeStep, setResumeStep] = useState<number | null>(null);
 
   // Drive the moon's inhale/exhale on a loop. Phase starts on inhale (initial
   // state) and only flips inside a timer, so no synchronous set-state-in-effect.
@@ -67,16 +70,31 @@ export default function HomeV3() {
       getTraining().then((t) => {
         if (alive) setTraining(t);
       });
+      // Surface the "finish setting up" card if she left onboarding partway.
+      getOnboardingV3Progress().then((p) => {
+        if (alive) setResumeStep(p && !p.done && p.stepIndex > 0 ? p.stepIndex : null);
+      });
       return () => {
         alive = false;
       };
     }, []),
   );
 
+  const resumeOnboarding = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/onboarding-v3');
+  };
+
   // The training card opens the chapters page, where she picks an emotion.
   const openTrain = () => {
     Haptics.selectionAsync().catch(() => {});
     router.push('/train');
+  };
+
+  // The couples card opens the "Us vs. the PMS" shelf of relationship activities.
+  const openCouples = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/couples');
   };
 
   // The Calm card is the real home's acute path, unchanged: open the same
@@ -100,6 +118,14 @@ export default function HomeV3() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <Header onPressProfile={() => router.push('/my-soul')} />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* If she left onboarding partway, the first thing she sees is the way
+              back into it. */}
+          {resumeStep != null && (
+            <Animated.View entering={FadeInDown.duration(500)}>
+              <ResumeCard onPress={resumeOnboarding} />
+            </Animated.View>
+          )}
+
           {/* The soul: a big calm moon, always here. Keeps whatever ring the orb
               itself carries; no wave. */}
           <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
@@ -125,6 +151,10 @@ export default function HomeV3() {
             <LutealCard />
           </Animated.View>
 
+          <Animated.View entering={FadeInDown.delay(540).duration(500)}>
+            <CouplesCard onOpen={openCouples} />
+          </Animated.View>
+
           <View style={{ height: 12 }} />
         </ScrollView>
       </SafeAreaView>
@@ -141,6 +171,50 @@ export default function HomeV3() {
 }
 
 // --- Cards -------------------------------------------------------------
+
+// Resume onboarding · shown only when she left the PMS read unfinished. A violet
+// field ties it to the onboarding world; the whole card taps back into it.
+const RESUME_GRADIENT: readonly [string, string, string] = [
+  'hsl(268, 44%, 30%)',
+  'hsl(284, 42%, 31%)',
+  'hsl(300, 40%, 32%)',
+];
+
+function ResumeCard({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={styles.resumeWrap}>
+      <View style={styles.resumeTag}>
+        <Text style={styles.tagText}>Finish setup</Text>
+      </View>
+      <Pressable
+        style={styles.resumeCard}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Finish setting up. Pick up where you left off."
+      >
+        <LinearGradient
+          colors={RESUME_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.resumeBody, styles.cardRow]}>
+          <View style={styles.cardTextCol}>
+            <Text style={styles.resumeTitle}>Pick up where you left off</Text>
+            <Text style={styles.cardSub}>Finish your PMS read to unlock your plan.</Text>
+          </View>
+          <SymbolView
+            name="chevron.right"
+            tintColor="rgba(255, 255, 255, 0.7)"
+            size={15}
+            weight="semibold"
+            style={styles.cardChevron}
+          />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
 
 // The training summary card: the home's single entry into "train your mind". It
 // surfaces the next action so tapping in resumes the right chapter, and opens the
@@ -259,9 +333,93 @@ function CalmCard({ onBegin }: { onBegin: () => void }) {
   );
 }
 
+// Couples · "Us vs. the PMS". A warm rose-to-red field with faint heart motifs,
+// set apart from the cooler Train/Calm cards. The heart iconography flags the
+// relationship shelf at a glance.
+const COUPLES_GRADIENT: readonly [string, string, string] = [
+  'hsl(340, 44%, 30%)',
+  'hsl(352, 46%, 31%)',
+  'hsl(6, 44%, 32%)',
+];
+
+function CouplesCard({ onOpen }: { onOpen: () => void }) {
+  return (
+    <View style={styles.couplesWrap}>
+      <View style={styles.couplesTag}>
+        <Text style={styles.tagText}>Together</Text>
+      </View>
+      <Pressable
+        style={styles.couplesCard}
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel="Us vs. the PMS. Get through the hard week as a team. Open."
+      >
+        <LinearGradient
+          colors={COUPLES_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={styles.couplesBackdrop}>
+          <SymbolView
+            name="heart.fill"
+            tintColor="rgba(255, 255, 255, 0.14)"
+            size={120}
+            weight="semibold"
+            style={styles.couplesHeartBig}
+          />
+          <SymbolView
+            name="heart.fill"
+            tintColor="rgba(255, 255, 255, 0.1)"
+            size={62}
+            weight="semibold"
+            style={styles.couplesHeartSmall}
+          />
+        </View>
+        <View style={[styles.calmBody, styles.cardRow]}>
+          <View style={styles.cardTextCol}>
+            <Text style={styles.calmTitle}>Us vs. the PMS</Text>
+            <Text style={styles.cardSub}>Get through the hard week as a team.</Text>
+          </View>
+          <SymbolView
+            name="chevron.right"
+            tintColor="rgba(255, 255, 255, 0.7)"
+            size={15}
+            weight="semibold"
+            style={styles.cardChevron}
+          />
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
+  couplesWrap: { marginBottom: 4 },
+  couplesTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 10,
+    marginBottom: -10,
+    zIndex: 2,
+    backgroundColor: 'rgba(205, 90, 120, 0.95)',
+  },
+  couplesCard: {
+    minHeight: 104,
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    justifyContent: 'center',
+  },
+  couplesBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
+  couplesHeartBig: { position: 'absolute', top: -22, right: -14, transform: [{ rotate: '14deg' }] },
+  couplesHeartSmall: { position: 'absolute', bottom: -18, right: 58, transform: [{ rotate: '-10deg' }] },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
   hero: { alignItems: 'center', marginBottom: 8, marginTop: 4 },
 
@@ -282,6 +440,36 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.72)',
     letterSpacing: 0.1,
     marginTop: 3,
+  },
+
+  // Resume-onboarding card (violet · matches the onboarding world)
+  resumeWrap: { marginBottom: 4 },
+  resumeTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 10,
+    marginBottom: -10,
+    zIndex: 2,
+    backgroundColor: 'rgba(168, 120, 210, 0.95)',
+  },
+  resumeCard: {
+    minHeight: 88,
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    justifyContent: 'center',
+  },
+  resumeBody: { paddingHorizontal: 20, paddingVertical: 18 },
+  resumeTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 18,
+    lineHeight: 23,
+    color: '#ffffff',
+    letterSpacing: 0.15,
   },
 
   // Calm card (secondary · its own cool colour field, whole-card tap)

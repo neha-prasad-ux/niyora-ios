@@ -5,7 +5,7 @@
 // navigating to /onboarding-v3 (see the "V3" entry the dev build exposes, or
 // push the route directly).
 //
-// Scope, per the spec: splash -> questions -> five fact screens -> result
+// Scope, per the spec: splash -> questions -> four fact screens -> result
 // reveal. Copy, graph shapes, gamification, and the three decisions (Dubol
 // citation, level banding, remission + cycle) are carried from the spec exactly.
 // Only the visual skin conforms to the app's design system (near-black indigo
@@ -23,9 +23,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  type StyleProp,
   Text,
   useWindowDimensions,
   View,
+  type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -38,33 +40,39 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { PeriodSheet } from '@/components/period-sheet';
-import { DEFAULT_CYCLE_LENGTH, DEFAULT_PERIOD_LENGTH } from '@/store/pms-prefs';
+import { DEFAULT_CYCLE_LENGTH, DEFAULT_PERIOD_LENGTH, setPmsPrefs } from '@/store/pms-prefs';
+import {
+  getOnboardingV3Progress,
+  setOnboardingV3Progress,
+} from '@/store/onboarding-v3-progress';
+import { addPeriodStart } from '@/store/period-history';
+import { ACTIVITIES } from '@/models/activities';
+import {
+  READINESS_CHECK_CONTENT,
+  READINESS_CHECK_IDS,
+  READINESS_WHY,
+} from '@/store/pms-readiness';
 
 import { SymbolView } from 'expo-symbols';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
-import { GlassCard } from '@/v3/glass-card';
 import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import {
   COPING_ITEMS,
   EMPTY_ANSWERS,
+  FACTOR_SCIENCE,
   IMPAIRMENT_ITEMS,
   LEVER_ITEMS,
   PRESENCE_ITEMS,
-  SOURCES,
-  cycleLine,
-  deriveCopingStanding,
-  regulationBlurb,
+  deriveFactorBoard,
   deriveLevel,
-  deriveLevers,
   levelActivation,
   levelSpectrumPosition,
+  nextWindowPhrase,
   remissionLine,
-  standingSkill,
-  waveMeterLabel,
   type PresenceItem,
   type V3Answers,
 } from '@/v3/v3-content';
@@ -74,10 +82,8 @@ import {
   HormoneCurve,
   SpectrumBar,
   TriggerFork,
-  WaveMeter,
   waveTint,
 } from '@/v3/v3-graphics';
-import { isInPmsWindow } from '@/lib/pms-window';
 
 type UpdateFn = (patch: (a: V3Answers) => Partial<V3Answers>) => void;
 
@@ -155,6 +161,29 @@ export default function OnboardingV3Screen() {
   const advancing = useRef(false);
   const step = SEQUENCE[stepIndex];
 
+  // Resume: on mount, pick up saved progress (step + answers) if she left partway
+  // and has not finished. Async, so this never sets state synchronously in the
+  // effect body.
+  useEffect(() => {
+    let alive = true;
+    getOnboardingV3Progress().then((p) => {
+      if (!alive || !p || p.done || p.stepIndex <= 0) return;
+      setStepIndex(p.stepIndex);
+      setAnswers(p.answers);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Persist progress as she moves, so the home "finish setting up" card can send
+  // her back to the right step. Skips step 0 (nothing to resume to); the terminal
+  // done-write is handled in complete().
+  useEffect(() => {
+    if (stepIndex === 0) return;
+    setOnboardingV3Progress({ stepIndex, answers, done: false }).catch(() => {});
+  }, [stepIndex, answers]);
+
   const rings = ringsEarned(stepIndex);
   const fill = Math.min(1, stepIndex / LOADING_INDEX);
 
@@ -179,6 +208,22 @@ export default function OnboardingV3Screen() {
     if (router.canGoBack()) router.back();
     else router.replace('/');
   }, []);
+
+  // The plan hand-off: write her cycle into the app's real PMS prefs (so home,
+  // the luteal card, reminders, and the game all read it), remember the period in
+  // the additive history, mark onboarding done, then land on the dashboard.
+  const complete = useCallback(async () => {
+    const c = answers.cycle;
+    const hasDate = !c.unsure && !!c.lastPeriod;
+    if (hasDate && c.lastPeriod) await addPeriodStart(c.lastPeriod).catch(() => {});
+    await setPmsPrefs({
+      pmsMode: true,
+      lastPeriodStart: hasDate ? c.lastPeriod : null,
+      cycleLength: c.length ?? DEFAULT_CYCLE_LENGTH,
+    }).catch(() => {});
+    await setOnboardingV3Progress({ stepIndex, answers, done: true }).catch(() => {});
+    router.replace('/home-v3' as Href);
+  }, [answers, stepIndex]);
 
   // Progress bar + moon show on the question steps and the loading beat, then
   // hand off to the full orb on the result. Hidden on the fact screens: those
@@ -223,7 +268,14 @@ export default function OnboardingV3Screen() {
         </View>
 
         <Animated.View key={step} entering={FadeInDown.duration(450)} style={styles.stage}>
-          <RenderStep step={step} answers={answers} update={update} advance={advance} finish={finish} />
+          <RenderStep
+            step={step}
+            answers={answers}
+            update={update}
+            advance={advance}
+            finish={finish}
+            complete={complete}
+          />
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -290,12 +342,14 @@ function RenderStep({
   update,
   advance,
   finish,
+  complete,
 }: {
   step: StepId;
   answers: V3Answers;
   update: UpdateFn;
   advance: () => void;
   finish: () => void;
+  complete: () => void;
 }) {
   switch (step) {
     case 'splash':
@@ -326,8 +380,8 @@ function RenderStep({
     case 'result':
       return <Result answers={answers} onNext={advance} />;
     case 'goal':
-      // "But I'm ready" lands on the new PMS dashboard, not back where she came.
-      return <Goal onDone={() => router.replace('/home-v3' as Href)} />;
+      // The plan hand-off: persist her cycle + finish, then land on the dashboard.
+      return <Plan onDone={complete} />;
   }
 }
 
@@ -500,10 +554,10 @@ function Privacy({ onNext }: { onNext: () => void }) {
       <View style={styles.privacyRows}>
         {PRIVACY_PROMISES.map((label, i) => (
           <Animated.View key={label} entering={FadeInDown.delay(200 + i * 160).duration(500)}>
-            <GlassCard style={styles.privacyRow} radius={14}>
+            <View style={styles.privacyRow}>
               <SymbolView name="checkmark" tintColor={v3.accent} size={15} weight="semibold" />
               <Text style={styles.privacyRowLabel}>{label}</Text>
-            </GlassCard>
+            </View>
           </Animated.View>
         ))}
       </View>
@@ -519,15 +573,15 @@ function FactSpectrum({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
   const { width: screenW } = useWindowDimensions();
   const sw = screenW - 40; // full content width, colours run edge to edge
   const steps = [
-    'Scientific PMS questionnaires',
-    'Under a minute',
-    'A detailed report',
-    'Result shapes your app',
+    'Backed by real science',
+    'Under a minute, promise',
+    "A read that's just yours",
+    'Shapes your whole app',
   ];
   return (
     <StepLayout
-      title="Know your PMS level"
-      topAlign
+      title="How strong is your PMS?"
+      subtitle="It runs from mild to PMDD, worth knowing where you land"
       footer={
         <>
           <Text style={styles.footerLine}>Answer honestly, it stays on your phone</Text>
@@ -541,11 +595,8 @@ function FactSpectrum({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
       <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.spectrumWrap}>
         <SpectrumBar width={sw} height={Math.round((sw * 88) / 320)} />
       </Animated.View>
-      <Animated.Text entering={FadeInDown.delay(280).duration(500)} style={styles.body}>
-        PMS ranges from mild to PMDD, worth knowing where you are
-      </Animated.Text>
       <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.testCardWrap}>
-        <GlassCard style={styles.testCard} shine>
+        <Panel>
           <Text style={styles.testHeading}>The quick test</Text>
           <View style={styles.expectList}>
             {steps.map((label, i) => (
@@ -557,7 +608,7 @@ function FactSpectrum({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
               </View>
             ))}
           </View>
-        </GlassCard>
+        </Panel>
       </Animated.View>
     </StepLayout>
   );
@@ -634,9 +685,14 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
     onNext();
   };
 
+  const skip = () => {
+    update((a) => ({ cycle: { ...a.cycle, lastPeriod: null, unsure: true } }));
+    onNext();
+  };
+
   return (
     <StepLayout
-      title="Everyone's hormones drop before a period"
+      title="PMS comes from a brain sensitive to the drop"
       footer={
         <>
           <Text style={styles.footerLine}>Period date helps us know cycle health better</Text>
@@ -648,6 +704,9 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
               setSheetOpen(true);
             }}
           />
+          <Pressable onPress={skip} style={styles.skipBtn} accessibilityRole="button">
+            <Text style={styles.skipLabel}>Not sure, I&apos;ll add it later in My Soul</Text>
+          </Pressable>
         </>
       }
     >
@@ -655,12 +714,13 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
         <HormoneCurve />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(360).duration(500)} style={styles.hormoneCardWrap}>
-        <GlassCard style={styles.hormoneCard}>
+        <Panel style={styles.hormoneCard}>
           <Text style={styles.factLine}>
-            <Text style={styles.factEmph}>Only some get PMS</Text>, their brain is more sensitive to the drop
+            Everyone&apos;s hormones drop, but the ones with a{' '}
+            <Text style={styles.factEmph}>more sensitive brain</Text> get PMS
           </Text>
-          <Text style={styles.strong}>That can change, and Niyora helps</Text>
-        </GlassCard>
+          <Text style={styles.strong}>That can change, and we&apos;ll show you how</Text>
+        </Panel>
       </Animated.View>
 
       <PeriodSheet
@@ -757,7 +817,7 @@ function Levers({ answers, update, onNext }: { answers: V3Answers; update: Updat
   return (
     <StepLayout
       title="How true are these for you?"
-      subtitle="In general, not only before your period."
+      subtitle="In general, not only before your period"
       footer={
         <ContinueFooter hint="Answer all three" showHint={showHint} onPress={() => onContinue(onNext)} />
       }
@@ -840,16 +900,15 @@ function Coping({ answers, update, onNext }: { answers: V3Answers; update: Updat
 function FactTrainable({ onNext }: { onNext: () => void }) {
   return (
     <StepLayout
-      topAlign
-      title="Learning to manage emotions leads to smoother PMS"
+      title="Managing your emotions smooths out PMS"
       footer={<BeginButton fullWidth label="Got it, let me see my result" onPress={onNext} />}
     >
       <View style={styles.trainWrap}>
         <TriggerFork width={230} />
         <View style={styles.trainCols}>
-          {/* Untrained response */}
+          {/* Without Niyora */}
           <View style={styles.trainCol}>
-            <Text style={styles.trainHead}>Untrained</Text>
+            <Text style={styles.trainHead}>Without Niyora</Text>
             <View style={styles.trainHeadRule} />
             <View style={styles.trainBrain}>
               <BrainIcon size={56} tint={v3.activated} />
@@ -860,9 +919,9 @@ function FactTrainable({ onNext }: { onNext: () => void }) {
             <View style={styles.trainRule} />
             <Text style={styles.trainOutcome}>It takes over</Text>
           </View>
-          {/* Trained response */}
-          <GlassCard style={styles.trainColCard}>
-            <Text style={styles.trainHead}>Trained</Text>
+          {/* With Niyora */}
+          <View style={styles.trainColCard}>
+            <Text style={styles.trainHead}>With Niyora</Text>
             <View style={styles.trainHeadRule} />
             <View style={styles.trainBrain}>
               <BrainIcon size={56} tint={v3.regulated} />
@@ -872,13 +931,9 @@ function FactTrainable({ onNext }: { onNext: () => void }) {
             <Text style={styles.trainLine}>Better control</Text>
             <View style={styles.trainRule} />
             <Text style={styles.trainOutcome}>Just another day</Text>
-          </GlassCard>
+          </View>
         </View>
       </View>
-      <Text style={styles.factLine}>
-        How you respond shapes how it goes,{' '}
-        <Text style={styles.factEmph}>and that part is trainable, it&apos;s what we work on</Text>
-      </Text>
     </StepLayout>
   );
 }
@@ -1005,26 +1060,12 @@ function Loading({ onDone }: { onDone: () => void }) {
 function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void }) {
   const { width: screenW } = useWindowDimensions();
   const level = deriveLevel(answers);
-  const levers = deriveLevers(answers);
-  const standing = deriveCopingStanding(answers);
   const remLine = remissionLine(answers.remission);
-  const cycLine = cycleLine(answers.cycle);
+  const windowPhrase = nextWindowPhrase(answers.cycle);
   const levelWord = level.charAt(0).toUpperCase() + level.slice(1);
 
-  // Two reads, two visuals. Severity keeps the mild -> PMDD spectrum (card 1).
-  // Emotional regulation becomes the water (card 2): its HEIGHT is how hard PMS
-  // is pushing (severity, bumped if she is in her window today), and the top
-  // line's STEADINESS is her regulation skill, seeded from her coping standing.
-  const cyc = answers.cycle;
-  const inWindow =
-    !cyc.unsure && cyc.lastPeriod != null && cyc.length != null
-      ? isInPmsWindow(cyc.lastPeriod, cyc.length, new Date())
-      : false;
-  const baseActivation = levelActivation(level);
-  const activation = inWindow ? Math.min(0.82, baseActivation + 0.16) : baseActivation;
-  const skill = standingSkill(standing);
-  const meter = waveMeterLabel(skill, inWindow);
-  const levelColor = waveTint(activation);
+  // Hero colour tracks severity, calm blue -> warm, reusing the wave tint.
+  const levelColor = waveTint(levelActivation(level));
   // Fill the card's inner width (content ~ screenW-40, card padding 16 each side).
   const fillWidth = Math.min(screenW - 72, 368);
 
@@ -1034,127 +1075,184 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
 
   return (
     <StepLayout
-      footer={<BeginButton fullWidth label="Wanna know what's next?" onPress={onNext} />}
+      footer={<BeginButton fullWidth label="Let's set you a plan" onPress={onNext} />}
     >
-      {/* Card 1 — severity on the mild -> PMDD spectrum, filling the card. */}
-      <Animated.View
-        entering={FadeInDown.delay(150).duration(600)}
-        style={[styles.card, { borderColor: colorAlpha(levelColor, 0.35) }]}
-      >
-        <Text style={styles.cardHeadingText}>Your PMS reads as</Text>
-        <Text style={[styles.resultLevel, { color: levelColor }]}>{levelWord}</Text>
-        <View style={styles.graphFill}>
-          <SpectrumBar
-            position={levelSpectrumPosition(level)}
-            width={fillWidth}
-            height={Math.round((fillWidth * 88) / 320)}
-          />
-        </View>
+      {/* Hero — severity on the mild -> PMDD spectrum. The only tinted card. */}
+      <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
+        <Panel accent={levelColor}>
+          <Text style={styles.cardHeadingText}>Your PMS reads as</Text>
+          <Text style={[styles.resultLevel, { color: levelColor }]}>{levelWord}</Text>
+          <View style={styles.graphFill}>
+            <SpectrumBar
+              position={levelSpectrumPosition(level)}
+              width={fillWidth}
+              height={Math.round((fillWidth * 88) / 320)}
+            />
+          </View>
+        </Panel>
       </Animated.View>
 
-      {/* Card 2 — emotional regulation, drawn as the water, with a plain read. */}
-      <Animated.View
-        entering={FadeInDown.delay(400).duration(600)}
-        style={[styles.card, { borderColor: colorAlpha(v3.regulated, 0.35) }]}
-      >
-        <Text style={styles.cardHeadingText}>Emotional regulation</Text>
-        <View style={styles.graphFill}>
-          <WaveMeter
-            activation={activation}
-            skill={skill}
-            inWindow={inWindow}
-            label={meter.label}
-            note={meter.note}
-            width={fillWidth}
-          />
-        </View>
-        <Text style={styles.waterCaption}>{regulationBlurb(standing)}</Text>
+      {/* Leaderboard — the four levers as bars, tallest = strongest evidence. */}
+      <Animated.View entering={FadeInDown.delay(400).duration(600)} style={styles.cardAnim}>
+        <Panel>
+          <Text style={styles.cardHeadingText}>What moves your PMS most</Text>
+          <FactorBoard answers={answers} />
+        </Panel>
       </Animated.View>
 
-      {/* Card 3 — what makes PMS worse: her flagged levers as colour chips. */}
-      <Animated.View
-        entering={FadeInDown.delay(650).duration(600)}
-        style={[styles.card, { borderColor: colorAlpha(v3.activated, 0.35) }]}
-      >
-        <Text style={styles.cardHeadingText}>Things making PMS worse</Text>
-        {levers.length > 0 ? (
-          <>
-            <View style={styles.chipWrap}>
-              {levers.map((l) => {
-                const w = LEVER_WORSE[l.id];
-                return (
-                  <View
-                    key={l.id}
-                    style={[
-                      styles.worseChip,
-                      {
-                        backgroundColor: colorAlpha(w.color, 0.16),
-                        borderColor: colorAlpha(w.color, 0.5),
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.worseChipText, { color: w.color }]}>{w.label}</Text>
-                  </View>
-                );
-              })}
-            </View>
+      {/* Next window — framed as prep, not dread. */}
+      {(windowPhrase || remLine) && (
+        <Animated.View entering={FadeInDown.delay(650).duration(600)} style={styles.cardAnim}>
+          <Panel>
+            <Text style={styles.cardHeadingText}>Your next PMS window</Text>
+            {windowPhrase && <Text style={styles.windowPhrase}>{windowPhrase}</Text>}
             <Text style={styles.cardBody}>
-              Poor sleep, skipped meals, and too little movement each make PMS
-              harder. Easing even one takes real pressure off.
+              {windowPhrase
+                ? 'A good stretch to prep. Are you ready?'
+                : "Add your cycle in My Soul and we'll flag it early."}
             </Text>
-          </>
-        ) : (
-          <Text style={styles.cardBody}>Nothing clear here yet. We keep watching.</Text>
-        )}
-      </Animated.View>
-
-      {/* Card 4 — next window, framed as prep, not dread. */}
-      {(remLine || cycLine) && (
-        <Animated.View
-          entering={FadeInDown.delay(900).duration(600)}
-          style={[styles.card, { borderColor: colorAlpha(v3.accent, 0.35) }]}
-        >
-          <Text style={styles.cardHeadingText}>Your next window</Text>
-          {cycLine && <Text style={styles.cardBodyStrong}>{cycLine}</Text>}
-          {remLine && <Text style={styles.cardBody}>{remLine}</Text>}
+            {remLine && <Text style={styles.cardBody}>{remLine}</Text>}
+          </Panel>
         </Animated.View>
       )}
 
-      <Animated.Text entering={FadeInDown.delay(1150).duration(600)} style={styles.strong}>
+      <Animated.Text entering={FadeInDown.delay(900).duration(600)} style={styles.strong}>
         These are all trainable, not a fixed trait.
       </Animated.Text>
     </StepLayout>
   );
 }
 
-// --- Goal (pick-up beat before home) ----------------------------------
-
-// What the practice covers, each dot colour-swept from the palette.
-const GOAL_HELP: { text: string; color: string }[] = [
-  { text: 'Train your brain what to react to', color: v3.regulated },
-  { text: 'Practise a calming activity', color: v3.activated },
-  { text: 'Match your breath with Niyora', color: v3.accent },
-  { text: 'Learn the research behind it all', color: v3.regulated },
-];
-
-function Goal({ onDone }: { onDone: () => void }) {
+// The evidence leaderboard: the four levers as bars, tallest = strongest
+// evidence, the ones her answers flagged filled violet. One combined "See the
+// science" line sits below (no per-bar detail, no link out).
+function FactorBoard({ answers }: { answers: V3Answers }) {
+  const board = deriveFactorBoard(answers);
+  const [open, setOpen] = useState(false);
+  const maxStrength = Math.max(...board.map((b) => b.factor.strength));
+  const toggle = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setOpen((o) => !o);
+  };
   return (
-    <StepLayout footer={<BeginButton fullWidth label="But I'm ready" onPress={onDone} />}>
-      <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.goalHero}>
-        <Text style={styles.goalKicker}>Your goal</Text>
-        <Text style={styles.goalTitle}>Win one symptom at a time</Text>
+    <>
+      <View style={styles.barRow}>
+        {board.map(({ factor, yours }, i) => (
+          <View key={factor.id} style={styles.barCol}>
+            <View style={styles.barTrack}>
+              <View
+                style={[
+                  styles.bar,
+                  yours ? styles.barYours : styles.barMuted,
+                  { height: `${Math.round((factor.strength / maxStrength) * 100)}%` },
+                ]}
+              >
+                <Text style={styles.barRank}>{i + 1}</Text>
+              </View>
+            </View>
+            <Text
+              style={[styles.barLabel, yours && styles.barLabelYours]}
+              numberOfLines={2}
+            >
+              {factor.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <Pressable
+        onPress={toggle}
+        style={styles.scienceToggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+      >
+        <Text style={styles.scienceToggleText}>{open ? 'Hide the science' : 'See the science'}</Text>
+        <SymbolView
+          name={open ? 'chevron.up' : 'chevron.down'}
+          tintColor={v3.accent}
+          size={10}
+          weight="semibold"
+        />
+      </Pressable>
+      {open && (
+        <Animated.View entering={FadeIn.duration(200)} style={styles.scienceBox}>
+          <Text style={styles.scienceText}>{FACTOR_SCIENCE}</Text>
+        </Animated.View>
+      )}
+    </>
+  );
+}
+
+// --- Plan (the hand-off before home) ----------------------------------
+
+// The four ways the app works on her PMS, each a small glimpse of the real
+// feature so the plan feels concrete, not a promise. Data comes from the same
+// modules the live screens use, so nothing here is a mock.
+function Plan({ onDone }: { onDone: () => void }) {
+  return (
+    <StepLayout
+      topAlign
+      title="Your plan"
+      subtitle="Four ways Niyora works on your PMS"
+      footer={<BeginButton fullWidth label="Start my plan" onPress={onDone} />}
+    >
+      {/* 1 — train your mind (the emotion game) */}
+      <Animated.View entering={FadeInDown.delay(120).duration(500)} style={styles.cardAnim}>
+        <Panel>
+          <Text style={styles.planStep}>1 · Train your mind</Text>
+          <View style={styles.planTrainRow}>
+            <Orb size={54} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
+            <View style={styles.planItemText}>
+              <Text style={styles.planItemTitle}>Retrain what your brain reacts to</Text>
+              <Text style={styles.planItemSub}>One emotion at a time</Text>
+            </View>
+          </View>
+        </Panel>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(350).duration(600)} style={styles.card}>
-        <Text style={styles.cardHeadingText}>Niyora will help you</Text>
-        <View style={styles.goalList}>
-          {GOAL_HELP.map((h) => (
-            <View key={h.text} style={styles.goalRow}>
-              <View style={[styles.goalDot, { backgroundColor: h.color }]} />
-              <Text style={styles.goalItem}>{h.text}</Text>
+      {/* 2 — calming activities (from the real activities model) */}
+      <Animated.View entering={FadeInDown.delay(260).duration(500)} style={styles.cardAnim}>
+        <Panel>
+          <Text style={styles.planStep}>2 · Practice a calming activity</Text>
+          {ACTIVITIES.slice(0, 3).map((a) => (
+            <View key={a.id} style={styles.planRow}>
+              <View style={styles.planDot} />
+              <Text style={styles.planItemTitle}>{a.title}</Text>
             </View>
           ))}
-        </View>
+          <Text style={styles.planMore}>and more, matched to how you feel</Text>
+        </Panel>
+      </Animated.View>
+
+      {/* 3 — the daily readiness checklist */}
+      <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.cardAnim}>
+        <Panel>
+          <Text style={styles.planStep}>3 · Prep for your PMS window</Text>
+          {READINESS_CHECK_IDS.slice(0, 3).map((id) => (
+            <View key={id} style={styles.planCheckRow}>
+              <View style={styles.planCheck}>
+                <SymbolView name="checkmark" tintColor={v3.accent} size={11} weight="bold" />
+              </View>
+              <View style={styles.planItemText}>
+                <Text style={styles.planItemTitle}>{READINESS_CHECK_CONTENT[id].title}</Text>
+                <Text style={styles.planItemSub}>{READINESS_CHECK_CONTENT[id].examples}</Text>
+              </View>
+            </View>
+          ))}
+        </Panel>
+      </Animated.View>
+
+      {/* 4 — a real research snippet */}
+      <Animated.View entering={FadeInDown.delay(540).duration(500)} style={styles.cardAnim}>
+        <Panel>
+          <Text style={styles.planStep}>4 · Stay up to date with science</Text>
+          <Text style={styles.planItemTitle}>
+            {READINESS_WHY.calcium.name} · {READINESS_WHY.calcium.teaser}
+          </Text>
+          <Text style={styles.planItemSub} numberOfLines={3}>
+            {READINESS_WHY.calcium.why}
+          </Text>
+          <Text style={styles.planSource}>{READINESS_WHY.calcium.sourceLabel}</Text>
+        </Panel>
       </Animated.View>
     </StepLayout>
   );
@@ -1174,16 +1272,26 @@ function colorAlpha(color: string, alpha: number): string {
   return color;
 }
 
-// The flagged levers, phrased as what is making PMS worse, each with an accent
-// colour for its chip on the result screen.
-const LEVER_WORSE: Record<
-  (typeof LEVER_ITEMS)[number]['id'],
-  { label: string; color: string }
-> = {
-  sleep: { label: 'Poor sleep', color: v3.regulated },
-  food: { label: 'Unhealthy food', color: v3.activated },
-  movement: { label: 'Too little movement', color: v3.accent },
-};
+// Shared card surface for the whole flow: one place for the glass treatment so
+// every panel stays identical. Pass `accent` to tint the border (the result
+// hero); leave it off for the neutral default.
+function Panel({
+  accent,
+  style,
+  children,
+}: {
+  accent?: string;
+  style?: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      style={[styles.panel, accent ? { borderColor: colorAlpha(accent, 0.35) } : null, style]}
+    >
+      {children}
+    </View>
+  );
+}
 
 function ChipToggle({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
@@ -1217,7 +1325,7 @@ function DegreeChoice({
   return (
     <View style={styles.choice}>
       <Text style={styles.choiceLabel}>{label}</Text>
-      <View style={styles.segmentRow}>
+      <View style={styles.segmentRow} accessibilityRole="radiogroup">
         {options.map((opt, i) => {
           const on = value === i;
           return (
@@ -1225,8 +1333,8 @@ function DegreeChoice({
               key={opt}
               onPress={() => set(i)}
               style={[styles.segment, on && styles.segmentOn]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on, checked: on }}
               accessibilityLabel={`${name}: ${opt}`}
             >
               <Text style={[styles.segmentLabel, on && styles.segmentLabelOn]} numberOfLines={1}>
@@ -1251,11 +1359,15 @@ const styles = StyleSheet.create({
   },
   hudSpacer: { flex: 1 },
   stage: { flex: 1 },
-  // Fixed title zone: keeps every screen's title on the same line.
+  // Fixed title zone: reserves two title lines so the interactive content below
+  // starts at the same place on every screen, whether the title is one line or
+  // two (no vertical jump while tapping through).
   titleZone: {
+    minHeight: 84,
     paddingTop: 8,
     paddingBottom: 4,
     alignItems: 'center',
+    justifyContent: 'flex-start',
   },
   scroll: { flex: 1 },
   scrollContent: {
@@ -1288,13 +1400,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 24,
   },
-  contentBottom: {
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingBottom: 24,
-  },
-  orbWrap: { marginBottom: 12 },
-
   // Progress: one continuous bar filling toward the moon at its end (touching),
   // sat next to the back button. Caption below is left-aligned.
   progressRow: {
@@ -1376,6 +1481,10 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
   },
   privacyRowLabel: {
     fontFamily: 'Poppins-Light',
@@ -1421,27 +1530,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-SemiBold',
     color: colors.textPrimary,
   },
-  connector: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginVertical: 6,
-  },
   graph: { width: '100%', maxWidth: 360, alignItems: 'center', marginVertical: 8 },
-  // Hormone fact: the story lines highlighted in a glass card under the graph.
+  // Hormone fact: the story lines highlighted in a Panel under the graph.
   hormoneCardWrap: { width: '100%', alignItems: 'center', marginTop: 6 },
-  hormoneCard: { width: '100%', maxWidth: 400, padding: 16, alignItems: 'center' },
+  hormoneCard: { alignItems: 'center' },
   // The spectrum field renders near full-width to fill the vertical space.
   spectrumWrap: { alignItems: 'center', marginVertical: 6 },
-  // The test steps live in their own glass card, set apart from the description.
+  // The test steps live in their own Panel, set apart from the description.
   testCardWrap: { width: '100%', alignItems: 'center', marginTop: 18 },
-  testCard: {
-    width: '100%',
-    maxWidth: 400,
-    padding: 16,
-  },
   testHeading: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 16,
@@ -1499,7 +1595,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   trainCol: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8 },
-  trainColCard: { flex: 1, alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8 },
+  trainColCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+  },
   trainHead: { fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textPrimary },
   trainHeadRule: {
     width: 44,
@@ -1632,17 +1737,21 @@ const styles = StyleSheet.create({
 
 
 
-  // Result
-  card: {
+  // Result / shared card surface.
+  // The one panel recipe, used everywhere via <Panel>.
+  panel: {
     width: '100%',
     maxWidth: 400,
+    alignSelf: 'center',
     padding: 16,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
-    marginVertical: 5,
   },
+  // Wrapper that carries the entrance animation + inter-card spacing so the
+  // Panel itself stays layout-only.
+  cardAnim: { width: '100%', marginVertical: 5 },
   // Result hero: the level, big and colour-coded.
   resultLevel: {
     fontFamily: 'Poppins-SemiBold',
@@ -1651,26 +1760,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     marginBottom: 10,
   },
-  cardHead: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    lineHeight: 22,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
   cardBody: {
     fontFamily: 'Poppins-Light',
     fontSize: 14,
     lineHeight: 21,
     color: colors.textSubtitle,
     marginTop: 4,
-  },
-  cardBodyStrong: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.textPrimary,
-    marginTop: 6,
   },
   // Result card heading: an uppercase, muted label per card.
   cardHeadingText: {
@@ -1683,55 +1778,125 @@ const styles = StyleSheet.create({
   },
   // A graph/meter that fills the card's inner width.
   graphFill: { alignSelf: 'stretch', alignItems: 'center', marginVertical: 6 },
-  // The water card's plain-language, two-line read.
-  waterCaption: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.textSubtitle,
-    marginTop: 12,
-    marginBottom: 2,
-  },
-  // "Things making PMS worse" chips: colour-swept pills.
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  worseChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  worseChipText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13.5,
-    letterSpacing: 0.2,
-  },
-  // Goal pick-up screen.
-  goalHero: { alignItems: 'center', marginTop: 8, marginBottom: 14 },
-  goalKicker: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: colors.textSubtitle,
-    marginBottom: 8,
-  },
-  goalTitle: {
+  // Next-window card: the "1 week away" phrase, big and calm.
+  windowPhrase: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 26,
-    lineHeight: 33,
+    lineHeight: 32,
     letterSpacing: 0.2,
     color: colors.textPrimary,
-    textAlign: 'center',
+    marginBottom: 2,
   },
-  goalList: { gap: 15, marginTop: 4 },
-  goalRow: { flexDirection: 'row', alignItems: 'center', gap: 13 },
-  goalDot: { width: 9, height: 9, borderRadius: 5 },
-  goalItem: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 22,
+
+  // Evidence leaderboard: bars of descending height, tallest = strongest.
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 6,
+  },
+  barCol: { flex: 1, alignItems: 'center' },
+  barTrack: { width: '100%', height: 116, justifyContent: 'flex-end' },
+  bar: {
+    width: '100%',
+    minHeight: 30,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    alignItems: 'center',
+    paddingTop: 7,
+  },
+  // Muted bar (a general factor); violet bar for the ones her answers flagged.
+  barMuted: { backgroundColor: 'rgba(255, 255, 255, 0.10)' },
+  barYours: { backgroundColor: v3.meterTo },
+  barRank: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
     color: colors.textPrimary,
-    flex: 1,
+  },
+  barLabel: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  barLabelYours: { fontFamily: 'Poppins-Medium', color: colors.textPrimary },
+  scienceToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 16,
+  },
+  scienceToggleText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    color: v3.accent,
+    letterSpacing: 0.2,
+  },
+  scienceBox: {
+    marginTop: 10,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(150, 120, 235, 0.4)',
+  },
+  scienceText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.textPrimary,
+  },
+  // Plan hand-off: four glimpse cards.
+  planStep: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    letterSpacing: 0.3,
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  planItemText: { flex: 1 },
+  planItemTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: colors.textPrimary,
+  },
+  planItemSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textSubtitle,
+    marginTop: 2,
+  },
+  planTrainRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  planDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: v3.accent },
+  planMore: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12.5,
+    color: colors.textTagline,
+    marginTop: 2,
+  },
+  planCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  planCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(150, 120, 235, 0.4)',
+    backgroundColor: 'rgba(150, 120, 235, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planSource: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textTagline,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 
   // Completion / congrats beat

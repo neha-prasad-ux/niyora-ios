@@ -96,7 +96,7 @@ export const ANCHOR_IDS: string[] = PRESENCE_ITEMS.filter((i) => i.anchor).map((
 
 // --- Question screen: impairment --------------------------------------
 // Sliders run 0 (not at all) to 2 (a lot). The banding formula reads the
-// highest of the three.
+// highest of the two.
 
 export const IMPAIRMENT_ITEMS: { id: string; label: string }[] = [
   { id: 'work', label: 'Work' },
@@ -155,7 +155,7 @@ export interface V3Answers {
     unsure: boolean;
   };
   remission: 'yes' | 'no' | 'unsure' | null;
-  levers: Record<string, number>; // 0..3 per lever id
+  levers: Record<string, number>; // 0..2 per lever id
   coping: string[];
 }
 
@@ -364,7 +364,7 @@ export function waveMeterLabel(
 export function remissionLine(remission: V3Answers['remission']): string | null {
   switch (remission) {
     case 'yes':
-      return "Because they lift when your period starts, they're predictable, which is what we work with";
+      return "They're predictable, which is what we work with";
     case 'no':
       return "These may run beyond the premenstrual window, so it's worth seeing the fuller picture";
     default:
@@ -417,4 +417,79 @@ export function cycleLine(cycle: V3Answers['cycle'], today: Date = new Date()): 
   const d = nextTougherStretch(cycle, today);
   if (!d) return null;
   return `Your next PMS window is likely around ${formatStretchDate(d)}. You won't walk into it cold.`;
+}
+
+/** Whole days from today until the next tougher window opens, or null. */
+export function daysToNextWindow(
+  cycle: V3Answers['cycle'],
+  today: Date = new Date(),
+): number | null {
+  const d = nextTougherStretch(cycle, today);
+  if (!d) return null;
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.round((d.getTime() - startOfToday.getTime()) / MS_PER_DAY));
+}
+
+/**
+ * A short "how far away" phrase for the next-window card, in weeks once it is a
+ * week or more out so it reads calm ("1 week away"), in days when it is close.
+ * Null when we cannot estimate (no cycle, or she skipped it).
+ */
+export function nextWindowPhrase(
+  cycle: V3Answers['cycle'],
+  today: Date = new Date(),
+): string | null {
+  const days = daysToNextWindow(cycle, today);
+  if (days == null) return null;
+  if (days <= 1) return 'Almost here';
+  if (days < 7) return `${days} days away`;
+  const weeks = Math.round(days / 7);
+  return weeks <= 1 ? '1 week away' : `${weeks} weeks away`;
+}
+
+// --- Result scoreboard: what moves PMS, ranked by evidence -------------
+// The five levers the plan can move, ordered by how strong the evidence is that
+// working on them helps PMS. `strength` (0..5) drives both the rank and the
+// little evidence meter. `science` is the plain-language summary shown inline
+// behind "See the science" (never a link, so she never leaves the app). Honesty
+// about how firm the evidence is lives in the prose, per house style. The
+// numbers must be confirmed against the research bank before real users.
+
+export interface PmsFactor {
+  id: 'movement' | 'emotional' | 'sleep' | 'food';
+  label: string;
+  strength: number; // 1..5: evidence strength, drives bar height + rank
+}
+
+// Four levers the plan can move, ordered by how strong the evidence is. Emotional
+// training rides the stress research (high stress ~ 5x the odds of PMS), which is
+// why it sits near the top even though it is the app's own method.
+export const PMS_FACTORS: PmsFactor[] = [
+  { id: 'movement', label: 'Movement', strength: 5 },
+  { id: 'emotional', label: 'Emotions', strength: 4 },
+  { id: 'sleep', label: 'Sleep', strength: 3 },
+  { id: 'food', label: 'Food', strength: 2 },
+];
+
+// One combined, plain-language read for the whole board, shown behind a single
+// "See the science" line. Honesty about evidence strength lives in the prose.
+// Numbers to confirm against the research bank before real users.
+export const FACTOR_SCIENCE =
+  'Movement has the firmest evidence: in trials, regular exercise brought a large drop in premenstrual symptoms (Pearce, 2020). Emotional training works on the stress link, and high stress carries roughly five times the odds of PMS (PLOS One, 2019). Steady sleep helps too, poor sleep is tied to about twice the odds (Sao Paulo Sleep Study). Regular meals are a gentler lever, with lighter evidence so far.';
+
+/**
+ * The board, ranked by evidence strength (strongest first), each flagged `yours`
+ * when her own answers point at it: the lifestyle levers she rated low, and
+ * emotional training when her coping leans on pushing feelings down.
+ */
+export function deriveFactorBoard(a: V3Answers): { factor: PmsFactor; yours: boolean }[] {
+  const leverFlags = new Set(deriveLevers(a).map((l) => l.id));
+  const standing = deriveCopingStanding(a);
+  const emotionalYours = standing === 'disengaging' || standing === 'mixed';
+  return [...PMS_FACTORS]
+    .sort((x, y) => y.strength - x.strength)
+    .map((factor) => ({
+      factor,
+      yours: factor.id === 'emotional' ? emotionalYours : leverFlags.has(factor.id),
+    }));
 }
