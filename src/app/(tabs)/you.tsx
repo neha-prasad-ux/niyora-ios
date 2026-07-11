@@ -1,5 +1,6 @@
-// My Soul sheet. Ported from the Mac Settings.tsx "My Soul" panel at the
-// level of fidelity DESIGN.md asks for.
+// You: progress, identity, and settings — the third tab. Grew out of the
+// My Soul modal (itself ported from the Mac Settings.tsx panel); same cards,
+// now living on a tab instead of behind a close button.
 
 import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
@@ -277,26 +278,10 @@ export default function MySoulScreen() {
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        {/* A tab now, not a modal: plain centered title, no close button. */}
         <View style={styles.header}>
-          <Pressable
-            onPress={() => {
-              Haptics.selectionAsync();
-              router.back();
-            }}
-            hitSlop={16}
-            accessibilityRole="button"
-            accessibilityLabel="Close My Soul"
-          >
-            <View style={styles.closeButton}>
-              <SymbolView
-                name="xmark"
-                tintColor={colors.iconChrome}
-                size={14}
-                weight="medium"
-              />
-            </View>
-          </Pressable>
-          <Text style={styles.title}>My Soul</Text>
+          <View style={{ width: 34 }} />
+          <Text style={styles.title}>You</Text>
           <View style={{ width: 34 }} />
         </View>
 
@@ -1094,16 +1079,6 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     paddingBottom: 12,
   },
-  closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
   title: {
     fontSize: 17,
     fontWeight: '600',
@@ -1111,7 +1086,8 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     paddingHorizontal: 20,
-    paddingBottom: 60,
+    // Room for the tab bar plus a breath of air above it.
+    paddingBottom: 96,
   },
   orbWrap: {
     alignItems: 'center',

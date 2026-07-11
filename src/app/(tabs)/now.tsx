@@ -1,10 +1,6 @@
-// The V3 PMS dashboard: the post-assessment home. A big calm moon (the soul) at
-// the top, then the day's cards. No wave here: the wave belongs to the read and
-// the game, not the app's home, where it did not fit the calm-orb theme.
-//
-// Coexists with the real home (src/app/index.tsx); reachable from the V3 goal
-// screen and, in dev, the "Home" button. Reads pms-prefs (cycle) and the
-// training store (level progress); writes only the breath-cue open stamp.
+// Now: the app's home tab. A big calm moon (the soul) at the top, then the
+// day's cards. Profile and progress live in the You tab; the library of
+// programs lives in Grow.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -152,8 +148,8 @@ export default function HomeV3() {
   return (
     <View style={styles.root}>
       <BackgroundGradient />
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <Header onPressProfile={() => router.push('/my-soul')} />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        <Header />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* The soul: a big calm moon, always here. Keeps whatever ring the orb
               itself carries; no wave. */}
