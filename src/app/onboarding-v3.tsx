@@ -45,7 +45,7 @@ import {
   getOnboardingV3Progress,
   setOnboardingV3Progress,
 } from '@/store/onboarding-v3-progress';
-import { addPeriodStart } from '@/store/period-history';
+import { setPeriodHistory, latestStart } from '@/store/period-history';
 import { READINESS_CHECK_CONTENT, type ReadinessCheckId } from '@/store/pms-readiness';
 import { ChapterCard } from '@/components/chapter-card';
 import { CHAPTERS } from '@/v3/game-content';
@@ -215,11 +215,14 @@ export default function OnboardingV3Screen() {
   // the additive history, mark onboarding done, then land on the dashboard.
   const complete = useCallback(async () => {
     const c = answers.cycle;
-    const hasDate = !c.unsure && !!c.lastPeriod;
-    if (hasDate && c.lastPeriod) await addPeriodStart(c.lastPeriod).catch(() => {});
+    const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
+    const hasDate = !c.unsure && starts.length > 0;
+    // Persist every logged period into the additive history, and the most recent
+    // one into pms-prefs (which the prediction reads).
+    if (hasDate) await setPeriodHistory(starts).catch(() => {});
     await setPmsPrefs({
       pmsMode: true,
-      lastPeriodStart: hasDate ? c.lastPeriod : null,
+      lastPeriodStart: hasDate ? latestStart(starts) : null,
       cycleLength: c.length ?? DEFAULT_CYCLE_LENGTH,
     }).catch(() => {});
     await setOnboardingV3Progress({ stepIndex, answers, done: true }).catch(() => {});
@@ -669,25 +672,52 @@ function Symptoms({ answers, update, onNext }: { answers: V3Answers; update: Upd
   );
 }
 
-// The hormone-drop fact also hosts the cycle-details ask: a button that opens the
-// production PeriodSheet (date + period length + cycle length). Required here:
-// confirming the date is the only way forward, so there is no skip.
+// The hormone-drop fact hosts the cycle-details ask: the production PeriodSheet,
+// where she can log one OR several past periods (each sharpens the prediction).
+// Saving adds a period and keeps the sheet open; tapping a logged period removes
+// it. The screen's button becomes "Continue" once at least one is logged; a skip
+// keeps the whole thing optional.
 function FactHormones({ answers, update, onNext }: { answers: V3Answers; update: UpdateFn; onNext: () => void }) {
   const c = answers.cycle;
   const [sheetOpen, setSheetOpen] = useState(false);
   const periodLength = c.periodLength ?? DEFAULT_PERIOD_LENGTH;
   const cycleLength = c.length ?? DEFAULT_CYCLE_LENGTH;
+  const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
+  const hasAny = starts.length > 0;
 
-  const confirm = (date: Date) => {
-    update((a) => ({
-      cycle: { ...a.cycle, lastPeriod: toYmd(date), length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH, unsure: false },
-    }));
-    setSheetOpen(false);
-    onNext();
+  const openSheet = () => {
+    Haptics.selectionAsync().catch(() => {});
+    setSheetOpen(true);
+  };
+
+  // Add a start (keeps the sheet open for more). lastPeriod tracks the newest.
+  const addPeriod = (date: Date) => {
+    const ymd = toYmd(date);
+    update((a) => {
+      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
+      const next = Array.from(new Set([ymd, ...prev]));
+      return {
+        cycle: {
+          ...a.cycle,
+          starts: next,
+          lastPeriod: latestStart(next),
+          length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
+          unsure: false,
+        },
+      };
+    });
+  };
+
+  const removePeriod = (startYmd: string) => {
+    update((a) => {
+      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
+      const next = prev.filter((s) => s !== startYmd);
+      return { cycle: { ...a.cycle, starts: next, lastPeriod: latestStart(next) } };
+    });
   };
 
   const skip = () => {
-    update((a) => ({ cycle: { ...a.cycle, lastPeriod: null, unsure: true } }));
+    update((a) => ({ cycle: { ...a.cycle, starts: [], lastPeriod: null, unsure: true } }));
     onNext();
   };
 
@@ -696,18 +726,25 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
       title="PMS comes from a brain sensitive to the drop"
       footer={
         <>
-          <Text style={styles.footerLine}>Period date helps us know cycle health better</Text>
+          <Text style={styles.footerLine}>
+            {hasAny
+              ? `${starts.length} period${starts.length > 1 ? 's' : ''} logged. More past periods sharpen the prediction.`
+              : 'Period date helps us know cycle health better'}
+          </Text>
           <BeginButton
             fullWidth
-            label="Add your cycle details"
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              setSheetOpen(true);
-            }}
+            label={hasAny ? 'Continue' : 'Add your cycle details'}
+            onPress={hasAny ? onNext : openSheet}
           />
-          <Pressable onPress={skip} style={styles.skipBtn} accessibilityRole="button">
-            <Text style={styles.skipLabel}>Not sure, I&apos;ll add it later in My Soul</Text>
-          </Pressable>
+          {hasAny ? (
+            <Pressable onPress={openSheet} style={styles.skipBtn} accessibilityRole="button">
+              <Text style={styles.addPeriodLabel}>+ Add another period</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={skip} style={styles.skipBtn} accessibilityRole="button">
+              <Text style={styles.skipLabel}>Not sure, I&apos;ll add it later in My Soul</Text>
+            </Pressable>
+          )}
         </>
       }
     >
@@ -727,14 +764,14 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
       <PeriodSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onConfirm={confirm}
+        onConfirm={addPeriod}
+        onRemove={removePeriod}
         onPeriodLengthChange={(len) => update((a) => ({ cycle: { ...a.cycle, periodLength: len } }))}
         onCycleLengthChange={(len) => update((a) => ({ cycle: { ...a.cycle, length: len } }))}
-        markedDates={c.lastPeriod ? [c.lastPeriod] : []}
+        markedDates={starts}
         periodLength={periodLength}
         cycleLength={cycleLength}
-        title="When was your last period?"
-        confirmExisting
+        title="When did your periods start?"
       />
     </StepLayout>
   );
@@ -1253,21 +1290,37 @@ function Plan({
   onDone: () => void;
 }) {
   const c = answers.cycle;
-  const hasDate = !c.unsure && !!c.lastPeriod;
+  const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
+  const hasDate = !c.unsure && starts.length > 0;
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const whenTrain = hasDate ? 'Next 3 days' : 'Before your period';
 
-  const addDate = (date: Date) => {
-    update((a) => ({
-      cycle: {
-        ...a.cycle,
-        lastPeriod: toYmd(date),
-        length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
-        unsure: false,
-      },
-    }));
-    setSheetOpen(false);
+  // Add a past period (keeps the sheet open for more); flips the plan to the
+  // date-aware variant. lastPeriod tracks the newest logged start.
+  const addPeriod = (date: Date) => {
+    const ymd = toYmd(date);
+    update((a) => {
+      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
+      const next = Array.from(new Set([ymd, ...prev]));
+      return {
+        cycle: {
+          ...a.cycle,
+          starts: next,
+          lastPeriod: latestStart(next),
+          length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
+          unsure: false,
+        },
+      };
+    });
+  };
+
+  const removePeriod = (startYmd: string) => {
+    update((a) => {
+      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
+      const next = prev.filter((s) => s !== startYmd);
+      return { cycle: { ...a.cycle, starts: next, lastPeriod: latestStart(next) } };
+    });
   };
 
   return (
@@ -1394,14 +1447,14 @@ function Plan({
       <PeriodSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        onConfirm={addDate}
+        onConfirm={addPeriod}
+        onRemove={removePeriod}
         onPeriodLengthChange={(len) => update((a) => ({ cycle: { ...a.cycle, periodLength: len } }))}
         onCycleLengthChange={(len) => update((a) => ({ cycle: { ...a.cycle, length: len } }))}
-        markedDates={c.lastPeriod ? [c.lastPeriod] : []}
+        markedDates={starts}
         periodLength={c.periodLength ?? DEFAULT_PERIOD_LENGTH}
         cycleLength={c.length ?? DEFAULT_CYCLE_LENGTH}
-        title="When did your last period start?"
-        confirmExisting
+        title="When did your periods start?"
       />
     </StepLayout>
   );

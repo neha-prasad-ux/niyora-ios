@@ -36,19 +36,24 @@ export const SOURCES = {
     confirm: 'confirm against research bank',
   },
   exercise: {
-    claim: 'Exercise produced a large reduction in symptoms across trials.',
-    citation: 'Pearce, 2020.',
-    confirm: 'confirm against research bank',
+    claim: 'Regular exercise eases premenstrual symptoms across reviews.',
+    citation: 'Systematic reviews (effect size varies by symptom and study).',
+    // Verified via web search this session: reviews consistently support exercise
+    // for PMS, but the earlier "large reduction / Pearce 2020" was overstated, so
+    // the claim is softened to no specific magnitude.
+    confirm: 'verified: direction solid, magnitude not established',
   },
   stress: {
-    claim: 'High stress is linked to about 5 times the odds of PMS.',
-    citation: 'PLOS One, 2019. Association, not proven cause.',
-    confirm: 'confirm against research bank',
+    claim: 'High stress is linked to close to 5 times the odds of PMS.',
+    citation: 'PLOS One, 2019 (Spanish case-control). Association, not proven cause.',
+    // Verified via web search this session: OR 4.90 (95% CI 2.70-8.89), PubMed 30840651.
+    confirm: 'verified via web search',
   },
   sleep: {
     claim: 'Poor sleep is linked to about 2 times the odds of PMS.',
     citation: 'Sao Paulo Epidemiologic Sleep Study. Association, not proven cause.',
-    confirm: 'confirm against research bank',
+    // Verified via web search this session: subthreshold insomnia ~ 2.31x odds.
+    confirm: 'verified via web search',
   },
   // The brain-shifts-across-the-cycle fact. Citation verified via web search
   // this session: title, year, journal, and PubMed PMID 33098847 all confirmed.
@@ -149,7 +154,8 @@ export interface V3Answers {
   presence: string[];
   impairment: Record<string, number>; // 0..2 per item
   cycle: {
-    lastPeriod: string | null;
+    lastPeriod: string | null; // the most recent logged start; drives the prediction
+    starts?: string[]; // all logged period starts (she can log several past ones)
     length: number | null;
     periodLength?: number; // bleeding days; only shapes the calendar, not the prediction
     unsure: boolean;
@@ -162,7 +168,7 @@ export interface V3Answers {
 export const EMPTY_ANSWERS: V3Answers = {
   presence: [],
   impairment: {},
-  cycle: { lastPeriod: null, length: null, unsure: false },
+  cycle: { lastPeriod: null, starts: [], length: null, unsure: false },
   remission: null,
   levers: {},
   coping: [],
@@ -473,9 +479,9 @@ export const PMS_FACTORS: PmsFactor[] = [
 
 // One combined, plain-language read for the whole board, shown behind a single
 // "See the science" line. Honesty about evidence strength lives in the prose.
-// Numbers to confirm against the research bank before real users.
+// Numbers verified via web search this session (see SOURCES).
 export const FACTOR_SCIENCE =
-  'Movement has the firmest evidence: in trials, regular exercise brought a large drop in premenstrual symptoms (Pearce, 2020). Emotional training works on the stress link, and high stress carries roughly five times the odds of PMS (PLOS One, 2019). Steady sleep helps too, poor sleep is tied to about twice the odds (Sao Paulo Sleep Study). Regular meals are a gentler lever, with lighter evidence so far.';
+  'Movement has good evidence: reviews find regular exercise eases premenstrual symptoms. Emotional training works on the stress link, and high stress carried close to five times the odds of PMS in one study (PLOS One, 2019). Steady sleep helps too, poor sleep was tied to about twice the odds (Sao Paulo Sleep Study). Regular meals are a gentler lever, with lighter evidence so far.';
 
 /**
  * The board, ranked by evidence strength (strongest first), each flagged `yours`
