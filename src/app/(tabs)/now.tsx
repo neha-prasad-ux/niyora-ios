@@ -504,7 +504,8 @@ export default function NowScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
+  // Bottom padding clears the tab bar with a breath of air above it.
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 96, gap: 14 },
   hero: { alignItems: 'center', marginBottom: 8, marginTop: 4 },
   // Both overlays center on the orb's oversized canvas, so the ring hugs the
   // sphere and the cue sits on the moon regardless of halo padding.

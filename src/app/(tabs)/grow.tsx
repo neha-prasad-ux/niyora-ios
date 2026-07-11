@@ -262,7 +262,8 @@ function CouplesCard({ onOpen }: { onOpen: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
+  // Bottom padding clears the tab bar with a breath of air above it.
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 96, gap: 14 },
 
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   cardTextCol: { flex: 1 },

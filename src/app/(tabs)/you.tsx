@@ -1017,24 +1017,6 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-function ComebackCard({ onPress }: { onPress: () => void }) {
-  return (
-    <View style={styles.card}>
-      <Text style={[styles.cardTitle, { textAlign: 'center', marginBottom: 14 }]}>
-        Take a breath.
-      </Text>
-      <Pressable
-        onPress={onPress}
-        style={styles.checkInButton}
-        accessibilityRole="button"
-        accessibilityLabel="Begin again"
-      >
-        <Text style={styles.checkInButtonLabel}>Begin again</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 function MessageCard({ accent: _accent }: { accent: string }) {
   async function handleOpen() {
     Haptics.selectionAsync();
