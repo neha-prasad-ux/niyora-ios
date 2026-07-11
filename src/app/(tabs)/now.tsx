@@ -1,32 +1,81 @@
-// Now: the app's home tab. A big calm moon (the soul) at the top, then the
-// day's cards. Profile and progress live in the You tab; the library of
-// programs lives in Grow.
+// Now: the app's home tab. The moon carries the day — its breath entrains
+// yours, its ring closes when today's one coached action is done. Below it:
+// the cycle state line, the single action card (picked by lib/today-action),
+// a one-line progress strip, and the two quiet doors (Add periods, Calm now).
+// This screen never shows more than two numbers: the streak and the prep
+// count. Everything browsable lives in Grow; everything reflective in You.
 
-import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SymbolView } from 'expo-symbols';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { Header } from '@/components/header';
-import { LutealCard } from '@/components/luteal-card';
 import { Orb } from '@/components/orb';
+import { PeriodSheet } from '@/components/period-sheet';
+import { ProgressRing } from '@/components/progress-ring';
 import { RecommendSheet } from '@/components/RecommendSheet';
+import { TodayActionCard } from '@/components/today-action-card';
 import { type RecResult } from '@/models/recommend';
-import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import {
+  cycleStateLine,
+  derivePhase,
+  isRingClosed,
+  periodButtonState,
+  pickTodayAction,
+  todayRingProgress,
+  type TodayActionInput,
+} from '@/lib/today-action';
+import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
+import { scheduleCombackNudge } from '@/lib/notifications';
+import { syncPmsReminders } from '@/lib/pms-reminders';
 import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
-import { trainSummary } from '@/v3/game-content';
-import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
+import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import {
   getOnboardingV3Progress,
   setupCardFor,
   type SetupCard,
 } from '@/store/onboarding-v3-progress';
+import {
+  addPeriodStart,
+  getPeriodHistory,
+  latestStart,
+  setPeriodHistory,
+} from '@/store/period-history';
+import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
+import { getPmsReads, type PmsRead } from '@/store/pms-reads';
+import {
+  getReadiness,
+  readinessDoneCount,
+  READINESS_TOTAL,
+  todayYmd,
+  type ReadinessState,
+} from '@/store/pms-readiness';
+import { getReminder } from '@/store/reminder-prefs';
+import {
+  answeredForCycle,
+  appendRemission,
+  getRemissionLog,
+  type RemissionAnswer,
+  type RemissionEntry,
+} from '@/store/remission-log';
+import {
+  getLastSession,
+  getSessionsToday,
+  getStreakInfo,
+  type StreakInfo,
+} from '@/store/session-history';
+import {
+  dismissForDay,
+  getTodayActionMemory,
+  recordShownAction,
+  type TodayActionMemory,
+} from '@/store/today-action';
+import { getTraining, type TrainingState } from '@/store/training-v3';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
@@ -35,46 +84,136 @@ import {
 const BREATH_IN = 4; // seconds, inhale
 const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
-export default function HomeV3() {
-  const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
-  // Which setup card to pin at the top: 'resume' when she left onboarding
-  // partway, 'start' when the app has no PMS read at all, null once done.
-  const [setupCard, setSetupCard] = useState<SetupCard | null>(null);
+const ORB_SIZE = 260;
+const RING_DIAMETER = 292; // a quiet halo just outside the sphere
 
+const LAPSE_DAYS = 3;
+
+// Nudge someone who drifted for a few days, at most once per lapse. Carried
+// over from the retired v2 home — this is the only place it runs now.
+async function checkAndScheduleCombackNudge(): Promise<void> {
+  const pref = await getReminder();
+  if (!pref.enabled) return;
+
+  const last = await getLastSession();
+  if (!last) return;
+
+  const daysSince = (Date.now() - new Date(last.completedAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (daysSince < LAPSE_DAYS) return;
+
+  const lastNudgeIso = await getLastCombackNudgeSentAt();
+  if (lastNudgeIso && new Date(lastNudgeIso) > new Date(last.completedAt)) return;
+
+  await scheduleCombackNudge();
+  await setLastCombackNudgeSentAt(new Date().toISOString());
+}
+
+// Everything the selector and the strip need, loaded in one pass so the screen
+// derives its whole render from a single consistent snapshot.
+type Snapshot = {
+  prefs: PmsPrefs;
+  reads: PmsRead[];
+  readiness: ReadinessState;
+  sessionsToday: number;
+  training: TrainingState;
+  memory: TodayActionMemory;
+  streak: StreakInfo;
+  periodHistory: string[];
+  remissionLog: RemissionEntry[];
+  setupCard: SetupCard | null;
+  now: Date;
+};
+
+async function loadSnapshot(): Promise<Snapshot> {
+  const now = new Date();
+  const [
+    prefs,
+    reads,
+    readiness,
+    sessionsToday,
+    training,
+    memory,
+    streak,
+    periodHistory,
+    remissionLog,
+    progress,
+  ] = await Promise.all([
+    getPmsPrefs(),
+    getPmsReads(),
+    getReadiness(todayYmd(now)),
+    getSessionsToday(),
+    getTraining(),
+    getTodayActionMemory(),
+    getStreakInfo(),
+    getPeriodHistory(),
+    getRemissionLog(),
+    getOnboardingV3Progress().catch(() => null),
+  ]);
+  return {
+    prefs,
+    reads,
+    readiness,
+    sessionsToday,
+    training,
+    memory,
+    streak,
+    periodHistory,
+    remissionLog,
+    setupCard: progress == null ? null : setupCardFor(progress),
+    now,
+  };
+}
+
+function selectorInput(s: Snapshot): TodayActionInput {
+  return {
+    prefs: s.prefs,
+    reads: s.reads,
+    readiness: s.readiness,
+    calmDoneToday: s.sessionsToday > 0,
+    training: s.training,
+    remissionAnsweredThisCycle: answeredForCycle(s.remissionLog, s.prefs.lastPeriodStart),
+    lastAction: s.memory.last,
+    dismissedDate: s.memory.dismissedDate,
+    now: s.now,
+  };
+}
+
+export default function NowScreen() {
   // Drive the moon's inhale/exhale on a loop, counting completed breaths so
   // the welcome cue below can hand off (name it, pace it, go quiet) exactly on
-  // the beat. Phase starts on inhale (initial state) and only flips inside a
-  // timer, so no synchronous set-state-in-effect.
+  // the beat. Focus-gated so a hidden Now tab does no timer work; each return
+  // restarts on a fresh inhale, which is the calmest possible re-entry.
   const [breath, setBreath] = useState<{ phase: 'inhale' | 'exhale'; cycle: number }>({
     phase: 'inhale',
     cycle: 0,
   });
-  useEffect(() => {
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = (current: 'inhale' | 'exhale', cycle: number) => {
-      const secs = current === 'inhale' ? BREATH_IN : BREATH_OUT;
-      timer = setTimeout(() => {
-        if (!alive) return;
-        const next = current === 'inhale' ? 'exhale' : 'inhale';
-        const nextCycle = next === 'inhale' ? cycle + 1 : cycle;
-        setBreath({ phase: next, cycle: nextCycle });
-        schedule(next, nextCycle);
-      }, secs * 1000);
-    };
-    schedule('inhale', 0);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      let timer: ReturnType<typeof setTimeout>;
+      const schedule = (current: 'inhale' | 'exhale', cycle: number) => {
+        const secs = current === 'inhale' ? BREATH_IN : BREATH_OUT;
+        timer = setTimeout(() => {
+          if (!alive) return;
+          const next = current === 'inhale' ? 'exhale' : 'inhale';
+          const nextCycle = next === 'inhale' ? cycle + 1 : cycle;
+          setBreath({ phase: next, cycle: nextCycle });
+          schedule(next, nextCycle);
+        }, secs * 1000);
+      };
+      schedule('inhale', 0);
+      return () => {
+        alive = false;
+        clearTimeout(timer);
+      };
+    }, []),
+  );
   const breathDuration = breath.phase === 'inhale' ? BREATH_IN : BREATH_OUT;
 
   // The breathing cue: a soft invitation over the moon on genuine arrivals.
-  // The first open ever gets the fuller line; later arrivals the short one.
-  // Its words render straight from `breath` — the same state driving the Orb —
-  // and advance only on phase boundaries, so they can never drift off the
-  // moon's beat. Nothing is blocked while it shows; the cards stay live.
+  // Mount-only on purpose — switching tabs must never replay it or re-stamp
+  // the arrival window. Its words render straight from `breath` (the same
+  // state driving the Orb) so text and swell cannot desync.
   const [breathCue, setBreathCue] = useState<BreathCue | null>(null);
   useEffect(() => {
     let alive = true;
@@ -89,54 +228,114 @@ export default function HomeV3() {
     };
   }, []);
 
-  // Reload on focus so returning from the game shows fresh progress. The luteal
-  // card reads its own cycle/readiness state.
+  // One snapshot feeds the whole screen; refreshed on focus and on foreground
+  // (the latter is what re-evaluates the 17:00 morning/evening flip — no
+  // timers). The action itself is derived during render, never stored.
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const reload = useCallback(() => {
+    loadSnapshot()
+      .then(setSnapshot)
+      .catch(() => {});
+  }, []);
   useFocusEffect(
     useCallback(() => {
-      let alive = true;
-      getTraining().then((t) => {
-        if (alive) setTraining(t);
-      });
-      // Surface the setup card whenever the PMS read is missing — she left
-      // onboarding partway, or never started it. On a failed read, err quiet
-      // (no card) rather than nag someone who may have finished.
-      getOnboardingV3Progress()
-        .then((p) => {
-          if (alive) setSetupCard(setupCardFor(p));
-        })
-        .catch(() => {
-          if (alive) setSetupCard(null);
-        });
-      return () => {
-        alive = false;
-      };
-    }, []),
+      reload();
+      checkAndScheduleCombackNudge().catch(() => {});
+      // Roll the PMS heads-up reminders forward to the next predicted window.
+      syncPmsReminders().catch(() => {});
+    }, [reload]),
   );
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') reload();
+    });
+    return () => sub.remove();
+  }, [reload]);
 
-  const resumeOnboarding = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/onboarding-v3');
-  };
+  const input = snapshot == null ? null : selectorInput(snapshot);
+  const action = input == null ? null : pickTodayAction(input);
+  const ringProgress = input == null || action == null ? 0 : todayRingProgress(input, action);
+  const ringClosed = input != null && action != null && isRingClosed(input, action);
+  const phase =
+    snapshot == null ? null : derivePhase(snapshot.prefs, snapshot.reads.length > 0, snapshot.now);
+  const stateLine = snapshot == null ? null : cycleStateLine(snapshot.prefs, snapshot.now);
+  const periodButton =
+    snapshot == null ? null : periodButtonState(snapshot.prefs, snapshot.now);
 
-  // The training card opens the chapters page, where she picks an emotion.
-  const openTrain = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/train');
-  };
+  // Remember what was asked so tomorrow's pick can rotate away from it.
+  const lastRecordedId = useRef<string | null>(null);
+  useEffect(() => {
+    if (snapshot == null || action == null) return;
+    if (action.kind === 'done' || lastRecordedId.current === action.id) return;
+    lastRecordedId.current = action.id;
+    recordShownAction(todayYmd(snapshot.now), action.id).catch(() => {});
+  }, [snapshot, action]);
 
-  // The couples card opens the "Us vs. the PMS" shelf of relationship activities.
-  const openCouples = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/couples');
-  };
+  // Setup copy nuance: a read left partway resumes, it doesn't restart.
+  const actionForCard =
+    action != null && action.kind === 'assessment' && snapshot?.setupCard === 'resume'
+      ? { ...action, caption: 'Pick up where you left off' }
+      : action;
 
-  // The Calm card is the real home's acute path, unchanged: open the same
-  // RecommendSheet, then hand off to the /result deck exactly as index.tsx does.
+  // --- Handlers -----------------------------------------------------------
+
+  const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [recommendVisible, setRecommendVisible] = useState(false);
-  const openCalm = () => {
+
+  const onActionPress = () => {
+    if (action == null || snapshot == null) return;
     Haptics.selectionAsync().catch(() => {});
-    setRecommendVisible(true);
+    if (action.id === 'checkin:period-confirm') {
+      setPeriodSheetVisible(true);
+      return;
+    }
+    if (action.route !== '') router.push(action.route as Href);
   };
+
+  const onRemission = (answer: RemissionAnswer) => {
+    if (snapshot?.prefs.lastPeriodStart == null) return;
+    Haptics.selectionAsync().catch(() => {});
+    const today = todayYmd(snapshot.now);
+    appendRemission({ cycleAnchor: snapshot.prefs.lastPeriodStart, answer, at: today })
+      .then(() => dismissForDay(today))
+      .then(reload)
+      .catch(() => {});
+  };
+
+  // Logging a period is the one write that re-anchors the whole prediction:
+  // the newest start becomes the anchor and, once three real cycles exist,
+  // the cycle length tunes itself to the observed median (lib/cycle-tune).
+  const onPeriodConfirm = (date: Date) => {
+    if (snapshot == null) return;
+    const ymd = todayYmd(date);
+    addPeriodStart(ymd)
+      .then(async (history) => {
+        await setPmsPrefs(prefsAfterPeriodLog(snapshot.prefs, history));
+        await syncPmsReminders().catch(() => {});
+        // Confirming the period completes the day's check-in ask, if that is
+        // what the card was asking.
+        if (action?.id === 'checkin:period-confirm') {
+          await dismissForDay(todayYmd(snapshot.now)).catch(() => {});
+        }
+      })
+      .then(reload)
+      .catch(() => {});
+  };
+
+  const onPeriodRemove = (startYmd: string) => {
+    if (snapshot == null) return;
+    const remaining = snapshot.periodHistory.filter((s) => s !== startYmd);
+    setPeriodHistory(remaining)
+      .then(async () => {
+        // Removing the anchor itself may legitimately move the anchor back.
+        if (snapshot.prefs.lastPeriodStart === startYmd) {
+          await setPmsPrefs({ ...snapshot.prefs, lastPeriodStart: latestStart(remaining) });
+        }
+      })
+      .then(reload)
+      .catch(() => {});
+  };
+
   const onRecommendPick = (result: RecResult) => {
     setRecommendVisible(false);
     router.push({
@@ -145,21 +344,34 @@ export default function HomeV3() {
     });
   };
 
+  // The strip's two numbers: the streak, and (inside the window) today's preps.
+  const stripText =
+    snapshot == null
+      ? ''
+      : phase === 'window'
+        ? `${snapshot.streak.streak}-day streak · ${readinessDoneCount(
+            snapshot.readiness.checks,
+            snapshot.sessionsToday > 0,
+          )}/${READINESS_TOTAL} preps today`
+        : `${snapshot.streak.streak}-day streak`;
+
   return (
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <Header />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* The soul: a big calm moon, always here. Keeps whatever ring the orb
-              itself carries; no wave. */}
+          {/* The soul: a big calm moon wearing the day's ring. */}
           <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
             <Orb
-              size={260}
+              size={ORB_SIZE}
               phase={breath.phase}
               phaseDuration={breathDuration}
               breathRange={{ min: 0.72, max: 1.16 }}
             />
+            <View pointerEvents="none" style={styles.ringOverlay}>
+              <ProgressRing diameter={RING_DIAMETER} progress={ringProgress} />
+            </View>
             {/* The cue rides the moon itself. Cycle 0 names the motion, cycles
                 1-2 pace it with "in"/"out" swapped exactly when the phase flips
                 (same state as the Orb, so text and swell cannot desync), then
@@ -189,270 +401,102 @@ export default function HomeV3() {
             )}
           </Animated.View>
 
-          {/* Until the app has her PMS read, the way into (or back into)
-              onboarding sits right under the moon, warm against the cool
-              cards below so it draws the eye first. */}
-          {setupCard != null && (
-            <Animated.View entering={FadeInDown.delay(60).duration(500)}>
-              <ResumeCard variant={setupCard} onPress={resumeOnboarding} />
+          {/* Where she is in the cycle, in one quiet line. */}
+          {stateLine != null && (
+            <Animated.View entering={FadeInDown.delay(40).duration(500)}>
+              <Text style={styles.stateLine}>{stateLine}</Text>
             </Animated.View>
           )}
 
-          {/* Train your mind: one summary card that opens the chapters page,
-              where she picks an emotion and trains it one at a time. */}
-          <Animated.View entering={FadeInDown.delay(120).duration(500)}>
-            <TrainCard training={training} onOpen={openTrain} />
-          </Animated.View>
+          {/* The one coached action. */}
+          {actionForCard != null && (
+            <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+              <TodayActionCard
+                action={actionForCard}
+                done={ringClosed}
+                onPress={onActionPress}
+                onRemission={onRemission}
+              />
+            </Animated.View>
+          )}
 
-          <Animated.View entering={FadeInDown.delay(400).duration(500)}>
-            <CalmCard onBegin={openCalm} />
-          </Animated.View>
+          {/* One line of numbers, tapping into the full story in You. */}
+          {snapshot != null && (
+            <Animated.View entering={FadeInDown.delay(160).duration(500)}>
+              <Pressable
+                style={styles.strip}
+                onPress={() => router.navigate('/you' as Href)}
+                accessibilityRole="button"
+                accessibilityLabel={`${stripText}. See your progress.`}
+              >
+                <Text style={styles.stripText}>{stripText}</Text>
+                <Text style={styles.stripChevron}>›</Text>
+              </Pressable>
+            </Animated.View>
+          )}
 
-          <Animated.View entering={FadeInDown.delay(470).duration(500)}>
-            <LutealCard />
-          </Animated.View>
+          {/* Quiet doors: period logging (the prediction's honesty loop) and
+              the acute calm path. */}
+          {periodButton != null && (
+            <Animated.View entering={FadeInDown.delay(220).duration(500)} style={styles.doorRow}>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPeriodSheetVisible(true);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={periodButton.label}
+                style={[styles.periodDoor, periodButton.emphasized && styles.periodDoorEmphasized]}
+              >
+                <Text
+                  style={[
+                    styles.periodDoorText,
+                    periodButton.emphasized && styles.periodDoorTextEmphasized,
+                  ]}
+                >
+                  {periodButton.label}
+                </Text>
+              </Pressable>
+            </Animated.View>
+          )}
 
-          <Animated.View entering={FadeInDown.delay(540).duration(500)}>
-            <CouplesCard onOpen={openCouples} />
+          <Animated.View entering={FadeInDown.delay(280).duration(500)} style={styles.doorRow}>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setRecommendVisible(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Feeling worked up? Calm now."
+              style={styles.calmDoor}
+            >
+              <Text style={styles.calmDoorText}>Feeling worked up? Calm now</Text>
+            </Pressable>
           </Animated.View>
 
           <View style={{ height: 12 }} />
         </ScrollView>
       </SafeAreaView>
 
-      {/* The exact acute-calm flow from the real home: pick a feeling, then the
-          /result deck. Nothing about this path changes here. */}
+      {/* The same acute-calm flow as everywhere: pick a feeling, then the
+          /result deck. */}
       <RecommendSheet
         visible={recommendVisible}
         onClose={() => setRecommendVisible(false)}
         onPick={onRecommendPick}
       />
-    </View>
-  );
-}
 
-// --- Cards -------------------------------------------------------------
-
-// Setup card · shown until the PMS read is done; the whole card taps into
-// onboarding. Orchid-magenta: the one hue band (300-330) no other card uses,
-// echoing the soul's innermost pink ring, at the same muted depth as the rest
-// of the shelf — the unique hue and the spot under the moon do the drawing.
-const RESUME_GRADIENT: readonly [string, string, string] = [
-  'hsl(300, 46%, 31%)',
-  'hsl(316, 46%, 33%)',
-  'hsl(330, 46%, 34%)',
-];
-
-// Copy per variant: 'resume' welcomes her back to a read in progress; 'start'
-// invites a first read. Same card, same tap target, same spot at the top.
-const SETUP_COPY = {
-  resume: {
-    tag: 'Finish setup',
-    title: 'Know your PMS level',
-    sub: 'Pick up where you left off.',
-    a11y: 'Finish setup. Know your PMS level. Pick up where you left off.',
-  },
-  start: {
-    tag: 'Start here',
-    title: 'Know your PMS level',
-    sub: 'A few quick questions unlock your plan.',
-    a11y: 'Start setup. Know your PMS level. A few quick questions unlock your plan.',
-  },
-} as const;
-
-function ResumeCard({ variant, onPress }: { variant: SetupCard; onPress: () => void }) {
-  const copy = SETUP_COPY[variant];
-  return (
-    <View style={styles.resumeWrap}>
-      <View style={styles.resumeTag}>
-        <Text style={styles.tagText}>{copy.tag}</Text>
-      </View>
-      <Pressable
-        style={styles.resumeCard}
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={copy.a11y}
-      >
-        <LinearGradient
-          colors={RESUME_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.resumeBody, styles.cardRow]}>
-          <View style={styles.cardTextCol}>
-            <Text style={styles.resumeTitle}>{copy.title}</Text>
-            <Text style={styles.cardSub}>{copy.sub}</Text>
-          </View>
-          <SymbolView
-            name="chevron.right"
-            tintColor="rgba(255, 255, 255, 0.7)"
-            size={15}
-            weight="semibold"
-            style={styles.cardChevron}
-          />
-        </View>
-      </Pressable>
-    </View>
-  );
-}
-
-// The training summary card: the home's single entry into "train your mind". It
-// surfaces the next action so tapping in resumes the right chapter, and opens the
-// /train page for the full list. Its violet field sits between Calm's blue and
-// Luteal's pink; a pair of ringed soul-moons carries the app's texture.
-const TRAIN_GRADIENT: readonly [string, string, string] = [
-  'hsl(258, 44%, 28%)',
-  'hsl(276, 42%, 30%)',
-  'hsl(292, 40%, 31%)',
-];
-
-function TrainCard({ training, onOpen }: { training: TrainingState; onOpen: () => void }) {
-  const { statusWord, detail } = trainSummary(training);
-  return (
-    <View style={styles.chapterWrap}>
-      <View style={styles.chapterTag}>
-        <Text style={styles.tagText}>{statusWord}</Text>
-      </View>
-      <Pressable
-        style={styles.chapterCard}
-        onPress={onOpen}
-        accessibilityRole="button"
-        accessibilityLabel={`Train your mind. ${detail}. ${statusWord}.`}
-      >
-        <LinearGradient
-          colors={TRAIN_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View pointerEvents="none" style={styles.chapterBackdrop}>
-          <View style={styles.patTopRight}>
-            <Orb size={82} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
-          </View>
-          <View style={styles.patBotLeft}>
-            <Orb size={60} tierRingCount={1} ringHues={SOUL_RING_HUES} still />
-          </View>
-        </View>
-        <View style={styles.cardRow}>
-          <View style={styles.cardTextCol}>
-            <Text style={styles.chapterTitle}>Train your mind</Text>
-            <Text style={styles.cardSub}>{detail}</Text>
-          </View>
-          <SymbolView
-            name="chevron.right"
-            tintColor="rgba(255, 255, 255, 0.7)"
-            size={15}
-            weight="semibold"
-            style={styles.cardChevron}
-          />
-        </View>
-      </Pressable>
-    </View>
-  );
-}
-
-// Calm · the acute path. Its own world: a clean cool colour field (no moons, no
-// stars), a floating tag, and the whole card taps straight into a breath.
-const CALM_GRADIENT: readonly [string, string, string] = [
-  'hsl(206, 48%, 30%)',
-  'hsl(232, 44%, 31%)',
-  'hsl(258, 42%, 33%)',
-];
-
-function CalmCard({ onBegin }: { onBegin: () => void }) {
-  return (
-    <View style={styles.calmWrap}>
-      <View style={styles.calmTag}>
-        <Text style={styles.tagText}>Calm now</Text>
-      </View>
-      <Pressable
-        style={styles.calmCard}
-        onPress={onBegin}
-        accessibilityRole="button"
-        accessibilityLabel="Feeling worked up? Get activities based on your feeling. Open."
-      >
-        <LinearGradient
-          colors={CALM_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.calmBody, styles.cardRow]}>
-          <View style={styles.cardTextCol}>
-            <Text style={styles.calmTitle}>Feeling worked up?</Text>
-            <Text style={styles.cardSub}>Get activities based on your feeling.</Text>
-          </View>
-          <SymbolView
-            name="chevron.right"
-            tintColor="rgba(255, 255, 255, 0.7)"
-            size={15}
-            weight="semibold"
-            style={styles.cardChevron}
-          />
-        </View>
-      </Pressable>
-    </View>
-  );
-}
-
-// Couples · "Us vs. the PMS". A warm rose-to-red field with faint heart motifs,
-// set apart from the cooler Train/Calm cards. The heart iconography flags the
-// relationship shelf at a glance.
-const COUPLES_GRADIENT: readonly [string, string, string] = [
-  'hsl(340, 44%, 30%)',
-  'hsl(352, 46%, 31%)',
-  'hsl(6, 44%, 32%)',
-];
-
-function CouplesCard({ onOpen }: { onOpen: () => void }) {
-  return (
-    <View style={styles.couplesWrap}>
-      <View style={styles.couplesTag}>
-        <Text style={styles.tagText}>Together</Text>
-      </View>
-      <Pressable
-        style={styles.couplesCard}
-        onPress={onOpen}
-        accessibilityRole="button"
-        accessibilityLabel="Us vs. the PMS. Get through PMS as a team. Open."
-      >
-        <LinearGradient
-          colors={COUPLES_GRADIENT}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <View pointerEvents="none" style={styles.couplesBackdrop}>
-          <SymbolView
-            name="heart.fill"
-            tintColor="rgba(255, 255, 255, 0.14)"
-            size={120}
-            weight="semibold"
-            style={styles.couplesHeartBig}
-          />
-          <SymbolView
-            name="heart.fill"
-            tintColor="rgba(255, 255, 255, 0.1)"
-            size={62}
-            weight="semibold"
-            style={styles.couplesHeartSmall}
-          />
-        </View>
-        <View style={[styles.calmBody, styles.cardRow]}>
-          <View style={styles.cardTextCol}>
-            <Text style={styles.calmTitle}>Us vs. the PMS</Text>
-            <Text style={styles.cardSub}>Get through PMS as a team.</Text>
-          </View>
-          <SymbolView
-            name="chevron.right"
-            tintColor="rgba(255, 255, 255, 0.7)"
-            size={15}
-            weight="semibold"
-            style={styles.cardChevron}
-          />
-        </View>
-      </Pressable>
+      {/* The one write path for period dates: the calendar flow built for
+          onboarding, reused verbatim. */}
+      <PeriodSheet
+        visible={periodSheetVisible}
+        onClose={() => setPeriodSheetVisible(false)}
+        onConfirm={onPeriodConfirm}
+        onRemove={onPeriodRemove}
+        markedDates={snapshot?.periodHistory ?? []}
+        cycleLength={snapshot?.prefs.cycleLength}
+      />
     </View>
   );
 }
@@ -460,33 +504,19 @@ function CouplesCard({ onOpen }: { onOpen: () => void }) {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
-  couplesWrap: { marginBottom: 4 },
-  couplesTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
-    marginBottom: -10,
-    zIndex: 2,
-    backgroundColor: 'rgba(205, 90, 120, 0.95)',
-  },
-  couplesCard: {
-    minHeight: 104,
-    borderRadius: 22,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    justifyContent: 'center',
-  },
-  couplesBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
-  couplesHeartBig: { position: 'absolute', top: -22, right: -14, transform: [{ rotate: '14deg' }] },
-  couplesHeartSmall: { position: 'absolute', bottom: -18, right: 58, transform: [{ rotate: '-10deg' }] },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
   hero: { alignItems: 'center', marginBottom: 8, marginTop: 4 },
-  // The breathing cue, centered on the moon. Deep violet so it reads on the
-  // pale sphere; the words are part of the moon, not a banner over the page.
+  // Both overlays center on the orb's oversized canvas, so the ring hugs the
+  // sphere and the cue sits on the moon regardless of halo padding.
+  ringOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   cueOverlay: {
     position: 'absolute',
     top: 0,
@@ -513,118 +543,67 @@ const styles = StyleSheet.create({
     color: 'hsla(222, 10%, 28%, 0.72)',
     letterSpacing: 3,
   },
-
-  // Shared card interior: a text column plus a disclosure chevron, so the
-  // whole-card tap stays discoverable now that the CTA buttons are gone.
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  cardTextCol: { flex: 1 },
-  cardChevron: { opacity: 0.55, marginRight: -2 },
-
-  // --- Type scale (shared across cards) ------------------------------------
-  // eyebrow: 12 Medium · title: SemiBold (primary 21 / secondary 18) ·
-  // subtitle: 13.5 Regular @ 0.72. One system so the cards read as a set.
-  tagText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#ffffff', letterSpacing: 0.5 },
-  cardSub: {
+  stateLine: {
     fontFamily: 'Poppins-Regular',
     fontSize: 13.5,
-    lineHeight: 19,
-    color: 'rgba(255, 255, 255, 0.72)',
-    letterSpacing: 0.1,
-    marginTop: 3,
+    color: 'rgba(255, 255, 255, 0.66)',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    marginTop: -6,
+    marginBottom: 2,
   },
-
-  // Resume-onboarding card (violet · matches the onboarding world)
-  resumeWrap: { marginBottom: 4 },
-  resumeTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
-    marginBottom: -10,
-    zIndex: 2,
-    backgroundColor: 'rgba(196, 110, 170, 0.95)',
-  },
-  resumeCard: {
-    minHeight: 88,
-    borderRadius: 22,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+  strip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
   },
-  resumeBody: { paddingHorizontal: 20, paddingVertical: 18 },
-  resumeTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
-    lineHeight: 23,
-    color: '#ffffff',
-    letterSpacing: 0.15,
+  stripText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
-
-  // Calm card (secondary · its own cool colour field, whole-card tap)
-  calmWrap: { marginBottom: 4 },
-  calmTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
-    marginBottom: -10,
-    zIndex: 2,
-    backgroundColor: 'rgba(110, 150, 205, 0.95)',
+  stripChevron: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.35)',
+    marginTop: -1,
   },
-  calmCard: {
-    minHeight: 104,
+  doorRow: { alignItems: 'center' },
+  periodDoor: { paddingVertical: 6, paddingHorizontal: 16 },
+  periodDoorEmphasized: {
+    borderWidth: 1,
+    borderColor: 'rgba(237, 147, 177, 0.5)',
+    borderRadius: 18,
+    backgroundColor: 'rgba(237, 147, 177, 0.10)',
+  },
+  periodDoorText: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13,
+    color: colors.textTertiary,
+    letterSpacing: 0.2,
+  },
+  periodDoorTextEmphasized: {
+    fontFamily: 'Poppins-Medium',
+    color: 'rgba(244, 192, 209, 0.95)',
+  },
+  calmDoor: {
+    paddingVertical: 12,
+    paddingHorizontal: 26,
     borderRadius: 22,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(133, 183, 235, 0.4)',
+    backgroundColor: 'rgba(55, 90, 140, 0.22)',
   },
-  calmBody: { paddingHorizontal: 20, paddingVertical: 18 },
-  calmTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
-    lineHeight: 23,
-    color: '#ffffff',
-    letterSpacing: 0.15,
-  },
-
-  // Chapter card (primary · the game · the biggest title + a touch more height)
-  chapterWrap: { marginBottom: 4 },
-  chapterTag: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
-    marginBottom: -10,
-    zIndex: 2,
-    backgroundColor: 'rgba(150, 110, 205, 0.95)',
-  },
-  chapterCard: {
-    width: '100%',
-    minHeight: 120,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderRadius: 22,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-  chapterBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
-  patTopRight: { position: 'absolute', top: -24, right: -16, opacity: 0.3, transform: [{ rotate: '18deg' }] },
-  patBotLeft: { position: 'absolute', bottom: -24, left: -18, opacity: 0.24, transform: [{ rotate: '-12deg' }] },
-  chapterTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 21,
-    lineHeight: 26,
-    color: '#ffffff',
-    letterSpacing: 0.15,
+  calmDoorText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: 'rgba(214, 230, 250, 0.95)',
+    letterSpacing: 0.3,
   },
 });
