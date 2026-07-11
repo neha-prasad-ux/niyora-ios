@@ -363,10 +363,10 @@ export function TriggerFork({ width = 240 }: { width?: number }) {
       <SvgText x={cx} y={62} textAnchor="middle" fill={v3.textSoft} fontSize={11} fontFamily={MONO}>
         your response
       </SvgText>
-      <Line x1={cx} y1={70} x2={54} y2={94} stroke={v3.text} strokeWidth={2} strokeLinecap="round" />
-      <Line x1={cx} y1={70} x2={W - 54} y2={94} stroke={v3.text} strokeWidth={2} strokeLinecap="round" />
-      <Path d="M48 90 L60 90 L54 100 Z" fill={v3.text} />
-      <Path d={`M${W - 60} 90 L${W - 48} 90 L${W - 54} 100 Z`} fill={v3.text} />
+      {/* Two branches splaying down and outward, with soft rounded ends (no
+          arrowheads). */}
+      <Line x1={cx} y1={70} x2={54} y2={94} stroke={v3.text} strokeWidth={3} strokeLinecap="round" />
+      <Line x1={cx} y1={70} x2={W - 54} y2={94} stroke={v3.text} strokeWidth={3} strokeLinecap="round" />
     </Svg>
   );
 }

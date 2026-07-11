@@ -13,10 +13,14 @@ export function Checklist({
   items,
   isChecked,
   onToggle,
+  emphasizeTitle = false,
 }: {
   items: readonly ChecklistItem[];
   isChecked: (id: string) => boolean;
   onToggle: (id: string) => void;
+  // When true, titles carry more weight (Poppins-Medium) for stronger hierarchy
+  // against the muted examples. Defaults off so existing callers are unchanged.
+  emphasizeTitle?: boolean;
 }) {
   return (
     <View style={styles.list}>
@@ -35,7 +39,7 @@ export function Checklist({
               {on && <SymbolView name="checkmark" tintColor="#3a2d52" size={13} weight="bold" />}
             </View>
             <View style={styles.text}>
-              <Text style={styles.label}>{it.label}</Text>
+              <Text style={[styles.label, emphasizeTitle && styles.labelStrong]}>{it.label}</Text>
               {it.examples ? <Text style={styles.examples}>{it.examples}</Text> : null}
             </View>
           </Pressable>
@@ -83,6 +87,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
     letterSpacing: 0.2,
+  },
+  labelStrong: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16.5,
   },
   examples: {
     fontFamily: 'Poppins-Light',
