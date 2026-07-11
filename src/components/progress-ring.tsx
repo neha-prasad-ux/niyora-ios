@@ -21,7 +21,7 @@ type ProgressRingProps = {
   strokeWidth?: number;
 };
 
-export function ProgressRing({ diameter, progress, strokeWidth = 3.5 }: ProgressRingProps) {
+export function ProgressRing({ diameter, progress, strokeWidth = 4.5 }: ProgressRingProps) {
   const clamped = Math.max(0, Math.min(1, progress));
   const r = (diameter - strokeWidth) / 2;
   const circumference = 2 * Math.PI * r;
@@ -44,11 +44,12 @@ export function ProgressRing({ diameter, progress, strokeWidth = 3.5 }: Progress
       style={{ transform: [{ rotate: '-90deg' }] }}
       pointerEvents="none"
     >
+      {/* Lavender-tinted track: a plain white one disappears into the halo. */}
       <Circle
         cx={center}
         cy={center}
         r={r}
-        stroke="rgba(255, 255, 255, 0.10)"
+        stroke="rgba(170, 145, 230, 0.28)"
         strokeWidth={strokeWidth}
         fill="none"
       />
@@ -56,13 +57,17 @@ export function ProgressRing({ diameter, progress, strokeWidth = 3.5 }: Progress
         cx={center}
         cy={center}
         r={r}
-        stroke="rgba(190, 160, 245, 0.9)"
+        stroke="rgba(190, 160, 245, 0.95)"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeDasharray={`${circumference} ${circumference}`}
         animatedProps={arcProps}
         fill="none"
       />
+      {/* A bright start dot at 12 o'clock (pre-rotation 3 o'clock): the rest
+          state's affordance that today is waiting to be closed. The filled
+          arc's rounded cap covers it as progress lands. */}
+      <Circle cx={center + r} cy={center} r={strokeWidth * 0.9} fill="rgba(200, 175, 250, 0.95)" />
     </Svg>
   );
 }

@@ -163,12 +163,14 @@ const DONE_ACTION: TodayAction = {
   route: '',
 };
 
+// Session asks carry no route: the Now screen opens the RecommendSheet (the
+// coached feeling-first entry) — a bare /session push has no technique id.
 const CALM_SESSION_ACTION: TodayAction = {
   id: 'session:calm',
   kind: 'session',
   title: 'A short calming practice',
   caption: 'The last check of the day',
-  route: '/pms-readiness',
+  route: '',
 };
 
 const GENTLE_SESSION_ACTION: TodayAction = {
@@ -176,7 +178,7 @@ const GENTLE_SESSION_ACTION: TodayAction = {
   kind: 'session',
   title: 'A gentle practice',
   caption: 'Be kind to yourself today',
-  route: '/session',
+  route: '',
 };
 
 function trainAction(training: TrainingState): TodayAction | null {
@@ -196,7 +198,7 @@ const PRACTICE_SESSION_ACTION: TodayAction = {
   kind: 'session',
   title: 'A calming practice',
   caption: 'Steady the water a little more',
-  route: '/session',
+  route: '',
 };
 
 // --- Selection -----------------------------------------------------------

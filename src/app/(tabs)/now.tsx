@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
+import { BeginButton } from '@/components/begin-button';
 import { Header } from '@/components/header';
 import { Orb } from '@/components/orb';
 import { PeriodSheet } from '@/components/period-sheet';
@@ -84,8 +85,11 @@ import { getTraining, type TrainingState } from '@/store/training-v3';
 const BREATH_IN = 4; // seconds, inhale
 const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
-const ORB_SIZE = 260;
-const RING_DIAMETER = 292; // a quiet halo just outside the sphere
+// Small enough that the whole loop (moon, state line, action, strip, calm
+// button) fits one viewport without scrolling — the moon is the hero, not the
+// whole show.
+const ORB_SIZE = 208;
+const RING_DIAMETER = 224; // hugs the sphere so it reads as the moon's ring
 
 const LAPSE_DAYS = 3;
 
@@ -301,6 +305,12 @@ export default function NowScreen() {
       setPeriodSheetVisible(true);
       return;
     }
+    // Session asks go through the coached feeling-first entry, the same flow
+    // as the Calm now button — a bare /session push has no technique to run.
+    if (action.kind === 'session') {
+      setRecommendVisible(true);
+      return;
+    }
     if (action.route !== '') router.push(action.route as Href);
   };
 
@@ -356,16 +366,18 @@ export default function NowScreen() {
     });
   };
 
-  // The strip's two numbers: the streak, and (inside the window) today's preps.
-  const stripText =
-    snapshot == null
-      ? ''
-      : phase === 'window'
-        ? `${snapshot.streak.streak}-day streak · ${readinessDoneCount(
-            snapshot.readiness.checks,
-            snapshot.sessionsToday > 0,
-          )}/${READINESS_TOTAL} preps today`
-        : `${snapshot.streak.streak}-day streak`;
+  // The strip's two numbers: the streak, and (inside the window) today's
+  // preps. A zero-day streak is noise, not motivation — it never renders; the
+  // strip disappears entirely when there is nothing worth saying.
+  const stripParts: string[] = [];
+  if (snapshot != null) {
+    if (snapshot.streak.streak > 0) stripParts.push(`${snapshot.streak.streak}-day streak`);
+    if (phase === 'window') {
+      const preps = readinessDoneCount(snapshot.readiness.checks, snapshot.sessionsToday > 0);
+      stripParts.push(`${preps}/${READINESS_TOTAL} preps today`);
+    }
+  }
+  const stripText = stripParts.join(' · ');
 
   return (
     <View style={styles.root}>
@@ -413,10 +425,35 @@ export default function NowScreen() {
             )}
           </Animated.View>
 
-          {/* Where she is in the cycle, in one quiet line. */}
+          {/* Where she is in the cycle, in one quiet line — with the period
+              chip right under it, so the state and its correction share a
+              spot. The chip is the prediction's honesty loop. */}
           {stateLine != null && (
             <Animated.View entering={FadeInDown.delay(40).duration(500)}>
               <Text style={styles.stateLine}>{stateLine}</Text>
+            </Animated.View>
+          )}
+          {periodButton != null && (
+            <Animated.View entering={FadeInDown.delay(70).duration(500)} style={styles.chipRow}>
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setPeriodSheetVisible(true);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={periodButton.label}
+                style={[styles.periodChip, periodButton.emphasized && styles.periodChipEmphasized]}
+              >
+                <Text
+                  style={[
+                    styles.periodChipText,
+                    periodButton.emphasized && styles.periodChipTextEmphasized,
+                  ]}
+                >
+                  {periodButton.label}
+                </Text>
+              </Pressable>
             </Animated.View>
           )}
 
@@ -432,8 +469,9 @@ export default function NowScreen() {
             </Animated.View>
           )}
 
-          {/* One line of numbers, tapping into the full story in You. */}
-          {snapshot != null && (
+          {/* One line of numbers, tapping into the full story in You. Hidden
+              while there is nothing worth saying (no zero-day streaks). */}
+          {stripText !== '' && (
             <Animated.View entering={FadeInDown.delay(160).duration(500)}>
               <Pressable
                 style={styles.strip}
@@ -447,44 +485,17 @@ export default function NowScreen() {
             </Animated.View>
           )}
 
-          {/* Quiet doors: period logging (the prediction's honesty loop) and
-              the acute calm path. */}
-          {periodButton != null && (
-            <Animated.View entering={FadeInDown.delay(220).duration(500)} style={styles.doorRow}>
-              <Pressable
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  setPeriodSheetVisible(true);
-                }}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={periodButton.label}
-                style={[styles.periodDoor, periodButton.emphasized && styles.periodDoorEmphasized]}
-              >
-                <Text
-                  style={[
-                    styles.periodDoorText,
-                    periodButton.emphasized && styles.periodDoorTextEmphasized,
-                  ]}
-                >
-                  {periodButton.label}
-                </Text>
-              </Pressable>
-            </Animated.View>
-          )}
-
-          <Animated.View entering={FadeInDown.delay(280).duration(500)} style={styles.doorRow}>
-            <Pressable
+          {/* The SOS: always one tap, always visible, the screen's one primary
+              button. */}
+          <Animated.View entering={FadeInDown.delay(220).duration(500)} style={styles.calmWrap}>
+            <BeginButton
+              label="Calm now"
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
                 setRecommendVisible(true);
               }}
-              accessibilityRole="button"
-              accessibilityLabel="Feeling worked up? Calm now."
-              style={styles.calmDoor}
-            >
-              <Text style={styles.calmDoorText}>Feeling worked up? Calm now</Text>
-            </Pressable>
+            />
+            <Text style={styles.calmHint}>Feeling worked up? Start here.</Text>
           </Animated.View>
 
           <View style={{ height: 12 }} />
@@ -587,36 +598,34 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.35)',
     marginTop: -1,
   },
-  doorRow: { alignItems: 'center' },
-  periodDoor: { paddingVertical: 6, paddingHorizontal: 16 },
-  periodDoorEmphasized: {
+  chipRow: { alignItems: 'center', marginTop: -2, marginBottom: 2 },
+  periodChip: {
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  periodChipEmphasized: {
     borderColor: 'rgba(237, 147, 177, 0.5)',
-    borderRadius: 18,
     backgroundColor: 'rgba(237, 147, 177, 0.10)',
   },
-  periodDoorText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: colors.textTertiary,
-    letterSpacing: 0.2,
+  periodChipText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.3,
   },
-  periodDoorTextEmphasized: {
+  periodChipTextEmphasized: {
     fontFamily: 'Poppins-Medium',
     color: 'rgba(244, 192, 209, 0.95)',
   },
-  calmDoor: {
-    paddingVertical: 12,
-    paddingHorizontal: 26,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(133, 183, 235, 0.4)',
-    backgroundColor: 'rgba(55, 90, 140, 0.22)',
-  },
-  calmDoorText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: 'rgba(214, 230, 250, 0.95)',
-    letterSpacing: 0.3,
+  calmWrap: { alignItems: 'center', gap: 8, marginTop: 2 },
+  calmHint: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    color: colors.textTertiary,
+    letterSpacing: 0.2,
   },
 });
