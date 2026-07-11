@@ -1,14 +1,14 @@
 // "Us vs. the PMS": the couples shelf. Four activities that help a couple stay
-// on the same side through the hard week, framed as us-against-the-PMS (narrative
+// on the same side through PMS, framed as us-against-the-PMS (narrative
 // externalization) rather than partner-against-partner.
 //
-// Two voices live here:
-//   - App voice (quiz, prep, reconnect, headers): the same frank, warm register
-//     as game-content.ts. No em dashes, no exclamation points, no emoji. Guarded
-//     by couples-content.test.ts.
-//   - Shareable texts (COUPLES_TEXTS): casual messages the user sends to their
-//     partner. These intentionally keep emoji and a lighter tone, so they are
-//     exempt from the app-voice copy guard.
+// Voice: a frank, warm 30-year-old Californian friend. Simple words, specific
+// over vague, no jargon, no shame. Two registers live here:
+//   - App voice (quiz, prep, reconnect, headers): no em dashes, no exclamation
+//     points, no emoji. Guarded by couples-content.test.ts.
+//   - Shareable texts (COUPLES_TEXTS): casual messages the user sends her
+//     partner; these keep emoji and a lighter tone, so they are exempt from the
+//     app-voice copy guard.
 //
 // The partner can be any gender. All copy is gender-neutral (you / I / we / they),
 // enforced by a test: no standalone he/she/him/his/her.
@@ -19,12 +19,12 @@
 //     with timing + amplification + persistence checks; ties resolve to "real" so
 //     a genuine issue is never dismissed as "just hormones".
 //   - Reconnect: Gottman's aftermath-of-a-fight + bids-for-connection work.
-//   - Prep: pre-committing preferences while calm beats in-the-moment negotiation
-//     (adapted from DBT crisis-planning); targets the demand-withdraw "eggshells"
-//     pattern.
-//   - Desire text + prep item: sexual desire shifts across the cycle, often
-//     dipping premenstrually as progesterone rises (Roney & Simmons 2013). Naming
-//     it stops a partner misreading a low-desire week as rejection (Basson's
+//   - Prep: deciding what you need while calm beats sorting it out mid-fight
+//     (adapted from DBT crisis-planning); it also heads off the walking-on-
+//     eggshells pattern.
+//   - Desire text + prep line: sexual desire shifts across the cycle, often
+//     dipping premenstrually as progesterone rises (Roney & Simmons 2013). Saying
+//     so stops a partner reading a low-desire week as rejection (Basson's
 //     responsive-desire model).
 
 // --- 1. Is it PMS or a real issue? (yes/no quiz) -------------------------
@@ -40,13 +40,13 @@ export type PmsOrRealQuestion = {
 };
 
 export const COUPLES_QUIZ: readonly PmsOrRealQuestion[] = [
-  { id: 'q-timing', question: 'Are you in the week or so before your period right now?', yesLeansTo: 'pms' },
-  { id: 'q-recurs', question: 'Has this same feeling shown up around this point in past cycles?', yesLeansTo: 'pms' },
-  { id: 'q-eases', question: 'When your period starts, does this usually ease off within a day or two?', yesLeansTo: 'pms' },
-  { id: 'q-size', question: 'Does how big this feels seem out of proportion to what set it off?', yesLeansTo: 'pms' },
-  { id: 'q-calm', question: 'Does this still bother you in the calm weeks, not just now?', yesLeansTo: 'real' },
-  { id: 'q-persists', question: 'If nothing about your partner changed, would this still feel like a problem next week?', yesLeansTo: 'real' },
-  { id: 'q-concrete', question: 'Is this about something concrete that keeps happening, more than a mood?', yesLeansTo: 'real' },
+  { id: 'q-timing', question: 'Is your period about a week out right now?', yesLeansTo: 'pms' },
+  { id: 'q-recurs', question: 'Does this same feeling tend to show up around the same time each cycle?', yesLeansTo: 'pms' },
+  { id: 'q-eases', question: 'Once your period starts, does this usually fade in a day or two?', yesLeansTo: 'pms' },
+  { id: 'q-size', question: 'Is this way bigger than whatever set it off?', yesLeansTo: 'pms' },
+  { id: 'q-calm', question: 'Does this still bug you in your calm weeks, not just right now?', yesLeansTo: 'real' },
+  { id: 'q-persists', question: 'Would this still bug you next week even if nothing changed?', yesLeansTo: 'real' },
+  { id: 'q-concrete', question: 'Is this a real thing that keeps happening, not just a mood?', yesLeansTo: 'real' },
 ];
 
 // Every answer votes: a "yes" for its side, a "no" for the other side. Higher
@@ -66,18 +66,18 @@ export function scoreQuiz(answers: Readonly<Record<string, boolean>>): QuizSide 
 
 export const QUIZ_RESULT: Record<QuizSide, { title: string; body: string }> = {
   pms: {
-    title: 'Likely the cycle talking',
-    body: 'This one looks cycle amplified. The feeling is real, but the size of it is probably the wave. Let it pass before you draw any conclusions.',
+    title: 'Probably the cycle talking',
+    body: 'This one looks like the cycle turning up the volume. The feeling is real, but the size of it is mostly the wave. Let it pass before you decide anything.',
   },
   real: {
-    title: 'Likely a real issue',
-    body: 'This looks like a real issue, not just the cycle. It deserves a calm, honest talk when you are both regulated, not in the middle of the hard week.',
+    title: 'Probably a real thing',
+    body: 'This looks like a real issue, not just the cycle. It is worth a calm, honest talk when you are both steady, not in the middle of PMS.',
   },
 };
 
-// Shown under both results, verbatim.
+// Shown under both results.
 export const QUIZ_FOOTER =
-  'Never resolve a big relationship question during the flooded moment or the luteal peak. Feelings in the moment are real; conclusions drawn in the moment are unreliable. Decide when calm.';
+  'Do not settle a big relationship question mid-fight or at your lowest point in the week. The feelings are real; the conclusions you draw right then are not reliable. Decide when you are calm.';
 
 // --- 2. Texts you can share (casual, emoji allowed) ---------------------
 
@@ -89,9 +89,9 @@ export const COUPLES_TEXTS: readonly TextGroup[] = [
     id: 'heads-up',
     title: 'A heads-up',
     items: [
-      { id: 'hu-warm', tone: 'Warm', text: "Heads up, my hard week's starting. If I get short, it's the hormones and not you. Bear with me 💛" },
+      { id: 'hu-warm', tone: 'Warm', text: "Heads up, my PMS is starting. If I get short, it's the hormones and not you. Bear with me 💛" },
       { id: 'hu-playful', tone: 'Playful', text: 'Incoming: gremlin week. Same me, worse signal. Snacks and patience appreciated.' },
-      { id: 'hu-direct', tone: 'Direct', text: "My hard week's here. I might need more space than usual. Nothing's wrong between us." },
+      { id: 'hu-direct', tone: 'Direct', text: "My PMS is here. I might need more space than usual. Nothing's wrong between us." },
       { id: 'hu-reassuring', tone: 'Reassuring', text: "Even when I'm off this week, I'm still glad it's you." },
     ],
   },
@@ -121,91 +121,83 @@ export const COUPLES_TEXTS: readonly TextGroup[] = [
   },
 ];
 
-// --- 3. Prep well together (two-track yes/no -> shared checklist) --------
+// --- 3. Prep well together (one quick reflection -> a note to send) ------
 
-export type PrepTrack = 'you' | 'partner';
 export type PrepQuestion = {
   id: string;
-  track: PrepTrack;
   question: string;
-  // The shared-checklist line this "yes" unlocks. Written as a neutral shared
-  // agreement so either partner can read it.
+  // The note line this "yes" adds, written in her voice to her partner.
   ifYes: string;
 };
 
 export const PREP_QUESTIONS: readonly PrepQuestion[] = [
   {
-    id: 'you-quiet',
-    track: 'you',
-    question: 'In your hard week, do you sometimes go quiet or pull away?',
-    ifYes: 'Going quiet in the hard week is self-regulation, not the silent treatment.',
+    id: 'quiet',
+    question: 'During PMS, do you go quiet sometimes?',
+    ifYes: "When I go quiet, I'm giving myself space. It is not to hurt you.",
   },
   {
-    id: 'you-space',
-    track: 'you',
-    question: 'When you feel low, do you usually want space before closeness?',
-    ifYes: 'Offer space first in the hard week, then check in about closeness.',
+    id: 'space',
+    question: "When you're low, do you want space before closeness?",
+    ifYes: "Give me a little space first. I'll come to you when I want to be close.",
   },
   {
-    id: 'you-normal',
-    track: 'you',
-    question: 'Does it help when normal life keeps going, instead of being treated as fragile?',
-    ifYes: 'Keep normal life going. Support is not taking over.',
+    id: 'senses',
+    question: "Do you think your partner can feel your irritation even when you're trying to hide it, and ends up tiptoeing?",
+    ifYes: "You can probably feel my irritation even when I'm hiding it. That's the PMS leaking out, not you. You don't have to tiptoe.",
   },
   {
-    id: 'you-headsup',
-    track: 'you',
-    question: 'Do you want a heads-up sent when the hard week starts?',
-    ifYes: 'A heads-up goes out when the hard week starts.',
+    id: 'small',
+    question: "When you're only a little annoyed, does it help if your partner nudges you toward a lighter, more practical way to see it?",
+    ifYes: "When I'm just a little annoyed, help me reframe it. A lighter, practical take usually pulls me out.",
   },
   {
-    id: 'you-desire',
-    track: 'you',
-    question: 'Does your interest in sex usually dip in your hard week?',
-    ifYes: 'A lower-desire week is the cycle, not rejection. Naming it keeps it from being misread.',
+    id: 'big',
+    question: "When you're really worked up, would it help if your partner kindly gives you 20 minutes to breathe and settle, without taking it personally?",
+    ifYes: "When I'm really worked up, kindly give me 20 minutes to breathe and settle. Me stepping back is how I come back, not me leaving.",
   },
   {
-    id: 'partner-tiptoe',
-    track: 'partner',
-    question: 'Do you ever feel unsure which mood you will get, and end up tiptoeing?',
-    ifYes: 'Name it together: no tiptoeing. Trust the plan instead of guessing.',
+    id: 'headsup',
+    question: 'Want a heads-up to go out when your PMS starts?',
+    ifYes: "I'll send you a heads-up when my PMS is starting.",
   },
   {
-    id: 'partner-personally',
-    track: 'partner',
-    question: 'Do you take it personally when your partner pulls back?',
-    ifYes: 'Pulling back is the PMS, not a verdict on the relationship.',
-  },
-  {
-    id: 'partner-silent',
-    track: 'partner',
-    question: 'Do you tend to go silent when things get tense?',
-    ifYes: 'Going silent reads as stonewalling. Say "I need a short break, back in 20" instead.',
-  },
-  {
-    id: 'partner-signal',
-    track: 'partner',
-    question: 'Can you respond to what was asked for without needing it explained each time?',
-    ifYes: 'Respond to what was asked for, not to a reading of a face.',
+    id: 'desire',
+    question: 'Does your sex drive usually dip during PMS?',
+    ifYes: "My drive dips during PMS. It's the hormones, not you. Still want you close.",
   },
 ];
 
-// Always present on the assembled plan, regardless of answers.
+// Always in the note, whatever the answers.
 export const CORE_PREP_ITEMS: readonly { id: string; label: string }[] = [
-  { id: 'core-side', label: 'We are on the same side. The problem is the PMS, not each other.' },
-  { id: 'core-bury', label: 'Bury nothing. Real issues get tabled for a calm week, not swept away.' },
-  { id: 'core-break', label: 'A break always comes with a return time.' },
+  { id: 'core-team', label: "We're on the same team. The problem is the PMS, not each other. And I'm working on it, finding ways to own it and get better." },
+  { id: 'core-bury', label: "If something is really bothering me, I'll bring it up in a calm week, not sit on it." },
+  { id: 'core-break', label: 'If either of us needs a breather mid-fight, we say so and come back to it.' },
 ];
 
 export type PrepPlanItem = { id: string; label: string };
 
-// Assemble the shared checklist: core items first, then one line per "yes".
+// Assemble the note: core lines first, then one line per "yes".
 export function buildPrepChecklist(answers: Readonly<Record<string, boolean>>): PrepPlanItem[] {
   const items: PrepPlanItem[] = CORE_PREP_ITEMS.map((c) => ({ id: c.id, label: c.label }));
   for (const q of PREP_QUESTIONS) {
     if (answers[q.id]) items.push({ id: q.id, label: q.ifYes });
   }
   return items;
+}
+
+// The note goes out as a warm, ready-to-send message: a greeting, a one-line
+// intro, the numbered pointers, and a signoff. Sent through the native share
+// sheet, so she fires it off via Messages, WhatsApp, wherever.
+export const PREP_MESSAGE = {
+  greeting: 'Hi love,',
+  intro: "I've been reflecting on us and how PMS affects us. Here are some pointers.",
+  signoff: 'Love you.',
+};
+
+export function buildPrepMessage(answers: Readonly<Record<string, boolean>>): string {
+  const lines = buildPrepChecklist(answers).map((it, idx) => `${idx + 1}. ${it.label}`);
+  return [PREP_MESSAGE.greeting, '', PREP_MESSAGE.intro, '', ...lines, '', PREP_MESSAGE.signoff].join('\n');
 }
 
 // --- 4. How to reconnect (checklist) ------------------------------------
@@ -215,32 +207,32 @@ export type ReconnectStep = { id: string; label: string; examples: string };
 export const RECONNECT_STEPS: readonly ReconnectStep[] = [
   {
     id: 'rc-repair',
-    label: 'Repair before you re-litigate',
-    examples: 'Reconnect first. Try: can we start over, I miss you.',
+    label: 'Get close before you fix anything',
+    examples: 'Reconnect first, sort it out later. Try: can we start over, I miss you.',
   },
   {
     id: 'rc-felt',
-    label: 'Share how you felt, do not argue the facts',
-    examples: 'Both realities are true. "I felt shut out" is not a claim to debate.',
+    label: 'Share how you felt, not who did what',
+    examples: "You both get to feel what you felt. \"I felt shut out\" isn't up for debate.",
   },
   {
     id: 'rc-own',
-    label: 'Take a small piece of responsibility each',
-    examples: 'Even: I could have said that more gently.',
+    label: 'Each own a little of it',
+    examples: 'Even just: I could have said that softer.',
   },
   {
     id: 'rc-bids',
-    label: 'Turn toward the small bids',
-    examples: 'A joke, a question, tea. Saying yes to a small bid is the repair.',
+    label: 'Take the small openings',
+    examples: 'A joke, a question, a cup of tea. Say yes to a little one, that is the repair.',
   },
   {
     id: 'rc-pressure',
-    label: 'Lower the pressure',
-    examples: 'Sit together, take a walk. Presence over processing.',
+    label: 'Keep it low-key',
+    examples: 'Sit together, take a walk. Being close beats hashing it out.',
   },
   {
     id: 'rc-loop',
-    label: 'Close the loop',
-    examples: 'Ask "we are okay?", answer "we are okay". An all-clear lets both stand down.',
+    label: 'Say out loud that you are good',
+    examples: 'Ask "we good?", hear "we good". The all-clear lets you both breathe.',
   },
 ];

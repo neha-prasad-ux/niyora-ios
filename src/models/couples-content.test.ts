@@ -2,11 +2,13 @@ import {
   COUPLES_QUIZ,
   COUPLES_TEXTS,
   CORE_PREP_ITEMS,
+  PREP_MESSAGE,
   PREP_QUESTIONS,
   QUIZ_FOOTER,
   QUIZ_RESULT,
   RECONNECT_STEPS,
   buildPrepChecklist,
+  buildPrepMessage,
   scoreQuiz,
 } from './couples-content';
 
@@ -22,6 +24,9 @@ const APP_VOICE: string[] = [
   QUIZ_FOOTER,
   ...PREP_QUESTIONS.flatMap((q) => [q.question, q.ifYes]),
   ...CORE_PREP_ITEMS.map((c) => c.label),
+  PREP_MESSAGE.greeting,
+  PREP_MESSAGE.intro,
+  PREP_MESSAGE.signoff,
   ...RECONNECT_STEPS.flatMap((s) => [s.label, s.examples]),
 ];
 
@@ -65,9 +70,8 @@ describe('PMS-or-real quiz', () => {
 });
 
 describe('prep questionnaire', () => {
-  it('has unique question ids across both tracks', () => {
+  it('has unique question ids', () => {
     expect(new Set(PREP_QUESTIONS.map((q) => q.id)).size).toBe(PREP_QUESTIONS.length);
-    for (const q of PREP_QUESTIONS) expect(['you', 'partner']).toContain(q.track);
   });
 
   it('empty answers still yield the three core agreements', () => {
@@ -80,6 +84,13 @@ describe('prep questionnaire', () => {
     const plan = buildPrepChecklist(allYes);
     expect(plan).toHaveLength(CORE_PREP_ITEMS.length + PREP_QUESTIONS.length);
     expect(new Set(plan.map((p) => p.id)).size).toBe(plan.length);
+  });
+
+  it('builds a sendable message with greeting, numbered lines, and signoff', () => {
+    const msg = buildPrepMessage({});
+    expect(msg).toContain(PREP_MESSAGE.greeting);
+    expect(msg).toContain(PREP_MESSAGE.signoff);
+    expect(msg).toMatch(/^1\. /m);
   });
 });
 

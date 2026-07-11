@@ -1,16 +1,17 @@
-// "Us vs. the PMS": the couples hub. A heart-themed shelf of four activities
-// that help a couple stay on the same side through the hard week. The framing is
-// deliberate (narrative externalization): the opponent is the PMS, never each
-// other. The partner can be any gender, so every activity's copy is neutral.
-//
-// Reuses the home card / readiness list language: translucent rows, a colored
-// heart per activity (brand hues), a chevron, whole-row tap into a sub-route.
+// "Us vs. the PMS": the couples hub. Mirrors the Train-your-mind chapters page
+// exactly (left-aligned header, then one big gradient card per activity with a
+// floating tag, title, blurb, chevron), so the couples shelf reads as a sibling
+// of Train. Each card sits in the warm rose/red heart family instead of Train's
+// violet, and its backdrop carries faint hearts where Train carries soul-moons.
+// The partner can be any gender, so every activity's copy is neutral.
 
 import * as Haptics from 'expo-haptics';
-import { router, useRouter, type Href } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
@@ -18,27 +19,57 @@ import { colors } from '@/theme/colors';
 type Activity = {
   id: string;
   route: Href;
-  heart: string; // a brand hue, one per activity
-  heartBg: string; // the same hue as a soft tinted chip behind the heart
+  tag: string;
   title: string;
   sub: string;
+  gradient: readonly [string, string, string];
+  heart: string;
 };
 
-// Each heart a different brand tone: coral, rose, violet, pink. Cute, warm, and
-// still in the app's jewel-toned family.
+// Each card its own warm field + heart tone: coral, rose, violet-rose, pink.
 const ACTIVITIES: readonly Activity[] = [
-  { id: 'quiz', route: '/couples-quiz', heart: 'hsl(8, 72%, 68%)', heartBg: 'hsla(8, 72%, 68%, 0.16)', title: 'Is it PMS or real?', sub: 'Reflect on a fight, together or solo' },
-  { id: 'texts', route: '/couples-texts', heart: 'hsl(345, 78%, 70%)', heartBg: 'hsla(345, 78%, 70%, 0.16)', title: 'Texts you can share', sub: 'The right words, in your own tone' },
-  { id: 'prep', route: '/couples-prep', heart: 'hsl(275, 55%, 70%)', heartBg: 'hsla(275, 55%, 70%, 0.16)', title: 'Prep well together', sub: 'A shared plan for the hard week' },
-  { id: 'reconnect', route: '/couples-reconnect', heart: 'hsl(330, 68%, 72%)', heartBg: 'hsla(330, 68%, 72%, 0.16)', title: 'How to reconnect', sub: 'Repair after a rough patch' },
+  {
+    id: 'quiz',
+    route: '/couples-quiz',
+    tag: 'Reflect',
+    title: 'Is it PMS or real?',
+    sub: 'Reflect on a fight, together or solo',
+    gradient: ['hsl(2, 46%, 30%)', 'hsl(10, 46%, 31%)', 'hsl(20, 44%, 32%)'],
+    heart: 'hsl(8, 74%, 70%)',
+  },
+  {
+    id: 'texts',
+    route: '/couples-texts',
+    tag: 'Words',
+    title: 'Texts you can share',
+    sub: 'The right words, in your own tone',
+    gradient: ['hsl(338, 44%, 30%)', 'hsl(348, 44%, 31%)', 'hsl(358, 42%, 32%)'],
+    heart: 'hsl(345, 80%, 72%)',
+  },
+  {
+    id: 'prep',
+    route: '/couples-prep',
+    tag: 'Plan',
+    title: 'Prep well together',
+    sub: 'A shared plan for PMS',
+    gradient: ['hsl(300, 42%, 30%)', 'hsl(315, 40%, 31%)', 'hsl(330, 40%, 32%)'],
+    heart: 'hsl(305, 62%, 74%)',
+  },
+  {
+    id: 'reconnect',
+    route: '/couples-reconnect',
+    tag: 'Repair',
+    title: 'How to reconnect',
+    sub: 'Repair after a rough patch',
+    gradient: ['hsl(326, 44%, 31%)', 'hsl(336, 42%, 32%)', 'hsl(346, 42%, 33%)'],
+    heart: 'hsl(330, 72%, 74%)',
+  },
 ];
 
 export default function CouplesScreen() {
-  const nav = useRouter();
-
   const open = (route: Href) => {
     Haptics.selectionAsync().catch(() => {});
-    nav.push(route);
+    router.push(route);
   };
 
   const goBack = () => {
@@ -56,30 +87,62 @@ export default function CouplesScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.head}>
-          <SymbolView name="heart.fill" tintColor="hsl(345, 80%, 70%)" size={26} weight="semibold" />
+        <View style={styles.header}>
           <Text style={styles.title}>Us vs. the PMS</Text>
-          <Text style={styles.subhead}>Small things that keep the two of you on the same side.</Text>
+          <Text style={styles.sub}>Small things that keep you on the same side.</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {ACTIVITIES.map((a) => (
-            <Pressable
-              key={a.id}
-              onPress={() => open(a.route)}
-              style={styles.row}
-              accessibilityRole="button"
-              accessibilityLabel={`${a.title}. ${a.sub}.`}
-            >
-              <View style={[styles.heartWrap, { backgroundColor: a.heartBg }]}>
-                <SymbolView name="heart.fill" tintColor={a.heart} size={18} weight="semibold" />
+          {ACTIVITIES.map((a, i) => (
+            <Animated.View key={a.id} entering={FadeInDown.delay(60 + i * 70).duration(500)}>
+              <View style={styles.chapterWrap}>
+                <View style={styles.chapterTag}>
+                  <Text style={styles.tagText}>{a.tag}</Text>
+                </View>
+                <Pressable
+                  style={styles.chapterCard}
+                  onPress={() => open(a.route)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${a.title}. ${a.sub}.`}
+                >
+                  <LinearGradient
+                    colors={a.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <View pointerEvents="none" style={styles.chapterBackdrop}>
+                    <SymbolView
+                      name="heart.fill"
+                      tintColor="rgba(255, 255, 255, 0.15)"
+                      size={104}
+                      weight="semibold"
+                      style={styles.heartTopRight}
+                    />
+                    <SymbolView
+                      name="heart.fill"
+                      tintColor="rgba(255, 255, 255, 0.1)"
+                      size={58}
+                      weight="semibold"
+                      style={styles.heartBotLeft}
+                    />
+                  </View>
+                  <View style={styles.cardRow}>
+                    <View style={styles.cardTextCol}>
+                      <Text style={styles.chapterTitle}>{a.title}</Text>
+                      <Text style={styles.cardSub}>{a.sub}</Text>
+                    </View>
+                    <SymbolView
+                      name="chevron.right"
+                      tintColor="rgba(255, 255, 255, 0.7)"
+                      size={15}
+                      weight="semibold"
+                      style={styles.cardChevron}
+                    />
+                  </View>
+                </Pressable>
               </View>
-              <View style={styles.text}>
-                <Text style={styles.rowTitle}>{a.title}</Text>
-                <Text style={styles.rowSub}>{a.sub}</Text>
-              </View>
-              <SymbolView name="chevron.right" tintColor="rgba(255, 255, 255, 0.5)" size={14} weight="semibold" />
-            </Pressable>
+            </Animated.View>
           ))}
         </ScrollView>
       </SafeAreaView>
@@ -89,58 +152,70 @@ export default function CouplesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  topBar: { height: 32, justifyContent: 'center' },
-  head: { alignItems: 'center', paddingTop: 6, paddingBottom: 22, gap: 10 },
+  safe: { flex: 1, paddingHorizontal: 20 },
+  topBar: { height: 32, justifyContent: 'center', marginTop: 4 },
+  header: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 14 },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 23,
-    lineHeight: 31,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    lineHeight: 32,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
-    textAlign: 'center',
+    letterSpacing: 0.15,
   },
-  subhead: {
-    fontFamily: 'Poppins-Light',
+  sub: {
+    fontFamily: 'Poppins-Regular',
     fontSize: 14,
     lineHeight: 20,
     color: colors.textSubtitle,
-    letterSpacing: 0.2,
-    textAlign: 'center',
-    paddingHorizontal: 8,
+    letterSpacing: 0.1,
+    marginTop: 4,
   },
-  scroll: { paddingBottom: 28, gap: 12 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+  scroll: { paddingTop: 6, paddingBottom: 28, gap: 14 },
+
+  // Shared card interior (matches Train's chapter cards).
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cardTextCol: { flex: 1 },
+  cardChevron: { opacity: 0.55, marginRight: -2 },
+  tagText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#ffffff', letterSpacing: 0.5 },
+  cardSub: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(255, 255, 255, 0.72)',
+    letterSpacing: 0.1,
+    marginTop: 3,
+  },
+  chapterWrap: { marginBottom: 4 },
+  chapterTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginLeft: 10,
+    marginBottom: -10,
+    zIndex: 2,
+    backgroundColor: 'rgba(205, 90, 120, 0.95)',
+  },
+  chapterCard: {
+    width: '100%',
+    minHeight: 120,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    borderRadius: 22,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  heartWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    overflow: 'hidden',
     justifyContent: 'center',
   },
-  text: { flex: 1 },
-  rowTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  rowSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
-    letterSpacing: 0.2,
-    marginTop: 2,
+  chapterBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
+  heartTopRight: { position: 'absolute', top: -18, right: -12, transform: [{ rotate: '16deg' }] },
+  heartBotLeft: { position: 'absolute', bottom: -16, left: -12, transform: [{ rotate: '-12deg' }] },
+  chapterTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 21,
+    lineHeight: 26,
+    color: '#ffffff',
+    letterSpacing: 0.15,
   },
 });

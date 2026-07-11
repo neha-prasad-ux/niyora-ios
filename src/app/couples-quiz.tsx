@@ -1,10 +1,9 @@
-// "Is it PMS or a real issue?" A short yes/no reflection on one specific fight
-// or feeling. Every answer votes (see scoreQuiz); the result names PMS-amplified
-// vs a real issue, and always closes with the decide-when-calm rule. Ties resolve
-// to "real" so a genuine issue is never dismissed as the cycle.
-//
-// Its own light runner rather than the emotion-game state machine: this is a
-// linear one-question-at-a-time flow with a result page, not a leveled game.
+// "Is it PMS or a real issue?" Built on the game's Level-1 shell exactly: a heart
+// hero intro, a segmented top bar over a big centered question, two large bottom
+// choice buttons, and a congrats-style result. A heart stands where the soul-orb
+// stands in the game. Every answer votes (scoreQuiz); the result names PMS-
+// amplified vs a real issue, ties resolving to "real" so a genuine issue is never
+// dismissed, and closes with the decide-when-calm rule.
 
 import { useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -15,103 +14,152 @@ import { SymbolView } from 'expo-symbols';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
-import { Pill } from '@/components/Pill';
+import { BeginButton } from '@/components/begin-button';
+import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
 import { COUPLES_QUIZ, QUIZ_FOOTER, QUIZ_RESULT, scoreQuiz } from '@/models/couples-content';
 
-const HEART = 'hsl(8, 72%, 68%)'; // coral, matching the hub's PMS-or-real heart
+const tap = () => Haptics.selectionAsync().catch(() => {});
+
+const HEART = 'hsl(8, 72%, 68%)'; // coral, the PMS-or-real heart
+const YES_BG = 'hsla(8, 72%, 68%, 0.92)';
+const NO_BG = 'hsla(330, 68%, 72%, 0.9)';
+
+// Faint hearts drifting behind the intro, where the game floats soul-orbs.
+function HeartBackdrop() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <SymbolView name="heart.fill" tintColor="rgba(255,255,255,0.10)" size={92} style={styles.h1} />
+      <SymbolView name="heart.fill" tintColor="rgba(255,255,255,0.09)" size={64} style={styles.h2} />
+      <SymbolView name="heart.fill" tintColor="rgba(255,255,255,0.07)" size={58} style={styles.h3} />
+      <SymbolView name="heart.fill" tintColor="rgba(255,255,255,0.10)" size={84} style={styles.h4} />
+    </View>
+  );
+}
 
 export default function CouplesQuizScreen() {
-  const [index, setIndex] = useState(0);
+  const [stage, setStage] = useState<'intro' | 'play' | 'result' | 'finale'>('intro');
+  const [i, setI] = useState(0);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
-  const [done, setDone] = useState(false);
 
   const total = COUPLES_QUIZ.length;
-  const q = COUPLES_QUIZ[index];
-  const side = useMemo(() => (done ? scoreQuiz(answers) : null), [done, answers]);
+  const q = COUPLES_QUIZ[i];
+  const side = useMemo(() => (stage === 'result' ? scoreQuiz(answers) : null), [stage, answers]);
 
   const answer = (yes: boolean) => {
-    Haptics.selectionAsync().catch(() => {});
+    tap();
     const next = { ...answers, [q.id]: yes };
     setAnswers(next);
-    if (index + 1 < total) {
-      setIndex(index + 1);
+    if (i + 1 < total) {
+      setI(i + 1);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setDone(true);
+      setStage('result');
     }
   };
 
   const restart = () => {
-    Haptics.selectionAsync().catch(() => {});
+    tap();
     setAnswers({});
-    setIndex(0);
-    setDone(false);
+    setI(0);
+    setStage('intro');
   };
 
-  const goBack = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.back();
+  const back = () => {
+    tap();
+    if (stage === 'play') {
+      if (i > 0) setI(i - 1);
+      else setStage('intro');
+    } else {
+      router.back();
+    }
   };
 
   return (
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
-        <View style={styles.topBar}>
-          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
-            <SymbolView name="chevron.left" tintColor={colors.textTagline} size={16} weight="medium" />
-          </Pressable>
-        </View>
+        {(stage === 'intro' || stage === 'play') && (
+          <View style={styles.topBar}>
+            <Pressable onPress={back} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            {stage === 'play' ? (
+              <View style={styles.segments}>
+                {COUPLES_QUIZ.map((c, idx) => (
+                  <View key={c.id} style={[styles.seg, idx <= i && styles.segOn]} />
+                ))}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <View style={{ width: 22 }} />
+          </View>
+        )}
 
-        {!done ? (
-          <Animated.View key={q.id} entering={FadeIn.duration(260)} style={styles.playWrap}>
-            <View style={styles.head}>
-              <SymbolView name="heart.fill" tintColor={HEART} size={22} weight="semibold" />
-              <Text style={styles.progress}>{index + 1} of {total}</Text>
-              <Text style={styles.hint}>Think of one specific fight or feeling.</Text>
+        {stage === 'intro' && (
+          <View style={styles.body}>
+            <HeartBackdrop />
+            <View style={styles.center}>
+              <SymbolView name="heart.fill" tintColor={HEART} size={52} weight="semibold" />
+              <Text style={styles.kicker}>Is it PMS or real?</Text>
+              <Text style={styles.subtitle}>Think of one specific fight or feeling, then answer honestly.</Text>
             </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('play'); }} />
+          </View>
+        )}
 
-            <Text style={styles.question}>{q.question}</Text>
-
-            <View style={styles.answers}>
-              <Pressable
-                onPress={() => answer(true)}
-                style={styles.answerBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Yes"
-              >
-                <Text style={styles.answerText}>Yes</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => answer(false)}
-                style={styles.answerBtn}
-                accessibilityRole="button"
-                accessibilityLabel="No"
-              >
-                <Text style={styles.answerText}>No</Text>
-              </Pressable>
+        {stage === 'play' && (
+          <Animated.View key={q.id} entering={FadeIn.duration(240)} style={styles.body}>
+            <View style={styles.center}>
+              <Text style={styles.statement}>{q.question}</Text>
+            </View>
+            <View style={styles.bottom}>
+              <View style={styles.choices}>
+                <Pressable
+                  style={[styles.choice, { backgroundColor: YES_BG, borderColor: HEART }]}
+                  onPress={() => answer(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Yes"
+                >
+                  <Text style={styles.choiceLabel}>Yes</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.choice, { backgroundColor: NO_BG, borderColor: 'hsl(330, 68%, 72%)' }]}
+                  onPress={() => answer(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="No"
+                >
+                  <Text style={styles.choiceLabel}>No</Text>
+                </Pressable>
+              </View>
             </View>
           </Animated.View>
-        ) : (
-          <ScrollView contentContainerStyle={styles.resultScroll} showsVerticalScrollIndicator={false}>
-            <Animated.View entering={FadeIn.duration(320)} style={styles.resultCard}>
-              <SymbolView name="heart.fill" tintColor={HEART} size={28} weight="semibold" />
-              <Text style={styles.resultTitle}>{side ? QUIZ_RESULT[side].title : ''}</Text>
-              <Text style={styles.resultBody}>{side ? QUIZ_RESULT[side].body : ''}</Text>
-            </Animated.View>
+        )}
 
-            <View style={styles.footerCard}>
-              <Text style={styles.footerText}>{QUIZ_FOOTER}</Text>
-            </View>
+        {stage === 'result' && (
+          <View style={styles.body}>
+            <ScrollView contentContainerStyle={styles.congratsScroll} showsVerticalScrollIndicator={false}>
+              <Animated.View entering={FadeIn.duration(320)} style={styles.center}>
+                <SymbolView name="heart.fill" tintColor={HEART} size={56} weight="semibold" />
+                <Text style={styles.congratsTitle}>{side ? QUIZ_RESULT[side].title : ''}</Text>
+                <View style={styles.congratsCard}>
+                  <Text style={styles.congratsBody}>{side ? QUIZ_RESULT[side].body : ''}</Text>
+                </View>
+                <View style={styles.footerCard}>
+                  <Text style={styles.footerText}>{QUIZ_FOOTER}</Text>
+                </View>
+              </Animated.View>
+            </ScrollView>
+            <BeginButton fullWidth label="Done" onPress={() => { tap(); setStage('finale'); }} />
+            <Pressable onPress={restart} hitSlop={10} style={styles.restartWrap} accessibilityRole="button" accessibilityLabel="Start over">
+              <Text style={styles.restart}>Start over</Text>
+            </Pressable>
+          </View>
+        )}
 
-            <View style={styles.actions}>
-              <Pill label="Done" onPress={goBack} />
-              <Pressable onPress={restart} hitSlop={10} accessibilityRole="button" accessibilityLabel="Start over">
-                <Text style={styles.restart}>Start over</Text>
-              </Pressable>
-            </View>
-          </ScrollView>
+        {stage === 'finale' && (
+          <CouplesFinale line="Go fall in love again" onDone={() => { tap(); router.back(); }} />
         )}
       </SafeAreaView>
     </View>
@@ -121,85 +169,80 @@ export default function CouplesQuizScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 24 },
-  topBar: { height: 32, justifyContent: 'center' },
+  back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
 
-  playWrap: { flex: 1, justifyContent: 'center', paddingBottom: 40 },
-  head: { alignItems: 'center', gap: 10, marginBottom: 28 },
-  progress: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    color: colors.textSubtitle,
-    letterSpacing: 0.4,
-  },
-  hint: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: colors.textTagline,
-    letterSpacing: 0.2,
-    textAlign: 'center',
-  },
-  question: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
-    lineHeight: 31,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-    textAlign: 'center',
-    marginBottom: 36,
-    paddingHorizontal: 4,
-  },
-  answers: { flexDirection: 'row', gap: 14, justifyContent: 'center' },
-  answerBtn: {
-    flex: 1,
-    maxWidth: 160,
-    paddingVertical: 16,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    alignItems: 'center',
-  },
-  answerText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
-    color: colors.textPrimary,
-    letterSpacing: 0.3,
-  },
+  topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12, marginTop: 4 },
+  segments: { flex: 1, flexDirection: 'row', gap: 6 },
+  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)' },
+  segOn: { backgroundColor: HEART },
 
-  resultScroll: { paddingTop: 12, paddingBottom: 28, gap: 16 },
-  resultCard: {
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 28,
-    paddingHorizontal: 22,
-    borderRadius: 20,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  resultTitle: {
+  body: { flex: 1, paddingBottom: 12 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  kicker: {
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 20,
-    lineHeight: 27,
+    fontSize: 27,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
     textAlign: 'center',
+    marginTop: 4,
   },
-  resultBody: {
+  subtitle: {
     fontFamily: 'Poppins-Light',
     fontSize: 15,
     lineHeight: 22,
     color: colors.textSubtitle,
-    letterSpacing: 0.2,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  statement: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 24,
+    lineHeight: 33,
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+
+  bottom: { gap: 12 },
+  choices: { flexDirection: 'row', gap: 12 },
+  choice: {
+    flex: 1,
+    height: 96,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  choiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 22, color: '#1a1526' },
+
+  // Result (mirrors the game's LevelCongrats).
+  congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 12 },
+  congratsTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  congratsCard: {
+    alignSelf: 'stretch',
+    marginTop: 4,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  congratsBody: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   footerCard: {
-    paddingVertical: 18,
-    paddingHorizontal: 18,
+    alignSelf: 'stretch',
+    marginTop: 12,
+    padding: 16,
     borderRadius: 16,
-    borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
@@ -209,14 +252,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     color: colors.textSubtitle,
-    letterSpacing: 0.2,
     textAlign: 'center',
   },
-  actions: { alignItems: 'center', gap: 16, marginTop: 8 },
-  restart: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
-    color: colors.textTagline,
-    letterSpacing: 0.3,
-  },
+  restartWrap: { alignItems: 'center', marginTop: 14 },
+  restart: { fontFamily: 'Poppins-Regular', fontSize: 14, color: colors.textTagline, letterSpacing: 0.3 },
+
+  // Intro heart backdrop (positions mirror the game's floating orbs).
+  h1: { position: 'absolute', top: 10, left: -20, transform: [{ rotate: '-18deg' }] },
+  h2: { position: 'absolute', top: -12, right: -14, transform: [{ rotate: '22deg' }] },
+  h3: { position: 'absolute', top: '46%', right: 8, transform: [{ rotate: '-9deg' }] },
+  h4: { position: 'absolute', bottom: 96, left: -24, transform: [{ rotate: '14deg' }] },
 });

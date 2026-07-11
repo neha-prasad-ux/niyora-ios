@@ -46,12 +46,13 @@ import {
   setOnboardingV3Progress,
 } from '@/store/onboarding-v3-progress';
 import { addPeriodStart } from '@/store/period-history';
-import { ACTIVITIES } from '@/models/activities';
-import {
-  READINESS_CHECK_CONTENT,
-  READINESS_CHECK_IDS,
-  READINESS_WHY,
-} from '@/store/pms-readiness';
+import { READINESS_CHECK_CONTENT, type ReadinessCheckId } from '@/store/pms-readiness';
+import { ChapterCard } from '@/components/chapter-card';
+import { CHAPTERS } from '@/v3/game-content';
+import { DEFAULT_TRAINING } from '@/store/training-v3';
+import { LinearGradient } from 'expo-linear-gradient';
+import { recommend } from '@/models/recommend';
+import { CardScene } from '@/components/CardScene';
 
 import { SymbolView } from 'expo-symbols';
 
@@ -381,7 +382,7 @@ function RenderStep({
       return <Result answers={answers} onNext={advance} />;
     case 'goal':
       // The plan hand-off: persist her cycle + finish, then land on the dashboard.
-      return <Plan onDone={complete} />;
+      return <Plan answers={answers} update={update} onDone={complete} />;
   }
 }
 
@@ -1184,77 +1185,297 @@ function FactorBoard({ answers }: { answers: V3Answers }) {
 
 // --- Plan (the hand-off before home) ----------------------------------
 
-// The four ways the app works on her PMS, each a small glimpse of the real
-// feature so the plan feels concrete, not a promise. Data comes from the same
-// modules the live screens use, so nothing here is a mock.
-function Plan({ onDone }: { onDone: () => void }) {
+// A preview of exactly how she'll use the app, and when. Each section renders the
+// REAL feature component (the chapter cards, the readiness checklist, the activity
+// cards) so it looks identical to the live app and stays recognisable. The
+// timeframe labels adapt to whether she gave her cycle date.
+
+// Chapters ordered for the plan's stacked deck: the featured chapter (mood
+// swings) sits fully in front, the rest peek as slivers behind it.
+const PLAN_DECK = [
+  ...CHAPTERS.filter((c) => c.id !== 'mood-swings'),
+  ...CHAPTERS.filter((c) => c.id === 'mood-swings'),
+];
+
+// The calm cards for the power-move shelf, straight from the real recommend
+// pipeline: feeling "stressed" (anxious / overwhelmed) reaching for "calm". These
+// are the exact app cards, rendered with their real CardScene backgrounds.
+const POWER_MOVE_CARDS = (() => {
+  const r = recommend(['anxious', 'overwhelmed'], ['calm']);
+  return r ? [r.hero, ...r.list] : [];
+})();
+
+// Readiness checks ordered so the featured card (calcium, the strongest one)
+// sits in front and the rest peek behind it.
+const PREP_DECK: ReadinessCheckId[] = [
+  'micronutrient',
+  'steady',
+  'antiInflammatory',
+  'woundDown',
+  'calcium',
+];
+
+// Couples cards, mirroring the live "Us vs. the PMS" shelf (gradient + heart
+// backdrop). Replicated rather than imported so this does not depend on the
+// couples WIP; the featured card ("Is it PMS or real?") sits in front.
+type CoupleItem = { tag: string; title: string; sub: string; gradient: readonly [string, string, string] };
+const PLAN_COUPLE_DECK: CoupleItem[] = [
+  {
+    tag: 'Words',
+    title: 'Texts you can share',
+    sub: 'The right words, in your own tone',
+    // Pink.
+    gradient: ['hsl(330, 50%, 33%)', 'hsl(338, 48%, 34%)', 'hsl(346, 46%, 35%)'],
+  },
+  {
+    tag: 'Repair',
+    title: 'How to reconnect',
+    sub: 'Repair after a rough patch',
+    // A different, more magenta pink.
+    gradient: ['hsl(308, 46%, 32%)', 'hsl(318, 44%, 33%)', 'hsl(328, 42%, 34%)'],
+  },
+  {
+    tag: 'Reflect',
+    title: 'Is it PMS or real?',
+    sub: 'Reflect on a fight, together or solo',
+    // Darkish pinkish red (the featured card carries the most weight).
+    gradient: ['hsl(348, 54%, 27%)', 'hsl(354, 52%, 28%)', 'hsl(360, 48%, 29%)'],
+  },
+];
+
+function Plan({
+  answers,
+  update,
+  onDone,
+}: {
+  answers: V3Answers;
+  update: UpdateFn;
+  onDone: () => void;
+}) {
+  const c = answers.cycle;
+  const hasDate = !c.unsure && !!c.lastPeriod;
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const whenTrain = hasDate ? 'Next 3 days' : 'Before your period';
+
+  const addDate = (date: Date) => {
+    update((a) => ({
+      cycle: {
+        ...a.cycle,
+        lastPeriod: toYmd(date),
+        length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
+        unsure: false,
+      },
+    }));
+    setSheetOpen(false);
+  };
+
   return (
     <StepLayout
       topAlign
-      title="Your plan"
-      subtitle="Four ways Niyora works on your PMS"
-      footer={<BeginButton fullWidth label="Start my plan" onPress={onDone} />}
+      footer={
+        <>
+          {!hasDate && (
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setSheetOpen(true);
+              }}
+              style={styles.addPeriodBtn}
+              accessibilityRole="button"
+            >
+              <Text style={styles.addPeriodLabel}>+ Add your period to sharpen the plan</Text>
+            </Pressable>
+          )}
+          <BeginButton fullWidth label="I commit" onPress={onDone} />
+        </>
+      }
     >
-      {/* 1 — train your mind (the emotion game) */}
-      <Animated.View entering={FadeInDown.delay(120).duration(500)} style={styles.cardAnim}>
-        <Panel>
-          <Text style={styles.planStep}>1 · Train your mind</Text>
-          <View style={styles.planTrainRow}>
-            <Orb size={54} tierRingCount={2} ringHues={SOUL_RING_HUES} still />
-            <View style={styles.planItemText}>
-              <Text style={styles.planItemTitle}>Retrain what your brain reacts to</Text>
-              <Text style={styles.planItemSub}>One emotion at a time</Text>
-            </View>
-          </View>
-        </Panel>
+      <Animated.View entering={FadeInDown.delay(80).duration(500)} style={styles.planHead}>
+        <Text style={styles.planTitle}>Your plan</Text>
+        <View style={styles.goalPill}>
+          <Text style={styles.goalPillText}>Goal: keep you calm and safe in PMS</Text>
+        </View>
       </Animated.View>
 
-      {/* 2 — calming activities (from the real activities model) */}
-      <Animated.View entering={FadeInDown.delay(260).duration(500)} style={styles.cardAnim}>
-        <Panel>
-          <Text style={styles.planStep}>2 · Practice a calming activity</Text>
-          {ACTIVITIES.slice(0, 3).map((a) => (
-            <View key={a.id} style={styles.planRow}>
-              <View style={styles.planDot} />
-              <Text style={styles.planItemTitle}>{a.title}</Text>
-            </View>
-          ))}
-          <Text style={styles.planMore}>and more, matched to how you feel</Text>
-        </Panel>
-      </Animated.View>
-
-      {/* 3 — the daily readiness checklist */}
-      <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.cardAnim}>
-        <Panel>
-          <Text style={styles.planStep}>3 · Prep for your PMS window</Text>
-          {READINESS_CHECK_IDS.slice(0, 3).map((id) => (
-            <View key={id} style={styles.planCheckRow}>
-              <View style={styles.planCheck}>
-                <SymbolView name="checkmark" tintColor={v3.accent} size={11} weight="bold" />
-              </View>
-              <View style={styles.planItemText}>
-                <Text style={styles.planItemTitle}>{READINESS_CHECK_CONTENT[id].title}</Text>
-                <Text style={styles.planItemSub}>{READINESS_CHECK_CONTENT[id].examples}</Text>
-              </View>
+      {/* 1 — Train your mind: the real chapter cards, stacked into a deck. */}
+      <Animated.View entering={FadeInDown.delay(180).duration(500)} style={styles.planSection}>
+        <PlanSectionHead
+          when={whenTrain}
+          title="Train your mind"
+          sub="Gamified, science-backed ways to master emotions"
+        />
+        <View style={styles.deck}>
+          {PLAN_DECK.map((chapter, i) => (
+            <View
+              key={chapter.id}
+              style={[
+                { zIndex: i, marginHorizontal: (PLAN_DECK.length - 1 - i) * 7 },
+                i > 0 && styles.deckStack,
+              ]}
+            >
+              <ChapterCard chapter={chapter} training={DEFAULT_TRAINING} onOpen={() => {}} peek />
             </View>
           ))}
-        </Panel>
+        </View>
       </Animated.View>
 
-      {/* 4 — a real research snippet */}
-      <Animated.View entering={FadeInDown.delay(540).duration(500)} style={styles.cardAnim}>
-        <Panel>
-          <Text style={styles.planStep}>4 · Stay up to date with science</Text>
-          <Text style={styles.planItemTitle}>
-            {READINESS_WHY.calcium.name} · {READINESS_WHY.calcium.teaser}
-          </Text>
-          <Text style={styles.planItemSub} numberOfLines={3}>
-            {READINESS_WHY.calcium.why}
-          </Text>
-          <Text style={styles.planSource}>{READINESS_WHY.calcium.sourceLabel}</Text>
-        </Panel>
+      {/* 2 — Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
+      <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.planSection}>
+        <PlanSectionHead
+          when="Before PMS"
+          title="Us vs. the PMS"
+          sub="Keep the two of you on the same side"
+        />
+        <View style={styles.deck}>
+          {PLAN_COUPLE_DECK.map((item, i) => (
+            <View
+              key={item.title}
+              style={[
+                { zIndex: i, marginHorizontal: (PLAN_COUPLE_DECK.length - 1 - i) * 7 },
+                i > 0 && styles.deckStack,
+              ]}
+            >
+              <PlanCoupleCard item={item} />
+            </View>
+          ))}
+        </View>
       </Animated.View>
+
+      {/* 3 — PMS prep checklist: real checklist items stacked, calcium in front. */}
+      <Animated.View entering={FadeInDown.delay(420).duration(500)} style={styles.planSection}>
+        <PlanSectionHead
+          when="During PMS"
+          title="PMS prep checklist"
+          sub="Simple, science-backed ways to ease the week"
+        />
+        <View style={styles.deck}>
+          {PREP_DECK.map((id, i) => (
+            <View
+              key={id}
+              style={[
+                { zIndex: i, marginHorizontal: (PREP_DECK.length - 1 - i) * 6 },
+                i > 0 && styles.prepStack,
+              ]}
+            >
+              <PrepCard id={id} />
+            </View>
+          ))}
+        </View>
+      </Animated.View>
+
+      {/* 4 — Explore your power move: the real calm cards (CardScene), horizontal. */}
+      <Animated.View entering={FadeInDown.delay(540).duration(500)} style={styles.planSection}>
+        <PlanSectionHead
+          when="Whenever you need"
+          title="Explore your power move"
+          sub="30+ ways to calm in a minute"
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.calmStrip}
+        >
+          {POWER_MOVE_CARDS.slice(0, 8).map((card) => (
+            <View key={card.id} style={styles.calmCard}>
+              <View style={StyleSheet.absoluteFill}>
+                <CardScene card={card} active={false} />
+              </View>
+              <View style={styles.calmFooter}>
+                <Text style={styles.calmTitle} numberOfLines={2}>
+                  {card.title}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </Animated.View>
+
+      <PeriodSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onConfirm={addDate}
+        onPeriodLengthChange={(len) => update((a) => ({ cycle: { ...a.cycle, periodLength: len } }))}
+        onCycleLengthChange={(len) => update((a) => ({ cycle: { ...a.cycle, length: len } }))}
+        markedDates={c.lastPeriod ? [c.lastPeriod] : []}
+        periodLength={c.periodLength ?? DEFAULT_PERIOD_LENGTH}
+        cycleLength={c.length ?? DEFAULT_CYCLE_LENGTH}
+        title="When did your last period start?"
+        confirmExisting
+      />
     </StepLayout>
+  );
+}
+
+// A section header: the "when" line, the feature title, and a one-line sub.
+function PlanSectionHead({ when, title, sub }: { when: string; title: string; sub: string }) {
+  return (
+    <View style={styles.sectionHead}>
+      <Text style={styles.planWhen}>{when}</Text>
+      <Text style={styles.planSectionTitle}>{title}</Text>
+      <Text style={styles.planSectionSub}>{sub}</Text>
+    </View>
+  );
+}
+
+// One readiness item as a card, for the stacked prep deck.
+function PrepCard({ id }: { id: ReadinessCheckId }) {
+  const item = READINESS_CHECK_CONTENT[id];
+  return (
+    <View style={styles.prepCard}>
+      <View style={styles.prepCheck}>
+        <SymbolView name="checkmark" tintColor={v3.accent} size={12} weight="bold" />
+      </View>
+      <View style={styles.planItemText}>
+        <Text style={styles.prepTitle}>{item.title}</Text>
+        <Text style={styles.planItemSub} numberOfLines={1}>
+          {item.examples}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+// A couples card, mirroring the live "Us vs. the PMS" shelf card (gradient field
+// + heart backdrop). Tagless so it stacks cleanly in the deck.
+function PlanCoupleCard({ item }: { item: CoupleItem }) {
+  return (
+    <View style={styles.coupleGradCard}>
+      <LinearGradient
+        colors={item.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View pointerEvents="none" style={styles.coupleBackdrop}>
+        <SymbolView
+          name="heart.fill"
+          tintColor="rgba(255, 255, 255, 0.15)"
+          size={104}
+          weight="semibold"
+          style={styles.coupleHeartTR}
+        />
+        <SymbolView
+          name="heart.fill"
+          tintColor="rgba(255, 255, 255, 0.1)"
+          size={58}
+          weight="semibold"
+          style={styles.coupleHeartBL}
+        />
+      </View>
+      <View style={styles.coupleGradRow}>
+        <View style={styles.planItemText}>
+          <Text style={styles.coupleGradTitle}>{item.title}</Text>
+          <Text style={styles.coupleGradSub}>{item.sub}</Text>
+        </View>
+        <SymbolView
+          name="chevron.right"
+          tintColor="rgba(255, 255, 255, 0.7)"
+          size={14}
+          weight="semibold"
+        />
+      </View>
+    </View>
   );
 }
 
@@ -1848,7 +2069,55 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.textPrimary,
   },
-  // Plan hand-off: four glimpse cards.
+  // Plan hand-off.
+  planHead: { alignItems: 'center', marginBottom: 18 },
+  planTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    marginBottom: 10,
+  },
+  goalPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(150, 120, 235, 0.16)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(150, 120, 235, 0.3)',
+  },
+  goalPillText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  planSection: { width: '100%', marginBottom: 26 },
+  sectionHead: { marginBottom: 12 },
+  planWhen: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: v3.accent,
+    marginBottom: 4,
+  },
+  planSectionTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 19,
+    lineHeight: 24,
+    color: colors.textPrimary,
+    letterSpacing: 0.15,
+  },
+  planSectionSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.textSubtitle,
+    marginTop: 3,
+  },
+  // A step label inside a card (e.g. "PMS day prep").
   planStep: {
     fontFamily: 'Poppins-Medium',
     fontSize: 13,
@@ -1857,12 +2126,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   planItemText: { flex: 1 },
-  planItemTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14.5,
-    lineHeight: 20,
-    color: colors.textPrimary,
-  },
   planItemSub: {
     fontFamily: 'Poppins-Light',
     fontSize: 13,
@@ -1870,33 +2133,101 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     marginTop: 2,
   },
-  planTrainRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  planDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: v3.accent },
-  planMore: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12.5,
-    color: colors.textTagline,
-    marginTop: 2,
+  // Chapter deck: the featured card in front, the rest peeking as slivers behind
+  // it. Tight overlap so only the top edge of each back card shows.
+  deck: { width: '100%' },
+  deckStack: { marginTop: -102 },
+
+  // Prep deck: readiness items as cards, calcium in front, the rest peeking as a
+  // very thin edge (reads as "and more", not a countable list).
+  prepStack: { marginTop: -68 },
+  prepCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 74,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: '#221a33',
   },
-  planCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  planCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  prepCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(150, 120, 235, 0.4)',
-    backgroundColor: 'rgba(150, 120, 235, 0.12)',
+    backgroundColor: 'rgba(150, 120, 235, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  planSource: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.textTagline,
-    marginTop: 8,
-    fontStyle: 'italic',
+  prepTitle: { fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textPrimary },
+
+  // Power-move shelf: the real calm cards (CardScene) as horizontal posters.
+  calmStrip: { gap: 10, paddingVertical: 2, paddingRight: 8 },
+  calmCard: {
+    width: 118,
+    height: 166,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    justifyContent: 'flex-end',
+    backgroundColor: v3.panel,
+  },
+  calmFooter: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(12, 10, 20, 0.42)',
+  },
+  calmTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    lineHeight: 17,
+    color: '#ffffff',
+    letterSpacing: 0.1,
+  },
+
+  // Couples deck: gradient cards mirroring the live "Us vs. the PMS" shelf.
+  coupleGradCard: {
+    width: '100%',
+    minHeight: 120,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  coupleBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
+  coupleHeartTR: { position: 'absolute', top: -18, right: -12, transform: [{ rotate: '16deg' }] },
+  coupleHeartBL: { position: 'absolute', bottom: -16, left: -12, transform: [{ rotate: '-12deg' }] },
+  coupleGradRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  coupleGradTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 20,
+    lineHeight: 25,
+    color: '#ffffff',
+    letterSpacing: 0.15,
+  },
+  coupleGradSub: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: 'rgba(255, 255, 255, 0.72)',
+    marginTop: 3,
+  },
+  addPeriodBtn: { alignSelf: 'center', paddingVertical: 12, marginBottom: 2 },
+  addPeriodLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: v3.accent,
+    letterSpacing: 0.2,
   },
 
   // Completion / congrats beat

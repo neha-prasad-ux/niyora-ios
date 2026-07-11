@@ -352,7 +352,7 @@ function CouplesCard({ onOpen }: { onOpen: () => void }) {
         style={styles.couplesCard}
         onPress={onOpen}
         accessibilityRole="button"
-        accessibilityLabel="Us vs. the PMS. Get through the hard week as a team. Open."
+        accessibilityLabel="Us vs. the PMS. Get through PMS as a team. Open."
       >
         <LinearGradient
           colors={COUPLES_GRADIENT}
@@ -379,7 +379,7 @@ function CouplesCard({ onOpen }: { onOpen: () => void }) {
         <View style={[styles.calmBody, styles.cardRow]}>
           <View style={styles.cardTextCol}>
             <Text style={styles.calmTitle}>Us vs. the PMS</Text>
-            <Text style={styles.cardSub}>Get through the hard week as a team.</Text>
+            <Text style={styles.cardSub}>Get through PMS as a team.</Text>
           </View>
           <SymbolView
             name="chevron.right"
