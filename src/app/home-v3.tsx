@@ -25,7 +25,11 @@ import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { CHAPTERS } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
-import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
+import {
+  getOnboardingV3Progress,
+  setupCardFor,
+  type SetupCard,
+} from '@/store/onboarding-v3-progress';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
@@ -36,8 +40,9 @@ const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
 export default function HomeV3() {
   const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
-  // Whether she has an unfinished V3 onboarding to pick back up.
-  const [resumeStep, setResumeStep] = useState<number | null>(null);
+  // Which setup card to pin at the top: 'resume' when she left onboarding
+  // partway, 'start' when the app has no PMS read at all, null once done.
+  const [setupCard, setSetupCard] = useState<SetupCard | null>(null);
 
   // Drive the moon's inhale/exhale on a loop. Phase starts on inhale (initial
   // state) and only flips inside a timer, so no synchronous set-state-in-effect.
@@ -70,10 +75,16 @@ export default function HomeV3() {
       getTraining().then((t) => {
         if (alive) setTraining(t);
       });
-      // Surface the "finish setting up" card if she left onboarding partway.
-      getOnboardingV3Progress().then((p) => {
-        if (alive) setResumeStep(p && !p.done && p.stepIndex > 0 ? p.stepIndex : null);
-      });
+      // Surface the setup card whenever the PMS read is missing — she left
+      // onboarding partway, or never started it. On a failed read, err quiet
+      // (no card) rather than nag someone who may have finished.
+      getOnboardingV3Progress()
+        .then((p) => {
+          if (alive) setSetupCard(setupCardFor(p));
+        })
+        .catch(() => {
+          if (alive) setSetupCard(null);
+        });
       return () => {
         alive = false;
       };
@@ -118,14 +129,6 @@ export default function HomeV3() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <Header onPressProfile={() => router.push('/my-soul')} />
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* If she left onboarding partway, the first thing she sees is the way
-              back into it. */}
-          {resumeStep != null && (
-            <Animated.View entering={FadeInDown.duration(500)}>
-              <ResumeCard onPress={resumeOnboarding} />
-            </Animated.View>
-          )}
-
           {/* The soul: a big calm moon, always here. Keeps whatever ring the orb
               itself carries; no wave. */}
           <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
@@ -136,6 +139,15 @@ export default function HomeV3() {
               breathRange={{ min: 0.72, max: 1.16 }}
             />
           </Animated.View>
+
+          {/* Until the app has her PMS read, the way into (or back into)
+              onboarding sits right under the moon, warm against the cool
+              cards below so it draws the eye first. */}
+          {setupCard != null && (
+            <Animated.View entering={FadeInDown.delay(60).duration(500)}>
+              <ResumeCard variant={setupCard} onPress={resumeOnboarding} />
+            </Animated.View>
+          )}
 
           {/* Train your mind: one summary card that opens the chapters page,
               where she picks an emotion and trains it one at a time. */}
@@ -172,25 +184,45 @@ export default function HomeV3() {
 
 // --- Cards -------------------------------------------------------------
 
-// Resume onboarding · shown only when she left the PMS read unfinished. A violet
-// field ties it to the onboarding world; the whole card taps back into it.
+// Setup card · shown until the PMS read is done; the whole card taps into
+// onboarding. Orchid-magenta: the one hue band (300-330) no other card uses,
+// echoing the soul's innermost pink ring, at the same muted depth as the rest
+// of the shelf — the unique hue and the spot under the moon do the drawing.
 const RESUME_GRADIENT: readonly [string, string, string] = [
-  'hsl(268, 44%, 30%)',
-  'hsl(284, 42%, 31%)',
-  'hsl(300, 40%, 32%)',
+  'hsl(300, 46%, 31%)',
+  'hsl(316, 46%, 33%)',
+  'hsl(330, 46%, 34%)',
 ];
 
-function ResumeCard({ onPress }: { onPress: () => void }) {
+// Copy per variant: 'resume' welcomes her back to a read in progress; 'start'
+// invites a first read. Same card, same tap target, same spot at the top.
+const SETUP_COPY = {
+  resume: {
+    tag: 'Finish setup',
+    title: 'Know your PMS level',
+    sub: 'Pick up where you left off.',
+    a11y: 'Finish setup. Know your PMS level. Pick up where you left off.',
+  },
+  start: {
+    tag: 'Start here',
+    title: 'Know your PMS level',
+    sub: 'A few quick questions unlock your plan.',
+    a11y: 'Start setup. Know your PMS level. A few quick questions unlock your plan.',
+  },
+} as const;
+
+function ResumeCard({ variant, onPress }: { variant: SetupCard; onPress: () => void }) {
+  const copy = SETUP_COPY[variant];
   return (
     <View style={styles.resumeWrap}>
       <View style={styles.resumeTag}>
-        <Text style={styles.tagText}>Finish setup</Text>
+        <Text style={styles.tagText}>{copy.tag}</Text>
       </View>
       <Pressable
         style={styles.resumeCard}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel="Finish setting up. Pick up where you left off."
+        accessibilityLabel={copy.a11y}
       >
         <LinearGradient
           colors={RESUME_GRADIENT}
@@ -200,8 +232,8 @@ function ResumeCard({ onPress }: { onPress: () => void }) {
         />
         <View style={[styles.resumeBody, styles.cardRow]}>
           <View style={styles.cardTextCol}>
-            <Text style={styles.resumeTitle}>Pick up where you left off</Text>
-            <Text style={styles.cardSub}>Finish your PMS read to unlock your plan.</Text>
+            <Text style={styles.resumeTitle}>{copy.title}</Text>
+            <Text style={styles.cardSub}>{copy.sub}</Text>
           </View>
           <SymbolView
             name="chevron.right"
@@ -452,7 +484,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     marginBottom: -10,
     zIndex: 2,
-    backgroundColor: 'rgba(168, 120, 210, 0.95)',
+    backgroundColor: 'rgba(196, 110, 170, 0.95)',
   },
   resumeCard: {
     minHeight: 88,
