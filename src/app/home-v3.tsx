@@ -24,7 +24,7 @@ import { type RecResult } from '@/models/recommend';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
-import { CHAPTERS } from '@/v3/game-content';
+import { trainSummary } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 import {
   getOnboardingV3Progress,
@@ -310,24 +310,6 @@ const TRAIN_GRADIENT: readonly [string, string, string] = [
   'hsl(276, 42%, 30%)',
   'hsl(292, 40%, 31%)',
 ];
-
-// The next thing to do across all chapters: continue the one in progress, else
-// start the first untouched one, else everything is done.
-function trainSummary(training: TrainingState): { statusWord: string; detail: string } {
-  const inProgress = CHAPTERS.find((c) => {
-    const done = c.levels.filter((l) => training.completed.includes(l.id)).length;
-    return done > 0 && done < c.levels.length;
-  });
-  if (inProgress) {
-    const idx = inProgress.levels.findIndex((l) => !training.completed.includes(l.id));
-    return { statusWord: 'Continue', detail: `${inProgress.emotion}, Level ${inProgress.levels[idx].n}` };
-  }
-  const untouched = CHAPTERS.find((c) => !c.levels.some((l) => training.completed.includes(l.id)));
-  if (untouched) {
-    return { statusWord: 'Start', detail: `Begin with ${untouched.emotion}` };
-  }
-  return { statusWord: 'Complete', detail: 'You have trained them all' };
-}
 
 function TrainCard({ training, onOpen }: { training: TrainingState; onOpen: () => void }) {
   const { statusWord, detail } = trainSummary(training);

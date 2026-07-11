@@ -5,6 +5,7 @@ import {
   L5_REORDER,
   CHAPTERS,
   getChapter,
+  trainSummary,
   type Chapter,
 } from './game-content';
 
@@ -136,5 +137,34 @@ describe('game-content voice + copy rules', () => {
       // No emoji (basic pictographic ranges).
       expect(line).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
     }
+  });
+});
+
+describe('trainSummary', () => {
+  it('starts the first chapter when nothing is done', () => {
+    const s = trainSummary({ completed: [] });
+    expect(s.statusWord).toBe('Start');
+    expect(s.next).toEqual({ chapterId: CHAPTERS[0].id, levelId: CHAPTERS[0].levels[0].id, n: 1 });
+  });
+
+  it('continues an in-progress chapter at its first incomplete level', () => {
+    const done = CHAPTERS[0].levels.slice(0, 2).map((l) => l.id);
+    const s = trainSummary({ completed: done });
+    expect(s.statusWord).toBe('Continue');
+    expect(s.next?.levelId).toBe(CHAPTERS[0].levels[2].id);
+    expect(s.detail).toContain('Level 3');
+  });
+
+  it('prefers the in-progress chapter over untouched ones', () => {
+    const done = CHAPTERS[1].levels.slice(0, 1).map((l) => l.id);
+    const s = trainSummary({ completed: done });
+    expect(s.next?.chapterId).toBe(CHAPTERS[1].id);
+  });
+
+  it('reports complete with no next when every level is done', () => {
+    const all = CHAPTERS.flatMap((c) => c.levels.map((l) => l.id));
+    const s = trainSummary({ completed: all });
+    expect(s.statusWord).toBe('Complete');
+    expect(s.next).toBeNull();
   });
 });

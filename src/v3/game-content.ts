@@ -1216,3 +1216,36 @@ export function getChapter(id?: string): Chapter {
   return CHAPTERS.find((c) => c.id === id) ?? IRRITABILITY;
 }
 
+// The next thing to do across all chapters: continue the one in progress, else
+// start the first untouched one, else everything is done. `next` names the
+// concrete target level so callers (the Grow shelf, the Now tab's train action)
+// can deep-link straight into it.
+export function trainSummary(training: { completed: string[] }): {
+  statusWord: 'Continue' | 'Start' | 'Complete';
+  detail: string;
+  next: { chapterId: string; levelId: string; n: number } | null;
+} {
+  const inProgress = CHAPTERS.find((c) => {
+    const done = c.levels.filter((l) => training.completed.includes(l.id)).length;
+    return done > 0 && done < c.levels.length;
+  });
+  if (inProgress) {
+    const level = inProgress.levels.find((l) => !training.completed.includes(l.id))!;
+    return {
+      statusWord: 'Continue',
+      detail: `${inProgress.emotion}, Level ${level.n}`,
+      next: { chapterId: inProgress.id, levelId: level.id, n: level.n },
+    };
+  }
+  const untouched = CHAPTERS.find((c) => !c.levels.some((l) => training.completed.includes(l.id)));
+  if (untouched) {
+    const level = untouched.levels[0];
+    return {
+      statusWord: 'Start',
+      detail: `Begin with ${untouched.emotion}`,
+      next: { chapterId: untouched.id, levelId: level.id, n: level.n },
+    };
+  }
+  return { statusWord: 'Complete', detail: 'You have trained them all', next: null };
+}
+

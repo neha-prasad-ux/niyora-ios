@@ -1,0 +1,346 @@
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+}));
+
+import {
+  cycleStateLine,
+  derivePhase,
+  isRingClosed,
+  periodButtonState,
+  pickTodayAction,
+  todayRingProgress,
+  weakestLever,
+  type TodayActionInput,
+} from './today-action';
+import { DEFAULT_PMS_PREFS, type PmsPrefs } from '@/store/pms-prefs';
+import { freshReadiness, todayYmd, type ReadinessChecks } from '@/store/pms-readiness';
+import { DEFAULT_TRAINING } from '@/store/training-v3';
+import { EMPTY_ANSWERS } from '@/v3/v3-content';
+import { CHAPTERS } from '@/v3/game-content';
+import type { PmsRead } from '@/store/pms-reads';
+
+// Fixed cycle for the whole suite: period started 2026-01-01, 28-day cycle.
+// Next predicted period: Jan 29. PMS window: Jan 22-28. Grace: Jan 29-31.
+const PREFS: PmsPrefs = { pmsMode: true, lastPeriodStart: '2026-01-01', cycleLength: 28 };
+
+function read(levers: Record<string, number> = {}, at = '2026-01-02'): PmsRead {
+  return { at, answers: { ...EMPTY_ANSWERS, levers } };
+}
+
+function input(overrides: Partial<TodayActionInput> & { now: Date }): TodayActionInput {
+  return {
+    prefs: PREFS,
+    reads: [read()],
+    readiness: freshReadiness(todayYmd(overrides.now)),
+    calmDoneToday: false,
+    training: DEFAULT_TRAINING,
+    remissionAnsweredThisCycle: false,
+    lastAction: null,
+    dismissedDate: null,
+    ...overrides,
+  };
+}
+
+function withChecks(now: Date, done: Partial<ReadinessChecks>) {
+  const r = freshReadiness(todayYmd(now));
+  return { ...r, checks: { ...r.checks, ...done } };
+}
+
+const morning = (y: number, m: number, d: number) => new Date(y, m - 1, d, 9, 0);
+const evening = (y: number, m: number, d: number) => new Date(y, m - 1, d, 18, 0);
+
+describe('derivePhase', () => {
+  it('is setup until a read exists', () => {
+    expect(derivePhase(PREFS, false, morning(2026, 1, 25))).toBe('setup');
+  });
+
+  it('maps offsets onto the ladder', () => {
+    expect(derivePhase(PREFS, true, morning(2026, 1, 21))).toBe('prep'); // offset -8, 1 day to window
+    expect(derivePhase(PREFS, true, morning(2026, 1, 22))).toBe('window'); // offset -7
+    expect(derivePhase(PREFS, true, morning(2026, 1, 28))).toBe('window'); // offset -1
+    expect(derivePhase(PREFS, true, morning(2026, 1, 29))).toBe('period'); // offset 0
+    expect(derivePhase(PREFS, true, morning(2026, 1, 31))).toBe('period'); // offset +2
+    expect(derivePhase(PREFS, true, morning(2026, 2, 1))).toBe('open'); // offset +3
+    expect(derivePhase(PREFS, true, morning(2026, 1, 15))).toBe('prep'); // 7 days to window
+    expect(derivePhase(PREFS, true, morning(2026, 1, 14))).toBe('open'); // 8 days to window
+  });
+
+  it('is open when PMS mode is off or the anchor is missing', () => {
+    expect(derivePhase(DEFAULT_PMS_PREFS, true, morning(2026, 1, 25))).toBe('open');
+    expect(
+      derivePhase({ ...PREFS, lastPeriodStart: null }, true, morning(2026, 1, 25)),
+    ).toBe('open');
+  });
+});
+
+describe('weakestLever', () => {
+  it('returns null with no reads or no weak levers', () => {
+    expect(weakestLever([])).toBeNull();
+    expect(weakestLever([read({ sleep: 2, food: 2, movement: 2 })])).toBeNull();
+    expect(weakestLever([read({})])).toBeNull(); // unanswered defaults high
+  });
+
+  it('picks the lowest score', () => {
+    expect(weakestLever([read({ sleep: 1, food: 0 })])).toBe('food');
+  });
+
+  it('breaks ties by evidence strength: movement > sleep > food', () => {
+    expect(weakestLever([read({ sleep: 1, food: 1, movement: 1 })])).toBe('movement');
+    expect(weakestLever([read({ sleep: 0, food: 0 })])).toBe('sleep');
+  });
+
+  it('reads the latest read, not the baseline', () => {
+    expect(weakestLever([read({ sleep: 0 }), read({ food: 0, sleep: 2 })])).toBe('food');
+  });
+});
+
+describe('pickTodayAction: setup and window', () => {
+  it('asks for the assessment before anything else', () => {
+    const a = pickTodayAction(input({ now: morning(2026, 1, 25), reads: [] }));
+    expect(a.kind).toBe('assessment');
+    expect(a.route).toBe('/onboarding-v3');
+  });
+
+  it('window morning with food lever weak asks the first food check', () => {
+    const a = pickTodayAction(input({ now: morning(2026, 1, 25), reads: [read({ food: 0 })] }));
+    expect(a.id).toBe('readiness:calcium');
+  });
+
+  it('window morning with sleep lever weak still leads food-first', () => {
+    const a = pickTodayAction(input({ now: morning(2026, 1, 25), reads: [read({ sleep: 0 })] }));
+    expect(a.id).toBe('readiness:calcium');
+  });
+
+  it('window evening with sleep lever weak asks the wind-down', () => {
+    const a = pickTodayAction(input({ now: evening(2026, 1, 25), reads: [read({ sleep: 0 })] }));
+    expect(a.id).toBe('readiness:woundDown');
+  });
+
+  it('flips at 17:00 exactly', () => {
+    const at1659 = new Date(2026, 0, 25, 16, 59);
+    const at1700 = new Date(2026, 0, 25, 17, 0);
+    const reads = [read({ sleep: 0 })];
+    expect(pickTodayAction(input({ now: at1659, reads })).id).toBe('readiness:calcium');
+    expect(pickTodayAction(input({ now: at1700, reads })).id).toBe('readiness:woundDown');
+  });
+
+  it('asks for the calming practice once all five checks are done', () => {
+    const now = morning(2026, 1, 25);
+    const readiness = withChecks(now, {
+      calcium: true,
+      micronutrient: true,
+      steady: true,
+      antiInflammatory: true,
+      woundDown: true,
+    });
+    const a = pickTodayAction(input({ now, readiness }));
+    expect(a.kind).toBe('session');
+    expect(a.id).toBe('session:calm');
+  });
+
+  it('is done once she taps done-for-today', () => {
+    const now = morning(2026, 1, 25);
+    const readiness = { ...freshReadiness(todayYmd(now)), doneForToday: true };
+    const inp = input({ now, readiness });
+    const a = pickTodayAction(inp);
+    expect(a.kind).toBe('done');
+    expect(isRingClosed(inp, a)).toBe(true);
+  });
+});
+
+describe('pickTodayAction: period', () => {
+  it('asks to confirm the period while unconfirmed', () => {
+    // Anchor is Jan 1, so on Jan 29 the projected period is unconfirmed.
+    const a = pickTodayAction(input({ now: morning(2026, 1, 29) }));
+    expect(a.id).toBe('checkin:period-confirm');
+    expect(a.route).toBe(''); // screen intercepts
+  });
+
+  it('asks remission once the period is confirmed', () => {
+    const prefs = { ...PREFS, lastPeriodStart: '2026-01-29' };
+    const a = pickTodayAction(input({ now: morning(2026, 1, 30), prefs }));
+    expect(a.id).toBe('checkin:remission');
+  });
+
+  it('falls to a gentle practice once remission is answered', () => {
+    const prefs = { ...PREFS, lastPeriodStart: '2026-01-29' };
+    const a = pickTodayAction(
+      input({ now: morning(2026, 1, 30), prefs, remissionAnsweredThisCycle: true }),
+    );
+    expect(a.id).toBe('session:gentle');
+  });
+
+  it('suppresses the ask and closes the ring after a dismissal', () => {
+    const now = morning(2026, 1, 29);
+    const inp = input({ now, dismissedDate: todayYmd(now) });
+    const a = pickTodayAction(inp);
+    expect(a.id).toBe('session:gentle');
+    expect(isRingClosed(inp, a)).toBe(true);
+  });
+
+  it('never asks check-ins in the evening', () => {
+    const a = pickTodayAction(input({ now: evening(2026, 1, 29) }));
+    expect(a.id).toBe('session:gentle');
+  });
+});
+
+describe('pickTodayAction: prep', () => {
+  const prepMorning = morning(2026, 1, 19); // 3 days to window
+  const prepEvening = evening(2026, 1, 19);
+
+  it('sleep lever: plan an early night in the morning, wind down at night', () => {
+    const reads = [read({ sleep: 0 })];
+    const am = pickTodayAction(input({ now: prepMorning, reads }));
+    expect(am.id).toBe('prep:woundDown');
+    expect(am.title).toBe('Plan an early night');
+    const pm = pickTodayAction(input({ now: prepEvening, reads }));
+    expect(pm.id).toBe('prep:woundDown');
+    expect(pm.title).toBe('Wind down early tonight');
+  });
+
+  it('food lever: calcium in the morning, steady dinner at night', () => {
+    const reads = [read({ food: 0 })];
+    expect(pickTodayAction(input({ now: prepMorning, reads })).id).toBe('prep:calcium');
+    const pm = pickTodayAction(input({ now: prepEvening, reads }));
+    expect(pm.id).toBe('prep:steady');
+    expect(pm.title).toBe('Steady dinner, no sugar crash');
+  });
+
+  it('movement lever falls back to training until its content exists', () => {
+    const a = pickTodayAction(input({ now: prepMorning, reads: [read({ movement: 0 })] }));
+    expect(a.kind).toBe('train');
+    expect(a.route).toContain('/game-v3');
+  });
+
+  it('no weak lever: train in the morning, practice in the evening', () => {
+    const reads = [read({ sleep: 2, food: 2, movement: 2 })];
+    expect(pickTodayAction(input({ now: prepMorning, reads })).kind).toBe('train');
+    expect(pickTodayAction(input({ now: prepEvening, reads })).id).toBe('session:practice');
+  });
+
+  it('rotates away from yesterday\'s ask when alternatives exist', () => {
+    const reads = [read({ food: 0 })];
+    const lastAction = { date: '2026-01-18', id: 'prep:calcium' };
+    const a = pickTodayAction(input({ now: prepMorning, reads, lastAction }));
+    expect(a.id).toBe('prep:micronutrient');
+  });
+
+  it('does not rotate for older memories', () => {
+    const reads = [read({ food: 0 })];
+    const lastAction = { date: '2026-01-15', id: 'prep:calcium' };
+    const a = pickTodayAction(input({ now: prepMorning, reads, lastAction }));
+    expect(a.id).toBe('prep:calcium');
+  });
+});
+
+describe('pickTodayAction: open', () => {
+  it('continues training when levels remain', () => {
+    const a = pickTodayAction(input({ now: morning(2026, 1, 10) }));
+    expect(a.kind).toBe('train');
+    expect(a.title).toContain('Start');
+  });
+
+  it('falls back to a practice when training is complete', () => {
+    const training = {
+      ...DEFAULT_TRAINING,
+      completed: CHAPTERS.flatMap((c) => c.levels.map((l) => l.id)),
+    };
+    const a = pickTodayAction(input({ now: morning(2026, 1, 10), training }));
+    expect(a.id).toBe('session:practice');
+  });
+});
+
+describe('ring progress', () => {
+  it('window readiness counts all six preps', () => {
+    const now = morning(2026, 1, 25);
+    const readiness = withChecks(now, { calcium: true, steady: true });
+    const inp = input({ now, readiness });
+    const a = pickTodayAction(inp);
+    expect(a.kind).toBe('readiness');
+    expect(todayRingProgress(inp, a)).toBeCloseTo(2 / 6);
+  });
+
+  it('prep ring closes on the single named check', () => {
+    const now = evening(2026, 1, 19);
+    const reads = [read({ sleep: 0 })];
+    const open = input({ now, reads });
+    const a = pickTodayAction(open);
+    expect(todayRingProgress(open, a)).toBe(0);
+    const done = input({ now, reads, readiness: withChecks(now, { woundDown: true }) });
+    expect(todayRingProgress(done, a)).toBe(1);
+  });
+
+  it('train ring closes only on a level completed today', () => {
+    const now = morning(2026, 1, 10);
+    const inp = input({
+      now,
+      training: { ...DEFAULT_TRAINING, completed: ['irr-l1'], lastCompletedOn: todayYmd(now) },
+    });
+    const a = pickTodayAction(inp);
+    expect(a.kind).toBe('train');
+    expect(todayRingProgress(inp, a)).toBe(1);
+    const stale = input({
+      now,
+      training: { ...DEFAULT_TRAINING, completed: ['irr-l1'], lastCompletedOn: '2026-01-09' },
+    });
+    expect(todayRingProgress(stale, pickTodayAction(stale))).toBe(0);
+  });
+
+  it('assessment ring closes when a read lands today', () => {
+    const now = morning(2026, 1, 25);
+    const inp = input({ now, reads: [] });
+    const a = pickTodayAction(inp);
+    const after = input({ now, reads: [read({}, todayYmd(now))] });
+    expect(todayRingProgress(inp, a)).toBe(0);
+    expect(todayRingProgress(after, a)).toBe(1);
+  });
+});
+
+describe('cycleStateLine', () => {
+  it('is null when PMS mode is off', () => {
+    expect(cycleStateLine(DEFAULT_PMS_PREFS, morning(2026, 1, 25))).toBeNull();
+  });
+
+  it('names the day and the window state', () => {
+    expect(cycleStateLine(PREFS, morning(2026, 1, 25))).toBe('Day 25 · in your PMS window');
+    expect(cycleStateLine(PREFS, morning(2026, 1, 19))).toBe(
+      'Day 19 · PMS window opens in 3 days',
+    );
+    expect(cycleStateLine(PREFS, morning(2026, 1, 21))).toBe('Day 21 · PMS window opens tomorrow');
+    expect(cycleStateLine(PREFS, morning(2026, 1, 29))).toBe('Day 1 · period days');
+    expect(cycleStateLine(PREFS, morning(2026, 1, 10))).toBe('Day 10 · next window in 12 days');
+  });
+});
+
+describe('periodButtonState', () => {
+  it('stays quiet mid-cycle and once confirmed', () => {
+    expect(periodButtonState(PREFS, morning(2026, 1, 10))).toEqual({
+      label: 'Add periods',
+      emphasized: false,
+    });
+    const confirmed = { ...PREFS, lastPeriodStart: '2026-01-29' };
+    expect(periodButtonState(confirmed, morning(2026, 1, 30)).emphasized).toBe(false);
+  });
+
+  it('never reads early-cycle days as a late period', () => {
+    // Day 10 after a logged Jan 1 start: offset is +9 vs her own anchor, which
+    // is days-since-period, not lateness.
+    expect(periodButtonState(PREFS, morning(2026, 1, 10)).emphasized).toBe(false);
+    expect(periodButtonState(PREFS, morning(2026, 1, 14)).emphasized).toBe(false);
+  });
+
+  it('prompts around the predicted start', () => {
+    expect(periodButtonState(PREFS, morning(2026, 1, 27))).toEqual({
+      label: 'Period arrived? Add it',
+      emphasized: true,
+    }); // offset -2
+    expect(periodButtonState(PREFS, morning(2026, 1, 31)).emphasized).toBe(true); // offset +2
+  });
+
+  it('admits the prediction may be off once clearly late', () => {
+    const s = periodButtonState(PREFS, morning(2026, 2, 3)); // offset +5
+    expect(s.label).toBe('Running late? Log it when it arrives');
+    expect(s.emphasized).toBe(true);
+  });
+});
