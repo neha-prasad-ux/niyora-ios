@@ -18,9 +18,11 @@ import {
 const APP_VOICE: string[] = [
   ...COUPLES_QUIZ.map((q) => q.question),
   QUIZ_RESULT.pms.title,
-  QUIZ_RESULT.pms.body,
+  QUIZ_RESULT.pms.takeaway,
+  ...QUIZ_RESULT.pms.points,
   QUIZ_RESULT.real.title,
-  QUIZ_RESULT.real.body,
+  QUIZ_RESULT.real.takeaway,
+  ...QUIZ_RESULT.real.points,
   QUIZ_FOOTER,
   ...PREP_QUESTIONS.flatMap((q) => [q.question, q.ifYes]),
   ...CORE_PREP_ITEMS.map((c) => c.label),

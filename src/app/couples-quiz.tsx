@@ -1,7 +1,9 @@
 // "Is it PMS or a real issue?" Built on the game's Level-1 shell exactly: a heart
 // hero intro, a segmented top bar over a big centered question, two large bottom
-// choice buttons, and a congrats-style result. A heart stands where the soul-orb
-// stands in the game. Every answer votes (scoreQuiz); the result names PMS-
+// choice buttons, and a skimmable result (verdict title, one-line takeaway, a
+// card of three moves, the decide-when-calm rule as a caption). A heart stands
+// where the soul-orb stands in the game intro; the result page has no icon so
+// the verdict itself leads. Every answer votes (scoreQuiz); the result names PMS-
 // amplified vs a real issue, ties resolving to "real" so a genuine issue is never
 // dismissed, and closes with the decide-when-calm rule.
 
@@ -137,18 +139,21 @@ export default function CouplesQuizScreen() {
           </Animated.View>
         )}
 
-        {stage === 'result' && (
+        {stage === 'result' && side != null && (
           <View style={styles.body}>
             <ScrollView contentContainerStyle={styles.congratsScroll} showsVerticalScrollIndicator={false}>
-              <Animated.View entering={FadeIn.duration(320)} style={styles.center}>
-                <SymbolView name="heart.fill" tintColor={HEART} size={56} weight="semibold" />
-                <Text style={styles.congratsTitle}>{side ? QUIZ_RESULT[side].title : ''}</Text>
-                <View style={styles.congratsCard}>
-                  <Text style={styles.congratsBody}>{side ? QUIZ_RESULT[side].body : ''}</Text>
+              <Animated.View entering={FadeIn.duration(320)} style={styles.resultCenter}>
+                <Text style={styles.resultTitle}>{QUIZ_RESULT[side].title}</Text>
+                <Text style={styles.resultTakeaway}>{QUIZ_RESULT[side].takeaway}</Text>
+                <View style={styles.resultCard}>
+                  {QUIZ_RESULT[side].points.map((point, idx) => (
+                    <View key={point} style={[styles.pointRow, idx > 0 && styles.pointRowGap]}>
+                      <View style={styles.pointDot} />
+                      <Text style={styles.pointText}>{point}</Text>
+                    </View>
+                  ))}
                 </View>
-                <View style={styles.footerCard}>
-                  <Text style={styles.footerText}>{QUIZ_FOOTER}</Text>
-                </View>
+                <Text style={styles.resultFooter}>{QUIZ_FOOTER}</Text>
               </Animated.View>
             </ScrollView>
             <BeginButton fullWidth label="Done" onPress={() => { tap(); setStage('finale'); }} />
@@ -213,46 +218,50 @@ const styles = StyleSheet.create({
   },
   choiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 22, color: '#1a1526' },
 
-  // Result (mirrors the game's LevelCongrats).
+  // Result: a strict ladder. Big verdict title, one-line takeaway, ONE card of
+  // left-aligned skimmable moves (dot per line), then the rule as a bare caption.
   congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 12 },
-  congratsTitle: {
+  resultCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  resultTitle: {
     fontFamily: 'Poppins-SemiBold',
     fontSize: 26,
+    lineHeight: 34,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 8,
   },
-  congratsCard: {
+  resultTakeaway: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 17,
+    lineHeight: 25,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+  },
+  resultCard: {
     alignSelf: 'stretch',
-    marginTop: 4,
     padding: 18,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
-  congratsBody: {
+  pointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  pointRowGap: { marginTop: 14 },
+  pointDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: HEART, marginTop: 8 },
+  pointText: {
+    flex: 1,
     fontFamily: 'Poppins-Light',
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
     color: colors.textPrimary,
-    textAlign: 'center',
   },
-  footerCard: {
-    alignSelf: 'stretch',
-    marginTop: 12,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  footerText: {
+  resultFooter: {
     fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     color: colors.textSubtitle,
     textAlign: 'center',
+    paddingHorizontal: 24,
   },
   restartWrap: { alignItems: 'center', marginTop: 14 },
   restart: { fontFamily: 'Poppins-Regular', fontSize: 14, color: colors.textTagline, letterSpacing: 0.3 },

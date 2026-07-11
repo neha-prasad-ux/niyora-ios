@@ -1,12 +1,13 @@
-// The shared closing page for every couples activity: a big, polished red heart
-// breathing like the home moon, one warm line, and a way out.
+// The shared closing page for every couples activity: a puffy 3D pink heart,
+// drawn in SVG (no image asset) so it stays crisp and breathes like the home moon
+// -- a slow, exhale-biased 4s-in / 6s-out pulse.
 //
-// The heart is built the same way the Orb builds the moon: layered radial
-// gradients clipped to one heart path -- a light-to-deep body (top-left lit,
-// bottom-right in shade), a soft inset shade, and a gentle glossy highlight -- so
-// the sheen lives inside the shape instead of reading as a separate heart. A red
-// halo glows around it (a View shadow on the transparent SVG follows the
-// silhouette). It breathes on the moon's slow 4s-in / 6s-out pulse.
+// Lit like the Orb: layered radial gradients clipped to one heart path. A body
+// lit from the upper-left and deepening to magenta at the edges and bottom, a
+// soft crease shadow in the dip between the lobes, a bottom ambient-occlusion
+// shade, and a BROAD, diffuse highlight up top (the key to the matte 3D look --
+// a small hard highlight reads as a second floating heart). A pink halo glows
+// behind it (a View shadow on the transparent SVG follows the silhouette).
 
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -23,10 +24,12 @@ import Svg, { Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 import { BeginButton } from '@/components/begin-button';
 import { colors } from '@/theme/colors';
 
-const SIZE = 200;
-// A full, solid heart silhouette in a 24x24 box.
+const SIZE = 220;
+// A plump, rounded heart. Same silhouette as before, but the bottom tip is lifted
+// and flattened (82 -> 80, controls pulled in) so it reads as a soft round rather
+// than a sharp spike. Bounding box roughly x:[8,92] y:[8,80] in a 100x92 box.
 const HEART =
-  'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z';
+  'M50 80 C 31 69, 8 50, 8 31 C 8 18, 18 8, 31 8 C 40 8, 47 13, 50 21 C 53 13, 60 8, 69 8 C 82 8, 92 18, 92 31 C 92 50, 69 69, 50 80 Z';
 
 export function CouplesFinale({ line, onDone }: { line: string; onDone: () => void }) {
   // Breathe like the moon: grow on a 4s inhale, settle on a longer 6s exhale.
@@ -50,29 +53,54 @@ export function CouplesFinale({ line, onDone }: { line: string; onDone: () => vo
     <View style={styles.wrap}>
       <View style={styles.center}>
         <Animated.View style={[styles.glow, heartStyle]}>
-          <Svg width={SIZE} height={SIZE} viewBox="0 0 24 24">
+          <Svg width={SIZE} height={SIZE * 0.92} viewBox="0 0 100 92">
             <Defs>
-              {/* Body: lit at the top-left, deep red toward the bottom-right. */}
-              <RadialGradient id="heartBody" cx="0.35" cy="0.28" r="0.85">
-                <Stop offset="0" stopColor="hsl(350, 92%, 78%)" />
-                <Stop offset="0.45" stopColor="hsl(348, 84%, 60%)" />
-                <Stop offset="1" stopColor="hsl(348, 72%, 42%)" />
+              {/* Body: lit from the upper-left, deepening to magenta at the rim. */}
+              <RadialGradient id="hBody" cx="0.36" cy="0.3" r="0.9">
+                <Stop offset="0" stopColor="#eaa8c6" />
+                <Stop offset="0.5" stopColor="#d873a0" />
+                <Stop offset="1" stopColor="#b8437a" />
               </RadialGradient>
-              {/* Inset shade: deepens the lower-right for roundness. */}
-              <RadialGradient id="heartShade" cx="0.72" cy="0.8" r="0.62">
-                <Stop offset="0" stopColor="rgba(50, 0, 12, 0.5)" />
-                <Stop offset="1" stopColor="rgba(50, 0, 12, 0)" />
+              {/* Inner shadows -- all a deep brand rose (never black) so the heart
+                  reads as one soft clay object, shaded from several angles. */}
+              {/* Bottom ambient occlusion: grounds the point. */}
+              <RadialGradient id="hBottom" cx="0.5" cy="0.96" r="0.72">
+                <Stop offset="0" stopColor="#7b244f" stopOpacity="0.5" />
+                <Stop offset="1" stopColor="#7b244f" stopOpacity="0" />
               </RadialGradient>
-              {/* Gloss: a soft highlight up top, fading out (no hard edge). */}
-              <RadialGradient id="heartGloss" cx="0.34" cy="0.22" r="0.42">
-                <Stop offset="0" stopColor="rgba(255, 255, 255, 0.65)" />
-                <Stop offset="0.5" stopColor="rgba(255, 255, 255, 0.14)" />
-                <Stop offset="1" stopColor="rgba(255, 255, 255, 0)" />
+              {/* Core shadow, lower-right: opposite the upper-left key light, so the
+                  form turns away and gains clay-like volume. */}
+              <RadialGradient id="hShadeBR" cx="0.76" cy="0.64" r="0.6">
+                <Stop offset="0" stopColor="#7b244f" stopOpacity="0.34" />
+                <Stop offset="0.7" stopColor="#7b244f" stopOpacity="0.12" />
+                <Stop offset="1" stopColor="#7b244f" stopOpacity="0" />
+              </RadialGradient>
+              {/* Secondary shade, upper-right lobe: a second angle so it isn't flat. */}
+              <RadialGradient id="hShadeTR" cx="0.82" cy="0.3" r="0.42">
+                <Stop offset="0" stopColor="#7b244f" stopOpacity="0.2" />
+                <Stop offset="1" stopColor="#7b244f" stopOpacity="0" />
+              </RadialGradient>
+              {/* Crease: a soft, rounded shadow in the dip between the two lobes.
+                  A darker shade of the body pink (not black) so it reads as shading,
+                  and broad + low-opacity so it blends instead of sitting as a dark spot. */}
+              <RadialGradient id="hCrease" cx="0.5" cy="0.14" r="0.3">
+                <Stop offset="0" stopColor="#7b244f" stopOpacity="0.22" />
+                <Stop offset="0.6" stopColor="#7b244f" stopOpacity="0.1" />
+                <Stop offset="1" stopColor="#7b244f" stopOpacity="0" />
+              </RadialGradient>
+              {/* Highlight: broad and diffuse (not a hard shape) for the matte sheen. */}
+              <RadialGradient id="hGloss" cx="0.33" cy="0.26" r="0.52">
+                <Stop offset="0" stopColor="#fff6fb" stopOpacity="0.42" />
+                <Stop offset="0.5" stopColor="#fff6fb" stopOpacity="0.13" />
+                <Stop offset="1" stopColor="#fff6fb" stopOpacity="0" />
               </RadialGradient>
             </Defs>
-            <Path d={HEART} fill="url(#heartBody)" />
-            <Path d={HEART} fill="url(#heartShade)" />
-            <Path d={HEART} fill="url(#heartGloss)" />
+            <Path d={HEART} fill="url(#hBody)" />
+            <Path d={HEART} fill="url(#hBottom)" />
+            <Path d={HEART} fill="url(#hShadeBR)" />
+            <Path d={HEART} fill="url(#hShadeTR)" />
+            <Path d={HEART} fill="url(#hCrease)" />
+            <Path d={HEART} fill="url(#hGloss)" />
           </Svg>
         </Animated.View>
         <Text style={styles.line}>{line}</Text>
@@ -85,12 +113,12 @@ export function CouplesFinale({ line, onDone }: { line: string; onDone: () => vo
 const styles = StyleSheet.create({
   wrap: { flex: 1, paddingBottom: 12 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 34 },
-  // Red halo, like the moon's glow. The View shadow follows the SVG silhouette.
+  // Soft pink halo, like the moon's glow. The View shadow follows the SVG alpha.
   glow: {
-    shadowColor: 'hsl(348, 88%, 56%)',
+    shadowColor: 'hsl(330, 85%, 58%)',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 28,
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
   },
   line: {
     fontFamily: 'Poppins-SemiBold',

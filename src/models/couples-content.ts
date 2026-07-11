@@ -64,20 +64,32 @@ export function scoreQuiz(answers: Readonly<Record<string, boolean>>): QuizSide 
   return pms > real ? 'pms' : 'real';
 }
 
-export const QUIZ_RESULT: Record<QuizSide, { title: string; body: string }> = {
+// One-line takeaway + three skimmable moves, no paragraphs. The pms points end
+// on a retest ("still there in a calm week, treat it as real") so the quiz never
+// becomes a way to dismiss a genuine issue.
+export const QUIZ_RESULT: Record<QuizSide, { title: string; takeaway: string; points: readonly string[] }> = {
   pms: {
     title: 'Probably the cycle talking',
-    body: 'This one looks like the cycle turning up the volume. The feeling is real, but the size of it is mostly the wave. Let it pass before you decide anything.',
+    takeaway: 'The feeling is real. The size of it is mostly the wave.',
+    points: [
+      'Let it pass before you decide anything',
+      'Blame the PMS out loud, not each other',
+      'Still there in a calm week? Treat it as real',
+    ],
   },
   real: {
     title: 'Probably a real thing',
-    body: 'This looks like a real issue, not just the cycle. It is worth a calm, honest talk when you are both steady, not in the middle of PMS.',
+    takeaway: 'This looks like a real issue, not the cycle turning it up.',
+    points: [
+      'It deserves a real talk, not a mid-fight one',
+      'Pick a calm week, when you are both steady',
+      'Bring one specific thing, not everything at once',
+    ],
   },
 };
 
-// Shown under both results.
-export const QUIZ_FOOTER =
-  'Do not settle a big relationship question mid-fight or at your lowest point in the week. The feelings are real; the conclusions you draw right then are not reliable. Decide when you are calm.';
+// One line, shown small under both results.
+export const QUIZ_FOOTER = 'Either way, make the big calls when you are calm.';
 
 // --- 2. Texts you can share (casual, emoji allowed) ---------------------
 
