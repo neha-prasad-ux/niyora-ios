@@ -218,8 +218,15 @@ export function PeriodSheet({
               >
                 <Text style={styles.removeLabel}>Remove period</Text>
               </Pressable>
+            ) : effectiveStart ? (
+              <BeginButton fullWidth label="Save period" onPress={handleConfirm} />
+            ) : markedDates.length > 0 ? (
+              // A period is saved and nothing new is selected: the sheet's job
+              // is done, so the button says so. Without this the save left a
+              // disabled button behind and the sheet read as stuck.
+              <BeginButton fullWidth label="Done" onPress={handleClose} />
             ) : (
-              <BeginButton fullWidth label="Save period" disabled={!effectiveStart} onPress={handleConfirm} />
+              <BeginButton fullWidth label="Save period" disabled onPress={handleConfirm} />
             )}
           </View>
         </Pressable>
