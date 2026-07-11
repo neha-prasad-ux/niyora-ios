@@ -44,15 +44,20 @@ export function ProgressRing({ diameter, progress, strokeWidth = 4.5 }: Progress
       style={{ transform: [{ rotate: '-90deg' }] }}
       pointerEvents="none"
     >
-      {/* Lavender-tinted track: a plain white one disappears into the halo. */}
-      <Circle
-        cx={center}
-        cy={center}
-        r={r}
-        stroke="rgba(170, 145, 230, 0.28)"
-        strokeWidth={strokeWidth}
-        fill="none"
-      />
+      {/* The track only exists mid-progress: at rest it would read as a border
+          drawn around the moon, and "how much remains" is only information
+          once something has been done. Lavender-tinted so it reads against
+          the halo. */}
+      {clamped > 0 && clamped < 1 && (
+        <Circle
+          cx={center}
+          cy={center}
+          r={r}
+          stroke="rgba(170, 145, 230, 0.22)"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+      )}
       <AnimatedCircle
         cx={center}
         cy={center}
