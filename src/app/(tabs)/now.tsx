@@ -271,6 +271,18 @@ export default function NowScreen() {
     recordShownAction(todayYmd(snapshot.now), action.id).catch(() => {});
   }, [snapshot, action]);
 
+  // One warm pulse the moment the ring closes on screen — the day's reward,
+  // felt in the hand. The ref keeps it to the transition, never on re-renders
+  // or on arriving at an already-closed day.
+  const ringWasClosed = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (snapshot == null) return;
+    if (ringWasClosed.current === false && ringClosed) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+    ringWasClosed.current = ringClosed;
+  }, [snapshot, ringClosed]);
+
   // Setup copy nuance: a read left partway resumes, it doesn't restart.
   const actionForCard =
     action != null && action.kind === 'assessment' && snapshot?.setupCard === 'resume'
