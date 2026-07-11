@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import {
   Pressable,
   ScrollView,
@@ -75,6 +75,10 @@ import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
+import { getPmsReads, type PmsRead } from '@/store/pms-reads';
+import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
+import { compareReads, deriveLevel, levelActivation } from '@/v3/v3-content';
+import { waveTint } from '@/v3/v3-graphics';
 
 function effectiveSoul(
   isPaired: boolean,
@@ -102,6 +106,7 @@ export default function MySoulScreen() {
   const [macPromoDismissed, setMacPromoDismissedState] = useState(true);
   const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
   const [pmsPrefs, setPmsPrefsState] = useState<PmsPrefs>(DEFAULT_PMS_PREFS);
+  const [pmsReads, setPmsReads] = useState<PmsRead[]>([]);
   const [orbRevealKey, setOrbRevealKey] = useState(0);
   const {
     isPaired,
@@ -160,6 +165,16 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getPmsPrefs().then((p) => {
         if (active) setPmsPrefsState(p);
+      }).catch(() => {});
+      // Her PMS reads, oldest first. Anyone who finished onboarding before the
+      // reads history existed gets a baseline synthesized from the saved
+      // onboarding answers (undated), so the card and retake still work.
+      getPmsReads().then(async (reads) => {
+        if (reads.length > 0) return reads;
+        const p = await getOnboardingV3Progress();
+        return p?.done ? [{ at: '', answers: p.answers }] : [];
+      }).then((reads) => {
+        if (active) setPmsReads(reads);
       }).catch(() => {});
       return () => { active = false; };
     }, [])
@@ -371,6 +386,18 @@ export default function MySoulScreen() {
             reminder={reminder}
             onToggle={handleReminderToggle}
             onTimeChange={handleReminderTimeChange}
+          />
+
+          <PmsReadCard
+            reads={pmsReads}
+            onStart={() => {
+              Haptics.selectionAsync();
+              router.push('/onboarding-v3' as Href);
+            }}
+            onRetake={() => {
+              Haptics.selectionAsync();
+              router.push({ pathname: '/onboarding-v3', params: { mode: 'retake' } } as Href);
+            }}
           />
 
           <PmsCard
@@ -811,6 +838,73 @@ function pmsStatusLine(prefs: PmsPrefs): string | null {
   if (days <= 0) return 'Your rough week is about to start.';
   if (days === 1) return 'Your rough week starts tomorrow.';
   return `Your rough week is about ${days} days away.`;
+}
+
+// "Measured 10 Jun" from a stored YYYY-MM-DD.
+function formatReadDate(ymd: string): string {
+  return fromYmdLocal(ymd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Her PMS read: where she stands (from the last completed read), how it moved
+// since the read before, and the way to measure again. The retake runs just
+// the onboarding's five questions and ends on a then-vs-now compare, appending
+// a new read here.
+function PmsReadCard({
+  reads,
+  onStart,
+  onRetake,
+}: {
+  reads: PmsRead[];
+  onStart: () => void;
+  onRetake: () => void;
+}) {
+  const latest = reads.length > 0 ? reads[reads.length - 1] : null;
+  const prev = reads.length >= 2 ? reads[reads.length - 2] : null;
+
+  // No read yet: the same "know your PMS level" invitation the home pins, so
+  // the loop stays closed from here too.
+  if (!latest) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Your PMS level</Text>
+        <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+          Not measured yet. A few quick questions unlock your plan.
+        </Text>
+        <Pressable
+          onPress={onStart}
+          style={styles.primarySmallButton}
+          accessibilityRole="button"
+          accessibilityLabel="Know your PMS level"
+        >
+          <Text style={styles.primarySmallButtonLabel}>Know your PMS level</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const level = deriveLevel(latest.answers);
+  const levelColor = waveTint(levelActivation(level));
+  const cmp = prev ? compareReads(prev.answers, latest.answers) : null;
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Your PMS level</Text>
+      <Text style={[styles.readLevel, { color: levelColor }]}>
+        {level.charAt(0).toUpperCase() + level.slice(1)}
+      </Text>
+      <Text style={styles.cardCopy}>
+        {latest.at ? `Measured ${formatReadDate(latest.at)}.` : 'From your onboarding read.'}
+      </Text>
+      {cmp && <Text style={styles.pmsStatus}>{cmp.headline}</Text>}
+      <Pressable
+        onPress={onRetake}
+        style={styles.primarySmallButton}
+        accessibilityRole="button"
+        accessibilityLabel="Retake to track your progress"
+      >
+        <Text style={styles.primarySmallButtonLabel}>Retake to track progress</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 function PmsCard({
@@ -1258,6 +1352,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.07)',
+  },
+  readLevel: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 26,
+    letterSpacing: 0.3,
+    marginTop: 8,
+    marginBottom: 2,
   },
   pmsStatus: {
     fontFamily: 'Poppins-Light',

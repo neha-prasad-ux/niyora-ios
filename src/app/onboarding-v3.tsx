@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import {
   AccessibilityInfo,
   Pressable,
@@ -46,6 +46,7 @@ import {
   setOnboardingV3Progress,
 } from '@/store/onboarding-v3-progress';
 import { setPeriodHistory, latestStart } from '@/store/period-history';
+import { addPmsRead, getPmsReads } from '@/store/pms-reads';
 import { READINESS_CHECK_CONTENT, type ReadinessCheckId } from '@/store/pms-readiness';
 import { ChapterCard } from '@/components/chapter-card';
 import { CHAPTERS } from '@/v3/game-content';
@@ -68,6 +69,7 @@ import {
   IMPAIRMENT_ITEMS,
   LEVER_ITEMS,
   PRESENCE_ITEMS,
+  compareReads,
   deriveFactorBoard,
   deriveLevel,
   levelActivation,
@@ -102,7 +104,8 @@ type StepId =
   | 'fact_trainable'
   | 'loading'
   | 'result'
-  | 'goal';
+  | 'goal'
+  | 'compare'; // retake mode only: her level then vs. now
 
 const SEQUENCE: StepId[] = [
   'splash',
@@ -119,6 +122,21 @@ const SEQUENCE: StepId[] = [
   'loading',
   'result',
   'goal', // pick-up: her goal + how Niyora will help, then home
+];
+
+// Retake ("measure your progress", entered from My Soul with mode=retake): just
+// the five question steps, then a then-vs-now compare instead of the result +
+// plan. No facts (she has seen them), no cycle re-ask, no plan hand-off, and
+// nothing written to pms-prefs or the resume progress — only a new entry in the
+// pms-reads history once the compare shows.
+const RETAKE_SEQUENCE: StepId[] = [
+  'symptoms',
+  'remission',
+  'impairment',
+  'levers',
+  'coping',
+  'loading',
+  'compare',
 ];
 
 // The flow groups into five sections. The soul earns a ring when each section's
@@ -138,14 +156,18 @@ const TOTAL_RINGS = SECTION_END_STEPS.length;
 // grows. Cool band only, no reds, so it never reads as alarming.
 const SOUL_RING_HUES = [330, 292, 262, 228, 198] as const;
 
-// Rings earned so far: how many section-end steps she has already moved past.
-function ringsEarned(stepIndex: number): number {
-  return SECTION_END_STEPS.filter((s) => SEQUENCE.indexOf(s) < stepIndex).length;
-}
+// In the retake flow every question is its own section, so the moon still
+// earns all five rings on the way to the compare.
+const RETAKE_SECTION_ENDS: StepId[] = ['symptoms', 'remission', 'impairment', 'levers', 'coping'];
 
-// The bar fills smoothly across every step (no segments), reaching full at the
-// loading beat where the moon is complete.
-const LOADING_INDEX = SEQUENCE.indexOf('loading');
+// Rings earned so far: how many section-end steps she has already moved past,
+// looked up in whichever sequence is running.
+function ringsEarned(sectionEnds: StepId[], sequence: StepId[], stepIndex: number): number {
+  return sectionEnds.filter((s) => {
+    const i = sequence.indexOf(s);
+    return i >= 0 && i < stepIndex;
+  }).length;
+}
 
 
 // Local YYYY-MM-DD (calendar day only), matching lib/pms-window's day math.
@@ -157,46 +179,93 @@ function toYmd(d: Date): string {
 }
 
 export default function OnboardingV3Screen() {
+  // Retake mode (entered from My Soul with ?mode=retake): question steps only,
+  // ending in a then-vs-now compare against her last recorded read.
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const retake = mode === 'retake';
+  const sequence = retake ? RETAKE_SEQUENCE : SEQUENCE;
+  const sectionEnds = retake ? RETAKE_SECTION_ENDS : SECTION_END_STEPS;
+  const loadingIndex = sequence.indexOf('loading');
+
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<V3Answers>(EMPTY_ANSWERS);
   const advancing = useRef(false);
-  const step = SEQUENCE[stepIndex];
+  const step = sequence[stepIndex];
 
-  // Resume: on mount, pick up saved progress (step + answers) if she left partway
-  // and has not finished. Async, so this never sets state synchronously in the
-  // effect body.
+  // Whether per-step persistence may run: 'pending' until the saved progress is
+  // read, then 'on' — unless the read came back done. A finished read must never
+  // be downgraded to done:false by a later partial re-entry (dev preview, or a
+  // future redo): her plan already exists, so quitting a redo partway should
+  // not resurrect the home setup card. complete() still overwrites regardless.
+  // Retakes never persist: they are a fresh measurement, not setup progress,
+  // and abandoning one partway should leave no trace.
+  const persistMode = useRef<'pending' | 'on' | 'off'>(retake ? 'off' : 'pending');
+
+  // Retake baseline: her previous answers, to compare the new ones against.
+  // Prefer the last recorded read; fall back to the finished onboarding's saved
+  // answers for anyone who completed before the reads history existed.
+  const [baseline, setBaseline] = useState<V3Answers | null>(null);
   useEffect(() => {
+    if (!retake) return;
     let alive = true;
-    getOnboardingV3Progress().then((p) => {
-      if (!alive || !p || p.done || p.stepIndex <= 0) return;
-      setStepIndex(p.stepIndex);
-      setAnswers(p.answers);
-    });
+    getPmsReads()
+      .then(async (reads) => {
+        if (reads.length > 0) return reads[reads.length - 1].answers;
+        const p = await getOnboardingV3Progress();
+        return p?.done ? p.answers : null;
+      })
+      .then((a) => {
+        if (alive && a) setBaseline(a);
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
-  }, []);
+  }, [retake]);
+
+  // Resume: on mount, pick up saved progress (step + answers) if she left partway
+  // and has not finished. Async, so this never sets state synchronously in the
+  // effect body. Retakes always start fresh.
+  useEffect(() => {
+    if (retake) return;
+    let alive = true;
+    getOnboardingV3Progress()
+      .then((p) => {
+        if (!alive) return;
+        persistMode.current = p?.done ? 'off' : 'on';
+        if (!p || p.done || p.stepIndex <= 0) return;
+        setStepIndex(p.stepIndex);
+        setAnswers(p.answers);
+      })
+      .catch(() => {
+        if (alive) persistMode.current = 'on';
+      });
+    return () => {
+      alive = false;
+    };
+  }, [retake]);
 
   // Persist progress as she moves, so the home "finish setting up" card can send
-  // her back to the right step. Skips step 0 (nothing to resume to); the terminal
+  // her back to the right step. Skips step 0 (nothing to resume to) and holds
+  // off until the saved progress has been read (see persistMode); the terminal
   // done-write is handled in complete().
   useEffect(() => {
-    if (stepIndex === 0) return;
+    if (stepIndex === 0 || persistMode.current !== 'on') return;
     setOnboardingV3Progress({ stepIndex, answers, done: false }).catch(() => {});
   }, [stepIndex, answers]);
 
-  const rings = ringsEarned(stepIndex);
-  const fill = Math.min(1, stepIndex / LOADING_INDEX);
+  const rings = ringsEarned(sectionEnds, sequence, stepIndex);
+  const fill = Math.min(1, stepIndex / loadingIndex);
 
   const advance = useCallback(() => {
     if (advancing.current) return;
     advancing.current = true;
     Haptics.selectionAsync().catch(() => {});
-    setStepIndex((i) => Math.min(i + 1, SEQUENCE.length - 1));
+    setStepIndex((i) => Math.min(i + 1, sequence.length - 1));
     setTimeout(() => {
       advancing.current = false;
     }, 250);
-  }, []);
+  }, [sequence]);
 
   const update: UpdateFn = useCallback(
     (patch) => setAnswers((a) => ({ ...a, ...patch(a) })),
@@ -226,6 +295,9 @@ export default function OnboardingV3Screen() {
       cycleLength: c.length ?? DEFAULT_CYCLE_LENGTH,
     }).catch(() => {});
     await setOnboardingV3Progress({ stepIndex, answers, done: true }).catch(() => {});
+    // Record the finished read as her baseline, so My Soul can show where she
+    // stands and a later retake has something to compare against.
+    await addPmsRead({ at: toYmd(new Date()), answers }).catch(() => {});
     router.replace('/home-v3' as Href);
   }, [answers, stepIndex]);
 
@@ -238,18 +310,22 @@ export default function OnboardingV3Screen() {
     step !== 'privacy' &&
     step !== 'result' &&
     step !== 'goal' &&
+    step !== 'compare' &&
     !step.startsWith('fact_');
 
   const onBack = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
     setStepIndex((i) => {
-      if (i === 0) {
+      // From the compare there is nothing to step back to: the read is already
+      // recorded, and backing into 'loading' would auto-advance right back here
+      // and record it again. Back means done.
+      if (i === 0 || sequence[i] === 'compare') {
         finish();
         return i;
       }
       return Math.max(0, i - 1);
     });
-  }, [finish]);
+  }, [finish, sequence]);
 
   return (
     <View style={styles.root}>
@@ -275,6 +351,7 @@ export default function OnboardingV3Screen() {
           <RenderStep
             step={step}
             answers={answers}
+            baseline={baseline}
             update={update}
             advance={advance}
             finish={finish}
@@ -343,6 +420,7 @@ function Segment({ target }: { target: number }) {
 function RenderStep({
   step,
   answers,
+  baseline,
   update,
   advance,
   finish,
@@ -350,6 +428,7 @@ function RenderStep({
 }: {
   step: StepId;
   answers: V3Answers;
+  baseline: V3Answers | null;
   update: UpdateFn;
   advance: () => void;
   finish: () => void;
@@ -386,6 +465,9 @@ function RenderStep({
     case 'goal':
       // The plan hand-off: persist her cycle + finish, then land on the dashboard.
       return <Plan answers={answers} update={update} onDone={complete} />;
+    case 'compare':
+      // Retake only: record the new read, show then vs. now, return to My Soul.
+      return <Compare baseline={baseline} answers={answers} onDone={finish} />;
   }
 }
 
@@ -1156,6 +1238,76 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
 
       <Animated.Text entering={FadeInDown.delay(900).duration(600)} style={styles.strong}>
         These are all trainable, not a fixed trait.
+      </Animated.Text>
+    </StepLayout>
+  );
+}
+
+// Then vs. now — the retake's result. Records the new read once on arrival
+// (she has answered everything by now; quitting on this screen keeps it), then
+// the ladder: level hero → what moved since last time → one caption. Done
+// returns to My Soul.
+function Compare({
+  baseline,
+  answers,
+  onDone,
+}: {
+  baseline: V3Answers | null;
+  answers: V3Answers;
+  onDone: () => void;
+}) {
+  const { width: screenW } = useWindowDimensions();
+  const recorded = useRef(false);
+  useEffect(() => {
+    if (recorded.current) return;
+    recorded.current = true;
+    addPmsRead({ at: toYmd(new Date()), answers }).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  }, [answers]);
+
+  const level = deriveLevel(answers);
+  const levelColor = waveTint(levelActivation(level));
+  const fillWidth = Math.min(screenW - 72, 368);
+  const cmp = baseline ? compareReads(baseline, answers) : null;
+
+  return (
+    <StepLayout footer={<BeginButton fullWidth label="Done" onPress={onDone} />}>
+      <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
+        <Panel accent={levelColor}>
+          <Text style={styles.cardHeadingText}>Your PMS now reads as</Text>
+          <Text style={[styles.resultLevel, { color: levelColor }]}>
+            {level.charAt(0).toUpperCase() + level.slice(1)}
+          </Text>
+          <View style={styles.graphFill}>
+            <SpectrumBar
+              position={levelSpectrumPosition(level)}
+              width={fillWidth}
+              height={Math.round((fillWidth * 88) / 320)}
+            />
+          </View>
+        </Panel>
+      </Animated.View>
+
+      {cmp && (
+        <Animated.View entering={FadeInDown.delay(400).duration(600)} style={styles.cardAnim}>
+          <Panel>
+            <Text style={styles.cardHeadingText}>Since your last read</Text>
+            <Text style={styles.cardBody}>{cmp.headline}</Text>
+            {cmp.moved.map((line) => (
+              <Text key={line} style={styles.cardBody}>
+                {'· '}
+                {line}
+              </Text>
+            ))}
+            {cmp.moved.length === 0 && (
+              <Text style={styles.cardBody}>{'· '}Everything you reported is holding steady.</Text>
+            )}
+          </Panel>
+        </Animated.View>
+      )}
+
+      <Animated.Text entering={FadeInDown.delay(650).duration(600)} style={styles.strong}>
+        PMS shifts cycle to cycle. Retake after your next period for the truest read.
       </Animated.Text>
     </StepLayout>
   );

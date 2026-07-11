@@ -301,6 +301,79 @@ export function levelCopy(level: Level): string {
   }
 }
 
+// --- Then vs. now (the retake compare) ---------------------------------
+// Pure comparison of two reads, driving the compare screen after a retake and
+// the one-line progress note in My Soul. Levels move slowly (the banding is
+// coarse on purpose), so the day-to-day factors are compared too — they are
+// where progress shows first.
+
+const LEVEL_RANK: Record<Level, number> = { mild: 0, moderate: 1, severe: 2 };
+
+function levelWord(level: Level): string {
+  return level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+// Short, never-shaming words for a coping standing inside a compare line.
+function standingWord(standing: CopingStanding): string {
+  switch (standing) {
+    case 'engaging':
+      return 'working with feelings';
+    case 'mixed':
+      return 'a bit of both';
+    case 'disengaging':
+      return 'pushing feelings down';
+    default:
+      return 'not measured';
+  }
+}
+
+function maxImpact(a: V3Answers): number {
+  const values = Object.values(a.impairment);
+  return values.length > 0 ? Math.max(...values) : 0;
+}
+
+export type ReadComparison = {
+  before: Level;
+  after: Level;
+  headline: string; // the takeaway line
+  moved: string[]; // one dot-point per factor that shifted; empty = steady
+};
+
+export function compareReads(beforeA: V3Answers, afterA: V3Answers): ReadComparison {
+  const before = deriveLevel(beforeA);
+  const after = deriveLevel(afterA);
+  const dir = LEVEL_RANK[after] - LEVEL_RANK[before];
+  const headline =
+    dir < 0
+      ? `${levelWord(before)} → ${after}. It is easing.`
+      : dir > 0
+        ? `${levelWord(before)} → ${after}. A rougher stretch — the details below show what changed.`
+        : `Still ${after}. Levels move slowly; the details below move first.`;
+
+  const moved: string[] = [];
+  const symptomsBefore = beforeA.presence.length;
+  const symptomsAfter = afterA.presence.length;
+  if (symptomsAfter !== symptomsBefore) {
+    moved.push(`Symptoms you notice: ${symptomsBefore} → ${symptomsAfter}`);
+  }
+  const impactBefore = maxImpact(beforeA);
+  const impactAfter = maxImpact(afterA);
+  if (impactAfter !== impactBefore) {
+    moved.push(impactAfter < impactBefore ? 'Day-to-day impact eased' : 'Day-to-day impact grew');
+  }
+  const standingBefore = deriveCopingStanding(beforeA);
+  const standingAfter = deriveCopingStanding(afterA);
+  if (standingAfter !== standingBefore && standingAfter !== null) {
+    moved.push(`Coping: ${standingWord(standingBefore)} → ${standingWord(standingAfter)}`);
+  }
+  const leversBefore = deriveLevers(beforeA).length;
+  const leversAfter = deriveLevers(afterA).length;
+  if (leversAfter !== leversBefore) {
+    moved.push(`Habits worth building: ${leversBefore} → ${leversAfter}`);
+  }
+  return { before, after, headline, moved };
+}
+
 /** Position 0..1 on the mild to PMDD spectrum for the result dot. */
 export function levelSpectrumPosition(level: Level): number {
   switch (level) {
