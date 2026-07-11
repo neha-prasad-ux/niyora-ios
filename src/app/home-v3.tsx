@@ -4,7 +4,7 @@
 //
 // Coexists with the real home (src/app/index.tsx); reachable from the V3 goal
 // screen and, in dev, the "Home" button. Reads pms-prefs (cycle) and the
-// training store (level progress); writes nothing here.
+// training store (level progress); writes only the breath-cue open stamp.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { Header } from '@/components/header';
@@ -23,6 +23,7 @@ import { RecommendSheet } from '@/components/RecommendSheet';
 import { type RecResult } from '@/models/recommend';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
 import { CHAPTERS } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 import {
@@ -44,28 +45,53 @@ export default function HomeV3() {
   // partway, 'start' when the app has no PMS read at all, null once done.
   const [setupCard, setSetupCard] = useState<SetupCard | null>(null);
 
-  // Drive the moon's inhale/exhale on a loop. Phase starts on inhale (initial
-  // state) and only flips inside a timer, so no synchronous set-state-in-effect.
-  const [breathPhase, setBreathPhase] = useState<'inhale' | 'exhale'>('inhale');
+  // Drive the moon's inhale/exhale on a loop, counting completed breaths so
+  // the welcome cue below can hand off (name it, pace it, go quiet) exactly on
+  // the beat. Phase starts on inhale (initial state) and only flips inside a
+  // timer, so no synchronous set-state-in-effect.
+  const [breath, setBreath] = useState<{ phase: 'inhale' | 'exhale'; cycle: number }>({
+    phase: 'inhale',
+    cycle: 0,
+  });
   useEffect(() => {
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
-    const schedule = (current: 'inhale' | 'exhale') => {
+    const schedule = (current: 'inhale' | 'exhale', cycle: number) => {
       const secs = current === 'inhale' ? BREATH_IN : BREATH_OUT;
       timer = setTimeout(() => {
         if (!alive) return;
         const next = current === 'inhale' ? 'exhale' : 'inhale';
-        setBreathPhase(next);
-        schedule(next);
+        const nextCycle = next === 'inhale' ? cycle + 1 : cycle;
+        setBreath({ phase: next, cycle: nextCycle });
+        schedule(next, nextCycle);
       }, secs * 1000);
     };
-    schedule('inhale');
+    schedule('inhale', 0);
     return () => {
       alive = false;
       clearTimeout(timer);
     };
   }, []);
-  const breathDuration = breathPhase === 'inhale' ? BREATH_IN : BREATH_OUT;
+  const breathDuration = breath.phase === 'inhale' ? BREATH_IN : BREATH_OUT;
+
+  // The breathing cue: a soft invitation over the moon on genuine arrivals.
+  // The first open ever gets the fuller line; later arrivals the short one.
+  // Its words render straight from `breath` — the same state driving the Orb —
+  // and advance only on phase boundaries, so they can never drift off the
+  // moon's beat. Nothing is blocked while it shows; the cards stay live.
+  const [breathCue, setBreathCue] = useState<BreathCue | null>(null);
+  useEffect(() => {
+    let alive = true;
+    takeBreathCue().then((cue) => {
+      if (!alive || cue == null) return;
+      setBreathCue(cue);
+      // One soft pulse as the first inhale begins, for eyes already on the cards.
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Reload on focus so returning from the game shows fresh progress. The luteal
   // card reads its own cycle/readiness state.
@@ -134,10 +160,37 @@ export default function HomeV3() {
           <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
             <Orb
               size={260}
-              phase={breathPhase}
+              phase={breath.phase}
               phaseDuration={breathDuration}
               breathRange={{ min: 0.72, max: 1.16 }}
             />
+            {/* The cue rides the moon itself. Cycle 0 names the motion, cycles
+                1-2 pace it with "in"/"out" swapped exactly when the phase flips
+                (same state as the Orb, so text and swell cannot desync), then
+                it all fades and the moon breathes wordless. */}
+            {breathCue != null && breath.cycle <= 2 && (
+              <View pointerEvents="none" style={styles.cueOverlay}>
+                {breath.cycle === 0 ? (
+                  <Animated.Text
+                    key="cue-headline"
+                    entering={FadeIn.duration(900)}
+                    exiting={FadeOut.duration(600)}
+                    style={styles.cueHeadline}
+                  >
+                    {breathCue === 'first' ? 'Breathe with me, always' : 'Breathe with me'}
+                  </Animated.Text>
+                ) : (
+                  <Animated.Text
+                    key={`cue-${breath.cycle}-${breath.phase}`}
+                    entering={FadeIn.duration(700)}
+                    exiting={FadeOut.duration(500)}
+                    style={styles.cueLabel}
+                  >
+                    {breath.phase === 'inhale' ? 'in' : 'out'}
+                  </Animated.Text>
+                )}
+              </View>
+            )}
           </Animated.View>
 
           {/* Until the app has her PMS read, the way into (or back into)
@@ -454,6 +507,34 @@ const styles = StyleSheet.create({
   couplesHeartSmall: { position: 'absolute', bottom: -18, right: 58, transform: [{ rotate: '-10deg' }] },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
   hero: { alignItems: 'center', marginBottom: 8, marginTop: 4 },
+  // The breathing cue, centered on the moon. Deep violet so it reads on the
+  // pale sphere; the words are part of the moon, not a banner over the page.
+  cueOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Soft slate grey, not a brand violet: quiet against the pale sphere, in the
+  // greyish register of the app's muted text rather than a coloured banner.
+  cueHeadline: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    lineHeight: 21,
+    color: 'hsla(222, 10%, 28%, 0.82)',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+    paddingHorizontal: 56,
+  },
+  cueLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: 'hsla(222, 10%, 28%, 0.72)',
+    letterSpacing: 3,
+  },
 
   // Shared card interior: a text column plus a disclosure chevron, so the
   // whole-card tap stays discoverable now that the CTA buttons are gone.
