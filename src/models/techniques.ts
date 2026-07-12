@@ -1,6 +1,7 @@
 // All practices grouped by category. v1 ships the data; the session screen
-// reads phases + visual colors from the breathing entries. Locked state is
-// hard-coded for now; progression unlocking arrives with the Soul tier work.
+// reads phases + visual colors from the breathing entries. Every technique is
+// always available: rewards celebrate, they never gate care (a locked calming
+// tool is the one thing this app must never have — moon-reward-spec.md).
 
 import type { MotionType } from '../lib/motions';
 
@@ -33,7 +34,6 @@ export type BreathingTechnique = {
   subtitle: string;
   durationSeconds: number;
   category: 'breathing';
-  locked: boolean;
   instructions: string;
   // Optional one-line physical context shown under the name during a session,
   // for techniques whose action isn't obvious from the phase words (e.g. which
@@ -63,7 +63,6 @@ export type MindfulnessTechnique = {
   subtitle: string;
   durationSeconds: number;
   category: 'mindfulness';
-  locked: boolean;
   instructions: string;
   prompts: readonly MindfulPrompt[];
   // Background tint shifts inhale -> exhale across the prompts.
@@ -85,7 +84,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'reset in 30 seconds',
     durationSeconds: 30,
     category: 'breathing',
-    locked: false,
     instructions: 'In 4, out 6. Let the exhale be the longer one.',
     rounds: 3,
     phases: [
@@ -109,7 +107,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'calms under pressure',
     durationSeconds: 65,
     category: 'breathing',
-    locked: false,
     instructions: 'In 4, hold 4, out 4, hold 4. Steady rhythm. Breathe through nose.',
     rounds: 4,
     phases: [
@@ -131,7 +128,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'slows heart rate',
     durationSeconds: 60,
     category: 'breathing',
-    locked: true,
     instructions: "Soft 'haaa' sound at the back of your throat. Breathe through nose.",
     context: 'Soft "haaa" sound at the back of your throat',
     rounds: 6,
@@ -155,7 +151,6 @@ export const TECHNIQUES: readonly Technique[] = [
     // clipped. 15s a round, 75s total.
     durationSeconds: 75,
     category: 'breathing',
-    locked: true,
     instructions: 'Gently clench your teeth, lips apart. Inhale through your teeth, exhale through your nose.',
     context: 'Gently clench your teeth and inhale through them',
     rounds: 5,
@@ -181,7 +176,6 @@ export const TECHNIQUES: readonly Technique[] = [
     // clipped mid-word at the phase boundary.
     durationSeconds: 90,
     category: 'breathing',
-    locked: true,
     instructions: 'Inhale left, exhale right. Then inhale right, exhale left.',
     context: 'Close one nostril, then switch each breath',
     rounds: 3,
@@ -206,7 +200,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'switches into rest',
     durationSeconds: 60,
     category: 'breathing',
-    locked: true,
     instructions: 'Press right nostril closed. Breathe in and out through the left.',
     context: 'Close your right nostril, breathe through the left',
     rounds: 5,
@@ -228,7 +221,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'eases the body',
     durationSeconds: 60,
     category: 'breathing',
-    locked: false,
     instructions: 'Let your belly rise on the in-breath, soften on the out. Breathe through nose.',
     rounds: 6,
     phases: [
@@ -248,7 +240,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'deep relaxation',
     durationSeconds: 75,
     category: 'breathing',
-    locked: false,
     instructions: 'Inhale 4, hold 7, exhale 8. The long exhale is the key.',
     rounds: 4,
     phases: [
@@ -271,7 +262,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'softens self-criticism',
     durationSeconds: 24,
     category: 'mindfulness',
-    locked: false,
     instructions: 'Read each phrase slowly. Let it land.',
     prompts: [
       { text: 'this is a moment of difficulty', duration: 8 },
@@ -291,7 +281,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'loosens stuck thoughts',
     durationSeconds: 33,
     category: 'mindfulness',
-    locked: true,
     instructions: 'Notice a thought. Place it on a leaf. Watch it float away.',
     prompts: [
       { text: "notice what's on your mind", duration: 6 },
@@ -313,7 +302,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'warms the mood',
     durationSeconds: 24,
     category: 'mindfulness',
-    locked: false,
     instructions: 'Picture one person who matters. Feel the warmth.',
     prompts: [
       { text: 'think of one person', duration: 8 },
@@ -333,7 +321,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'signals safety',
     durationSeconds: 28,
     category: 'mindfulness',
-    locked: false,
     instructions: 'Wrap your arms around yourself. Hold gently.',
     prompts: [
       { text: 'wrap your arms around yourself', duration: 6 },
@@ -354,7 +341,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'quiets the inner critic',
     durationSeconds: 28,
     category: 'mindfulness',
-    locked: true,
     instructions: 'Read each line silently. Repeat it to yourself.',
     prompts: [
       { text: 'I am enough', duration: 7 },
@@ -375,7 +361,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'grounds you in the body',
     durationSeconds: 33,
     category: 'mindfulness',
-    locked: false,
     instructions: 'Notice 5 you see, 4 you touch, 3 you hear, 2 you smell, 1 you taste.',
     prompts: [
       { text: '5 things you can see', duration: 7 },
@@ -397,7 +382,6 @@ export const TECHNIQUES: readonly Technique[] = [
     subtitle: 'relaxes tired eyes',
     durationSeconds: 33,
     category: 'mindfulness',
-    locked: true,
     instructions: 'Soften your eyes on the centre point. Let everything else blur.',
     prompts: [
       { text: 'soften your gaze', duration: 5 },
@@ -413,10 +397,6 @@ export const TECHNIQUES: readonly Technique[] = [
     motion: 'orbit',
   },
 ];
-
-export function unlockedTechniques(): readonly Technique[] {
-  return TECHNIQUES.filter((t) => !t.locked);
-}
 
 export function getTechnique(id: string): Technique | undefined {
   return TECHNIQUES.find((t) => t.id === id);

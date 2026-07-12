@@ -25,6 +25,7 @@ import {
   type Intensity,
   type MoveTier,
 } from '@/v3/game-content';
+import { recordLight } from '@/store/light-ledger';
 import { getTraining, recordLevelComplete } from '@/store/training-v3';
 import { useBreathCycle } from '@/hooks/use-breath-cycle';
 import type { BreathPhase } from '@/models/techniques';
@@ -84,14 +85,17 @@ export default function GameV3() {
   }, [levels, levelParam]);
 
   // Record the level, nudge the wave steadier (in the store), and step forward.
+  // The light ledger's own guard makes a replayed level earn nothing.
   const advance = useCallback((levelId: string) => {
     recordLevelComplete(levelId).catch(() => {});
+    recordLight('train', { refId: levelId }).catch(() => {});
     setIndex((i) => i + 1);
   }, []);
 
   // The last level records completion, then hands back to the dashboard.
   const finish = useCallback((levelId: string) => {
     recordLevelComplete(levelId).catch(() => {});
+    recordLight('train', { refId: levelId }).catch(() => {});
     router.back();
   }, []);
 

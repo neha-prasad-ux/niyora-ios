@@ -35,6 +35,7 @@ import {
 } from '@/models/techniques';
 import { NiyoraSync } from 'niyora-sync';
 
+import { recordLight } from '@/store/light-ledger';
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
@@ -221,11 +222,17 @@ function BreathingSession({
     // out before the "Feel better?" card fades in over it, rather than cutting
     // to it after half a second.
     let earned: Tier | null = null;
-    appendSession(technique.id)
+    // A finished calm earns its light (moon-reward-spec.md): first of the day
+    // full, second smaller, later ones welcome but unpaid. Rings are lifetime-
+    // light milestones now, so the crossing comes back from the ledger, not
+    // from the session count.
+    recordLight('calm', { refId: technique.id })
       .then((r) => {
-        earned = r.earnedTier;
-        if (!cancelled) setEarnedTier(r.earnedTier);
+        earned = r.ringEarned;
+        if (!cancelled) setEarnedTier(r.ringEarned);
       })
+      .catch(() => {})
+      .then(() => appendSession(technique.id))
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
