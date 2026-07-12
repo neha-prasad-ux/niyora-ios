@@ -1,36 +1,44 @@
-// My Soul progression tiers. Ported from niyora/app/src/tiers.ts.
-//
-// Thresholds count COMPLETED sessions only. Each tier unlocks techniques.
-// The tier hue is used to tint My Soul accents (level name, ring around
-// the orb). The home orb stays calm-blue regardless of tier per DESIGN.md.
+// My Soul ring progression — chapter one of the moon reward system
+// (moon-reward-spec.md). The Saturn-band visuals (ring counts, hues, the
+// celebration) are unchanged from the original tiers; the logic underneath is
+// rewritten onto the moon's own currency: thresholds are LIFETIME LIGHT from
+// the light ledger, not session counts, so training and noticing advance the
+// band too. Rings are permanent, are never lost, and gate nothing — every
+// technique is always available. The home orb stays calm-blue regardless of
+// tier per DESIGN.md.
+
+import { RINGS } from '@/lib/moon-light';
 
 export type TierId = 'base' | 'spark' | 'glow' | 'shine' | 'radiance';
 
 export type Tier = {
   id: TierId;
   name: string;
+  /** Lifetime light needed to earn this ring (see lib/moon-light RINGS). */
   threshold: number;
   /** HSL hue used to tint My Soul accents */
   hue: number;
 };
 
 // The orb starts bare (the 'base' tier has no name and no ring) and earns its
-// first ring — teal Spark — after a single session, so a new user has
+// first ring — Spark — with day one's first act, so a new user always has
 // something to be excited about right away. The climb then stretches out
-// (5 / 15 / 40) so later rings still feel earned. Ring colours stay distinct as
-// the Soul grows: teal, pink, purple, violet.
+// (~day 3 / ~week one / ~week two at a typical ~50 light/day), and Radiance
+// (600) sits just under the moon's gold gate (800) so the handoff to the
+// material ladder has no dead zone. Ring colours stay distinct as the Soul
+// grows: teal, pink, purple, violet.
 export const TIERS: readonly Tier[] = [
   { id: 'base', name: '', threshold: 0, hue: 180 },
-  { id: 'spark', name: 'Spark', threshold: 1, hue: 180 },
-  { id: 'glow', name: 'Glow', threshold: 5, hue: 335 },
-  { id: 'shine', name: 'Shine', threshold: 15, hue: 280 },
-  { id: 'radiance', name: 'Radiance', threshold: 40, hue: 230 },
+  { id: 'spark', name: 'Spark', threshold: RINGS[0].light, hue: 180 },
+  { id: 'glow', name: 'Glow', threshold: RINGS[1].light, hue: 335 },
+  { id: 'shine', name: 'Shine', threshold: RINGS[2].light, hue: 280 },
+  { id: 'radiance', name: 'Radiance', threshold: RINGS[3].light, hue: 230 },
 ];
 
-export function currentTier(completedSessions: number): Tier {
+export function currentTier(lifetimeLight: number): Tier {
   let current = TIERS[0];
   for (const t of TIERS) {
-    if (completedSessions >= t.threshold) current = t;
+    if (lifetimeLight >= t.threshold) current = t;
   }
   return current;
 }
@@ -40,9 +48,9 @@ export function nextTier(current: Tier): Tier | null {
   return idx >= 0 && idx < TIERS.length - 1 ? TIERS[idx + 1] : null;
 }
 
-export function sessionsToNext(completedSessions: number): number {
-  const next = nextTier(currentTier(completedSessions));
-  return next ? Math.max(0, next.threshold - completedSessions) : 0;
+export function lightToNext(lifetimeLight: number): number {
+  const next = nextTier(currentTier(lifetimeLight));
+  return next ? Math.max(0, next.threshold - lifetimeLight) : 0;
 }
 
 // Saturn-style ring count per tier. The ring count equals the tier's index, so
@@ -65,9 +73,9 @@ export function tierRingCount(tierId: TierId): number {
   return TIER_RING_COUNTS[tierId] ?? 0;
 }
 
-// The new tier reached when the session count grows from `prev` to `next`, or
-// null if no tier boundary was crossed. Used to fire the "you earned a ring"
-// celebration exactly once, on the session that crosses a threshold.
+// The new ring reached when lifetime light grows from `prev` to `next`, or
+// null if no threshold was crossed. Used to fire the "you earned a ring"
+// celebration exactly once, on the act that crosses a threshold.
 export function earnedTierBetween(prev: number, next: number): Tier | null {
   const before = currentTier(prev);
   const after = currentTier(next);

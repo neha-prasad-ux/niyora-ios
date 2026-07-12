@@ -1,4 +1,4 @@
-import { TECHNIQUES, getTechnique, isBreathing, unlockedTechniques } from './techniques';
+import { TECHNIQUES, getTechnique, isBreathing } from './techniques';
 
 describe('nasal-breathing cues', () => {
   it('box breath instruction includes nasal cue', () => {
@@ -35,11 +35,10 @@ describe('nasal-breathing cues', () => {
 });
 
 describe('quick-calm', () => {
-  it('is a 30-second unlocked breathing technique', () => {
+  it('is a 30-second breathing technique', () => {
     const t = getTechnique('quick-calm');
     expect(t).toBeDefined();
     expect(isBreathing(t!)).toBe(true);
-    expect(t!.locked).toBe(false);
     expect(t!.durationSeconds).toBe(30);
   });
 
@@ -81,14 +80,15 @@ describe('quick-calm', () => {
   });
 });
 
-describe('unlockedTechniques', () => {
-  it('returns only unlocked entries', () => {
-    const unlocked = unlockedTechniques();
-    expect(unlocked.every((t) => !t.locked)).toBe(true);
+describe('always available', () => {
+  it('no technique carries a lock — rewards never gate care', () => {
+    for (const t of TECHNIQUES) {
+      expect('locked' in t).toBe(false);
+    }
   });
 
   it('includes box breath and belly breath', () => {
-    const ids = unlockedTechniques().map((t) => t.id);
+    const ids = TECHNIQUES.map((t) => t.id);
     expect(ids).toContain('box');
     expect(ids).toContain('belly');
   });
