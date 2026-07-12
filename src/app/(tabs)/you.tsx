@@ -34,10 +34,10 @@ import {
   TIERS,
   currentTier,
   nextTier,
-  sessionsToNext,
   TIER_RING_COUNTS,
   SOUL_RING_HUES,
 } from '@/models/tiers';
+import { getLightLedger } from '@/store/light-ledger';
 import { getSessionCount, getSessionsThisWeek, getSessionsToday, getStreakInfo } from '@/store/session-history';
 import { getMoodRecords, type MoodRecord } from '@/store/mood-history';
 import {
@@ -99,6 +99,7 @@ export default function MySoulScreen() {
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
   const [sessionsThisWeek, setSessionsThisWeek] = useState(0);
   const [sessionsToday, setSessionsToday] = useState(0);
+  const [lifetimeLight, setLifetimeLight] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [availableFreezes, setAvailableFreezes] = useState(0);
   const [checkInRecords, setCheckInRecords] = useState<CheckInRecord[]>([]);
@@ -139,6 +140,9 @@ export default function MySoulScreen() {
       let active = true;
       getSessionCount().then((n) => {
         if (active) setSessionsCompleted(n);
+      }).catch(() => {});
+      getLightLedger().then((events) => {
+        if (active) setLifetimeLight(events.reduce((sum, e) => sum + e.amount, 0));
       }).catch(() => {});
       getSessionsThisWeek().then((n) => {
         if (active) setSessionsThisWeek(n);
@@ -262,14 +266,14 @@ export default function MySoulScreen() {
 
   // Unified soul: when paired, add the Mac's own (native) completed sessions
   // to the phone's. The Mac reports a native-only count, so this sum never
-  // double-counts sessions the phone already pushed there. Tier + track
-  // reflect the combined total; the breakdown shows each device's share.
+  // double-counts sessions the phone already pushed there. The session stats
+  // and breakdown show the combined total; the level + track run on lifetime
+  // light (moon-reward-spec.md), the moon system's one currency.
   const macSessions = isPaired ? macStatus?.nativeCompleted ?? 0 : 0;
   const combinedSessions = sessionsCompleted + macSessions;
 
-  const tier = currentTier(combinedSessions);
+  const tier = currentTier(lifetimeLight);
   const next = nextTier(tier);
-  const toNext = sessionsToNext(combinedSessions);
   const accent = `hsl(${tier.hue}, 70%, 75%)`;
   const todayRecord = SHOW_CHECKIN ? todayCheckIn(checkInRecords) : null;
   const macSoul = effectiveSoul(isPaired, macSoulState);
@@ -331,8 +335,8 @@ export default function MySoulScreen() {
             tierName={tier.name}
             nextName={next?.name ?? null}
             nextThreshold={next?.threshold ?? null}
-            toNext={toNext}
             accent={accent}
+            light={lifetimeLight}
             sessions={combinedSessions}
             sessionsThisWeek={sessionsThisWeek}
             sessionsToday={sessionsToday}
@@ -573,8 +577,8 @@ function LevelCard({
   tierName,
   nextName,
   nextThreshold,
-  toNext,
   accent,
+  light,
   sessions,
   sessionsThisWeek,
   sessionsToday,
@@ -587,8 +591,8 @@ function LevelCard({
   tierName: string;
   nextName: string | null;
   nextThreshold: number | null;
-  toNext: number;
   accent: string;
+  light: number;
   sessions: number;
   sessionsThisWeek: number;
   sessionsToday: number;
@@ -601,8 +605,8 @@ function LevelCard({
   return (
     <View style={[styles.card, { borderColor: accent + '33' }]}>
       <View style={styles.levelHeader}>
-        {/* Before the first ring the Soul has no level name; the "1 to Spark"
-            line carries the moment instead. */}
+        {/* Before the first ring the Soul has no level name; the "Next ring:
+            Spark" line carries the moment instead. */}
         {tierName ? (
           <Text style={[styles.levelName, { color: accent }]}>Level {tierName}</Text>
         ) : (
@@ -610,7 +614,7 @@ function LevelCard({
         )}
         {nextName && (
           <Text style={styles.levelSub}>
-            {toNext} to {nextName}
+            Next ring: {nextName}
           </Text>
         )}
       </View>
@@ -618,7 +622,7 @@ function LevelCard({
         <Text style={styles.sessionsNum}>{sessions}</Text>
         <Text style={styles.sessionsLabel}>sessions</Text>
       </View>
-      <TierTrack sessions={sessions} accent={accent} nextThreshold={nextThreshold} />
+      <TierTrack light={light} accent={accent} nextThreshold={nextThreshold} />
       <View style={styles.miniStatsRow}>
         <Text style={styles.miniStat}>{sessionsToday} today</Text>
         <Text style={styles.miniStat}>{sessionsThisWeek} this week</Text>
@@ -648,18 +652,18 @@ function LevelCard({
 }
 
 function TierTrack({
-  sessions,
+  light,
   accent,
   nextThreshold,
 }: {
-  sessions: number;
+  light: number;
   accent: string;
   nextThreshold: number | null;
 }) {
   // Skip the bare base tier (no ring, always reached); show every ring milestone.
   const markers = TIERS.filter((t) => t.id !== 'base');
   const cap = markers[markers.length - 1].threshold;
-  const fillPct = Math.min(100, (sessions / cap) * 100);
+  const fillPct = Math.min(100, (light / cap) * 100);
 
   return (
     <View style={styles.trackWrap} accessibilityElementsHidden={true} importantForAccessibility="no-hide-descendants">
@@ -672,7 +676,7 @@ function TierTrack({
       />
       <View style={styles.markers}>
         {markers.map((m) => {
-          const reached = sessions >= m.threshold;
+          const reached = light >= m.threshold;
           const isNext =
             nextThreshold !== null && m.threshold === nextThreshold;
           const pos = (m.threshold / cap) * 100;
@@ -696,19 +700,18 @@ function TierTrack({
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.markerNum,
-                  {
-                    color:
-                      isNext || reached ? accent : 'rgba(255,255,255,0.4)',
-                    fontWeight: isNext ? '600' : '500',
-                  },
-                ]}
-                maxFontSizeMultiplier={1.0}
-              >
-                {m.threshold}
-              </Text>
+              {/* No numerals: the engine's units never reach the screen. A
+                  reached ring fills with its own accent; the rest stay hollow. */}
+              {reached && (
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: accent,
+                  }}
+                />
+              )}
             </View>
           );
         })}
@@ -1068,8 +1071,9 @@ const styles = StyleSheet.create({
   },
   scrollBody: {
     paddingHorizontal: 20,
-    // Room for the tab bar plus a breath of air above it.
-    paddingBottom: 96,
+    // The tab bar floats over the content now; padding lets the last card
+    // scroll fully out from under the glass with a breath of air above it.
+    paddingBottom: 120,
   },
   orbWrap: {
     alignItems: 'center',

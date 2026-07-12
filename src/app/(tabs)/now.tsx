@@ -39,7 +39,7 @@ import { syncPmsReminders } from '@/lib/pms-reminders';
 import { daysBetween, engagedDatesFrom, foldLedger } from '@/lib/moon-light';
 import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
 import { getLightLedger, recordLight } from '@/store/light-ledger';
-import { advanceMoonOnRingClosed, recordCycleMint, settleMoon } from '@/store/moon-state';
+import { recordCycleMint } from '@/store/moon-state';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import {
   getOnboardingV3Progress,
@@ -236,12 +236,10 @@ export default function NowScreen() {
   // timers). The action itself is derived during render, never stored.
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const reload = useCallback(() => {
-    // Bring the moon current before anything is asked of her: wane for the
-    // days away (grace + period-day pause inside), brighten the return, then
-    // the arrival itself earns its light. Idempotent per day, so the
-    // focus/foreground re-runs are free.
-    settleMoon()
-      .then(() => recordLight('visit'))
+    // The arrival earns its light (first open of the day; repeats are free
+    // no-ops). The moon itself stays bright — absence never dims it; only
+    // fading lessons do, and recordLight refreshes that.
+    recordLight('visit')
       .catch(() => {})
       .finally(() => {
         loadSnapshot()
@@ -293,14 +291,6 @@ export default function NowScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     }
     ringWasClosed.current = ringClosed;
-  }, [snapshot, ringClosed]);
-
-  // The closed ring waxes the moon (moon-reward-spec.md). Deliberately not
-  // transition-gated like the haptic: waxing is idempotent per day, so a close
-  // that happened off-screen still lands when she returns here.
-  useEffect(() => {
-    if (snapshot == null || !ringClosed) return;
-    advanceMoonOnRingClosed(snapshot.now).catch(() => {});
   }, [snapshot, ringClosed]);
 
   // Setup copy nuance: a read left partway resumes, it doesn't restart.

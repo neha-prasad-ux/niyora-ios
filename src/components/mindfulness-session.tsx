@@ -26,6 +26,7 @@ import { RingCelebration } from '@/components/RingCelebration';
 import { SessionBackground } from '@/components/session-background';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import type { MindfulnessTechnique } from '@/models/techniques';
+import { recordLight } from '@/store/light-ledger';
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
@@ -173,11 +174,17 @@ export function MindfulnessSession({
     // (and on a ring-earning finish, the celebration) — play out before the
     // "Feel better?" card fades in over it, rather than cutting to it early.
     let earned: Tier | null = null;
-    appendSession(technique.id)
+    // A finished calm earns its light (moon-reward-spec.md): first of the day
+    // full, second smaller, later ones welcome but unpaid. Rings are lifetime-
+    // light milestones now, so the crossing comes back from the ledger, not
+    // from the session count.
+    recordLight('calm', { refId: technique.id })
       .then((r) => {
-        earned = r.earnedTier;
-        if (!cancelled) setEarnedTier(r.earnedTier);
+        earned = r.ringEarned;
+        if (!cancelled) setEarnedTier(r.ringEarned);
       })
+      .catch(() => {})
+      .then(() => appendSession(technique.id))
       .catch(() => {})
       .finally(() => {
         if (cancelled) return;
