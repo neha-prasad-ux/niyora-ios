@@ -17,7 +17,11 @@ import { DEFAULT_PMS_PREFS, type PmsPrefs } from '@/store/pms-prefs';
 import { freshReadiness, todayYmd, type ReadinessChecks } from '@/store/pms-readiness';
 import { DEFAULT_TRAINING } from '@/store/training-v3';
 import { EMPTY_ANSWERS } from '@/v3/v3-content';
-import { CHAPTERS } from '@/v3/game-content';
+import { CHAPTERS, WORK_CHAPTERS } from '@/v3/game-content';
+
+// Every course in every pillar — the only state that reaches the Grow replay now
+// that build days walk mind then work before looping.
+const ALL_LEVELS = [...CHAPTERS, ...WORK_CHAPTERS].flatMap((c) => c.levels.map((l) => l.id));
 import type { PmsRead } from '@/store/pms-reads';
 
 // Fixed cycle for the whole suite: period started 2026-01-01, 28-day cycle.
@@ -186,71 +190,52 @@ describe('pickTodayAction: period', () => {
   });
 });
 
-describe('pickTodayAction: prep', () => {
+describe('pickTodayAction: build days (prep + open)', () => {
   const prepMorning = morning(2026, 1, 19); // 3 days to window
   const prepEvening = evening(2026, 1, 19);
 
-  it('sleep lever: plan an early night in the morning, wind down at night', () => {
-    const reads = [read({ sleep: 0 })];
-    const am = pickTodayAction(input({ now: prepMorning, reads }));
-    expect(am.id).toBe('prep:woundDown');
-    expect(am.title).toBe('Plan an early night');
-    const pm = pickTodayAction(input({ now: prepEvening, reads }));
-    expect(pm.id).toBe('prep:woundDown');
-    expect(pm.title).toBe('Wind down early tonight');
+  it('always asks training, whatever the weak lever or time of day', () => {
+    const readSets = [
+      [read({ sleep: 0 })],
+      [read({ food: 0 })],
+      [read({ movement: 0 })],
+      [read({ sleep: 2, food: 2, movement: 2 })],
+    ];
+    for (const reads of readSets) {
+      for (const now of [prepMorning, prepEvening, morning(2026, 1, 10), evening(2026, 1, 10)]) {
+        const a = pickTodayAction(input({ now, reads }));
+        expect(a.kind).toBe('train');
+        expect(a.route).toContain('/game-v3');
+      }
+    }
   });
 
-  it('food lever: calcium in the morning, steady dinner at night', () => {
-    const reads = [read({ food: 0 })];
-    expect(pickTodayAction(input({ now: prepMorning, reads })).id).toBe('prep:calcium');
-    const pm = pickTodayAction(input({ now: prepEvening, reads }));
-    expect(pm.id).toBe('prep:steady');
-    expect(pm.title).toBe('Steady dinner, no sugar crash');
-  });
-
-  it('movement lever falls back to training until its content exists', () => {
-    const a = pickTodayAction(input({ now: prepMorning, reads: [read({ movement: 0 })] }));
-    expect(a.kind).toBe('train');
-    expect(a.route).toContain('/game-v3');
-  });
-
-  it('no weak lever: train in the morning, wind-down wellbeing in the evening', () => {
-    const reads = [read({ sleep: 2, food: 2, movement: 2 })];
-    expect(pickTodayAction(input({ now: prepMorning, reads })).kind).toBe('train');
-    expect(pickTodayAction(input({ now: prepEvening, reads })).id).toBe('prep:woundDown');
-  });
-
-  it('rotates away from yesterday\'s ask when alternatives exist', () => {
-    const reads = [read({ food: 0 })];
-    const lastAction = { date: '2026-01-18', id: 'prep:calcium' };
-    const a = pickTodayAction(input({ now: prepMorning, reads, lastAction }));
-    expect(a.id).toBe('prep:micronutrient');
-  });
-
-  it('does not rotate for older memories', () => {
-    const reads = [read({ food: 0 })];
-    const lastAction = { date: '2026-01-15', id: 'prep:calcium' };
-    const a = pickTodayAction(input({ now: prepMorning, reads, lastAction }));
-    expect(a.id).toBe('prep:calcium');
-  });
-});
-
-describe('pickTodayAction: open', () => {
-  it('continues training when levels remain', () => {
-    const a = pickTodayAction(input({ now: morning(2026, 1, 10) }));
-    expect(a.kind).toBe('train');
-    expect(a.title).toContain('Start');
-  });
-
-  it('falls back to a wellbeing check when training is complete', () => {
+  it('asks a Grow replay when every level is trained, never the checklist', () => {
     const training = {
       ...DEFAULT_TRAINING,
-      completed: CHAPTERS.flatMap((c) => c.levels.map((l) => l.id)),
+      completed: ALL_LEVELS,
     };
-    const a = pickTodayAction(input({ now: morning(2026, 1, 10), training }));
-    expect(a.id).toBe('prep:calcium');
-    const pm = pickTodayAction(input({ now: evening(2026, 1, 10), training }));
-    expect(pm.id).toBe('prep:woundDown');
+    for (const now of [prepMorning, prepEvening, morning(2026, 1, 10), evening(2026, 1, 10)]) {
+      const a = pickTodayAction(input({ now, training }));
+      expect(a.id).toBe('train:revisit');
+      expect(a.route).toBe('/grow');
+    }
+  });
+
+  it('never asks a readiness check outside the window', () => {
+    // Sweep two full cycles, both halves of the day, with a weak lever set
+    // (the strongest pull toward checklist asks the old selector had).
+    const reads = [read({ sleep: 0, food: 0 })];
+    for (let day = 1; day <= 56; day++) {
+      for (const hour of [9, 18]) {
+        const now = new Date(2026, 0, day, hour, 0);
+        const phase = derivePhase(PREFS, true, now);
+        if (phase !== 'window') {
+          const a = pickTodayAction(input({ now, reads }));
+          expect(a.kind).not.toBe('readiness');
+        }
+      }
+    }
   });
 });
 
@@ -264,14 +249,21 @@ describe('ring progress', () => {
     expect(todayRingProgress(inp, a)).toBeCloseTo(2 / 5);
   });
 
-  it('prep ring closes on the single named check', () => {
-    const now = evening(2026, 1, 19);
-    const reads = [read({ sleep: 0 })];
-    const open = input({ now, reads });
-    const a = pickTodayAction(open);
-    expect(todayRingProgress(open, a)).toBe(0);
-    const done = input({ now, reads, readiness: withChecks(now, { woundDown: true }) });
-    expect(todayRingProgress(done, a)).toBe(1);
+  it('replay ring closes on a level replayed today (all-trained build day)', () => {
+    const now = morning(2026, 1, 10);
+    const allDone = ALL_LEVELS;
+    const fresh = input({
+      now,
+      training: { ...DEFAULT_TRAINING, completed: allDone, lastCompletedOn: '2026-01-09' },
+    });
+    const a = pickTodayAction(fresh);
+    expect(a.id).toBe('train:revisit');
+    expect(todayRingProgress(fresh, a)).toBe(0);
+    const replayed = input({
+      now,
+      training: { ...DEFAULT_TRAINING, completed: allDone, lastCompletedOn: todayYmd(now) },
+    });
+    expect(todayRingProgress(replayed, a)).toBe(1);
   });
 
   it('train ring closes only on a level completed today', () => {

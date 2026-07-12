@@ -10,13 +10,20 @@ import {
 } from '@/store/pms-readiness';
 import type { TrainingState } from '@/store/training-v3';
 import { PMS_FACTORS } from '@/v3/v3-content';
-import { trainSummary } from '@/v3/game-content';
+import { trainSummary, workSummary } from '@/v3/game-content';
 
 // The Now tab's one coached action, picked fresh each render from the stores.
 // This is the spine of the IA redesign (today-action-spec.md is the contract):
-// a phase ladder (setup -> window -> period -> prep -> open), personalised by
-// the weakest lifestyle lever from her last PMS read, split morning/evening at
-// 17:00. Pure functions only, so the whole matrix is unit-testable.
+// a phase ladder (setup -> window -> period -> build), where build covers the
+// whole clear stretch (the spec's prep + open). Pure functions only, so the
+// whole matrix is unit-testable.
+//
+// The phase grammar: build days always coach from Grow (training), PMS days
+// own the checklist, period days carry the once-a-cycle check-ins. A
+// readiness ask NEVER appears outside the window — the checklist is the
+// window's tool, not an everyday chore. Within the window, asks are
+// personalised by the weakest lifestyle lever from her last PMS read, split
+// morning/evening at 17:00.
 //
 // The Calm now button is the screen's constant, so the selector NEVER asks
 // for a calming practice — the coached action is always something different
@@ -33,7 +40,7 @@ export type TodayPhase = 'setup' | 'window' | 'period' | 'prep' | 'open';
 export type TodayActionKind = 'assessment' | 'readiness' | 'train' | 'checkin' | 'done';
 
 export type TodayAction = {
-  id: string; // stable per ask, e.g. 'readiness:calcium', 'prep:woundDown'
+  id: string; // stable per ask, e.g. 'readiness:calcium', 'train:revisit'
   kind: TodayActionKind;
   title: string;
   caption: string;
@@ -141,13 +148,13 @@ const FOOD_ORDER: readonly ReadinessCheckId[] = [
   'antiInflammatory',
 ];
 
-function readinessAction(check: ReadinessCheckId, prep: boolean): TodayAction {
+function readinessAction(check: ReadinessCheckId): TodayAction {
   const ask = READINESS_ASK[check];
   return {
-    id: `${prep ? 'prep' : 'readiness'}:${check}`,
+    id: `readiness:${check}`,
     kind: 'readiness',
-    title: prep && check === 'woundDown' ? 'Wind down early tonight' : ask.title,
-    caption: prep ? 'Get ahead of your window' : ask.caption,
+    title: ask.title,
+    caption: ask.caption,
     route: '/pms-readiness',
   };
 }
@@ -160,28 +167,36 @@ const DONE_ACTION: TodayAction = {
   route: '',
 };
 
-// The everyday-wellbeing fallback for cells with no lever ask and no training
-// left: the same date-keyed readiness checks, framed for any day. Food-first
-// in the morning, wind-down in the evening — never a calming practice, which
-// the Calm now button already owns.
-function wellbeingAction(readiness: ReadinessState, morning: boolean): TodayAction {
-  if (morning) {
-    const food = firstUnchecked(readiness, FOOD_ORDER);
-    if (food != null) return readinessAction(food, true);
-    if (!readiness.checks.woundDown) return readinessAction('woundDown', true);
-  } else {
-    if (!readiness.checks.woundDown) return readinessAction('woundDown', true);
-    const food = firstUnchecked(readiness, FOOD_ORDER);
-    if (food != null) return readinessAction(food, true);
-  }
-  return DONE_ACTION;
-}
+// Every chapter trained: build days still point at Grow, asking for a replay.
+// Replays stamp lastCompletedOn (store/training-v3) without inflating
+// progress, so the ring can still close honestly on an all-trained day.
+const GROW_REVISIT_ACTION: TodayAction = {
+  id: 'train:revisit',
+  kind: 'train',
+  title: 'Revisit a practice in Grow',
+  caption: 'Replay a level that helped',
+  route: '/grow',
+};
 
 function trainAction(training: TrainingState): TodayAction | null {
   const summary = trainSummary(training);
   if (summary.next == null) return null;
   return {
     id: `train:${summary.next.levelId}`,
+    kind: 'train',
+    title: `${summary.statusWord}: ${summary.detail}`,
+    caption: 'A few minutes of training',
+    route: `/game-v3?chapter=${summary.next.chapterId}`,
+  };
+}
+
+// Once the mind pillar is trained, learning moves on rather than looping — the
+// work pillar (steadier nerves, confidence, assertiveness) is the next course.
+function workAction(training: TrainingState): TodayAction | null {
+  const summary = workSummary(training);
+  if (summary.next == null) return null;
+  return {
+    id: `work:${summary.next.levelId}`,
     kind: 'train',
     title: `${summary.statusWord}: ${summary.detail}`,
     caption: 'A few minutes of training',
@@ -196,25 +211,6 @@ function firstUnchecked(
   order: readonly ReadinessCheckId[],
 ): ReadinessCheckId | null {
   return order.find((id) => !readiness.checks[id]) ?? null;
-}
-
-// Rotate away from yesterday's ask when the cell offers alternatives. Never
-// applies to setup/done or the window checklist (those progress on their own).
-function rotate(
-  candidates: TodayAction[],
-  lastAction: { date: string; id: string } | null,
-  now: Date,
-): TodayAction {
-  const yesterday = todayYmd(new Date(now.getTime() - MS_PER_DAY));
-  if (
-    candidates.length >= 2 &&
-    lastAction != null &&
-    lastAction.date === yesterday &&
-    candidates[0].id === lastAction.id
-  ) {
-    return candidates[1];
-  }
-  return candidates[0];
 }
 
 export function pickTodayAction(input: TodayActionInput): TodayAction {
@@ -255,7 +251,7 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
         : firstUnchecked(readiness, READINESS_CHECK_IDS);
     }
     if (check == null) return DONE_ACTION;
-    return readinessAction(check, false);
+    return readinessAction(check);
   }
 
   if (phase === 'period') {
@@ -286,47 +282,10 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
     return DONE_ACTION;
   }
 
-  if (phase === 'prep') {
-    const candidates: TodayAction[] = [];
-    if (lever === 'sleep') {
-      candidates.push({
-        ...readinessAction('woundDown', true),
-        title: morning ? 'Plan an early night' : 'Wind down early tonight',
-      });
-      const food = firstUnchecked(readiness, FOOD_ORDER);
-      if (food != null) candidates.push(readinessAction(food, true));
-    } else if (lever === 'food') {
-      if (morning) {
-        for (const id of FOOD_ORDER) {
-          if (!readiness.checks[id]) candidates.push(readinessAction(id, true));
-        }
-      } else {
-        if (!readiness.checks.steady)
-          candidates.push({
-            ...readinessAction('steady', true),
-            title: 'Steady dinner, no sugar crash',
-          });
-        candidates.push(readinessAction('woundDown', true));
-      }
-    }
-    if (candidates.length === 0) {
-      // movement lever (no check content yet) and the no-weak-lever column
-      const train = trainAction(training);
-      const wellbeing = wellbeingAction(readiness, morning);
-      if (morning && train != null) candidates.push(train);
-      candidates.push(wellbeing);
-      if (!morning && train != null) candidates.push(train);
-    }
-    return rotate(candidates, input.lastAction, now);
-  }
-
-  // open
-  const train = trainAction(training);
-  const wellbeing = wellbeingAction(readiness, morning);
-  if (train != null) {
-    return rotate([train, wellbeing], input.lastAction, now);
-  }
-  return wellbeing;
+  // Build days (the spec's prep + open): the ask always comes from Grow —
+  // walk the mind pillar, then the work pillar, and only replay once every
+  // course is trained. Never the checklist; readiness asks belong to the window.
+  return trainAction(training) ?? workAction(training) ?? GROW_REVISIT_ACTION;
 }
 
 // --- Ring ----------------------------------------------------------------
@@ -348,13 +307,8 @@ export function todayRingProgress(input: TodayActionInput, action: TodayAction):
       const last = input.reads[input.reads.length - 1];
       return last != null && last.at === today ? 1 : 0;
     }
-    case 'readiness': {
-      if (action.id.startsWith('prep:')) {
-        const check = action.id.slice('prep:'.length) as ReadinessCheckId;
-        return input.readiness.checks[check] ? 1 : 0;
-      }
+    case 'readiness':
       return prepsDoneCount(input.readiness.checks) / PREP_CHECK_COUNT;
-    }
     case 'train':
       return input.training.lastCompletedOn === today ? 1 : 0;
     case 'checkin':

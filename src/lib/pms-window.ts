@@ -27,7 +27,9 @@ function parseDayNumber(iso: string): number | null {
   return Math.floor(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / MS_PER_DAY);
 }
 
-function clampLength(cycleLength: number): number {
+// Exported for lib/phase-band, which needs the same sanitized length to size
+// its segments; every consumer of the prediction must clamp identically.
+export function clampCycleLength(cycleLength: number): number {
   const n = Math.round(cycleLength);
   if (Number.isNaN(n) || n < 20) return 28;
   if (n > 40) return 40;
@@ -44,7 +46,7 @@ export function pmsOffsetDays(
 ): number | null {
   const start = parseDayNumber(lastPeriodStart);
   if (start == null) return null;
-  const len = clampLength(cycleLength);
+  const len = clampCycleLength(cycleLength);
   const t = dayNumberLocal(today);
   const cyclesElapsed = Math.round((t - start) / len);
   const nearestStart = start + cyclesElapsed * len;
@@ -62,7 +64,7 @@ export function daysUntilPmsWindow(
   if (!lastPeriodStart) return null;
   const start = parseDayNumber(lastPeriodStart);
   if (start == null) return null;
-  const len = clampLength(cycleLength);
+  const len = clampCycleLength(cycleLength);
   const t = dayNumberLocal(today);
   const cyclesToNext = Math.floor((t - start) / len) + 1;
   const nextStart = start + cyclesToNext * len;
@@ -83,7 +85,7 @@ export function nextPmsWindowStartDate(
   if (!lastPeriodStart) return null;
   const start = parseDayNumber(lastPeriodStart);
   if (start == null) return null;
-  const len = clampLength(cycleLength);
+  const len = clampCycleLength(cycleLength);
   const t = dayNumberLocal(today);
   // Smallest cycle whose window start is on or after today.
   let k = Math.ceil((t - start + PMS_WINDOW_BEFORE_DAYS) / len);

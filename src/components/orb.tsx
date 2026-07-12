@@ -54,8 +54,48 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
+import type { MoonMaterial } from '@/lib/moon-light';
+
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+// The moon's lifetime material (moon-reward-spec.md). Moonstone is the default
+// calm-blue sphere every user starts on and keeps the hue-driven body per
+// DESIGN.md; the higher materials are only ever reached deep in the journey and
+// warm/cool the body a touch so mastery is felt, not announced.
+const MATERIAL_STOPS: Record<
+  Exclude<MoonMaterial, 'moonstone'>,
+  { mid: string; edge: string; deep: string }
+> = {
+  gold: { mid: 'hsl(45, 44%, 90%)', edge: 'hsl(42, 55%, 70%)', deep: 'hsl(38, 52%, 62%)' },
+  opal: { mid: 'hsl(250, 22%, 92%)', edge: 'hsl(285, 32%, 80%)', deep: 'hsl(210, 38%, 74%)' },
+  diamond: { mid: 'hsl(220, 8%, 96%)', edge: 'hsl(220, 12%, 87%)', deep: 'hsl(220, 16%, 80%)' },
+};
+
+// A waning moon's shadow is a darker shade of the moon's OWN colour — a real
+// terminator — never grey and never transparent. A soft gradient ramps from the
+// lit limb (clear) to that darker shade on the waned limb, so the edge is never
+// a hard line. PHASE_SHADE_MAX is how strong the shadow gets at the waned edge;
+// PHASE_SOFT is the ramp half-width.
+const PHASE_SHADE_MAX = 0.55; // peak shadow strength on the waned limb — tune to taste
+const PHASE_SOFT = 0.18; // half-width of the soft terminator, in disc fractions
+
+// The shadow shade per material — a deeper, same-family version of each body.
+// Moonstone derives its shadow straight from the live body hue (below).
+const SHADOW_BY_MATERIAL: Record<Exclude<MoonMaterial, 'moonstone'>, string> = {
+  gold: 'hsl(38, 48%, 42%)',
+  opal: 'hsl(258, 28%, 50%)',
+  diamond: 'hsl(220, 14%, 54%)',
+};
+
+// The 3D depth-shading in the bottom-right, tinted to each body's own dark shade
+// (never a neutral black, which reads as grey over a coloured moon). Moonstone
+// derives it from the live body hue (below).
+const INSET_BY_MATERIAL: Record<Exclude<MoonMaterial, 'moonstone'>, string> = {
+  gold: 'hsl(36, 52%, 20%)',
+  opal: 'hsl(258, 38%, 22%)',
+  diamond: 'hsl(220, 22%, 22%)',
+};
 
 // Half-ellipse arc paths around (cx, cy). SVG y is down, so sweep-flag 0 traces
 // the top (the ring's far side, drawn behind the sphere) and sweep-flag 1 the
@@ -174,9 +214,32 @@ type OrbProps = {
    * warm hue reads as soft and warm, never an alarm.
    */
   hue?: number;
+  /**
+   * Current-engagement brightness (moon-state.fullness, 0.4..1). 1 is fully
+   * lit; below that a soft veil dims the sphere and halo so a fading moon reads
+   * as "something wants remembering", never as a dark, dead sky. Default 1.
+   */
+  brightness?: number;
+  /**
+   * Lifetime material (moon-reward-spec.md). Shifts the sphere body between
+   * moonstone (default calm blue), gold, opal, and diamond. Default moonstone,
+   * so every existing caller is unchanged.
+   */
+  material?: MoonMaterial;
+  /**
+   * Illuminated fraction, 1..0 (1 = full moon, 0.5 = half, → 0 = new). Below 1
+   * a lunar-phase shadow sweeps across the sphere, so a fading moon *wanes*
+   * rather than just dimming. Default 1 (full).
+   */
+  illum?: number;
+  /**
+   * Which limb the shadow grows from: false (default) lights the right limb;
+   * true mirrors it. Cosmetic — lets a phase read as waxing or waning.
+   */
+  waning?: boolean;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220 }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220, brightness = 1, material = 'moonstone', illum = 1, waning = false }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
@@ -293,10 +356,21 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
   }));
 
   const haloAnimProps = useAnimatedProps(() => ({
-    opacity: haloOpacity.value,
+    opacity: haloOpacity.value * brightness,
   }));
 
   const sphereRadius = size / 2;
+
+  // Body stops by material. Moonstone keeps the hue-driven calm blue exactly as
+  // before; other materials swap in their own palette.
+  const body =
+    material === 'moonstone'
+      ? {
+          mid: `hsl(${hue}, 25%, 92%)`,
+          edge: `hsl(${hue}, 38%, 78%)`,
+          deep: `hsl(${hue}, 42%, 74%)`,
+        }
+      : MATERIAL_STOPS[material];
 
   // Ring geometry — a tilted Saturn band. Each tier adds a concentric ring,
   // so the band visibly widens with the tier. rx reaches past the sphere so the
@@ -315,6 +389,19 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
   // high tier counts (4-5 rings) are never clipped at the canvas edge.
   const canvas = Math.max(size * 1.8, (maxRx + bandStroke) * 2 + size * 0.16);
   const center = canvas / 2;
+
+  // The phase shadow: below full, a darker shade of the moon's own colour
+  // ramps in on the far limb. The terminator sits at `litFrac` across the disc;
+  // the gradient runs from the lit limb toward the waned one (flipped for a
+  // waning caller). Moonstone takes its shadow from the live body hue.
+  const litFrac = Math.max(0, Math.min(1, illum));
+  const showPhase = litFrac < 0.995;
+  const phaseS0 = Math.max(0, litFrac - PHASE_SOFT);
+  const phaseS1 = Math.min(1, litFrac + PHASE_SOFT);
+  const phaseX1 = waning ? center + sphereRadius : center - sphereRadius;
+  const phaseX2 = waning ? center - sphereRadius : center + sphereRadius;
+  const shadowColor = material === 'moonstone' ? `hsl(${hue}, 38%, 48%)` : SHADOW_BY_MATERIAL[material];
+  const insetDarkColor = material === 'moonstone' ? `hsl(${hue}, 45%, 20%)` : INSET_BY_MATERIAL[material];
 
   // Protection rings: a flattened ellipse, drawn twice on opposing diagonals so
   // the two cross over the orb like a shield. Same back/front split as the tier
@@ -381,9 +468,9 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               gradientUnits="userSpaceOnUse"
             >
               <Stop offset="0" stopColor="rgb(255, 255, 255)" stopOpacity="0.97" />
-              <Stop offset="0.42" stopColor={`hsl(${hue}, 25%, 92%)`} stopOpacity="0.96" />
-              <Stop offset="0.92" stopColor={`hsl(${hue}, 38%, 78%)`} stopOpacity="1" />
-              <Stop offset="1" stopColor={`hsl(${hue}, 42%, 74%)`} stopOpacity="1" />
+              <Stop offset="0.42" stopColor={body.mid} stopOpacity="0.96" />
+              <Stop offset="0.92" stopColor={body.edge} stopOpacity="1" />
+              <Stop offset="1" stopColor={body.deep} stopOpacity="1" />
             </RadialGradient>
 
             {/* Inset darkening from bottom-right. Replaces
@@ -397,8 +484,8 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               fy={center + sphereRadius * 0.45}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0" stopColor="rgb(0, 0, 0)" stopOpacity="0.34" />
-              <Stop offset="0.75" stopColor="rgb(0, 0, 0)" stopOpacity="0" />
+              <Stop offset="0" stopColor={insetDarkColor} stopOpacity="0.34" />
+              <Stop offset="0.75" stopColor={insetDarkColor} stopOpacity="0" />
             </RadialGradient>
 
             {/* Inset highlight from top-left. Replaces
@@ -431,6 +518,25 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               <Stop offset="0.14" stopColor="rgb(255, 255, 255)" stopOpacity="0.18" />
               <Stop offset="0.42" stopColor="rgb(255, 255, 255)" stopOpacity="0" />
             </RadialGradient>
+
+            {/* Phase shadow: clear on the lit limb, ramping to a darker shade
+                of the moon's own colour on the waned limb. Horizontal, so the
+                circle it fills clips it to the disc. */}
+            {showPhase && (
+              <LinearGradient
+                id="phaseShade"
+                x1={phaseX1}
+                y1={center}
+                x2={phaseX2}
+                y2={center}
+                gradientUnits="userSpaceOnUse"
+              >
+                <Stop offset="0" stopColor={shadowColor} stopOpacity="0" />
+                <Stop offset={phaseS0} stopColor={shadowColor} stopOpacity="0" />
+                <Stop offset={phaseS1} stopColor={shadowColor} stopOpacity={PHASE_SHADE_MAX} />
+                <Stop offset="1" stopColor={shadowColor} stopOpacity={PHASE_SHADE_MAX} />
+              </LinearGradient>
+            )}
 
             {/* Tier ring band gradients: bright through the middle, fading at
                 the tips. One per ring so each can carry its own hue (falls back
@@ -505,6 +611,14 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
 
           {/* Crescent rim highlight on top */}
           <Circle cx={center} cy={center} r={sphereRadius} fill="url(#crescent)" />
+
+          {/* Phase shadow: a darker shade of the moon's own colour on the waned
+              limb, over the sphere but under the front rings. The gradient's
+              direction (phaseX1/phaseX2) already handles waxing vs waning. The
+              sphere underneath is opaque, so the halo never bleeds through. */}
+          {showPhase && (
+            <Circle cx={center} cy={center} r={sphereRadius} fill="url(#phaseShade)" />
+          )}
 
           {/* Ring band — front halves (near side). Drawn on top of the sphere so
               they pass in front, completing the 3D wrap. Brighter than the back. */}

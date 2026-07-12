@@ -1865,6 +1865,18 @@ export const ASSERTIVENESS: Chapter = {
 // is its own list. The runner resolves ?chapter against every chapter.
 export const CHAPTERS: Chapter[] = [IRRITABILITY, ANXIETY, MOOD_SWINGS];
 export const WORK_CHAPTERS: Chapter[] = [WORK_ANXIETY, CONFIDENCE, ASSERTIVENESS];
+
+// Friendly, benefit-first names for each course (chapter), keyed by chapter id —
+// what she gets, not the symptom. Used where a course is named to her (the Now
+// card's coached ask), in place of the clinical `emotion`.
+export const COURSE_TITLE: Record<string, string> = {
+  irritability: 'Stay steady',
+  anxiety: 'Calm the spiral',
+  'mood-swings': 'Ride the waves',
+  'work-anxiety': 'Steady your nerves',
+  confidence: 'Sound confident',
+  assertiveness: 'Speak up',
+};
 const ALL_CHAPTERS: Chapter[] = [...CHAPTERS, ...WORK_CHAPTERS];
 
 export function getChapter(id?: string): Chapter {

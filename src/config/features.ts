@@ -22,3 +22,14 @@ export const SHOW_MOOD_TREND = false;
 // with the NIYORA_HEALTHKIT entitlement flag. both on for the experiment build,
 // both off for the store build.
 export const STRESS_EXPERIMENT = process.env.EXPO_PUBLIC_STRESS_EXPERIMENT === '1';
+
+// Moon dimming for fading lessons (moon-reward-spec.md): a recall left past
+// its grace dims the moon a step. MUST stay off until the recall quiz UI
+// ships — with no way to answer, moons would dim with no way to brighten.
+export const RECALL_FADING = false;
+
+// The "Rough moment" on-device AI CBT session (Apple Foundation Models spike).
+// Gates the session screen, its dev probe, and any entry points. ON in dev so
+// the spike is reachable from Metro; store builds ship none of it until the
+// spike's go/no-go numbers clear (see the design doc's success criteria).
+export const FM_EXPERIMENT = __DEV__ || process.env.EXPO_PUBLIC_FM_EXPERIMENT === '1';
