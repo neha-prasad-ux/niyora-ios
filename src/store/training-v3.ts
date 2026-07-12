@@ -10,6 +10,7 @@ export type TrainingState = {
   skill: number; // 0..10, the wave's steadiness / meter band
   completed: string[]; // completed level ids (e.g. 'irr-l1')
   kindWords: number; // count of kind-word beats taken
+  lastCompletedOn?: string; // local YYYY-MM-DD of the most recent level completion
 };
 
 const STORAGE_KEY = 'niyora:training-v3';
@@ -41,6 +42,9 @@ export function parseTraining(raw: string | null): TrainingState {
         : [],
       kindWords:
         typeof p.kindWords === 'number' && p.kindWords >= 0 ? Math.floor(p.kindWords) : 0,
+      ...(typeof p.lastCompletedOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.lastCompletedOn)
+        ? { lastCompletedOn: p.lastCompletedOn }
+        : {}),
     };
   } catch {
     return DEFAULT_TRAINING;
@@ -49,16 +53,19 @@ export function parseTraining(raw: string | null): TrainingState {
 
 // Completing a level records it once and nudges the wave steadier. Re-completing
 // is a no-op for both the list and the skill, so repeats never inflate progress.
+// `on` stamps the local day so the Now tab's ring can know a level landed today.
 export function applyLevelComplete(
   state: TrainingState,
   levelId: string,
   gain = LEVEL_SKILL_GAIN,
+  on?: string,
 ): TrainingState {
   if (state.completed.includes(levelId)) return state;
   return {
     ...state,
     completed: [...state.completed, levelId],
     skill: clampSkill(state.skill + gain),
+    ...(on != null ? { lastCompletedOn: on } : {}),
   };
 }
 
@@ -76,9 +83,15 @@ export async function saveTraining(state: TrainingState): Promise<void> {
 
 // Convenience mutators that read, apply, and persist in one call.
 export async function recordLevelComplete(levelId: string): Promise<TrainingState> {
-  const next = applyLevelComplete(await getTraining(), levelId);
+  const next = applyLevelComplete(await getTraining(), levelId, LEVEL_SKILL_GAIN, localYmd());
   await saveTraining(next);
   return next;
+}
+
+function localYmd(d: Date = new Date()): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
 }
 
 export async function recordKindWord(): Promise<TrainingState> {

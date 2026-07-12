@@ -7,7 +7,6 @@ import {
   FREEZE_INTERVAL,
   type FreezeState,
 } from './streak-freeze';
-import { earnedTierBetween, type Tier } from '@/models/tiers';
 
 export type SessionRecord = {
   techniqueId: string;
@@ -76,10 +75,11 @@ function computeEffectiveStreak(
 export type AppendResult = {
   /** Total sessions ever, after this one was recorded. */
   sessionCount: number;
-  /** The tier newly reached by this session, or null if no threshold crossed. */
-  earnedTier: Tier | null;
 };
 
+// Ring celebrations no longer live here: rings are earned by lifetime light
+// (store/light-ledger's recordLight reports the crossing), so a session's
+// append is purely history + streak bookkeeping.
 export async function appendSession(techniqueId: string): Promise<AppendResult> {
   const [rawSessions, freezeState] = await Promise.all([
     AsyncStorage.getItem(STORAGE_KEY),
@@ -88,7 +88,6 @@ export async function appendSession(techniqueId: string): Promise<AppendResult> 
 
   const records = parseRecords(rawSessions);
   const now = new Date();
-  const countBefore = records.length;
 
   const sessionDatesBefore = new Set(records.map((r) => localDateStr(new Date(r.completedAt))));
   const { streak: streakBefore } = computeEffectiveStreak(sessionDatesBefore, freezeState, now);
@@ -107,10 +106,7 @@ export async function appendSession(techniqueId: string): Promise<AppendResult> 
     await awardFreezes(newMilestones - prevMilestones);
   }
 
-  return {
-    sessionCount: countAfter,
-    earnedTier: earnedTierBetween(countBefore, countAfter),
-  };
+  return { sessionCount: countAfter };
 }
 
 // Reads the effective streak (with any pending freeze auto-applications) and

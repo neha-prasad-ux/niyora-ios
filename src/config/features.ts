@@ -22,3 +22,8 @@ export const SHOW_MOOD_TREND = false;
 // with the NIYORA_HEALTHKIT entitlement flag. both on for the experiment build,
 // both off for the store build.
 export const STRESS_EXPERIMENT = process.env.EXPO_PUBLIC_STRESS_EXPERIMENT === '1';
+
+// Moon dimming for fading lessons (moon-reward-spec.md): a recall left past
+// its grace dims the moon a step. MUST stay off until the recall quiz UI
+// ships — with no way to answer, moons would dim with no way to brighten.
+export const RECALL_FADING = false;

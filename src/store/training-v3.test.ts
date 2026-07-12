@@ -26,6 +26,13 @@ describe('parseTraining', () => {
     expect(s.completed).toEqual(['irr-l1', 'irr-l2']);
     expect(s.kindWords).toBe(0);
   });
+
+  it('keeps a valid lastCompletedOn and drops junk ones', () => {
+    const good = parseTraining(JSON.stringify({ lastCompletedOn: '2026-07-11' }));
+    expect(good.lastCompletedOn).toBe('2026-07-11');
+    const bad = parseTraining(JSON.stringify({ lastCompletedOn: 'yesterday' }));
+    expect(bad.lastCompletedOn).toBeUndefined();
+  });
 });
 
 describe('applyLevelComplete', () => {
@@ -47,6 +54,13 @@ describe('applyLevelComplete', () => {
     let s = { ...DEFAULT_TRAINING, skill: MAX_SKILL - 0.2 };
     s = applyLevelComplete(s, 'irr-l6');
     expect(s.skill).toBeLessThanOrEqual(MAX_SKILL);
+  });
+
+  it('stamps the completion day when given, and not when re-completing', () => {
+    const a = applyLevelComplete(DEFAULT_TRAINING, 'irr-l1', undefined, '2026-07-11');
+    expect(a.lastCompletedOn).toBe('2026-07-11');
+    const b = applyLevelComplete(a, 'irr-l1', undefined, '2026-07-12');
+    expect(b.lastCompletedOn).toBe('2026-07-11'); // no-op repeat keeps the old stamp
   });
 });
 

@@ -1,0 +1,75 @@
+// The daily ring around the Now tab's moon. Deliberately NOT part of the Orb:
+// the orb's Saturn rings are earned identity (tiers), while this ring is task
+// state that resets every midnight — layering it here keeps orb.tsx untouched.
+// At rest the moon wears nothing; the lavender arc appears with the first
+// progress (with a faint remaining-track) and resolves into a full ring when
+// the day closes.
+
+import { useEffect } from 'react';
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Circle } from 'react-native-svg';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+type ProgressRingProps = {
+  diameter: number; // outer diameter of the ring circle
+  progress: number; // 0..1, clamped
+  strokeWidth?: number;
+};
+
+export function ProgressRing({ diameter, progress, strokeWidth = 4.5 }: ProgressRingProps) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  const r = (diameter - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * r;
+
+  const anim = useSharedValue(clamped);
+  useEffect(() => {
+    anim.value = withTiming(clamped, { duration: 700, easing: Easing.out(Easing.cubic) });
+  }, [clamped, anim]);
+
+  const arcProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - anim.value),
+  }));
+
+  const center = diameter / 2;
+  return (
+    <Svg
+      width={diameter}
+      height={diameter}
+      // Start the arc at 12 o'clock instead of SVG's default 3 o'clock.
+      style={{ transform: [{ rotate: '-90deg' }] }}
+      pointerEvents="none"
+    >
+      {/* The track only exists mid-progress: at rest it would read as a border
+          drawn around the moon, and "how much remains" is only information
+          once something has been done. Lavender-tinted so it reads against
+          the halo. */}
+      {clamped > 0 && clamped < 1 && (
+        <Circle
+          cx={center}
+          cy={center}
+          r={r}
+          stroke="rgba(170, 145, 230, 0.22)"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+      )}
+      <AnimatedCircle
+        cx={center}
+        cy={center}
+        r={r}
+        stroke="rgba(190, 160, 245, 0.95)"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={`${circumference} ${circumference}`}
+        animatedProps={arcProps}
+        fill="none"
+      />
+    </Svg>
+  );
+}

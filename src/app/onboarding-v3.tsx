@@ -298,7 +298,7 @@ export default function OnboardingV3Screen() {
     // Record the finished read as her baseline, so My Soul can show where she
     // stands and a later retake has something to compare against.
     await addPmsRead({ at: toYmd(new Date()), answers }).catch(() => {});
-    router.replace('/home-v3' as Href);
+    router.replace('/now' as Href);
   }, [answers, stepIndex]);
 
   // Progress bar + moon show on the question steps and the loading beat, then

@@ -9,7 +9,9 @@ import { colors } from '@/theme/colors';
 import { typography } from '@/theme/typography';
 
 type HeaderProps = {
-  onPressProfile: () => void;
+  // Optional since the You tab replaced the modal profile: tab screens render
+  // the wordmark alone, while any legacy caller keeps its person icon.
+  onPressProfile?: () => void;
 };
 
 const ICON_SIZE = 22;
@@ -17,28 +19,32 @@ const HIT_SLOP = 12;
 
 export function Header({ onPressProfile }: HeaderProps) {
   function handleProfile() {
-    onPressProfile();
+    onPressProfile?.();
     Haptics.selectionAsync().catch(() => {});
   }
 
   return (
     <View style={styles.row}>
-      <Pressable
-        onPress={handleProfile}
-        // Explicit box around the icon so the button always has a solid layout
-        // size; with hitSlop this gives a 46pt tap area centered on the glyph.
-        style={styles.iconButton}
-        hitSlop={HIT_SLOP}
-        accessibilityRole="button"
-        accessibilityLabel="My Soul"
-      >
-        <SymbolView
-          name="person"
-          tintColor={colors.iconChrome}
-          size={ICON_SIZE}
-          weight="regular"
-        />
-      </Pressable>
+      {onPressProfile != null ? (
+        <Pressable
+          onPress={handleProfile}
+          // Explicit box around the icon so the button always has a solid layout
+          // size; with hitSlop this gives a 46pt tap area centered on the glyph.
+          style={styles.iconButton}
+          hitSlop={HIT_SLOP}
+          accessibilityRole="button"
+          accessibilityLabel="My Soul"
+        >
+          <SymbolView
+            name="person"
+            tintColor={colors.iconChrome}
+            size={ICON_SIZE}
+            weight="regular"
+          />
+        </Pressable>
+      ) : (
+        <View style={{ width: ICON_SIZE }} />
+      )}
 
       <View style={styles.center}>
         <Text style={[typography.wordmark, { color: colors.textWordmark }]}>Niyora</Text>

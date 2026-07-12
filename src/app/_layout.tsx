@@ -102,8 +102,10 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          {/* The three-tab shell (Now / Grow / You). Every other screen below
+              stays on this root stack and pushes full-screen over the bar. */}
           <Stack.Screen
-            name="home-v3"
+            name="(tabs)"
             options={{
               animation: 'fade',
               gestureEnabled: false,
@@ -151,14 +153,6 @@ export default function RootLayout() {
               // and consistent with the faded onboarding/result screens.
               animation: 'fade',
               animationDuration: 420,
-              gestureEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="my-soul"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
               gestureEnabled: true,
             }}
           />
