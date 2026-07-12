@@ -81,20 +81,12 @@ never reads as "do the checklist":
   for calm**, because the button already owns it.
 - Route for readiness asks: `/pms-readiness` (titles from `READINESS_CHECK_CONTENT`).
 
-### `prep` (window opens in 1–7 days)
-The dread-to-agency phase. Same `ReadinessState` records ticks (it is date-keyed
-and works on any day); framing is "get ahead", not "get through".
-
-| Weak lever | Morning | Evening |
-|---|---|---|
-| sleep | "Plan an early night" (`woundDown`) | "Wind down early tonight" (`woundDown`) |
-| food | "Add calcium-rich food today" (`calcium`) | "Steady dinner, no sugar crash" (`steady`) |
-| movement | "Move 30 minutes today" ★ | "A short walk after dinner" ★ |
-| none | **train** · next uncompleted level | wellbeing check (`woundDown`, then food) |
-
-★ New content: there is no movement readiness check today. v1 ships it as a
-readiness-style tick (add `movement` to a prep-only check set), or falls back to
-the `none` column until that content exists.
+### `prep` (window opens in 1–7 days) — build days
+Revised 2026-07-12: build days (prep + open) always coach from Grow. The
+checklist is the window's tool and NEVER appears outside it — a readiness ask
+before PMS days would turn the clear stretch into a chore list. The phase
+still exists (the card's eyebrow sharpens to "N days to PMS") but the ask is
+the same as `open`: training first, a Grow replay when everything is trained.
 
 ### `period` (offset 0 … +2)
 Lightest asks; also the feedback loop the window math never had. Two-step:
@@ -112,11 +104,11 @@ re-asks onboarding's `remission` question per cycle — appended to a small log,
 it sharpens her level over time and later powers the You-tab "your PMS, cycle
 over cycle" view.
 
-### `open` (everything else)
+### `open` (everything else) — build days
 | Condition | Action |
 |---|---|
 | uncompleted levels in `game-content` order vs `training.completed` | **train** · "Continue: {chapter}, Level {n}" · `/game-v3?chapter=…` |
-| all levels complete | wellbeing check (food in the morning, wind-down at night) |
+| all levels complete | **train** · "Revisit a practice in Grow" (`train:revisit`) · `/grow` — a replay re-stamps `lastCompletedOn` (without re-counting progress), so the ring still closes honestly |
 
 ## Period logging (closing the prediction loop)
 
@@ -147,10 +139,10 @@ onboarding; the logged date must flow through the same code path.
 
 ## Rotation rule
 
-If a cell offers ≥ 2 candidates and the top candidate's `id` equals
-`lastAction.id` from yesterday, take the next candidate. Needs one tiny new
-store (`store/today-action.ts`: `{ date, id }`). Never applies to `setup`,
-`done`, or the window checklist (those are inherently progressive).
+Retired 2026-07-12: every cell now has a single progressive candidate
+(training advances on its own; the window checklist always did), so there is
+nothing to rotate between. The `store/today-action.ts` memory remains for the
+daily dismiss suppression (`dismissedDate`).
 
 ## Ring completion (per kind)
 
@@ -158,8 +150,7 @@ store (`store/today-action.ts`: `{ date, id }`). Never applies to `setup`,
 |---|---|
 | assessment | a read is appended to `pms-reads` |
 | readiness (window) | all five checks done, or the "Done for today" tap (progress = five-check count / 5) |
-| readiness (prep) | the single named check is ticked |
-| train | any level id appended today |
+| train | a level completed today (`lastCompletedOn` = today; replays re-stamp it) |
 | checkin | answered (one tap; "Not yet" on period confirmation also counts — honesty is the ask, not the period) |
 
 When the ring closes, the action card swaps to the done state ("Done for today —

@@ -9,7 +9,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { colors } from '@/theme/colors';
 
-export function BackgroundGradient() {
+export function BackgroundGradient({ topGlow = true }: { topGlow?: boolean }) {
   const { width, height } = useWindowDimensions();
   // Radius chosen so each blob fades out at ~60% of the screen's max dimension.
   const blobR = Math.max(width, height) * 0.85;
@@ -54,7 +54,9 @@ export function BackgroundGradient() {
               <Stop offset="1" stopColor="hsl(220, 50%, 18%)" stopOpacity="0" />
             </RadialGradient>
           </Defs>
-          <Rect x={0} y={0} width={width} height={height} fill="url(#amb1)" />
+          {/* The top-left violet glow — dropped on the home so the top reads
+              clean now that the wordmark is gone. */}
+          {topGlow && <Rect x={0} y={0} width={width} height={height} fill="url(#amb1)" />}
           <Rect x={0} y={0} width={width} height={height} fill="url(#amb2)" />
         </Svg>
       </View>

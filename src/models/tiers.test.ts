@@ -5,6 +5,8 @@ import {
   lightToNext,
   earnedTierBetween,
   tierRingCount,
+  bodyHue,
+  TIER_BODY_HUE,
 } from './tiers';
 import { RINGS } from '@/lib/moon-light';
 
@@ -84,5 +86,19 @@ describe('tierRingCount', () => {
     expect(tierRingCount('glow')).toBe(2);
     expect(tierRingCount('shine')).toBe(3);
     expect(tierRingCount('radiance')).toBe(4);
+  });
+});
+
+describe('bodyHue', () => {
+  it('starts calm blue and evolves one step per ring tier', () => {
+    expect(bodyHue(0)).toBe(TIER_BODY_HUE.base); // calm blue
+    expect(bodyHue(20)).toBe(TIER_BODY_HUE.spark); // light blue on the first ring
+    expect(bodyHue(100)).toBe(TIER_BODY_HUE.glow); // aqua
+    expect(bodyHue(300)).toBe(TIER_BODY_HUE.shine); // amethyst
+    expect(bodyHue(600)).toBe(TIER_BODY_HUE.radiance); // indigo
+  });
+
+  it('holds the top colour past Radiance until the material takes over', () => {
+    expect(bodyHue(9000)).toBe(TIER_BODY_HUE.radiance);
   });
 });

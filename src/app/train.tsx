@@ -7,17 +7,27 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ChapterCard } from '@/components/chapter-card';
 import { colors } from '@/theme/colors';
-import { CHAPTERS } from '@/v3/game-content';
+import { chaptersForTrack } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 
+// The list is shared: ?track=workplace shows the workplace shelf, otherwise the
+// self-growth (emotion) shelf. Same card, same runner, one screen.
+const TRACK_HEADER: Record<string, { title: string; sub: string }> = {
+  growth: { title: 'Train your mind', sub: 'Master one emotion at a time.' },
+  workplace: { title: 'Grow at work', sub: 'Confidence, speaking up, calm under pressure.' },
+};
+
 export default function TrainScreen() {
+  const { track } = useLocalSearchParams<{ track?: string }>();
+  const chapters = chaptersForTrack(track);
+  const header = TRACK_HEADER[track === 'workplace' ? 'workplace' : 'growth'];
   const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
 
   // Reload on focus so returning from a chapter shows fresh progress.
@@ -54,12 +64,12 @@ export default function TrainScreen() {
         </View>
 
         <View style={styles.header}>
-          <Text style={styles.title}>Train your mind</Text>
-          <Text style={styles.sub}>Master one emotion at a time.</Text>
+          <Text style={styles.title}>{header.title}</Text>
+          <Text style={styles.sub}>{header.sub}</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {CHAPTERS.map((chapter, i) => (
+          {chapters.map((chapter, i) => (
             <Animated.View key={chapter.id} entering={FadeInDown.delay(60 + i * 70).duration(500)}>
               <ChapterCard chapter={chapter} training={training} onOpen={() => openChapter(chapter.id)} />
             </Animated.View>

@@ -187,7 +187,14 @@ export const MATERIAL_GATES = {
   diamond: { light: 6000, cyclesKept: 3, skillsLived: 3, applications: 10 },
 } as const;
 
-const MATERIAL_ORDER: readonly MoonMaterial[] = ['moonstone', 'gold', 'opal', 'diamond'];
+// The material ladder, in order — moonstone (level 1) to diamond (level 4).
+// The You tab's scoreboard reads a level number and total off this.
+export const MATERIAL_ORDER: readonly MoonMaterial[] = ['moonstone', 'gold', 'opal', 'diamond'];
+
+/** 1-based position on the ladder (moonstone = 1 … diamond = 4). */
+export function materialLevel(material: MoonMaterial): number {
+  return MATERIAL_ORDER.indexOf(material) + 1;
+}
 
 export function deriveMaterial(totals: LedgerTotals, cyclesKept: number): MoonMaterial {
   const d = MATERIAL_GATES.diamond;

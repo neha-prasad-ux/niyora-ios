@@ -105,6 +105,19 @@ const CHAPTER_META: Record<string, { blurb: string; gradient: readonly [string, 
     blurb: 'When feelings hit like waves',
     gradient: ['hsl(286, 44%, 30%)', 'hsl(306, 40%, 31%)', 'hsl(326, 40%, 33%)'],
   },
+  // Workplace chapters sit in the teal-green field of the Grow-at-work shelf.
+  'work-anxiety': {
+    blurb: 'When a big moment has you racing',
+    gradient: ['hsl(196, 44%, 27%)', 'hsl(182, 42%, 28%)', 'hsl(168, 40%, 29%)'],
+  },
+  confidence: {
+    blurb: 'When the self-doubt gets loud',
+    gradient: ['hsl(184, 44%, 27%)', 'hsl(170, 42%, 28%)', 'hsl(156, 40%, 29%)'],
+  },
+  assertiveness: {
+    blurb: 'When something needs saying',
+    gradient: ['hsl(172, 44%, 27%)', 'hsl(160, 42%, 28%)', 'hsl(146, 40%, 30%)'],
+  },
 };
 const CHAPTER_GRADIENT_FALLBACK: readonly [string, string, string] = [
   'hsl(258, 44%, 28%)',

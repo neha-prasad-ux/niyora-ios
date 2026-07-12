@@ -33,4 +33,20 @@ export const colors = {
 
   // Chrome icons (header).
   iconChrome: 'rgba(255, 255, 255, 0.85)',
+
+  // Phase strip on the Now card. Build wears the moon's cool blue, PMS and
+  // period warm to rose; the active segment is a tint, never an inversion,
+  // so the moon stays the brightest thing on screen.
+  bandBuildActive: 'rgba(143, 168, 232, 0.38)',
+  bandBuildDim: 'rgba(143, 168, 232, 0.13)',
+  bandPmsActive: 'rgba(237, 147, 177, 0.42)',
+  bandPmsDim: 'rgba(237, 147, 177, 0.15)',
+  bandPeriodActive: 'rgba(237, 147, 177, 0.60)',
+  bandPeriodDim: 'rgba(255, 255, 255, 0.07)',
+  bandPearl: '#E2E7F2',
+  bandLabel: 'rgba(255, 255, 255, 0.95)',
+  bandLabelDim: 'rgba(255, 255, 255, 0.45)',
+  bandBlueText: 'rgba(169, 184, 232, 0.95)',
+  bandRoseText: 'rgba(244, 192, 209, 0.95)',
+  bandRoseBorder: 'rgba(237, 147, 177, 0.5)',
 } as const;

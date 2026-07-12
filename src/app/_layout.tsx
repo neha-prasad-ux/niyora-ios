@@ -19,7 +19,7 @@ import {
 } from '../lib/stress-nudge';
 import { recordAnswer } from '../store/nudge-history';
 import { useStressTick } from '../hooks/use-stress-tick';
-import { STRESS_EXPERIMENT } from '../config/features';
+import { FM_EXPERIMENT, STRESS_EXPERIMENT } from '../config/features';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -156,7 +156,32 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          {/* The cycle-end reflection, opened from the Now tab. */}
+          <Stack.Screen
+            name="reflect"
+            options={{ animation: 'slide_from_right', gestureEnabled: true }}
+          />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
+          {FM_EXPERIMENT && <Stack.Screen name="fm-probe" />}
+          {FM_EXPERIMENT && (
+            <Stack.Screen
+              name="rough-moment"
+              options={{
+                // Same calm fade as the breath session: an 11pm spiral does
+                // not deserve a hard sideways slide.
+                animation: 'fade',
+                animationDuration: 420,
+                gestureEnabled: true,
+              }}
+            />
+          )}
+          {/* Dev-only material preview, reached by long-pressing the Now moon. */}
+          {__DEV__ && (
+            <Stack.Screen
+              name="moon-probe"
+              options={{ animation: 'fade', animationDuration: 300, gestureEnabled: true }}
+            />
+          )}
         </Stack>
       </ErrorBoundary>
     </GestureHandlerRootView>

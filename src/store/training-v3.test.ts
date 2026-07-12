@@ -45,7 +45,7 @@ describe('applyLevelComplete', () => {
   it('is idempotent: re-completing does not double-count or re-bump', () => {
     const a = applyLevelComplete(DEFAULT_TRAINING, 'irr-l1');
     const b = applyLevelComplete(a, 'irr-l1');
-    expect(b).toBe(a); // unchanged reference
+    expect(b).toBe(a); // unchanged reference when no day is stamped
     expect(b.completed).toEqual(['irr-l1']);
     expect(b.skill).toBe(a.skill);
   });
@@ -56,11 +56,15 @@ describe('applyLevelComplete', () => {
     expect(s.skill).toBeLessThanOrEqual(MAX_SKILL);
   });
 
-  it('stamps the completion day when given, and not when re-completing', () => {
+  it('stamps the completion day, including on replays (progress untouched)', () => {
     const a = applyLevelComplete(DEFAULT_TRAINING, 'irr-l1', undefined, '2026-07-11');
     expect(a.lastCompletedOn).toBe('2026-07-11');
+    // A replay re-stamps the day — that is what closes the Now ring on
+    // all-trained build days — but never re-counts the level or the skill.
     const b = applyLevelComplete(a, 'irr-l1', undefined, '2026-07-12');
-    expect(b.lastCompletedOn).toBe('2026-07-11'); // no-op repeat keeps the old stamp
+    expect(b.lastCompletedOn).toBe('2026-07-12');
+    expect(b.completed).toEqual(['irr-l1']);
+    expect(b.skill).toBe(a.skill);
   });
 });
 

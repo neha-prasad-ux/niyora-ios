@@ -7,7 +7,7 @@
 // Content lives in v3/game-content.ts; progress persists via store/training-v3.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -22,6 +22,7 @@ import { v3 } from '@/v3/v3-theme';
 import {
   getChapter,
   type Chapter,
+  type DeckRoute,
   type Intensity,
   type MoveTier,
 } from '@/v3/game-content';
@@ -44,6 +45,10 @@ const MYTH_PINK = 'hsl(330, 68%, 72%)';
 const SMALL_PINK = 'hsl(330, 68%, 74%)';
 const BIG_CORAL = 'hsl(8, 72%, 68%)';
 const STRESS_HUES = [8, 275, 330, 8] as const; // coral, violet, pink, coral
+
+// Level 5 routing-deck gate colours: Small keeps the cool pink of a small read,
+// Big the warm coral of a big one, Basics a soft gold (food/sleep, the pre-step).
+const BASICS_GOLD = 'hsl(42, 68%, 60%)';
 
 // The one place we mark a harmful choice: a muted brick red for "push it down"
 // (suppression), never an alarm neon.
@@ -113,17 +118,29 @@ export default function GameV3() {
 
   // Every level is a self-contained, full-screen arc (intro -> [cheat] -> play ->
   // congrats), big buttons at the bottom, soft retry, a gold ring for a clean run.
-  switch (index) {
-    case 0:
-      return <LevelOne ch={ch} onDone={() => advance(levels[0].id)} onExit={exit} />;
-    case 1:
-      return <LevelTwo ch={ch} onDone={() => advance(levels[1].id)} onExit={exit} />;
-    case 2:
-      return <LevelThree ch={ch} onDone={() => advance(levels[2].id)} onExit={exit} />;
-    case 3:
-      return <LevelFour ch={ch} onDone={() => advance(levels[3].id)} onExit={exit} />;
+  // Dispatch by the level's own kind (not its position), so a chapter can swap the
+  // power-move slot: breathe / compassion / script. The last level finishes; the
+  // rest advance.
+  const level = levels[index] ?? levels[levels.length - 1];
+  const isLast = index >= levels.length - 1;
+  const done = () => (isLast ? finish(level.id) : advance(level.id));
+  switch (level.kind) {
+    case 'swipe':
+      return <LevelOne ch={ch} onDone={done} onExit={exit} />;
+    case 'tap':
+      return <LevelTwo ch={ch} onDone={done} onExit={exit} />;
+    case 'preview':
+      return <LevelThree ch={ch} onDone={done} onExit={exit} />;
+    case 'breathe':
+      return <LevelFour ch={ch} onDone={done} onExit={exit} />;
+    case 'compassion':
+      return <LevelCompassion ch={ch} onDone={done} onExit={exit} />;
+    case 'script':
+      return <LevelScript ch={ch} onDone={done} onExit={exit} />;
+    case 'chips':
+      return <LevelFive ch={ch} onDone={done} onExit={exit} />;
     default:
-      return <LevelFive ch={ch} onDone={() => finish(levels[4].id)} onExit={exit} />;
+      return <LevelFive ch={ch} onDone={done} onExit={exit} />;
   }
 }
 
@@ -994,6 +1011,271 @@ function LevelFour({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
 }
 
 
+// --- Level 4 · Self-compassion break (Confidence's power move) ---------
+// Same shape as the breath: teach the three beats, then do it. Two guided beats
+// she taps through, then she picks one kind line to keep. No right or wrong, the
+// reward is doing it. Reuses L4_INTRO / L4_CONGRATS for the intro and congrats.
+function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_INTRO, L4_INTRO, L4_CONGRATS, L4_COMPASSION } = ch;
+  const [stage, setStage] = useState<'levelIntro' | 'teach' | 'practice' | 'congrats'>('levelIntro');
+  const [beat, setBeat] = useState(0);
+  const [kindPick, setKindPick] = useState<number | null>(null);
+
+  if (!L4_COMPASSION) return null; // a 'compassion' level always carries this
+  const { teach, practice, kindPrompt, kindLines } = L4_COMPASSION;
+  const onKindStep = beat >= practice.length;
+
+  const back = () => {
+    tap();
+    if (stage === 'practice') {
+      setBeat(0);
+      setKindPick(null);
+      setStage('teach');
+    } else if (stage === 'teach') {
+      setStage('levelIntro');
+    } else {
+      onExit();
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <View style={{ width: 22 }} />
+          </View>
+        )}
+
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L4Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Eyebrow}>{L4_INTRO.level}</Text>
+              <Text style={styles.l2Title}>{L4_INTRO.title}</Text>
+              <Text style={styles.l2Subtitle}>{L4_INTRO.subtitle}</Text>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('teach'); }} />
+          </View>
+        )}
+
+        {stage === 'teach' && (
+          <View style={styles.l1Body}>
+            <L4Backdrop />
+            <View style={styles.l2CheatCenter}>
+              <Text style={styles.l2CheatKicker}>{teach.kicker}</Text>
+              <Text style={styles.l2CheatTitle}>{teach.title}</Text>
+              <View style={{ gap: 14, marginTop: 10 }}>
+                {teach.beats.map((b, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                    <Text style={[styles.l5SlotNum, { color: v3.regulated }]}>{i + 1}</Text>
+                    <Text style={[styles.l4TeachRule, { flex: 1, textAlign: 'left', marginTop: 0 }]}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <BeginButton fullWidth label="Let's do it" onPress={() => { tap(); setStage('practice'); }} />
+          </View>
+        )}
+
+        {stage === 'practice' && !onKindStep && (
+          <View style={styles.l1Body}>
+            <View style={styles.l4BreatheCenter}>
+              <Orb size={200} still />
+              <Text style={styles.l4PhaseLabel}>{practice[beat].label}</Text>
+              <Text style={[styles.l2Scene, { marginTop: 6, paddingHorizontal: 12 }]}>{practice[beat].line}</Text>
+            </View>
+            <BeginButton fullWidth label={practice[beat].cue} onPress={() => { tap(); setBeat(beat + 1); }} />
+          </View>
+        )}
+
+        {stage === 'practice' && onKindStep && (
+          <View style={styles.l1Body}>
+            <Text style={styles.l3Prompt}>{kindPrompt}</Text>
+            <View style={styles.l3PlayBottom}>
+              {kindPick == null ? (
+                <View style={styles.l3Solutions}>
+                  {kindLines.map((line, idx) => (
+                    <Pressable
+                      key={line}
+                      style={styles.l3Solution}
+                      onPress={() => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                        setKindPick(idx);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={line}
+                    >
+                      <Text style={styles.l3SolutionText}>{line}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <>
+                  <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                    <Text style={[styles.l1Verdict, { color: v3.regulated }]}>That one is yours to keep</Text>
+                    <Text style={styles.l1RevealText}>Say it to yourself, slow, one more time. That is the whole move.</Text>
+                  </View>
+                  <BeginButton fullWidth label="Finish" onPress={() => { tap(); setStage('congrats'); }} />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
+        {stage === 'congrats' && (
+          <LevelCongrats
+            ringCount={3}
+            gold={false}
+            congrats={L4_CONGRATS}
+            buttonLabel="On to Level 5"
+            onNext={() => { tap(); onDone(); }}
+          />
+        )}
+      </SafeAreaView>
+
+      {stage === 'congrats' && <RingCelebration hue={VIOLET_BURST} />}
+    </View>
+  );
+}
+
+// --- Level 4 · Script builder (Speaking up's power move) ---------------
+// v1 is instruction-first: teach the four-part shape, reveal a worked line one
+// part at a time so it assembles on screen, then she reads the whole thing out
+// loud. No branching or grading yet (AI feedback comes later). Reuses L4_INTRO /
+// L4_CONGRATS for the intro and congrats.
+function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
+  const { L1_INTRO, L4_INTRO, L4_CONGRATS, L4_SCRIPT } = ch;
+  const [stage, setStage] = useState<'levelIntro' | 'teach' | 'build' | 'congrats'>('levelIntro');
+  const [revealed, setRevealed] = useState(0);
+
+  if (!L4_SCRIPT) return null; // a 'script' level always carries this
+  const { teach, scenario, lines, sayIt } = L4_SCRIPT;
+  const allRevealed = revealed >= lines.length;
+
+  const back = () => {
+    tap();
+    if (stage === 'build') {
+      setRevealed(0);
+      setStage('teach');
+    } else if (stage === 'teach') {
+      setStage('levelIntro');
+    } else {
+      onExit();
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
+        {stage !== 'congrats' && (
+          <View style={styles.l1TopBar}>
+            <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
+              <Text style={styles.back}>‹</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <View style={{ width: 22 }} />
+          </View>
+        )}
+
+        {stage === 'levelIntro' && (
+          <View style={styles.l1Body}>
+            <L4Backdrop />
+            <View style={styles.l1Center}>
+              <View style={styles.l1EmotionChip}>
+                <Text style={styles.l1EmotionChipText}>{L1_INTRO.emotion}</Text>
+              </View>
+              <Text style={styles.l1Eyebrow}>{L4_INTRO.level}</Text>
+              <Text style={styles.l2Title}>{L4_INTRO.title}</Text>
+              <Text style={styles.l2Subtitle}>{L4_INTRO.subtitle}</Text>
+            </View>
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('teach'); }} />
+          </View>
+        )}
+
+        {stage === 'teach' && (
+          <View style={styles.l1Body}>
+            <L4Backdrop />
+            <View style={styles.l2CheatCenter}>
+              <Text style={styles.l2CheatKicker}>{teach.kicker}</Text>
+              <Text style={styles.l2CheatTitle}>{teach.title}</Text>
+              <View style={styles.l4DoseTable}>
+                {teach.rows.map((r, idx) => (
+                  <View key={r.part} style={[styles.l4DoseRow, idx > 0 && styles.l4DoseRowDivider]}>
+                    <Text style={[styles.l4DoseSize, { color: TRUTH_BLUE }]}>{r.part}</Text>
+                    <Text style={styles.l4DoseAmount}>{r.hint}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <BeginButton fullWidth label="Build one" onPress={() => { tap(); setStage('build'); }} />
+          </View>
+        )}
+
+        {stage === 'build' && (
+          <View style={styles.l1Body}>
+            <Text style={styles.l5StepLabel}>Your situation</Text>
+            <Text style={styles.l3Prompt}>{scenario}</Text>
+            <ScrollView contentContainerStyle={{ gap: 10, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
+              {lines.slice(0, revealed).map((ln) => (
+                <View
+                  key={ln.part}
+                  style={{
+                    padding: 14,
+                    borderRadius: 14,
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: v3.panelBorder,
+                    backgroundColor: v3.panel,
+                  }}
+                >
+                  <Text style={[styles.l1Eyebrow, { textAlign: 'left', marginBottom: 4 }]}>{ln.part}</Text>
+                  <Text style={styles.l1RevealText}>{ln.text}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            {!allRevealed ? (
+              <BeginButton
+                fullWidth
+                label={revealed === 0 ? 'Start the line' : 'Add the next part'}
+                onPress={() => { tap(); setRevealed(revealed + 1); }}
+              />
+            ) : (
+              <View style={{ gap: 12 }}>
+                <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                  <Text style={[styles.l1Verdict, { color: v3.regulated }]}>That is your line</Text>
+                  <Text style={styles.l1RevealText}>{sayIt}</Text>
+                </View>
+                <BeginButton fullWidth label="I said it" onPress={() => { tap(); setStage('congrats'); }} />
+              </View>
+            )}
+          </View>
+        )}
+
+        {stage === 'congrats' && (
+          <LevelCongrats
+            ringCount={3}
+            gold={false}
+            congrats={L4_CONGRATS}
+            buttonLabel="On to Level 5"
+            onNext={() => { tap(); onDone(); }}
+          />
+        )}
+      </SafeAreaView>
+
+      {stage === 'congrats' && <RingCelebration hue={VIOLET_BURST} />}
+    </View>
+  );
+}
+
 // Level 5 pattern: one huge soul zoomed in and tilted, so its rings sweep across
 // the intro on a diagonal. The finale's own texture, distinct from the scattered
 // soul-moons of L1-L3 and the single centered soul of L4.
@@ -1007,77 +1289,83 @@ function L5Backdrop() {
   );
 }
 
-// --- Level 5 · The last test (a graded recap: read, move, breath, order) ----
-// Four beats testing the whole chapter: read the size (L2), pick the move (L3),
-// answer the breath (L4, as knowledge), then put the whole method in order. Each
-// beat is graded, so a fully clean run earns gold. A big celebration on the last
-// page. The scramble the reorder pool is shown in (indices into L5_REORDER.steps).
-const L5_SCRAMBLE = [2, 0, 3, 1];
+// --- Level 5 · The last test (the routing deck) ------------------------------
+// The capstone: she routes a handful of real moments to the gate that fits, tap-
+// first (the card flies to the tapped gate; a swipe would do the same for whoever
+// tries it). Reading the size and picking the move become one gesture, repeated
+// at speed, so the reads become reflex. Then the breath as knowledge (L4). Gentle:
+// a wrong route nudges and lets her re-route, it never scolds; a fully clean run
+// earns gold. The congrats screen hands her the method as a keepsake fork.
+
+// Which way a routed card flies: Small left, Big right, Basics down. The gate
+// buttons sit in the same places, so tap and swipe would agree.
+const ROUTE_DX: Record<DeckRoute, number> = { small: -520, big: 520, basics: 0 };
+const ROUTE_DY: Record<DeckRoute, number> = { small: 0, big: 0, basics: 760 };
+const ROUTE_ROT: Record<DeckRoute, string> = { small: '-16deg', big: '16deg', basics: '0deg' };
+const ROUTE_VERDICT: Record<DeckRoute, string> = {
+  basics: 'Basics first, yes',
+  small: 'Small, keep it light',
+  big: 'Big, give it room',
+};
 
 function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
-  const { L1_INTRO, L5_INTRO, L5_CAPSTONE, L5_BREATH_Q, L5_CONGRATS, L5_REORDER } = ch;
-  const [stage, setStage] = useState<'levelIntro' | 'size' | 'move' | 'breath' | 'reorder' | 'congrats'>('levelIntro');
-  const [sizeGuess, setSizeGuess] = useState<Intensity | null>(null);
-  const [movePick, setMovePick] = useState<number | null>(null);
+  const { L1_INTRO, L5_INTRO, L5_BREATH_Q, L5_CONGRATS, L5_DECK, L5_REORDER } = ch;
+  const cards = L5_DECK.cards;
+  const gates = L5_DECK.gates;
+
+  const [stage, setStage] = useState<'levelIntro' | 'deck' | 'breath' | 'congrats'>('levelIntro');
+  const [cardIdx, setCardIdx] = useState(0);
+  const [routed, setRouted] = useState<DeckRoute | null>(null); // her pick for the current card
   const [breathPick, setBreathPick] = useState<number | null>(null);
-  const [placed, setPlaced] = useState<number[]>([]);
-  const [solved, setSolved] = useState(false); // reorder locked in correctly
-  const [nudge, setNudge] = useState(false); // last check was wrong, try again
   const [celebrate, setCelebrate] = useState(false);
   const [flawless, setFlawless] = useState(true);
+  const [fly] = useState(() => new Animated.Value(0)); // 0 at rest, 1 flown out to its gate
+  const [enter] = useState(() => new Animated.Value(1)); // 1 at rest, 0 just arrived (below + faded)
 
-  const scene = L5_CAPSTONE;
-  const sizeAnswered = sizeGuess !== null;
-  const sizeRight = sizeAnswered && sizeGuess === scene.size;
-  const chosen = movePick != null ? scene.options[movePick] : null;
-  const moveBest = chosen?.tier === 'best';
+  const card = cards[cardIdx];
+  const routedRight = routed !== null && routed === card.route;
   const breathAnswered = breathPick !== null;
   const breathRight = breathAnswered && L5_BREATH_Q.options[breathPick].correct;
-  const allPlaced = placed.length === L5_REORDER.steps.length;
-  const beat = stage === 'size' ? 0 : stage === 'move' ? 1 : stage === 'breath' ? 2 : stage === 'reorder' ? 3 : -1;
 
-  const pickSize = (g: Intensity) => {
-    if (sizeAnswered) return;
-    if (g === scene.size) {
+  // Route the current card. Right: affirm and wait for Next. Wrong: nudge, keep
+  // the gates live so she can re-route (that only costs the clean-run ring).
+  const pickGate = (r: DeckRoute) => {
+    if (routedRight) return;
+    if (r === card.route) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setCelebrate(true);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       setFlawless(false);
     }
-    setSizeGuess(g);
+    setRouted(r);
   };
 
-  const nextSize = () => {
+  // Ease a fresh card up into place (called after the outgoing one has flown off,
+  // and when the deck first opens). Starts it low and faded, then settles it.
+  const dealIn = () => {
+    enter.setValue(0);
+    Animated.timing(enter, { toValue: 1, duration: 240, useNativeDriver: true }).start();
+  };
+
+  // Fly the routed card off to its gate, swap in the next one while it is still
+  // invisible (enter=0 cancels the reset opacity), then deal it in — so the old
+  // card never flashes back at centre and the new one always makes an entrance.
+  const nextCard = () => {
     tap();
-    if (sizeRight) {
-      setCelebrate(false);
-      setStage('move');
-    } else {
-      setSizeGuess(null);
-    }
-  };
-
-  const pickMove = (idx: number) => {
-    if (movePick != null) return;
-    if (scene.options[idx].tier === 'best') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setCelebrate(true);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      setFlawless(false);
-    }
-    setMovePick(idx);
-  };
-
-  const nextMove = () => {
-    tap();
-    if (moveBest) {
-      setCelebrate(false);
-      setStage('breath');
-    } else {
-      setMovePick(null);
-    }
+    setCelebrate(false);
+    Animated.timing(fly, { toValue: 1, duration: 300, useNativeDriver: true }).start(() => {
+      const last = cardIdx + 1 >= cards.length;
+      fly.setValue(0);
+      setRouted(null);
+      if (last) {
+        setStage('breath');
+        return;
+      }
+      enter.setValue(0);
+      setCardIdx((n) => n + 1);
+      dealIn();
+    });
   };
 
   const pickBreath = (idx: number) => {
@@ -1096,67 +1384,53 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
     tap();
     if (breathRight) {
       setCelebrate(false);
-      setStage('reorder');
+      setStage('congrats');
     } else {
       setBreathPick(null);
     }
   };
-
-  const placeStep = (idx: number) => {
-    if (solved || placed.includes(idx)) return;
-    tap();
-    setNudge(false);
-    setPlaced((p) => [...p, idx]);
-  };
-
-  const unplaceStep = (idx: number) => {
-    if (solved) return;
-    tap();
-    setNudge(false);
-    setPlaced((p) => p.filter((x) => x !== idx));
-  };
-
-  // She cannot move on until the order is right: a wrong check nudges her to
-  // rearrange (and costs the clean-run ring), it never reveals the answer.
-  const checkOrder = () => {
-    tap();
-    if (placed.every((v, i) => v === i)) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setCelebrate(true);
-      setSolved(true);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      setFlawless(false);
-      setNudge(true);
-    }
-  };
-
-  const verdict = (tier: MoveTier) =>
-    tier === 'best' ? 'That is the one' : tier === 'lesser' ? 'That can work, not here though' : 'That one backfires';
 
   const back = () => {
     tap();
-    if (stage === 'reorder') {
-      setPlaced([]);
-      setSolved(false);
-      setNudge(false);
-      setCelebrate(false);
-      setStage('breath');
-    } else if (stage === 'breath') {
-      setBreathPick(null);
-      setCelebrate(false);
-      setStage('move');
-    } else if (stage === 'move') {
-      setMovePick(null);
-      setCelebrate(false);
-      setStage('size');
-    } else if (stage === 'size') {
-      setSizeGuess(null);
+    if (stage === 'deck') {
+      fly.setValue(0);
+      enter.setValue(1);
+      setRouted(null);
+      setCardIdx(0);
       setCelebrate(false);
       setStage('levelIntro');
+    } else if (stage === 'breath') {
+      fly.setValue(0);
+      enter.setValue(1);
+      setBreathPick(null);
+      setRouted(null);
+      setCardIdx(cards.length - 1);
+      setCelebrate(false);
+      setStage('deck');
     } else {
       onExit();
     }
+  };
+
+  // The card's motion: it flies out to its gate on Next (fly 0→1), and the next
+  // card eases up into place (enter 0→1). Opacity multiplies the two so a card
+  // that is both reset (fly=0) and freshly dealt (enter=0) stays invisible — no
+  // snap-back flash of the outgoing card at centre.
+  const flyStyle = {
+    transform: [
+      { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, ROUTE_DX[card.route]] }) },
+      {
+        translateY: Animated.add(
+          fly.interpolate({ inputRange: [0, 1], outputRange: [0, ROUTE_DY[card.route]] }),
+          enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }),
+        ),
+      },
+      { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', ROUTE_ROT[card.route]] }) },
+    ],
+    opacity: Animated.multiply(
+      fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+      enter.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+    ),
   };
 
   return (
@@ -1168,10 +1442,10 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
             <Pressable onPress={back} hitSlop={12} accessibilityLabel="Back">
               <Text style={styles.back}>‹</Text>
             </Pressable>
-            {beat >= 0 ? (
+            {stage === 'deck' ? (
               <View style={styles.l1Segments}>
-                {[0, 1, 2, 3].map((i) => (
-                  <View key={i} style={[styles.l1Seg, i <= beat && styles.l1SegOn]} />
+                {cards.map((c, idx) => (
+                  <View key={c.id} style={[styles.l1Seg, idx <= cardIdx && styles.l1SegOn]} />
                 ))}
               </View>
             ) : (
@@ -1192,63 +1466,64 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
               <Text style={styles.l2Title}>{L5_INTRO.title}</Text>
               <Text style={styles.l2Subtitle}>{L5_INTRO.subtitle}</Text>
             </View>
-            <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('size'); }} />
+            <BeginButton fullWidth label="Start" onPress={() => { tap(); enter.setValue(0); setStage('deck'); dealIn(); }} />
           </View>
         )}
 
-        {stage === 'size' && (
+        {stage === 'deck' && (
           <View style={styles.l1Body}>
-            <View style={styles.l1Center}>
-              <Text style={styles.l5StepLabel}>First, read the size</Text>
-              <Text style={styles.l2Scene}>{scene.scene}</Text>
+            <Text style={styles.l5StepLabel}>{L5_DECK.stepLabel}</Text>
+            <View style={styles.deckStage}>
+              <View style={styles.deckStack}>
+                <View style={[styles.deckPeek, styles.deckPeek2]} />
+                <View style={[styles.deckPeek, styles.deckPeek1]} />
+                <Animated.View style={[styles.deckCard, flyStyle]}>
+                  <Text style={styles.deckCardMeta}>Moment {cardIdx + 1} of {cards.length}</Text>
+                  <Text style={styles.deckCardScene}>{card.scene}</Text>
+                </Animated.View>
+              </View>
             </View>
             <View style={styles.l1Bottom}>
-              {!sizeAnswered ? (
-                <View style={styles.l1Choices}>
-                  <Pressable style={[styles.l2Choice, styles.l2ChoiceSmall]} onPress={() => pickSize('little')} accessibilityRole="button" accessibilityLabel="Small">
-                    <Text style={styles.l1ChoiceLabel}>Small</Text>
-                  </Pressable>
-                  <Pressable style={[styles.l2Choice, styles.l2ChoiceBig]} onPress={() => pickSize('lot')} accessibilityRole="button" accessibilityLabel="Big">
-                    <Text style={styles.l1ChoiceLabel}>Big</Text>
-                  </Pressable>
-                </View>
-              ) : (
+              {!routedRight ? (
                 <>
-                  <View style={[styles.l1Reveal, sizeRight ? styles.l1RevealRight : styles.l1RevealWrong]}>
-                    <Text style={[styles.l1Verdict, { color: sizeRight ? BIG_CORAL : v3.activated }]}>
-                      {sizeRight ? 'Big, yes' : 'Look again'}
-                    </Text>
-                    <Text style={styles.l1RevealText}>{scene.sizeWhy}</Text>
-                  </View>
-                  <BeginButton fullWidth label={sizeRight ? 'Next' : 'Try again'} onPress={nextSize} />
-                </>
-              )}
-            </View>
-          </View>
-        )}
-
-        {stage === 'move' && (
-          <View style={styles.l1Body}>
-            <Text style={styles.l5StepLabel}>Now, pick the move</Text>
-            <Text style={styles.l3Prompt}>{scene.prompt}</Text>
-            <View style={styles.l3PlayBottom}>
-              {movePick == null ? (
-                <View style={styles.l3Solutions}>
-                  {scene.options.map((o, idx) => (
-                    <Pressable key={o.label} style={styles.l3Solution} onPress={() => pickMove(idx)} accessibilityRole="button" accessibilityLabel={o.label}>
-                      <Text style={styles.l3SolutionText}>{o.label}</Text>
+                  {routed !== null && <Text style={styles.l5Nudge}>{card.nudge}</Text>}
+                  <View style={styles.deckGatesRow}>
+                    <Pressable
+                      style={[styles.deckGate, styles.deckGateSmall]}
+                      onPress={() => pickGate('small')}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${gates.small.lead}, ${gates.small.move}`}
+                    >
+                      <Text style={styles.deckGateLead}>‹ {gates.small.lead}</Text>
+                      <Text style={styles.deckGateMove}>{gates.small.move}</Text>
                     </Pressable>
-                  ))}
-                </View>
+                    <Pressable
+                      style={[styles.deckGate, styles.deckGateBig]}
+                      onPress={() => pickGate('big')}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${gates.big.lead}, ${gates.big.move}`}
+                    >
+                      <Text style={[styles.deckGateLead, styles.deckGateRight]}>{gates.big.lead} ›</Text>
+                      <Text style={[styles.deckGateMove, styles.deckGateRight]}>{gates.big.move}</Text>
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    style={[styles.deckGate, styles.deckGateBasics]}
+                    onPress={() => pickGate('basics')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${gates.basics.lead}, ${gates.basics.move}`}
+                  >
+                    <Text style={styles.deckGateLead}>{gates.basics.lead}</Text>
+                    <Text style={styles.deckGateMove}>{gates.basics.move}</Text>
+                  </Pressable>
+                </>
               ) : (
                 <>
-                  <View style={[styles.l1Reveal, moveBest ? styles.l1RevealRight : styles.l1RevealWrong]}>
-                    <Text style={[styles.l1Verdict, { color: moveBest ? v3.regulated : v3.activated }]}>
-                      {verdict(chosen!.tier)}
-                    </Text>
-                    <Text style={styles.l1RevealText}>{chosen!.future}</Text>
+                  <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                    <Text style={[styles.l1Verdict, { color: v3.regulated }]}>{ROUTE_VERDICT[card.route]}</Text>
+                    <Text style={styles.l1RevealText}>{card.reveal}</Text>
                   </View>
-                  <BeginButton fullWidth label={moveBest ? 'Next' : 'Try another'} onPress={nextMove} />
+                  <BeginButton fullWidth label={cardIdx + 1 >= cards.length ? 'Last step' : 'Next'} onPress={nextCard} />
                 </>
               )}
             </View>
@@ -1285,59 +1560,6 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
           </View>
         )}
 
-        {stage === 'reorder' && (
-          <View style={styles.l1Body}>
-            <Text style={styles.l5StepLabel}>{L5_REORDER.stepLabel}</Text>
-            <Text style={styles.l3Prompt}>{L5_REORDER.prompt}</Text>
-            <ScrollView contentContainerStyle={styles.l5ReorderScroll} showsVerticalScrollIndicator={false}>
-              <View style={styles.l5Slots}>
-                {placed.map((stepIdx, pos) => (
-                  <Pressable
-                    key={stepIdx}
-                    disabled={solved}
-                    onPress={() => unplaceStep(stepIdx)}
-                    style={styles.l5Slot}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.l5SlotNum}>{pos + 1}</Text>
-                    <Text style={styles.l5SlotText}>{L5_REORDER.steps[stepIdx]}</Text>
-                  </Pressable>
-                ))}
-                {!allPlaced && (
-                  <View style={styles.l5SlotEmpty}>
-                    <Text style={styles.l5SlotNum}>{placed.length + 1}</Text>
-                    <Text style={styles.l5SlotEmptyText}>Tap a step below</Text>
-                  </View>
-                )}
-              </View>
-
-              {!solved && (
-                <View style={styles.l5Pool}>
-                  {L5_SCRAMBLE.filter((i) => !placed.includes(i)).map((i) => (
-                    <Pressable key={i} onPress={() => placeStep(i)} style={styles.l5PoolCard} accessibilityRole="button">
-                      <Text style={styles.l5PoolText}>{L5_REORDER.steps[i]}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-
-              {nudge && !solved && <Text style={styles.l5Nudge}>{L5_REORDER.whyWrong}</Text>}
-
-              {solved && (
-                <View style={[styles.l1Reveal, styles.l1RevealRight]}>
-                  <Text style={[styles.l1Verdict, { color: v3.regulated }]}>That is the order</Text>
-                  <Text style={styles.l1RevealText}>{L5_REORDER.whyRight}</Text>
-                </View>
-              )}
-            </ScrollView>
-            {!solved ? (
-              <BeginButton fullWidth label="Check" disabled={!allPlaced} onPress={checkOrder} />
-            ) : (
-              <BeginButton fullWidth label="Finish" onPress={() => { tap(); setCelebrate(false); setStage('congrats'); }} />
-            )}
-          </View>
-        )}
-
         {stage === 'congrats' && (
           <LevelCongrats
             ringCount={4}
@@ -1346,7 +1568,9 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
             buttonLabel="Done"
             onNext={() => { tap(); onDone(); }}
             finale
-          />
+          >
+            <MethodKeepsake steps={L5_REORDER.steps} />
+          </LevelCongrats>
         )}
       </SafeAreaView>
 
@@ -1356,6 +1580,45 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
         </View>
       )}
       {stage === 'congrats' && <RingCelebration hue={flawless ? GOLD_HUE : VIOLET_BURST} />}
+    </View>
+  );
+}
+
+// The keepsake: the whole method as a small fork, drawn once on the finale's
+// congrats screen and kept in Grow. Derived from L5_REORDER.steps: two fixed
+// steps (basics, then read the size), then the small and big branches. She is
+// not tested on it, it is the thing she carries out into a real rough day.
+function MethodKeepsake({ steps }: { steps: string[] }) {
+  if (steps.length < 4) return null;
+  const splitStep = (s: string): [string, string] => {
+    const i = s.indexOf(',');
+    return i === -1 ? [s, ''] : [s.slice(0, i).trim(), s.slice(i + 1).trim()];
+  };
+  const [smallHead, smallMove] = splitStep(steps[2]);
+  const [bigHead, bigMove] = splitStep(steps[3]);
+  return (
+    <View style={styles.keepCard}>
+      <Text style={styles.keepTitle}>Your method</Text>
+      <View style={styles.keepNode}>
+        <View style={styles.keepDot} />
+        <Text style={styles.keepNodeText}>{steps[0]}</Text>
+      </View>
+      <View style={styles.keepLine} />
+      <View style={styles.keepNode}>
+        <View style={styles.keepDot} />
+        <Text style={styles.keepNodeText}>{steps[1]}</Text>
+      </View>
+      <View style={styles.keepLine} />
+      <View style={styles.keepFork}>
+        <View style={[styles.keepBranch, styles.keepBranchSmall]}>
+          <Text style={[styles.keepGate, { color: SMALL_PINK }]}>{smallHead}</Text>
+          {smallMove ? <Text style={styles.keepBranchText}>{smallMove}</Text> : null}
+        </View>
+        <View style={[styles.keepBranch, styles.keepBranchBig]}>
+          <Text style={[styles.keepGate, { color: BIG_CORAL }]}>{bigHead}</Text>
+          {bigMove ? <Text style={styles.keepBranchText}>{bigMove}</Text> : null}
+        </View>
+      </View>
     </View>
   );
 }
@@ -1726,4 +1989,105 @@ const styles = StyleSheet.create({
     opacity: 0.14,
     transform: [{ rotate: '-18deg' }, { translateX: 46 }, { translateY: -34 }],
   },
+
+  // Level 5 · the routing deck. A single card she reads, with two peek cards
+  // behind for the deck feel; it flies to the tapped gate on commit.
+  deckStage: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  deckStack: { width: '86%', justifyContent: 'center' },
+  deckCard: {
+    width: '100%',
+    minHeight: 188,
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
+    backgroundColor: hsla(v3.accent, 0.16),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: hsla(v3.accent, 0.55),
+    justifyContent: 'center',
+  },
+  // The two cards peeking from under the active one, each filling the stack and
+  // fanned by a small rotation for depth.
+  deckPeek: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  deckPeek1: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    transform: [{ rotate: '3deg' }, { translateY: 8 }],
+  },
+  deckPeek2: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    transform: [{ rotate: '-4deg' }, { translateY: 14 }],
+  },
+  deckCardMeta: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.textSubtitle,
+    marginBottom: 10,
+  },
+  deckCardScene: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 18,
+    lineHeight: 26,
+    color: colors.textPrimary,
+  },
+  deckGatesRow: { flexDirection: 'row', gap: 12 },
+  deckGate: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  deckGateSmall: { backgroundColor: hsla(SMALL_PINK, 0.16), borderColor: hsla(SMALL_PINK, 0.55) },
+  deckGateBig: { backgroundColor: hsla(BIG_CORAL, 0.16), borderColor: hsla(BIG_CORAL, 0.55) },
+  deckGateBasics: {
+    flex: 0,
+    alignItems: 'center',
+    backgroundColor: hsla(BASICS_GOLD, 0.14),
+    borderColor: hsla(BASICS_GOLD, 0.5),
+  },
+  deckGateLead: { fontFamily: 'Poppins-SemiBold', fontSize: 15, color: colors.textPrimary },
+  deckGateMove: { fontFamily: 'Poppins-Light', fontSize: 13, lineHeight: 18, color: colors.textSubtitle, marginTop: 2 },
+  deckGateRight: { textAlign: 'right' },
+
+  // The keepsake fork on the finale congrats: the method she carries out.
+  keepCard: {
+    marginTop: 18,
+    width: '100%',
+    borderRadius: 18,
+    padding: 16,
+    backgroundColor: hsla(v3.accent, 0.1),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: hsla(v3.accent, 0.4),
+    gap: 8,
+  },
+  keepTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: v3.accent,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  keepNode: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  keepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: v3.accent },
+  keepNodeText: { flex: 1, fontFamily: 'Poppins-Medium', fontSize: 14, lineHeight: 19, color: colors.textPrimary },
+  keepLine: { width: StyleSheet.hairlineWidth, height: 12, backgroundColor: hsla(v3.accent, 0.6), marginLeft: 6 },
+  keepFork: { flexDirection: 'row', gap: 10, marginTop: 2 },
+  keepBranch: { flex: 1, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingVertical: 10, paddingHorizontal: 11 },
+  keepBranchSmall: { backgroundColor: hsla(SMALL_PINK, 0.12), borderColor: hsla(SMALL_PINK, 0.45) },
+  keepBranchBig: { backgroundColor: hsla(BIG_CORAL, 0.12), borderColor: hsla(BIG_CORAL, 0.45) },
+  keepGate: { fontFamily: 'Poppins-SemiBold', fontSize: 11, letterSpacing: 0.4, marginBottom: 3 },
+  keepBranchText: { fontFamily: 'Poppins-Light', fontSize: 13, lineHeight: 18, color: colors.textPrimary },
 });

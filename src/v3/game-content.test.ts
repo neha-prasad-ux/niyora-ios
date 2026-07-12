@@ -4,8 +4,11 @@ import {
   L3_SCENES,
   L5_REORDER,
   CHAPTERS,
+  WORK_CHAPTERS,
+  chaptersForTrack,
   getChapter,
   trainSummary,
+  workSummary,
   type Chapter,
 } from './game-content';
 
@@ -39,6 +42,9 @@ function chapterCopy(ch: Chapter): string[] {
     ch.L5_BREATH_Q.whyRight,
     ch.L5_REORDER.prompt,
     ...ch.L5_REORDER.steps,
+    ch.L5_DECK.stepLabel,
+    ...Object.values(ch.L5_DECK.gates).flatMap((g) => [g.lead, g.move]),
+    ...ch.L5_DECK.cards.flatMap((c) => [c.scene, c.reveal, c.nudge]),
     ch.L5_CONGRATS.body,
   ];
 }
@@ -108,6 +114,24 @@ describe.each(CHAPTERS.map((c) => [c.id, c] as const))('game-content structure: 
     expect(ch.L5_REORDER.steps).toHaveLength(4);
     expect(ch.L5_REORDER.steps[0]).toMatch(/hungry or tired/i);
   });
+
+  it('L5 routing deck has valid cards covering every gate', () => {
+    const routes = ['basics', 'small', 'big'] as const;
+    expect(ch.L5_DECK.cards.length).toBeGreaterThanOrEqual(3);
+    for (const c of ch.L5_DECK.cards) {
+      expect(routes).toContain(c.route);
+      expect(c.scene.length).toBeGreaterThan(0);
+      expect(c.reveal.length).toBeGreaterThan(0);
+      expect(c.nudge.length).toBeGreaterThan(0);
+    }
+    // Every gate is reachable, so no gate is dead on the deck she plays.
+    for (const r of routes) {
+      expect(ch.L5_DECK.cards.some((c) => c.route === r)).toBe(true);
+    }
+    // Card ids are unique within the deck.
+    const ids = ch.L5_DECK.cards.map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });
 
 // The Irritability chapter keeps its original, more specific assertions.
@@ -137,6 +161,102 @@ describe('game-content voice + copy rules', () => {
       // No emoji (basic pictographic ranges).
       expect(line).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
     }
+  });
+});
+
+// The workplace shelf: same 5-level template, swapped power move. Its own copy is
+// checked against the same voice rules, including the compassion/script bodies.
+function workExtras(ch: Chapter): string[] {
+  const out: string[] = [];
+  if (ch.L4_COMPASSION) {
+    out.push(
+      ch.L4_COMPASSION.teach.title,
+      ...ch.L4_COMPASSION.teach.beats,
+      ...ch.L4_COMPASSION.practice.flatMap((p) => [p.line, p.cue]),
+      ch.L4_COMPASSION.kindPrompt,
+      ...ch.L4_COMPASSION.kindLines,
+    );
+  }
+  if (ch.L4_SCRIPT) {
+    out.push(
+      ch.L4_SCRIPT.teach.title,
+      ...ch.L4_SCRIPT.teach.rows.flatMap((r) => [r.part, r.hint]),
+      ch.L4_SCRIPT.scenario,
+      ...ch.L4_SCRIPT.lines.flatMap((l) => [l.part, l.text]),
+      ch.L4_SCRIPT.sayIt,
+    );
+  }
+  return out;
+}
+
+const WORK_COPY: string[] = WORK_CHAPTERS.flatMap((c) => [...chapterCopy(c), ...workExtras(c)]);
+
+describe('workplace track', () => {
+  it('ships three workplace chapters with unique ids, resolvable by getChapter', () => {
+    expect(WORK_CHAPTERS.map((c) => c.id)).toEqual(['work-anxiety', 'confidence', 'assertiveness']);
+    for (const c of WORK_CHAPTERS) {
+      expect(getChapter(c.id)).toBe(c);
+      expect(c.track).toBe('workplace');
+    }
+  });
+
+  it('chaptersForTrack routes workplace vs growth (default)', () => {
+    expect(chaptersForTrack('workplace')).toBe(WORK_CHAPTERS);
+    expect(chaptersForTrack(undefined)).toBe(CHAPTERS);
+    expect(chaptersForTrack('growth')).toBe(CHAPTERS);
+  });
+
+  it('every level id is globally unique across growth and workplace', () => {
+    const ids = [...CHAPTERS, ...WORK_CHAPTERS].flatMap((c) => c.levels.map((l) => l.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('each workplace chapter has five levels, numbered 1..5, distinct kinds', () => {
+    for (const c of WORK_CHAPTERS) {
+      expect(c.levels).toHaveLength(5);
+      expect(c.levels.map((l) => l.n)).toEqual([1, 2, 3, 4, 5]);
+      expect(new Set(c.levels.map((l) => l.kind)).size).toBe(5);
+    }
+  });
+
+  it('the level-4 power move matches its payload', () => {
+    const byId = (id: string) => WORK_CHAPTERS.find((c) => c.id === id)!;
+    expect(byId('work-anxiety').levels[3].kind).toBe('breathe');
+    const conf = byId('confidence');
+    expect(conf.levels[3].kind).toBe('compassion');
+    expect(conf.L4_COMPASSION?.kindLines.length).toBeGreaterThanOrEqual(2);
+    const assert = byId('assertiveness');
+    expect(assert.levels[3].kind).toBe('script');
+    expect(assert.L4_SCRIPT?.lines.length).toBe(4);
+  });
+
+  it('each L3 scene and the L5 capstone have one best/lesser/worst', () => {
+    for (const c of WORK_CHAPTERS) {
+      for (const s of [...c.L3_SCENES, { options: c.L5_CAPSTONE.options }]) {
+        expect(s.options.filter((o) => o.tier === 'best')).toHaveLength(1);
+        expect(s.options.filter((o) => o.tier === 'lesser')).toHaveLength(1);
+        expect(s.options.filter((o) => o.tier === 'worst')).toHaveLength(1);
+      }
+    }
+  });
+
+  it('workplace copy holds the voice rules (Neha, no em dash / bang / emoji)', () => {
+    for (const line of WORK_COPY) {
+      expect(line).not.toMatch(/Maya/);
+      expect(line).not.toMatch(/[—!]/);
+      expect(line).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+    }
+  });
+
+  it('workSummary walks the workplace shelf, not the growth one', () => {
+    const s = workSummary({ completed: [] });
+    expect(s.statusWord).toBe('Start');
+    expect(s.next?.chapterId).toBe('work-anxiety');
+    const all = WORK_CHAPTERS.flatMap((c) => c.levels.map((l) => l.id));
+    expect(workSummary({ completed: all }).statusWord).toBe('Complete');
+    // Growth progress never leaks into the workplace summary.
+    const growthAll = CHAPTERS.flatMap((c) => c.levels.map((l) => l.id));
+    expect(workSummary({ completed: growthAll }).statusWord).toBe('Start');
   });
 });
 

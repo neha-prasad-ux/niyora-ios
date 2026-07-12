@@ -69,6 +69,26 @@ export const TIER_RING_COUNTS: Record<TierId, number> = {
 // (Glow), + purple (Shine), + violet (Radiance).
 export const SOUL_RING_HUES: readonly number[] = TIERS.slice(1).map((t) => t.hue);
 
+// The moon's BODY colour evolves one step per ring tier (auto — the evolution
+// is the reward). A cool-blue-to-jewel arc: calm blue, then light blue on the
+// very first ring, aqua, amethyst, indigo. At the material gate (800+ light)
+// the material body takes over, so this ladder governs the pre-graduation moon.
+// Rides the same lifetime-light thresholds as the rings — no separate score.
+// (Rose intentionally skipped.) This deliberately overrides DESIGN.md's
+// "home orb stays calm-blue"; the moon now grows in colour.
+export const TIER_BODY_HUE: Record<TierId, number> = {
+  base: 220, // calm blue
+  spark: 202, // light blue
+  glow: 178, // aqua / teal
+  shine: 272, // amethyst
+  radiance: 250, // indigo violet
+};
+
+/** The moon's body hue for a given lifetime light (see TIER_BODY_HUE). */
+export function bodyHue(lifetimeLight: number): number {
+  return TIER_BODY_HUE[currentTier(lifetimeLight).id];
+}
+
 export function tierRingCount(tierId: TierId): number {
   return TIER_RING_COUNTS[tierId] ?? 0;
 }
