@@ -3,11 +3,9 @@ import type { PmsPrefs } from '@/store/pms-prefs';
 import type { PmsRead } from '@/store/pms-reads';
 import {
   READINESS_CHECK_IDS,
-  READINESS_TOTAL,
-  isReadyDone,
-  readinessDoneCount,
   todayYmd,
   type ReadinessCheckId,
+  type ReadinessChecks,
   type ReadinessState,
 } from '@/store/pms-readiness';
 import type { TrainingState } from '@/store/training-v3';
@@ -20,6 +18,11 @@ import { trainSummary } from '@/v3/game-content';
 // the weakest lifestyle lever from her last PMS read, split morning/evening at
 // 17:00. Pure functions only, so the whole matrix is unit-testable.
 //
+// The Calm now button is the screen's constant, so the selector NEVER asks
+// for a calming practice — the coached action is always something different
+// (a readiness check, a training level, a check-in), and calm stays one tap
+// away regardless of the day.
+//
 // Check-in actions (period confirm, remission) are completed by the screen
 // marking the rotation store's dismissedDate for today — that is what closes
 // the ring for checkin kinds, whether she answered or tapped "Not yet"
@@ -27,13 +30,7 @@ import { trainSummary } from '@/v3/game-content';
 
 export type TodayPhase = 'setup' | 'window' | 'period' | 'prep' | 'open';
 
-export type TodayActionKind =
-  | 'assessment'
-  | 'readiness'
-  | 'session'
-  | 'train'
-  | 'checkin'
-  | 'done';
+export type TodayActionKind = 'assessment' | 'readiness' | 'train' | 'checkin' | 'done';
 
 export type TodayAction = {
   id: string; // stable per ask, e.g. 'readiness:calcium', 'prep:woundDown'
@@ -163,23 +160,22 @@ const DONE_ACTION: TodayAction = {
   route: '',
 };
 
-// Session asks carry no route: the Now screen opens the RecommendSheet (the
-// coached feeling-first entry) — a bare /session push has no technique id.
-const CALM_SESSION_ACTION: TodayAction = {
-  id: 'session:calm',
-  kind: 'session',
-  title: 'A short calming practice',
-  caption: 'The last check of the day',
-  route: '',
-};
-
-const GENTLE_SESSION_ACTION: TodayAction = {
-  id: 'session:gentle',
-  kind: 'session',
-  title: 'A gentle practice',
-  caption: 'Be kind to yourself today',
-  route: '',
-};
+// The everyday-wellbeing fallback for cells with no lever ask and no training
+// left: the same date-keyed readiness checks, framed for any day. Food-first
+// in the morning, wind-down in the evening — never a calming practice, which
+// the Calm now button already owns.
+function wellbeingAction(readiness: ReadinessState, morning: boolean): TodayAction {
+  if (morning) {
+    const food = firstUnchecked(readiness, FOOD_ORDER);
+    if (food != null) return readinessAction(food, true);
+    if (!readiness.checks.woundDown) return readinessAction('woundDown', true);
+  } else {
+    if (!readiness.checks.woundDown) return readinessAction('woundDown', true);
+    const food = firstUnchecked(readiness, FOOD_ORDER);
+    if (food != null) return readinessAction(food, true);
+  }
+  return DONE_ACTION;
+}
 
 function trainAction(training: TrainingState): TodayAction | null {
   const summary = trainSummary(training);
@@ -192,14 +188,6 @@ function trainAction(training: TrainingState): TodayAction | null {
     route: `/game-v3?chapter=${summary.next.chapterId}`,
   };
 }
-
-const PRACTICE_SESSION_ACTION: TodayAction = {
-  id: 'session:practice',
-  kind: 'session',
-  title: 'A calming practice',
-  caption: 'Steady the water a little more',
-  route: '',
-};
 
 // --- Selection -----------------------------------------------------------
 
@@ -230,7 +218,7 @@ function rotate(
 }
 
 export function pickTodayAction(input: TodayActionInput): TodayAction {
-  const { prefs, reads, readiness, calmDoneToday, training, now } = input;
+  const { prefs, reads, readiness, training, now } = input;
   const phase = derivePhase(prefs, reads.length > 0, now);
   const morning = now.getHours() < EVENING_HOUR;
   const lever = weakestLever(reads);
@@ -246,9 +234,12 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
   }
 
   if (phase === 'window') {
-    if (isReadyDone(readiness.checks, calmDoneToday, readiness.doneForToday)) return DONE_ACTION;
-    const allFiveChecked = READINESS_CHECK_IDS.every((id) => readiness.checks[id]);
-    if (allFiveChecked && !calmDoneToday) return CALM_SESSION_ACTION;
+    // The window day closes on the five checks (or her "done for today" tap).
+    // The calming practice is the checklist's bonus sixth item, reached via
+    // the ever-present Calm now button — never the coached ask.
+    if (readiness.doneForToday || READINESS_CHECK_IDS.every((id) => readiness.checks[id])) {
+      return DONE_ACTION;
+    }
 
     let check: ReadinessCheckId | null;
     if (morning) {
@@ -263,14 +254,16 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
         ? 'woundDown'
         : firstUnchecked(readiness, READINESS_CHECK_IDS);
     }
-    if (check == null) return calmDoneToday ? DONE_ACTION : CALM_SESSION_ACTION;
+    if (check == null) return DONE_ACTION;
     return readinessAction(check, false);
   }
 
   if (phase === 'period') {
+    // Period days carry the lightest asks: the two once-a-cycle check-ins,
+    // any time of day, then the day settles. Calm stays a button-tap away.
     const confirmed = periodConfirmed(prefs, now);
     const dismissedToday = input.dismissedDate === todayYmd(now);
-    if (morning && !dismissedToday) {
+    if (!dismissedToday) {
       if (!confirmed) {
         return {
           id: 'checkin:period-confirm',
@@ -290,7 +283,7 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
         };
       }
     }
-    return GENTLE_SESSION_ACTION;
+    return DONE_ACTION;
   }
 
   if (phase === 'prep') {
@@ -319,8 +312,9 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
     if (candidates.length === 0) {
       // movement lever (no check content yet) and the no-weak-lever column
       const train = trainAction(training);
+      const wellbeing = wellbeingAction(readiness, morning);
       if (morning && train != null) candidates.push(train);
-      candidates.push(PRACTICE_SESSION_ACTION);
+      candidates.push(wellbeing);
       if (!morning && train != null) candidates.push(train);
     }
     return rotate(candidates, input.lastAction, now);
@@ -328,13 +322,21 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
 
   // open
   const train = trainAction(training);
+  const wellbeing = wellbeingAction(readiness, morning);
   if (train != null) {
-    return rotate([train, PRACTICE_SESSION_ACTION], input.lastAction, now);
+    return rotate([train, wellbeing], input.lastAction, now);
   }
-  return PRACTICE_SESSION_ACTION;
+  return wellbeing;
 }
 
 // --- Ring ----------------------------------------------------------------
+
+/** The five prep checks done today (the calm practice is the button's job). */
+export function prepsDoneCount(checks: ReadinessChecks): number {
+  return READINESS_CHECK_IDS.filter((id) => checks[id]).length;
+}
+
+export const PREP_CHECK_COUNT = READINESS_CHECK_IDS.length;
 
 export function todayRingProgress(input: TodayActionInput, action: TodayAction): number {
   const today = todayYmd(input.now);
@@ -351,12 +353,8 @@ export function todayRingProgress(input: TodayActionInput, action: TodayAction):
         const check = action.id.slice('prep:'.length) as ReadinessCheckId;
         return input.readiness.checks[check] ? 1 : 0;
       }
-      return (
-        readinessDoneCount(input.readiness.checks, input.calmDoneToday) / READINESS_TOTAL
-      );
+      return prepsDoneCount(input.readiness.checks) / PREP_CHECK_COUNT;
     }
-    case 'session':
-      return input.calmDoneToday ? 1 : 0;
     case 'train':
       return input.training.lastCompletedOn === today ? 1 : 0;
     case 'checkin':

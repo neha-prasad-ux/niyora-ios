@@ -10,7 +10,7 @@ as a pure function over stores that already exist. Companion to the IA rework
 // src/lib/today-action.ts  (pure, unit-tested like lib/pms-window)
 export type TodayAction = {
   id: string;                 // stable, for rotation memory + ring completion
-  kind: 'assessment' | 'readiness' | 'session' | 'train' | 'checkin' | 'done';
+  kind: 'assessment' | 'readiness' | 'train' | 'checkin' | 'done';
   title: string;              // "Wind down early tonight"
   caption: string;            // "Closes today's ring · 10 min"
   route: string;              // expo-router href
@@ -75,8 +75,10 @@ never reads as "do the checklist":
 | sleep | first unchecked food item (sleep asks are evening asks) | `woundDown` |
 | movement / none | first unchecked of the five, stored order | `woundDown` if unchecked, else first unchecked |
 
-- All five checked, `!calmDoneToday` → **session** · "A short calming practice" · `/session`.
-- `isReadyDone(...)` → **done** state · "Done for today" (ring closed, no further ask).
+- All five checked, or her "Done for today" tap → **done** state (ring closed, no
+  further ask). The calming practice is the checklist's bonus sixth item,
+  reached through the ever-present Calm now button — **the selector never asks
+  for calm**, because the button already owns it.
 - Route for readiness asks: `/pms-readiness` (titles from `READINESS_CHECK_CONTENT`).
 
 ### `prep` (window opens in 1–7 days)
@@ -88,7 +90,7 @@ and works on any day); framing is "get ahead", not "get through".
 | sleep | "Plan an early night" (`woundDown`) | "Wind down early tonight" (`woundDown`) |
 | food | "Add calcium-rich food today" (`calcium`) | "Steady dinner, no sugar crash" (`steady`) |
 | movement | "Move 30 minutes today" ★ | "A short walk after dinner" ★ |
-| none | **train** · next uncompleted level | **session** · short calm practice |
+| none | **train** · next uncompleted level | wellbeing check (`woundDown`, then food) |
 
 ★ New content: there is no movement readiness check today. v1 ships it as a
 readiness-style tick (add `movement` to a prep-only check set), or falls back to
@@ -98,10 +100,11 @@ the `none` column until that content exists.
 Lightest asks; also the feedback loop the window math never had. Two-step:
 period confirmation first, remission only after it.
 
-| State | Morning | Evening |
-|---|---|---|
-| period not yet confirmed this cycle | **checkin** · "Period arrived? Add it" → opens the period calendar | **session** · gentle practice |
-| confirmed | **checkin** · "Did symptoms ease once your period started?" (yes/soft/no) | **session** · gentle practice ("Be kind" / "Hold yourself") |
+| State | Ask |
+|---|---|
+| period not yet confirmed this cycle | **checkin** · "Period arrived? Add it" → opens the period calendar (any time of day) |
+| confirmed, remission unanswered | **checkin** · "Did symptoms ease once your period started?" (yes/soft/no, any time of day) |
+| both answered or dismissed | **done** — the day settles; calm stays a button-tap away |
 
 Dismissing the ask suppresses it until the next morning (and still closes the
 ring — honesty is the ask, not the period). The remission answer
@@ -113,7 +116,7 @@ over cycle" view.
 | Condition | Action |
 |---|---|
 | uncompleted levels in `game-content` order vs `training.completed` | **train** · "Continue: {chapter}, Level {n}" · `/game-v3?chapter=…` |
-| all levels complete | **session** rotation, plus one weekly reflection checkin |
+| all levels complete | wellbeing check (food in the morning, wind-down at night) |
 
 ## Period logging (closing the prediction loop)
 
@@ -154,9 +157,8 @@ store (`store/today-action.ts`: `{ date, id }`). Never applies to `setup`,
 | kind | Ring closes when |
 |---|---|
 | assessment | a read is appended to `pms-reads` |
-| readiness (window) | `isReadyDone` — the existing "Done for today" / all-six rule |
+| readiness (window) | all five checks done, or the "Done for today" tap (progress = five-check count / 5) |
 | readiness (prep) | the single named check is ticked |
-| session | any session recorded today |
 | train | any level id appended today |
 | checkin | answered (one tap; "Not yet" on period confirmation also counts — honesty is the ask, not the period) |
 

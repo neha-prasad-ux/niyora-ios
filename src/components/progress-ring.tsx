@@ -1,8 +1,9 @@
 // The daily ring around the Now tab's moon. Deliberately NOT part of the Orb:
 // the orb's Saturn rings are earned identity (tiers), while this ring is task
 // state that resets every midnight — layering it here keeps orb.tsx untouched.
-// A faint track plus a soft lavender arc that eases to the day's progress,
-// starting from 12 o'clock.
+// At rest the moon wears nothing; the lavender arc appears with the first
+// progress (with a faint remaining-track) and resolves into a full ring when
+// the day closes.
 
 import { useEffect } from 'react';
 import Animated, {
@@ -69,10 +70,6 @@ export function ProgressRing({ diameter, progress, strokeWidth = 4.5 }: Progress
         animatedProps={arcProps}
         fill="none"
       />
-      {/* A bright start dot at 12 o'clock (pre-rotation 3 o'clock): the rest
-          state's affordance that today is waiting to be closed. The filled
-          arc's rounded cap covers it as progress lands. */}
-      <Circle cx={center + r} cy={center} r={strokeWidth * 0.9} fill="rgba(200, 175, 250, 0.95)" />
     </Svg>
   );
 }

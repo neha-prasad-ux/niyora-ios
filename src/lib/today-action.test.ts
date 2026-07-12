@@ -125,7 +125,7 @@ describe('pickTodayAction: setup and window', () => {
     expect(pickTodayAction(input({ now: at1700, reads })).id).toBe('readiness:woundDown');
   });
 
-  it('asks for the calming practice once all five checks are done', () => {
+  it('settles once all five checks are done — calm is the button, never the ask', () => {
     const now = morning(2026, 1, 25);
     const readiness = withChecks(now, {
       calcium: true,
@@ -134,9 +134,10 @@ describe('pickTodayAction: setup and window', () => {
       antiInflammatory: true,
       woundDown: true,
     });
-    const a = pickTodayAction(input({ now, readiness }));
-    expect(a.kind).toBe('session');
-    expect(a.id).toBe('session:calm');
+    const inp = input({ now, readiness });
+    const a = pickTodayAction(inp);
+    expect(a.kind).toBe('done');
+    expect(isRingClosed(inp, a)).toBe(true);
   });
 
   it('is done once she taps done-for-today', () => {
@@ -163,25 +164,25 @@ describe('pickTodayAction: period', () => {
     expect(a.id).toBe('checkin:remission');
   });
 
-  it('falls to a gentle practice once remission is answered', () => {
+  it('settles the day once remission is answered', () => {
     const prefs = { ...PREFS, lastPeriodStart: '2026-01-29' };
     const a = pickTodayAction(
       input({ now: morning(2026, 1, 30), prefs, remissionAnsweredThisCycle: true }),
     );
-    expect(a.id).toBe('session:gentle');
+    expect(a.kind).toBe('done');
   });
 
   it('suppresses the ask and closes the ring after a dismissal', () => {
     const now = morning(2026, 1, 29);
     const inp = input({ now, dismissedDate: todayYmd(now) });
     const a = pickTodayAction(inp);
-    expect(a.id).toBe('session:gentle');
+    expect(a.kind).toBe('done');
     expect(isRingClosed(inp, a)).toBe(true);
   });
 
-  it('never asks check-ins in the evening', () => {
+  it('asks check-ins in the evening too — period asks are not time-gated', () => {
     const a = pickTodayAction(input({ now: evening(2026, 1, 29) }));
-    expect(a.id).toBe('session:gentle');
+    expect(a.id).toBe('checkin:period-confirm');
   });
 });
 
@@ -213,10 +214,10 @@ describe('pickTodayAction: prep', () => {
     expect(a.route).toContain('/game-v3');
   });
 
-  it('no weak lever: train in the morning, practice in the evening', () => {
+  it('no weak lever: train in the morning, wind-down wellbeing in the evening', () => {
     const reads = [read({ sleep: 2, food: 2, movement: 2 })];
     expect(pickTodayAction(input({ now: prepMorning, reads })).kind).toBe('train');
-    expect(pickTodayAction(input({ now: prepEvening, reads })).id).toBe('session:practice');
+    expect(pickTodayAction(input({ now: prepEvening, reads })).id).toBe('prep:woundDown');
   });
 
   it('rotates away from yesterday\'s ask when alternatives exist', () => {
@@ -241,24 +242,26 @@ describe('pickTodayAction: open', () => {
     expect(a.title).toContain('Start');
   });
 
-  it('falls back to a practice when training is complete', () => {
+  it('falls back to a wellbeing check when training is complete', () => {
     const training = {
       ...DEFAULT_TRAINING,
       completed: CHAPTERS.flatMap((c) => c.levels.map((l) => l.id)),
     };
     const a = pickTodayAction(input({ now: morning(2026, 1, 10), training }));
-    expect(a.id).toBe('session:practice');
+    expect(a.id).toBe('prep:calcium');
+    const pm = pickTodayAction(input({ now: evening(2026, 1, 10), training }));
+    expect(pm.id).toBe('prep:woundDown');
   });
 });
 
 describe('ring progress', () => {
-  it('window readiness counts all six preps', () => {
+  it('window readiness counts the five prep checks', () => {
     const now = morning(2026, 1, 25);
     const readiness = withChecks(now, { calcium: true, steady: true });
     const inp = input({ now, readiness });
     const a = pickTodayAction(inp);
     expect(a.kind).toBe('readiness');
-    expect(todayRingProgress(inp, a)).toBeCloseTo(2 / 6);
+    expect(todayRingProgress(inp, a)).toBeCloseTo(2 / 5);
   });
 
   it('prep ring closes on the single named check', () => {

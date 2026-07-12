@@ -28,13 +28,18 @@ import {
   isRingClosed,
   periodButtonState,
   pickTodayAction,
+  prepsDoneCount,
+  PREP_CHECK_COUNT,
   todayRingProgress,
   type TodayActionInput,
 } from '@/lib/today-action';
 import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
 import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
+import { daysBetween, engagedDatesFrom, foldLedger } from '@/lib/moon-light';
 import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
+import { getLightLedger, recordLight } from '@/store/light-ledger';
+import { advanceMoonOnRingClosed, recordCycleMint, settleMoon } from '@/store/moon-state';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import {
   getOnboardingV3Progress,
@@ -49,13 +54,7 @@ import {
 } from '@/store/period-history';
 import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
-import {
-  getReadiness,
-  readinessDoneCount,
-  READINESS_TOTAL,
-  todayYmd,
-  type ReadinessState,
-} from '@/store/pms-readiness';
+import { getReadiness, todayYmd, type ReadinessState } from '@/store/pms-readiness';
 import { getReminder } from '@/store/reminder-prefs';
 import {
   answeredForCycle,
@@ -237,9 +236,18 @@ export default function NowScreen() {
   // timers). The action itself is derived during render, never stored.
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const reload = useCallback(() => {
-    loadSnapshot()
-      .then(setSnapshot)
-      .catch(() => {});
+    // Bring the moon current before anything is asked of her: wane for the
+    // days away (grace + period-day pause inside), brighten the return, then
+    // the arrival itself earns its light. Idempotent per day, so the
+    // focus/foreground re-runs are free.
+    settleMoon()
+      .then(() => recordLight('visit'))
+      .catch(() => {})
+      .finally(() => {
+        loadSnapshot()
+          .then(setSnapshot)
+          .catch(() => {});
+      });
   }, []);
   useFocusEffect(
     useCallback(() => {
@@ -287,6 +295,14 @@ export default function NowScreen() {
     ringWasClosed.current = ringClosed;
   }, [snapshot, ringClosed]);
 
+  // The closed ring waxes the moon (moon-reward-spec.md). Deliberately not
+  // transition-gated like the haptic: waxing is idempotent per day, so a close
+  // that happened off-screen still lands when she returns here.
+  useEffect(() => {
+    if (snapshot == null || !ringClosed) return;
+    advanceMoonOnRingClosed(snapshot.now).catch(() => {});
+  }, [snapshot, ringClosed]);
+
   // Setup copy nuance: a read left partway resumes, it doesn't restart.
   const actionForCard =
     action != null && action.kind === 'assessment' && snapshot?.setupCard === 'resume'
@@ -303,12 +319,6 @@ export default function NowScreen() {
     Haptics.selectionAsync().catch(() => {});
     if (action.id === 'checkin:period-confirm') {
       setPeriodSheetVisible(true);
-      return;
-    }
-    // Session asks go through the coached feeling-first entry, the same flow
-    // as the Calm now button — a bare /session push has no technique to run.
-    if (action.kind === 'session') {
-      setRecommendVisible(true);
       return;
     }
     if (action.route !== '') router.push(action.route as Href);
@@ -338,6 +348,33 @@ export default function NowScreen() {
         // what the card was asking.
         if (action?.id === 'checkin:period-confirm') {
           await dismissForDay(todayYmd(snapshot.now)).catch(() => {});
+        }
+        // A live confirmation closes a cycle: mint it onto the shelf
+        // (moon-reward-spec.md). The guards keep backfilled history and
+        // implausible gaps from minting — only this cycle's real confirmation
+        // becomes a moon.
+        const prevAnchor = snapshot.prefs.lastPeriodStart;
+        const cycleDays = prevAnchor == null ? null : daysBetween(prevAnchor, ymd);
+        const recency = daysBetween(ymd, todayYmd(snapshot.now));
+        if (
+          prevAnchor != null &&
+          cycleDays != null &&
+          cycleDays >= 15 &&
+          cycleDays <= 60 &&
+          recency != null &&
+          recency >= 0 &&
+          recency <= 10
+        ) {
+          const clarity =
+            snapshot.remissionLog.find((e) => e.cycleAnchor === prevAnchor)?.answer ?? null;
+          const ledger = await getLightLedger();
+          await recordCycleMint({
+            cycleStart: prevAnchor,
+            cycleEnd: ymd,
+            clarity,
+            engagedDates: engagedDatesFrom(ledger),
+            totals: foldLedger(ledger),
+          }).catch(() => {});
         }
       })
       .then(reload)
@@ -373,8 +410,8 @@ export default function NowScreen() {
   if (snapshot != null) {
     if (snapshot.streak.streak > 0) stripParts.push(`${snapshot.streak.streak}-day streak`);
     if (phase === 'window') {
-      const preps = readinessDoneCount(snapshot.readiness.checks, snapshot.sessionsToday > 0);
-      stripParts.push(`${preps}/${READINESS_TOTAL} preps today`);
+      const preps = prepsDoneCount(snapshot.readiness.checks);
+      stripParts.push(`${preps}/${PREP_CHECK_COUNT} preps today`);
     }
   }
   const stripText = stripParts.join(' · ');
