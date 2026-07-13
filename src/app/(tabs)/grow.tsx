@@ -8,7 +8,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { BackgroundGradient } from '@/components/background-gradient';
@@ -45,6 +45,14 @@ export default function GrowScreen() {
   const openCouples = () => {
     Haptics.selectionAsync().catch(() => {});
     router.push('/couples');
+  };
+  const openPmsChecklist = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/pms-readiness');
+  };
+  const openPeriodsCare = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/periods-care' as Href);
   };
 
   // The calm shelf opens the coached entry (the same feeling-first sheet as
@@ -111,6 +119,22 @@ export default function GrowScreen() {
               onOpen={c.onOpen}
             />
           ))}
+
+          {/* The two cycle-care checklists: prep for the PMS week, then soothe
+              the period itself. */}
+          <Shelf
+            title="PMS day checklist"
+            sub="Science-backed ways to get through the week."
+            gradient={PMS_GRADIENT}
+            onOpen={openPmsChecklist}
+          />
+
+          <Shelf
+            title="Care through your period"
+            sub="Soothing things for the heavy days."
+            gradient={PERIOD_GRADIENT}
+            onOpen={openPeriodsCare}
+          />
 
           <Shelf
             title="Find calm now"
@@ -260,6 +284,18 @@ const COUPLES_GRADIENT: readonly [string, string, string] = [
   'hsl(340, 44%, 30%)',
   'hsl(352, 46%, 31%)',
   'hsl(6, 44%, 32%)',
+];
+// PMS checklist a magenta-plum (distinct from Train violet); period care a warm
+// coral-amber (rest and warmth, set apart from the Couples rose).
+const PMS_GRADIENT: readonly [string, string, string] = [
+  'hsl(300, 40%, 29%)',
+  'hsl(316, 40%, 30%)',
+  'hsl(332, 40%, 31%)',
+];
+const PERIOD_GRADIENT: readonly [string, string, string] = [
+  'hsl(6, 48%, 31%)',
+  'hsl(20, 46%, 32%)',
+  'hsl(34, 44%, 33%)',
 ];
 
 const styles = StyleSheet.create({
