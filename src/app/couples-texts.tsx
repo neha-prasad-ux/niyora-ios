@@ -16,6 +16,11 @@ import { BeginButton } from '@/components/begin-button';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
 import { COUPLES_TEXTS } from '@/models/couples-content';
+import { recordLight } from '@/store/light-ledger';
+
+// Ledger ref: reaching out to your partner is applying a skill in real life
+// (moon-reward-spec: apply). Also lets the PMS checklist read "done today".
+const COUPLES_MESSAGE_REF = 'couples-message';
 
 const HEART = 'hsl(345, 78%, 70%)'; // rose, used only as the group-label accent
 
@@ -24,7 +29,14 @@ export default function CouplesTextsScreen() {
 
   const share = (text: string) => {
     Haptics.selectionAsync().catch(() => {});
-    Share.share({ message: text }).catch(() => {});
+    Share.share({ message: text })
+      .then((res) => {
+        // Only when a message actually goes out, not a dismissed sheet.
+        if (res.action === Share.sharedAction) {
+          recordLight('apply', { refId: COUPLES_MESSAGE_REF }).catch(() => {});
+        }
+      })
+      .catch(() => {});
   };
 
   const goBack = () => {
