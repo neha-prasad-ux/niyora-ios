@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { secondaryButtonSurface } from '@/theme/controls';
 import { typography } from '@/theme/typography';
 
 type Props = {
@@ -92,9 +93,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   solid: { borderColor: colors.beginBorder },
-  // Filled translucent panel + brighter rim so the secondary action stays legible
-  // over busy living-scene backgrounds (it used to be transparent and washed out).
-  ghost: { borderColor: 'rgba(255, 255, 255, 0.30)', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+  // The shared secondary surface: a filled translucent panel + brighter rim so
+  // the ghost action stays legible over busy living-scene backgrounds.
+  ghost: { ...secondaryButtonSurface },
   disabled: { borderColor: 'transparent', backgroundColor: 'rgba(255, 255, 255, 0.06)' },
   solidLabel: { color: '#fff' },
   ghostLabel: { color: colors.textPrimary },

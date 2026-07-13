@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 
 import { CycleBar } from '@/components/cycle-bar';
+import { secondaryButtonSurface } from '@/theme/controls';
 import type { PhaseBand } from '@/lib/phase-band';
 
 // The field gradients: cosmic violet for the ask, calm green once it's done.
@@ -158,9 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 19,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    ...secondaryButtonSurface,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 78,

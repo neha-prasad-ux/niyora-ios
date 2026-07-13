@@ -17,6 +17,7 @@ import * as Haptics from 'expo-haptics';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
+import { clayChipSurface } from '@/theme/controls';
 import { getPmsPrefs } from '@/store/pms-prefs';
 import {
   IMPACT_DOMAINS,
@@ -498,12 +499,9 @@ const styles = StyleSheet.create({
   segTextOn: { color: '#ffffff' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
+    ...clayChipSurface,
     paddingVertical: 9,
     paddingHorizontal: 14,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
   chipOn: {
     borderColor: 'rgba(169, 184, 232, 0.7)',
