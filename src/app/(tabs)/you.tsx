@@ -266,7 +266,13 @@ export default function MySoulScreen() {
         >
           {/* Same header language as Grow: a big title over a one-line subtitle. */}
           <View style={styles.pageHeader}>
-            <Text style={styles.pageTitle}>You</Text>
+            {/* Dev-only: long-press the title to open the design-system reference. */}
+            <Pressable
+              onLongPress={__DEV__ ? () => router.push('/design-system' as Href) : undefined}
+              delayLongPress={600}
+            >
+              <Text style={styles.pageTitle}>You</Text>
+            </Pressable>
             <Text style={styles.pageSub}>Your journey with Niyora</Text>
           </View>
 
