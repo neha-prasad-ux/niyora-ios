@@ -25,6 +25,7 @@ import { alternate } from '@/models/recommend';
 import { TIER_RING_COUNTS, SOUL_RING_HUES, type Tier } from '@/models/tiers';
 import { getSessionCount } from '@/store/session-history';
 import { colors } from '@/theme/colors';
+import { secondaryButtonSurface } from '@/theme/controls';
 
 type Phase = 'first' | 'asking' | 'better' | 'another' | 'ring' | 'ringClosing';
 
@@ -266,10 +267,7 @@ const styles = StyleSheet.create({
     minWidth: 200,
     alignItems: 'center',
   },
-  btnPrimary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    borderColor: 'rgba(255, 255, 255, 0.30)',
-  },
+  btnPrimary: { ...secondaryButtonSurface },
   btnPrimaryText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 16,

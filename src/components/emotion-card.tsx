@@ -10,6 +10,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { clayChipSurface } from '@/theme/controls';
 import {
   EMOTION_BREATHS,
   EMOTION_CHIPS,
@@ -106,12 +107,9 @@ const styles = StyleSheet.create({
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   chip: {
+    ...clayChipSurface,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
   chipOn: { backgroundColor: '#ffffff', borderColor: '#ffffff' },
   chipText: {
