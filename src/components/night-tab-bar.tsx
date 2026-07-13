@@ -3,9 +3,9 @@
 // with them. The one lit surface is the selection itself: a round glass
 // capsule (expo-glass-effect where the OS offers it, a whisper of the orb's
 // blue elsewhere) that glides between tabs on a spring, glowing softly, so a
-// tab switch is one continuous motion instead of three buttons popping. Only
-// the tab under the capsule wears its label. Every press lands with the app's
-// selection haptic.
+// tab switch is one continuous motion instead of three buttons popping. Every
+// tab wears its label — the resting ones dimmed, the selected one at full
+// white. Every press lands with the app's selection haptic.
 //
 // The geometry constants are exported for light-motes.tsx, which needs to know
 // where the Now tab's moon sits to fly earned light into it.
@@ -32,16 +32,22 @@ import { colors } from '@/theme/colors';
 // move between SDKs.
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-export const BAR_CONTENT_HEIGHT = 50; // icon slot + label, above the inset pad
+// The glass bar breathes at the top, not just the sides: more air above the
+// icons than the old 6px. Everything below derives from this pad so the capsule
+// and the light-mote target stay locked to the icons.
+const BAR_PAD_TOP = 14;
+const ICON_SLOT = 28;
+const TAB_BODY = 44; // icon slot + always-on label
+export const BAR_CONTENT_HEIGHT = BAR_PAD_TOP + TAB_BODY; // above the inset pad
 export const BAR_MIN_BOTTOM_PAD = 12; // devices without a home-indicator inset
-export const MOON_CENTER_FROM_BAR_TOP = 20; // paddingTop 6 + half the 28px slot
+export const MOON_CENTER_FROM_BAR_TOP = BAR_PAD_TOP + ICON_SLOT / 2;
 
 const INACTIVE_TINT = 'rgba(255, 255, 255, 0.40)';
 
 // The selection capsule: round (radius = half height), wide enough to hold
 // icon + label with air, and the one lit surface on a transparent bar.
 const PILL_WIDTH = 76;
-const PILL_TOP = 2;
+const PILL_TOP = BAR_PAD_TOP - 4; // frames the icon slot with a little air above
 const PILL_HEIGHT = 48;
 
 // One spring for everything the selection touches (capsule glide, icon lift,
@@ -202,8 +208,10 @@ function TabButton({
     transform: [{ scale: 1 + 0.06 * focus.value }, { translateY: -1.5 * focus.value }],
   }));
   const labelStyle = useAnimatedStyle(() => ({
-    opacity: focus.value,
-    transform: [{ translateY: 2 * (1 - focus.value) }],
+    // The resting tab keeps a legible, dimmed label (never fully hidden); it
+    // lifts to full white as the tab takes focus.
+    opacity: 0.55 + 0.45 * focus.value,
+    transform: [{ translateY: 1 * (1 - focus.value) }],
   }));
 
   return (
@@ -256,7 +264,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    paddingTop: 6,
+    paddingTop: BAR_PAD_TOP,
   },
   // The moonlit capsule the selection rests in, with its glow bleeding softly
   // past the edges (the shadow of the translucent shape is the glow). The
@@ -298,7 +306,7 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     alignItems: 'center',
-    height: BAR_CONTENT_HEIGHT - 6,
+    height: BAR_CONTENT_HEIGHT - BAR_PAD_TOP,
   },
   iconSlot: {
     width: 64,
