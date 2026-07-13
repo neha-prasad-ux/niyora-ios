@@ -36,6 +36,7 @@ import {
 import { NiyoraSync } from 'niyora-sync';
 
 import { recordLight } from '@/store/light-ledger';
+import { clearPendingCrossings } from '@/store/pending-crossing';
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
@@ -230,6 +231,8 @@ function BreathingSession({
       .then((r) => {
         earned = r.ringEarned;
         if (!cancelled) setEarnedTier(r.ringEarned);
+        // Shown inline right here, so Home should not replay this ring.
+        if (r.ringEarned != null) clearPendingCrossings('ring').catch(() => {});
       })
       .catch(() => {})
       .then(() => appendSession(technique.id))
