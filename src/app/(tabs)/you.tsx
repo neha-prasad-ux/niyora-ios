@@ -258,7 +258,7 @@ export default function MySoulScreen() {
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient topGlow={false} />
+      <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={styles.scrollBody}
