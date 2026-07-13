@@ -500,7 +500,7 @@ export default function NowScreen() {
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient topGlow={false} />
+      <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + 106 }]}
