@@ -7,6 +7,7 @@ import {
   fadingRecalls,
   foldLedger,
   localYmd,
+  materialLevel,
   moonBrightness,
   ymdToDay,
   FULLNESS_MAX,
@@ -17,7 +18,12 @@ import {
 } from '@/lib/moon-light';
 import { RECALL_FADING } from '@/config/features';
 import { earnedTierBetween, type Tier } from '@/models/tiers';
-import { advanceMoonOnEarn } from '@/store/moon-state';
+import { advanceMoonOnEarn, getMoonState } from '@/store/moon-state';
+import {
+  materialCrossing,
+  pushPendingCrossing,
+  ringCrossing,
+} from '@/store/pending-crossing';
 import { getSessionCount } from '@/store/session-history';
 import { getTodayActionMemory } from '@/store/today-action';
 
@@ -142,8 +148,18 @@ export async function recordLight(
   const brightness = RECALL_FADING
     ? moonBrightness(fadingRecalls(ledger, today).length)
     : FULLNESS_MAX;
-  await advanceMoonOnEarn(foldLedger(ledger), brightness).catch(() => {});
+  // Advance the moon, watching the material ladder for a crossing (moonstone ->
+  // gold -> ...), then persist any crossing owed a celebration. A ring crossing
+  // and a material crossing both queue here; Home plays them the next time she
+  // lands on the moon, so a soul that grows via any path still gets its moment.
+  const before = await getMoonState();
+  const after = await advanceMoonOnEarn(foldLedger(ledger), brightness).catch(() => before);
+  const ringEarned = earnedTierBetween(lightBefore, lightBefore + amount);
+  if (ringEarned != null) await pushPendingCrossing(ringCrossing(ringEarned)).catch(() => {});
+  if (materialLevel(after.material) > materialLevel(before.material)) {
+    await pushPendingCrossing(materialCrossing(after.material)).catch(() => {});
+  }
   // Announce after the moon has updated, so listeners see the state the light made.
   lightEarned.emit(event);
-  return { event, ringEarned: earnedTierBetween(lightBefore, lightBefore + amount) };
+  return { event, ringEarned };
 }
