@@ -3,8 +3,8 @@
 // the phase-action card (the cycle strip fused to the single ask picked by
 // lib/today-action, with the Periods door on its right), a one-line progress
 // strip, and Calm now docked above the tab bar so the SOS is guaranteed
-// visible on every device. This screen never shows more than two numbers:
-// the streak and the prep count. Everything browsable lives in Grow;
+// visible on every device. The only number it ever surfaces is today's prep
+// count, and only inside the window. Everything browsable lives in Grow;
 // everything reflective in You.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -485,16 +485,12 @@ export default function NowScreen() {
     });
   };
 
-  // The strip's two numbers: the streak, and (inside the window) today's
-  // preps. A zero-day streak is noise, not motivation — it never renders; the
-  // strip disappears entirely when there is nothing worth saying.
+  // Inside the window, the strip shows today's preps — the one number worth
+  // saying. It disappears entirely otherwise, so there's never an empty rail.
   const stripParts: string[] = [];
-  if (snapshot != null) {
-    if (snapshot.streak.streak > 0) stripParts.push(`${snapshot.streak.streak}-day streak`);
-    if (phase === 'window') {
-      const preps = prepsDoneCount(snapshot.readiness.checks);
-      stripParts.push(`${preps}/${PREP_CHECK_COUNT} preps today`);
-    }
+  if (snapshot != null && phase === 'window') {
+    const preps = prepsDoneCount(snapshot.readiness.checks);
+    stripParts.push(`${preps}/${PREP_CHECK_COUNT} preps today`);
   }
   const stripText = stripParts.join(' · ');
 

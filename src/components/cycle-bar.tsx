@@ -120,7 +120,9 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
 }
 
 const BAR_HEIGHT = 12;
-const PEARL = 16;
+// The today marker sits *within* the bar height (never protruding) and carries
+// no knob border — so it reads as a luminous position mark, not a draggable thumb.
+const PEARL = 9;
 
 const styles = StyleSheet.create({
   wrap: { justifyContent: 'center' },
@@ -179,11 +181,9 @@ const styles = StyleSheet.create({
     height: PEARL,
     borderRadius: PEARL / 2,
     backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: 'rgba(226, 231, 242, 0.9)',
     shadowColor: '#eaf0ff',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.95,
-    shadowRadius: 5,
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
   },
 });
