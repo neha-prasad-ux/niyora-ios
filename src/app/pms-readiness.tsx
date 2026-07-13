@@ -1,11 +1,13 @@
-// The daily PMS-readiness page: a calm moon that eases as she acts, then the
-// luteal "get ready" check list (calcium, micronutrients, steady eating,
-// anti-inflammatory food, winding down early) plus a calming activity, and a
-// "Know why" grid that opens the research per factor.
+// The daily PMS Day checklist, grouped by the jobs it does:
 //
-// Ported from the v2-pms branch and adapted to this branch: the period-logging
-// sheet is dropped (cycle editing lives in My Soul, and it needs pms-prefs
-// period-history that this branch does not carry). Everything else is faithful.
+//   Emotional regulation ("me") — name the wave, get a reframe for that feeling,
+//     breathe if it is big. Naming records a `notice` light event.
+//   Relationship ("us") — a heads-up before, and topics for if you fight. Each
+//     routes to an existing couples screen that scores itself.
+//   Life Style (body) — sleep enough, never run hungry, add these foods. Ticks
+//     live in the readiness store and feed the daily ring.
+//
+// Below the sections, a "Know why" grid opens the research per factor.
 
 import { useCallback, useMemo, useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -14,20 +16,22 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { BackgroundGradient } from '@/components/background-gradient';
-import { Checklist, type ChecklistItem } from '@/components/checklist';
 import { WhySheet } from '@/components/why-sheet';
+import { EmotionCard } from '@/components/emotion-card';
+import { RelationshipCard } from '@/components/relationship-card';
+import { LifeStyleCard } from '@/components/lifestyle-card';
 import { colors } from '@/theme/colors';
 import {
   getReadiness,
   setReadiness,
-  READINESS_CHECK_IDS,
-  READINESS_CHECK_CONTENT,
   READINESS_WHY,
+  READINESS_CHECK_IDS,
   todayYmd,
   type ReadinessChecks,
   type ReadinessCheckId,
 } from '@/store/pms-readiness';
-import { getLastSession } from '@/store/session-history';
+import { recordLight } from '@/store/light-ledger';
+import { EMOTION_NAMED_REF_ID } from '@/models/emotion-regulation';
 
 const FRESH: ReadinessChecks = {
   calcium: false,
@@ -37,20 +41,18 @@ const FRESH: ReadinessChecks = {
   woundDown: false,
 };
 
-const CHECK_ITEMS: readonly ChecklistItem[] = READINESS_CHECK_IDS.map((id) => ({
-  id,
-  label: READINESS_CHECK_CONTENT[id].title,
-  examples: READINESS_CHECK_CONTENT[id].examples,
-}));
-
-function isToday(iso: string | undefined, today: string): boolean {
-  return !!iso && iso.slice(0, 10) === today;
+function SectionHeader({ title, hint }: { title: string; hint: string }) {
+  return (
+    <View style={styles.sectionHead}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={styles.sectionHint}>{hint}</Text>
+    </View>
+  );
 }
 
 export default function PmsReadinessScreen() {
   const today = useMemo(() => todayYmd(), []);
   const [checks, setChecks] = useState<ReadinessChecks>(FRESH);
-  const [calmDone, setCalmDone] = useState(false);
   const [whyFactor, setWhyFactor] = useState<ReadinessCheckId | null>(null);
 
   useFocusEffect(
@@ -59,35 +61,31 @@ export default function PmsReadinessScreen() {
       getReadiness(today)
         .then((r) => alive && setChecks(r.checks))
         .catch(() => {});
-      getLastSession()
-        .then((s) => alive && setCalmDone(isToday(s?.completedAt, today)))
-        .catch(() => {});
       return () => {
         alive = false;
       };
     }, [today]),
   );
 
-  const toggle = (id: string) => {
-    Haptics.selectionAsync();
-    const key = id as ReadinessCheckId;
-    const next = { ...checks, [key]: !checks[key] };
+  const toggle = (id: ReadinessCheckId) => {
+    Haptics.selectionAsync().catch(() => {});
+    const next = { ...checks, [id]: !checks[id] };
     setChecks(next);
     setReadiness({ date: today, checks: next, doneForToday: false }).catch(() => {});
   };
 
-  const beginCalm = () => {
-    Haptics.selectionAsync();
-    router.push({ pathname: '/session', params: { id: 'quick-calm' } });
+  // Naming a feeling is a recognition (moon-reward: notice). Best-effort.
+  const onNamed = () => {
+    recordLight('notice', { refId: EMOTION_NAMED_REF_ID }).catch(() => {});
   };
 
   const goBack = () => {
-    Haptics.selectionAsync();
+    Haptics.selectionAsync().catch(() => {});
     router.back();
   };
 
   const openWhy = (id: ReadinessCheckId) => {
-    Haptics.selectionAsync();
+    Haptics.selectionAsync().catch(() => {});
     setWhyFactor(id);
   };
 
@@ -102,32 +100,22 @@ export default function PmsReadinessScreen() {
         </View>
 
         <View style={styles.orbHeader}>
-          <Text style={styles.header}>Let&apos;s make you PMS ready</Text>
-          <Text style={styles.subhead}>
-            These are science backed daily habits shown to ease PMS.
-          </Text>
+          <Text style={styles.header}>PMS Day checklist</Text>
+          <Text style={styles.subhead}>Science-backed ways to get through the week.</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Checklist items={CHECK_ITEMS} isChecked={(id) => checks[id as ReadinessCheckId]} onToggle={toggle} />
+          {/* Your emotions — the "me" job: name it, reframe it, breathe. */}
+          <SectionHeader title="Your emotions" hint="Observe it, reframe or step away, breathe" />
+          <EmotionCard onNamed={onNamed} />
 
-          {/* The calming activity: not a self-toggle. Reads as done from today's
-              practice, offers Begin otherwise. */}
-          <View style={styles.calmRow}>
-            <View style={styles.calmText}>
-              <Text style={styles.calmTitle}>A calming activity</Text>
-              <Text style={styles.calmExamples}>breath, stretch</Text>
-            </View>
-            {calmDone ? (
-              <View style={styles.calmCheck}>
-                <SymbolView name="checkmark" tintColor="#3a2d52" size={14} weight="bold" />
-              </View>
-            ) : (
-              <Pressable onPress={beginCalm} style={styles.beginPill} accessibilityRole="button" accessibilityLabel="Begin a calming activity">
-                <Text style={styles.beginPillText}>Begin</Text>
-              </Pressable>
-            )}
-          </View>
+          {/* Your partner — the "us" jobs: a heads-up, plus fight topics. */}
+          <SectionHeader title="Your partner" hint="Keep things good between you" />
+          <RelationshipCard />
+
+          {/* Your body — sleep and food basics. Ticks feed the ring. */}
+          <SectionHeader title="Your body" hint="The basics that make it easier" />
+          <LifeStyleCard checks={checks} onToggle={toggle} />
 
           {/* Know why: compact cards in a 2-up grid. Tapping one opens a
               half-page sheet with the full reason and the research. */}
@@ -163,7 +151,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 24 },
   topBar: { height: 32, justifyContent: 'center' },
-  orbHeader: { alignItems: 'center', paddingTop: 6, paddingBottom: 18 },
+  orbHeader: { alignItems: 'center', paddingTop: 6, paddingBottom: 8 },
   header: {
     fontFamily: 'Poppins-Medium',
     fontSize: 23,
@@ -184,55 +172,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   scroll: { paddingBottom: 28 },
-  calmRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginTop: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  calmText: { flex: 1 },
-  calmTitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+
+  sectionHead: { marginTop: 28, marginBottom: 12 },
+  sectionTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  calmExamples: {
+  sectionHint: {
     fontFamily: 'Poppins-Light',
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.55)',
+    lineHeight: 18,
+    color: 'rgba(255, 255, 255, 0.5)',
     letterSpacing: 0.2,
     marginTop: 2,
   },
-  calmCheck: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  beginPill: {
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-  },
-  beginPillText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: '#7C40B0',
-    letterSpacing: 0.2,
-  },
+
   know: { marginTop: 36 },
   knowHeader: {
     fontFamily: 'Poppins-Medium',

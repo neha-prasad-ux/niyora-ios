@@ -20,8 +20,13 @@ import { BeginButton } from '@/components/begin-button';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
 import { COUPLES_QUIZ, QUIZ_FOOTER, QUIZ_RESULT, scoreQuiz } from '@/models/couples-content';
+import { recordLight } from '@/store/light-ledger';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
+
+// Ledger ref: telling PMS-amplified from a real issue is recognizing the
+// pattern (moon-reward-spec: notice). Also lets the checklist read "done today".
+const COUPLES_QUIZ_REF = 'couples-quiz';
 
 const HEART = 'hsl(8, 72%, 68%)'; // coral, the PMS-or-real heart
 const YES_BG = 'hsla(8, 72%, 68%, 0.92)';
@@ -56,6 +61,7 @@ export default function CouplesQuizScreen() {
       setI(i + 1);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      recordLight('notice', { refId: COUPLES_QUIZ_REF }).catch(() => {});
       setStage('result');
     }
   };

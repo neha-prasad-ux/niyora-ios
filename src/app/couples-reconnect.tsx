@@ -15,6 +15,7 @@ import { Checklist, type ChecklistItem } from '@/components/checklist';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
 import { RECONNECT_STEPS } from '@/models/couples-content';
+import { recordLight } from '@/store/light-ledger';
 
 const ITEMS: readonly ChecklistItem[] = RECONNECT_STEPS.map((s) => ({
   id: s.id,
@@ -22,14 +23,21 @@ const ITEMS: readonly ChecklistItem[] = RECONNECT_STEPS.map((s) => ({
   examples: s.examples,
 }));
 
+// Ledger ref: repairing after a fight is applying a skill in real life
+// (moon-reward-spec: apply). Also lets the checklist read "done today".
+const RECONNECT_REF = 'couples-reconnect';
+
 export default function CouplesReconnectScreen() {
   const [checks, setChecks] = useState<Record<string, boolean>>({});
   const allChecked = useMemo(() => ITEMS.every((it) => checks[it.id]), [checks]);
 
   const toggle = (id: string) => {
     const next = { ...checks, [id]: !checks[id] };
-    if (ITEMS.every((it) => next[it.id])) {
+    const nowAll = ITEMS.every((it) => next[it.id]);
+    if (nowAll) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // Fire only on the transition into all-checked, not on re-toggles.
+      if (!allChecked) recordLight('apply', { refId: RECONNECT_REF }).catch(() => {});
     } else {
       Haptics.selectionAsync().catch(() => {});
     }
