@@ -48,17 +48,17 @@ describe('parseReflectLog', () => {
 });
 
 describe('recordReflect', () => {
-  it('appends and overwrites the same cycle by anchor', async () => {
+  it('appends every reflection, stacking repeats of the same cycle', async () => {
     getItem.mockResolvedValueOnce(null);
-    await recordReflect(entry({ rightSized: false }));
+    await recordReflect(entry({ rightSized: false, at: '2026-06-30T10:00:00.000Z' }));
     const first = JSON.parse(setItem.mock.calls[0][1]) as ReflectEntry[];
     expect(first).toHaveLength(1);
 
     getItem.mockResolvedValueOnce(JSON.stringify(first));
-    await recordReflect(entry({ rightSized: true }));
+    await recordReflect(entry({ rightSized: true, at: '2026-07-01T10:00:00.000Z' }));
     const second = JSON.parse(setItem.mock.calls[1][1]) as ReflectEntry[];
-    expect(second).toHaveLength(1);
-    expect(second[0].rightSized).toBe(true);
+    expect(second).toHaveLength(2);
+    expect(second[1].rightSized).toBe(true);
   });
 
   it('ignores a malformed anchor', async () => {

@@ -38,6 +38,7 @@ import { buildCycleSeries, type CyclePoint } from '@/lib/cycle-series';
 import {
   getCycleImpacts,
   getMutedDomains,
+  latestReadsByAnchor,
   IMPACT_DOMAINS,
   IMPACT_DOMAIN_LABEL,
   type CycleImpactEntry,
@@ -831,7 +832,7 @@ function EffortImpactCard({
     );
   }
 
-  const readByAnchor = new Map(impacts.map((e) => [e.cycleAnchor, e.reads]));
+  const readByAnchor = latestReadsByAnchor(impacts);
   const domain = visibleDomains.includes(selected) ? selected : visibleDomains[0] ?? 'work';
   const color = DOMAIN_COLOR[domain];
   const levels = series.map((p) => readByAnchor.get(p.cycleStart)?.[domain] ?? null);
