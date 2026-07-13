@@ -6,9 +6,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
+  appendCycleImpact,
+  lastImpactReads,
+  latestReadsByAnchor,
   parseCycleImpact,
   parseMutedDomains,
-  recordCycleImpact,
   setDomainMuted,
 } from './cycle-impact';
 
@@ -38,30 +40,58 @@ describe('parseCycleImpact', () => {
   });
 });
 
-describe('recordCycleImpact', () => {
-  it('creates an entry for a new cycle', async () => {
+describe('appendCycleImpact', () => {
+  it('appends a new entry with the rated domains', async () => {
     getItem.mockResolvedValue(null);
-    await recordCycleImpact('2026-06-01', 'work', 2, new Date(2026, 5, 30));
+    await appendCycleImpact('2026-06-01', { work: 2, partner: 3 }, '2026-06-30T10:00:00.000Z');
     const saved = JSON.parse(setItem.mock.calls[0][1]);
-    expect(saved).toEqual([{ cycleAnchor: '2026-06-01', reads: { work: 2 }, at: '2026-06-30' }]);
+    expect(saved).toEqual([
+      { cycleAnchor: '2026-06-01', reads: { work: 2, partner: 3 }, at: '2026-06-30T10:00:00.000Z' },
+    ]);
   });
 
-  it('merges a second domain into the same cycle and overwrites a repeat', async () => {
+  it('stacks a second reflection rather than overwriting', async () => {
     getItem.mockResolvedValue(
-      JSON.stringify([{ cycleAnchor: '2026-06-01', reads: { work: 2 }, at: '2026-06-30' }]),
+      JSON.stringify([{ cycleAnchor: '2026-06-01', reads: { work: 2 }, at: '2026-06-30T10:00:00.000Z' }]),
     );
-    const log = await recordCycleImpact('2026-06-01', 'partner', 3, new Date(2026, 6, 1));
-    expect(log[0].reads).toEqual({ work: 2, partner: 3 });
-
-    getItem.mockResolvedValue(JSON.stringify(log));
-    const log2 = await recordCycleImpact('2026-06-01', 'work', 1, new Date(2026, 6, 1));
-    expect(log2[0].reads.work).toBe(1);
+    const log = await appendCycleImpact('2026-06-01', { work: 1 }, '2026-07-01T09:00:00.000Z');
+    expect(log).toHaveLength(2);
   });
 
-  it('ignores a malformed anchor', async () => {
+  it('ignores a malformed anchor or an empty read', async () => {
     getItem.mockResolvedValue(null);
-    await recordCycleImpact('nope', 'work', 2);
+    await appendCycleImpact('nope', { work: 2 }, '2026-06-30T10:00:00.000Z');
+    await appendCycleImpact('2026-06-01', {}, '2026-06-30T10:00:00.000Z');
     expect(setItem).not.toHaveBeenCalled();
+  });
+});
+
+describe('latestReadsByAnchor', () => {
+  it('folds to the latest read per domain per cycle', () => {
+    const log = parseCycleImpact(
+      JSON.stringify([
+        { cycleAnchor: '2026-06-01', reads: { work: 2, partner: 3 }, at: '2026-06-30T10:00:00.000Z' },
+        { cycleAnchor: '2026-06-01', reads: { work: 1 }, at: '2026-07-01T09:00:00.000Z' },
+        { cycleAnchor: '2026-05-01', reads: { yourself: 2 }, at: '2026-05-30T10:00:00.000Z' },
+      ]),
+    );
+    const map = latestReadsByAnchor(log);
+    // work overwritten by the later entry; partner preserved from the earlier one.
+    expect(map.get('2026-06-01')).toEqual({ work: 1, partner: 3 });
+    expect(map.get('2026-05-01')).toEqual({ yourself: 2 });
+  });
+});
+
+describe('lastImpactReads', () => {
+  it('returns the most recent entry reads, or null when empty', () => {
+    expect(lastImpactReads([])).toBeNull();
+    const log = parseCycleImpact(
+      JSON.stringify([
+        { cycleAnchor: '2026-05-01', reads: { work: 2 }, at: '2026-05-30T10:00:00.000Z' },
+        { cycleAnchor: '2026-06-01', reads: { work: 3 }, at: '2026-06-30T10:00:00.000Z' },
+      ]),
+    );
+    expect(lastImpactReads(log)).toEqual({ work: 3 });
   });
 });
 

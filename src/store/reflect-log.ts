@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Where cycle-impact records *how the cycle landed* per life domain and
 // remission-log records *whether symptoms eased*, this records the metacognition
 // beats: did she notice the change, did she right-size her response, and what
-// she'd manage better next time. One entry per cycle, anchored to the cycle's
-// start (the same anchor cycle-impact and remission use), so a cycle is asked
-// once and a later answer overwrites the earlier one. On device only.
+// she'd manage better next time. Append-only, anchored to the cycle's start:
+// she can look back on a cycle more than once, and each reflection is kept as
+// its own timestamped entry rather than overwriting the last. On device only.
 
 // The levers she can pick from "what could you manage better next time" — the
 // same handful the prep checklist coaches, so reflection points back at action.
@@ -25,7 +25,7 @@ export type ReflectEntry = {
   noticedChange: boolean; // "did you recognise the emotional change this time?"
   rightSized: boolean; // "did you recognise the size and choose the next step?"
   manageBetter: ManageLever[]; // multi-select; may be empty ("nothing / not sure")
-  at: string; // local YYYY-MM-DD the reflection was given
+  at: string; // ISO timestamp the reflection was saved (older entries may be YYYY-MM-DD)
 };
 
 const STORAGE_KEY = 'niyora:reflect-log';
@@ -65,18 +65,18 @@ export async function getReflectLog(): Promise<ReflectEntry[]> {
 }
 
 /**
- * Record (or overwrite) the reflection for a cycle. Deduped by anchor, so
- * re-reflecting the same cycle replaces the earlier answer rather than stacking.
+ * Append a reflection. Every look-back stacks a new timestamped entry — the
+ * same cycle can be reflected on more than once, and nothing is overwritten.
  */
 export async function recordReflect(entry: ReflectEntry): Promise<ReflectEntry[]> {
   if (!YMD.test(entry.cycleAnchor)) return getReflectLog();
   const log = await getReflectLog();
-  const next = [...log.filter((e) => e.cycleAnchor !== entry.cycleAnchor), entry];
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return next;
+  log.push(entry);
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+  return log;
 }
 
-/** Whether this cycle has already been reflected on (dedupe the ask). */
+/** Whether this cycle has ever been reflected on (at least one entry). */
 export function reflectedForCycle(log: ReflectEntry[], cycleAnchor: string | null): boolean {
   return cycleAnchor != null && log.some((e) => e.cycleAnchor === cycleAnchor);
 }

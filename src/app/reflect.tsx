@@ -5,8 +5,9 @@
 //     manage better next time)          -> reflect-log
 //   - "did your symptoms ease this time" -> remission-log  (absorbed here)
 //   - how the cycle landed per domain    -> cycle-impact   (feeds the You chart)
-// Everything anchors to the cycle's start (lastPeriodStart), so a cycle is
-// reflected on once; re-opening prefills and overwrites.
+// Everything anchors to the cycle's start (lastPeriodStart). A cycle can be
+// reflected on more than once: every open is a fresh, dated entry appended to
+// the log, never a prefilled edit of the last.
 
 import { useCallback, useRef, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -17,30 +18,41 @@ import * as Haptics from 'expo-haptics';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
 import { getPmsPrefs } from '@/store/pms-prefs';
-import { todayYmd } from '@/store/pms-readiness';
 import {
   IMPACT_DOMAINS,
   IMPACT_DOMAIN_LABEL,
+  appendCycleImpact,
   getCycleImpacts,
   getMutedDomains,
-  recordCycleImpact,
+  lastImpactReads,
   setDomainMuted,
   type ImpactDomain,
   type ImpactLevel,
 } from '@/store/cycle-impact';
-import {
-  answeredForCycle,
-  appendRemission,
-  getRemissionLog,
-  type RemissionAnswer,
-} from '@/store/remission-log';
+import { appendRemission, type RemissionAnswer } from '@/store/remission-log';
 import {
   MANAGE_LEVERS,
   MANAGE_LEVER_LABEL,
-  getReflectLog,
   recordReflect,
   type ManageLever,
 } from '@/store/reflect-log';
+
+// Short, locale-free stamp for the reflection's title — enough to tell one
+// look-back from another ("Mon, 13 Jul · 2:45 PM"). Manual, since Hermes Intl
+// coverage varies across the SDK.
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const STAMP_MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+function formatStamp(d: Date): string {
+  let h = d.getHours();
+  const ampm = h < 12 ? 'AM' : 'PM';
+  h = h % 12 || 12;
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${STAMP_MONTHS[d.getMonth()]} · ${h}:${mm} ${ampm}`;
+}
 
 const IMPACT_LABELS = ['Rough', 'Okay', 'Fine'] as const; // index = level - 1
 const THUMB = 22;
@@ -60,6 +72,7 @@ const DOMAIN_ASK: Record<ImpactDomain, string> = {
 export default function ReflectScreen() {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [openedAt, setOpenedAt] = useState<Date | null>(null);
   const [muted, setMuted] = useState<Set<ImpactDomain>>(new Set());
 
   // Answers.
@@ -72,40 +85,29 @@ export default function ReflectScreen() {
   // felt as a comparison, not an isolated rating.
   const [lastImpact, setLastImpact] = useState<Partial<Record<ImpactDomain, ImpactLevel>>>({});
 
-  // Load the anchor, the mute prefs, and any prior answers for this cycle so a
-  // re-open shows where she left off rather than a blank slate.
+  // Every open is a fresh look-back — a new dated entry, not a prefilled edit of
+  // the last. Only the mute prefs and the "last time" ghost (her most recent
+  // reflection, to compare this one against) carry over.
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       (async () => {
         const prefs = await getPmsPrefs().catch(() => null);
         const a = prefs?.lastPeriodStart ?? null;
-        const [mutedList, impacts, remLog, reflectLog] = await Promise.all([
+        const [mutedList, impacts] = await Promise.all([
           getMutedDomains().catch(() => [] as ImpactDomain[]),
           getCycleImpacts().catch(() => []),
-          getRemissionLog().catch(() => []),
-          getReflectLog().catch(() => []),
         ]);
         if (!alive) return;
         setAnchor(a);
         setMuted(new Set(mutedList));
-        if (a != null) {
-          const priorImpact = impacts.find((e) => e.cycleAnchor === a);
-          if (priorImpact) setImpact({ ...priorImpact.reads });
-          // The most recent cycle before this one, for the "last time" marker.
-          const earlier = impacts
-            .filter((e) => e.cycleAnchor < a)
-            .sort((x, y) => (x.cycleAnchor < y.cycleAnchor ? 1 : -1))[0];
-          if (earlier) setLastImpact({ ...earlier.reads });
-          const priorRem = remLog.find((e) => e.cycleAnchor === a);
-          if (priorRem) setRemission(priorRem.answer);
-          const priorReflect = reflectLog.find((e) => e.cycleAnchor === a);
-          if (priorReflect) {
-            setNoticed(priorReflect.noticedChange);
-            setRightSized(priorReflect.rightSized);
-            setLevers(new Set(priorReflect.manageBetter));
-          }
-        }
+        setLastImpact(lastImpactReads(impacts) ?? {});
+        setNoticed(null);
+        setRightSized(null);
+        setLevers(new Set());
+        setRemission(null);
+        setImpact({});
+        setOpenedAt(new Date());
         setLoaded(true);
       })();
       return () => {
@@ -138,15 +140,15 @@ export default function ReflectScreen() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    const at = todayYmd(new Date());
-    // Impact reads for every non-muted domain she rated.
+    const at = new Date().toISOString();
+    // One appended impact entry holding every non-muted domain she rated.
+    const reads: Partial<Record<ImpactDomain, ImpactLevel>> = {};
     for (const domain of IMPACT_DOMAINS) {
       const level = impact[domain];
-      if (!muted.has(domain) && level != null) {
-        await recordCycleImpact(anchor, domain, level).catch(() => {});
-      }
+      if (!muted.has(domain) && level != null) reads[domain] = level;
     }
-    if (remission != null && !answeredForCycle(await getRemissionLog(), anchor)) {
+    await appendCycleImpact(anchor, reads, at).catch(() => {});
+    if (remission != null) {
       await appendRemission({ cycleAnchor: anchor, answer: remission, at }).catch(() => {});
     }
     await recordReflect({
@@ -174,8 +176,8 @@ export default function ReflectScreen() {
         {loaded && anchor == null ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>
-              Reflection compares this cycle to your last. Log a period first, then come back to
-              look back on it.
+              Reflection compares this cycle with your last. Log a period first, then come
+              back.
             </Text>
             <Pressable
               style={styles.primaryBtn}
@@ -187,22 +189,23 @@ export default function ReflectScreen() {
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            <Text style={styles.eyebrow}>A gentle look back</Text>
+            {openedAt != null && <Text style={styles.stamp}>{formatStamp(openedAt)}</Text>}
+            <Text style={styles.eyebrow}>A quick look back</Text>
 
-            <Question title="Did you notice the emotional change this time?" caption="Noticing is the first step.">
+            <Question title="Did you notice the emotional change this time?" caption="Easy to miss in the moment.">
               <YesNo value={noticed} onChange={setNoticed} />
             </Question>
 
             <Question
-              title="Did you recognise how big it was, and choose your next step?"
-              caption="Taking the right next step is what matters."
+              title="Did you catch how big it was, and pick your next move?"
+              caption="No wrong answer here."
             >
               <YesNo value={rightSized} onChange={setRightSized} />
             </Question>
 
             <Question
               title="What could you manage a little better next time?"
-              caption="Reflecting builds awareness — pick any, or none."
+              caption="Pick any, or none."
             >
               <View style={styles.chipWrap}>
                 {MANAGE_LEVERS.map((l) => (
@@ -231,7 +234,7 @@ export default function ReflectScreen() {
 
             <View style={styles.sectionGap} />
             <Text style={styles.eyebrow}>How the cycle landed</Text>
-            <Text style={styles.sectionCaption}>An honest read, wherever you are.</Text>
+            <Text style={styles.sectionCaption}>However it actually went.</Text>
 
             {IMPACT_DOMAINS.map((domain) => {
               const isMuted = muted.has(domain);
@@ -244,7 +247,7 @@ export default function ReflectScreen() {
                     </Pressable>
                   </View>
                   {isMuted ? (
-                    <Text style={styles.mutedNote}>Muted — {IMPACT_DOMAIN_LABEL[domain]} is hidden from your chart.</Text>
+                    <Text style={styles.mutedNote}>Muted. {IMPACT_DOMAIN_LABEL[domain]} stays off your chart.</Text>
                   ) : (
                     <ImpactSlider
                       value={impact[domain] ?? null}
@@ -422,6 +425,15 @@ const styles = StyleSheet.create({
   headerBtn: { fontFamily: 'Poppins-Regular', fontSize: 15, color: colors.textTertiary, width: 44 },
   title: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 60 },
+  // The moment-stamp: names this look-back by when it was opened, so a repeat
+  // reflection reads as a new one rather than an edit of the last.
+  stamp: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.66)',
+    letterSpacing: 0.2,
+    marginBottom: 3,
+  },
   eyebrow: {
     fontFamily: 'Poppins-Medium',
     fontSize: 12,
