@@ -1,4 +1,4 @@
-import { buildCycleSeries } from '@/lib/cycle-series';
+import { buildCycleSeries, currentCyclePoint } from '@/lib/cycle-series';
 import type { LightEvent, MintedMoon } from '@/lib/moon-light';
 
 function moon(cycleStart: string, cycleEnd: string, over: Partial<MintedMoon> = {}): MintedMoon {
@@ -53,5 +53,39 @@ describe('buildCycleSeries', () => {
 
   it('is empty when the shelf is empty', () => {
     expect(buildCycleSeries([], [light('2026-04-02')])).toEqual([]);
+  });
+});
+
+describe('currentCyclePoint', () => {
+  it('counts engaged days so far, through today, not the future', () => {
+    const ledger = [
+      light('2026-07-01'),
+      light('2026-07-05'),
+      light('2026-07-10'), // today, counted
+      light('2026-07-20'), // future, not counted
+      light('2026-06-30'), // before the cycle
+    ];
+    const p = currentCyclePoint('2026-07-01', 28, ledger, new Date(2026, 6, 10, 12));
+    expect(p).not.toBeNull();
+    if (p == null) return;
+    expect(p.cycleStart).toBe('2026-07-01');
+    expect(p.cycleEnd).toBe('2026-07-29');
+    expect(p.engagedDays).toBe(3);
+    expect(p.label).toBe('Now');
+    expect(p.provisional).toBe(true);
+  });
+
+  it('rolls the window forward when cycles elapse without a new log', () => {
+    const p = currentCyclePoint('2026-05-01', 28, [light('2026-06-27')], new Date(2026, 6, 10, 9));
+    expect(p).not.toBeNull();
+    if (p == null) return;
+    expect(p.cycleStart).toBe('2026-06-26');
+    expect(p.cycleEnd).toBe('2026-07-24');
+    expect(p.engagedDays).toBe(1);
+  });
+
+  it('is null with no period logged or before the anchor', () => {
+    expect(currentCyclePoint(null, 28, [], new Date(2026, 6, 10))).toBeNull();
+    expect(currentCyclePoint('2026-08-01', 28, [], new Date(2026, 6, 10))).toBeNull();
   });
 });
