@@ -176,8 +176,8 @@ export default function ReflectScreen() {
         {loaded && anchor == null ? (
           <View style={styles.empty}>
             <Text style={styles.emptyText}>
-              Reflection compares this cycle to your last. Log a period first, then come back to
-              look back on it.
+              Reflection compares this cycle with your last. Log a period first, then come
+              back.
             </Text>
             <Pressable
               style={styles.primaryBtn}
@@ -190,22 +190,22 @@ export default function ReflectScreen() {
         ) : (
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             {openedAt != null && <Text style={styles.stamp}>{formatStamp(openedAt)}</Text>}
-            <Text style={styles.eyebrow}>A gentle look back</Text>
+            <Text style={styles.eyebrow}>A quick look back</Text>
 
-            <Question title="Did you notice the emotional change this time?" caption="Noticing is the first step.">
+            <Question title="Did you notice the emotional change this time?" caption="Easy to miss in the moment.">
               <YesNo value={noticed} onChange={setNoticed} />
             </Question>
 
             <Question
-              title="Did you recognise how big it was, and choose your next step?"
-              caption="Taking the right next step is what matters."
+              title="Did you catch how big it was, and pick your next move?"
+              caption="No wrong answer here."
             >
               <YesNo value={rightSized} onChange={setRightSized} />
             </Question>
 
             <Question
               title="What could you manage a little better next time?"
-              caption="Reflecting builds awareness — pick any, or none."
+              caption="Pick any, or none."
             >
               <View style={styles.chipWrap}>
                 {MANAGE_LEVERS.map((l) => (
@@ -234,7 +234,7 @@ export default function ReflectScreen() {
 
             <View style={styles.sectionGap} />
             <Text style={styles.eyebrow}>How the cycle landed</Text>
-            <Text style={styles.sectionCaption}>An honest read, wherever you are.</Text>
+            <Text style={styles.sectionCaption}>However it actually went.</Text>
 
             {IMPACT_DOMAINS.map((domain) => {
               const isMuted = muted.has(domain);
@@ -247,7 +247,7 @@ export default function ReflectScreen() {
                     </Pressable>
                   </View>
                   {isMuted ? (
-                    <Text style={styles.mutedNote}>Muted — {IMPACT_DOMAIN_LABEL[domain]} is hidden from your chart.</Text>
+                    <Text style={styles.mutedNote}>Muted. {IMPACT_DOMAIN_LABEL[domain]} stays off your chart.</Text>
                   ) : (
                     <ImpactSlider
                       value={impact[domain] ?? null}
