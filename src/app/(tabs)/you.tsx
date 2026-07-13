@@ -34,7 +34,7 @@ import {
   type MintedMoon,
   type MoonMaterial,
 } from '@/lib/moon-light';
-import { buildCycleSeries, type CyclePoint } from '@/lib/cycle-series';
+import { buildCycleSeries, currentCyclePoint, type CyclePoint } from '@/lib/cycle-series';
 import {
   getCycleImpacts,
   getMutedDomains,
@@ -255,6 +255,16 @@ export default function MySoulScreen() {
   const level = materialLevel(moonMaterial);
   const totals = foldLedger(ledger);
   const cycleSeries = buildCycleSeries(shelf, ledger);
+  // The live cycle joins the chart so You reflects Now the moment she shows up —
+  // shown once she's engaged this cycle, or alongside any completed cycles, but
+  // never as a lonely zero point that would only make the empty state look wrong.
+  const liveCycle = currentCyclePoint(pmsPrefs.lastPeriodStart, pmsPrefs.cycleLength, ledger, new Date());
+  const cycleSeriesLive =
+    liveCycle != null &&
+    !cycleSeries.some((p) => p.cycleStart === liveCycle.cycleStart) &&
+    (liveCycle.engagedDays > 0 || cycleSeries.length > 0)
+      ? [...cycleSeries, liveCycle]
+      : cycleSeries;
   const macSoul = effectiveSoul(isPaired, macSoulState);
 
   return (
@@ -312,7 +322,7 @@ export default function MySoulScreen() {
 
               <SectionEyebrow title="Is it working?" hint="effort · impact" />
               <EffortImpactCard
-                series={cycleSeries}
+                series={cycleSeriesLive}
                 impacts={cycleImpacts}
                 muted={mutedDomains}
               />
@@ -774,7 +784,7 @@ function EffortChart({
             width={barW}
             height={Math.max(0, h)}
             rx={4}
-            fill="rgba(255,255,255,0.055)"
+            fill={p.provisional ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.055)'}
           />
         );
       })}
