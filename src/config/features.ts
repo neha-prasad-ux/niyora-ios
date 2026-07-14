@@ -29,7 +29,15 @@ export const STRESS_EXPERIMENT = process.env.EXPO_PUBLIC_STRESS_EXPERIMENT === '
 export const RECALL_FADING = false;
 
 // The "Rough moment" on-device AI CBT session (Apple Foundation Models spike).
-// Gates the session screen, its dev probe, and any entry points. ON in dev so
-// the spike is reachable from Metro; store builds ship none of it until the
-// spike's go/no-go numbers clear (see the design doc's success criteria).
+// Gates ONLY the dev spike probe (fm-probe) now — the Reflect session itself
+// ships as part of the Steady-yourself flow, scripted (see REFLECT_AI). ON in
+// dev so the probe is reachable from Metro.
 export const FM_EXPERIMENT = __DEV__ || process.env.EXPO_PUBLIC_FM_EXPERIMENT === '1';
+
+// On-device AI inside the Reflect ("start fresh") session. OFF for v1 — the
+// release ships with no AI at all, so every Reflect beat runs its scripted
+// line and the flow completes on any device (including the A16 test phone).
+// `modelTurn` in rough-moment.tsx is the single seam a future on-device
+// provider (e.g. Google's on-device model) plugs into; flip this to light it
+// up where the hardware supports it, without touching the flow.
+export const REFLECT_AI = false;

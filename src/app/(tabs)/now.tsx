@@ -38,12 +38,9 @@ import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models
 import { colors } from '@/theme/colors';
 import { bandHeadline, derivePhaseBand } from '@/lib/phase-band';
 import {
-  derivePhase,
   isRingClosed,
   periodButtonState,
   pickTodayAction,
-  prepsDoneCount,
-  PREP_CHECK_COUNT,
   type TodayActionInput,
 } from '@/lib/today-action';
 import { COURSE_TITLE, trainSummary, workSummary } from '@/v3/game-content';
@@ -316,11 +313,13 @@ export default function NowScreen() {
   // and her material. Bare, moonstone, and full for a new user — so the default
   // Now moon is unchanged until she earns her first ring.
   const moonTier = snapshot == null ? null : currentTier(snapshot.lifetimeLight);
-  const phase =
-    snapshot == null ? null : derivePhase(snapshot.prefs, snapshot.reads.length > 0, snapshot.now);
   // The cycle strip drives the card's phase framing. Null when PMS mode is off
   // or no period is logged — the card then shows the header alone (no bar).
   const band = snapshot == null ? null : derivePhaseBand(snapshot.prefs, snapshot.now);
+  // PMS days fold the SOS into the hero: the coached action becomes the
+  // Steady-yourself flow (which opens with a breath), so the separate Calm now
+  // dock stands down for the window.
+  const pmsDays = band != null && band.current === 'pms';
   const periodButton =
     snapshot == null ? null : periodButtonState(snapshot.prefs, snapshot.now);
 
@@ -355,13 +354,13 @@ export default function NowScreen() {
     band != null && band.current === 'period'
       ? 'Look back'
       : band != null && band.current === 'pms'
-        ? 'Prep your day'
+        ? 'Cried, fought, or snapped?'
         : buildTitle;
   const phaseCtaLabel =
     band != null && band.current === 'period'
       ? 'Reflect'
       : band != null && band.current === 'pms'
-        ? 'Prep'
+        ? 'Try'
         : buildVerb;
   // Build days never show a "done" card — there's always a next course, and the
   // day's reward is the moon lighting up. Only the window/period cards settle.
@@ -445,9 +444,11 @@ export default function NowScreen() {
     Haptics.selectionAsync().catch(() => {});
     setPeriodSheetVisible(true);
   };
-  const openChecklist = () => {
+  // PMS days: the coached action opens the in-the-moment Steady-yourself flow
+  // (the readiness checklist lives in Grow now).
+  const openSteady = () => {
     Haptics.selectionAsync().catch(() => {});
-    router.push('/pms-readiness' as Href);
+    router.push('/steady-yourself' as Href);
   };
   const openReflect = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -533,13 +534,11 @@ export default function NowScreen() {
     });
   };
 
-  // Inside the window, the strip shows today's preps — the one number worth
-  // saying. It disappears entirely otherwise, so there's never an empty rail.
+  // The one-line progress strip is reserved for a number worth saying. The PMS
+  // readiness count moved to Grow with the checklist, so there is nothing to
+  // surface here for now; with no parts the strip stays hidden rather than
+  // showing an empty rail.
   const stripParts: string[] = [];
-  if (snapshot != null && phase === 'window') {
-    const preps = prepsDoneCount(snapshot.readiness.checks);
-    stripParts.push(`${preps}/${PREP_CHECK_COUNT} preps today`);
-  }
   const stripText = stripParts.join(' · ');
 
   return (
@@ -632,7 +631,7 @@ export default function NowScreen() {
                       band != null && band.current === 'period'
                         ? openReflect
                         : band != null && band.current === 'pms'
-                          ? openChecklist
+                          ? openSteady
                           : onActionPress
                     }
                     done={cardDone}
@@ -689,21 +688,25 @@ export default function NowScreen() {
 
         {/* The SOS, docked above the tab bar: same spot, same look, every
             single day — a stressed brain finds it by muscle memory, never by
-            reading. It never scrolls away, even on an SE. */}
-        <Animated.View
-          entering={FadeInDown.delay(220).duration(500)}
-          style={[styles.calmDock, { bottom: barHeight + 10 }]}
-          pointerEvents="box-none"
-        >
-          <BeginButton
-            label="Calm now"
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              setRecommendVisible(true);
-            }}
-          />
-          <Text style={styles.calmHint}>Feeling worked up? Start here.</Text>
-        </Animated.View>
+            reading. It never scrolls away, even on an SE. During the PMS days
+            it folds into the Steady-yourself hero (which opens with a breath),
+            so the dock stands down to keep exactly one SOS on screen. */}
+        {!pmsDays && (
+          <Animated.View
+            entering={FadeInDown.delay(220).duration(500)}
+            style={[styles.calmDock, { bottom: barHeight + 10 }]}
+            pointerEvents="box-none"
+          >
+            <BeginButton
+              label="Calm now"
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setRecommendVisible(true);
+              }}
+            />
+            <Text style={styles.calmHint}>Feeling worked up? Start here.</Text>
+          </Animated.View>
+        )}
       </SafeAreaView>
 
       {/* The same acute-calm flow as everywhere: pick a feeling, then the

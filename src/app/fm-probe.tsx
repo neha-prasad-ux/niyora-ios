@@ -75,15 +75,15 @@ export default function FmProbe() {
   }, [append]);
 
   const singleTurn = useCallback(async () => {
-    const req = buildTurnRequest('heard', state(BATTERY[0]));
+    const req = buildTurnRequest('reframe', state(BATTERY[0]));
     if (!req) return;
     const r = await NiyoraFm.generate(req.instructions, req.prompt, false);
-    if (r.ok) append(`heard (${r.latencyMs}ms): ${r.prose}`);
-    else append(`heard FAILED: ${r.failure} (${r.latencyMs}ms) ${r.message ?? ''}`);
+    if (r.ok) append(`reframe (${r.latencyMs}ms): ${r.prose}`);
+    else append(`reframe FAILED: ${r.failure} (${r.latencyMs}ms) ${r.message ?? ''}`);
   }, [append]);
 
-  // The battery: every vent through the two riskiest calls -- 'heard' (prose
-  // on raw vent text) and 'examine' (guided generation with chips).
+  // The battery: every vent through the two riskiest calls -- 'reframe' (prose
+  // generation) and 'examine' (guided generation with chips).
   const runBattery = useCallback(async () => {
     if (running) return;
     setRunning(true);
@@ -98,7 +98,7 @@ export default function FmProbe() {
 
     for (const [i, vent] of BATTERY.entries()) {
       const s = state(vent);
-      const heardReq = buildTurnRequest('heard', s)!;
+      const heardReq = buildTurnRequest('reframe', s)!;
       const heard = await NiyoraFm.generate(heardReq.instructions, heardReq.prompt, false);
       prose += 1;
       if (heard.ok) {
