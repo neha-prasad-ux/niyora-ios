@@ -4,7 +4,7 @@
 // shelves on this page, never as new home cards.
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
@@ -22,6 +22,10 @@ import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/train
 
 export default function GrowScreen() {
   const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
+  // The left rail connecting the phase dots runs from the first dot to the
+  // last. We measure the last section's offset so the line ends exactly on its
+  // dot rather than overhanging past the final card.
+  const [railHeight, setRailHeight] = useState(0);
   useFocusEffect(
     useCallback(() => {
       let alive = true;
@@ -78,7 +82,7 @@ export default function GrowScreen() {
       {
         key: 'train',
         title: 'Master emotional regulation',
-        sub: 'Practice staying steady when emotions spike.',
+        sub: 'Stay steady when emotions spike.',
         gradient: TRAIN_GRADIENT,
         tagColor: 'rgba(150, 110, 205, 0.95)',
         summary: trainSummary(training),
@@ -87,7 +91,7 @@ export default function GrowScreen() {
       {
         key: 'work',
         title: 'Build confidence at work',
-        sub: 'Speak up and stay calm under pressure.',
+        sub: 'Speak up under pressure.',
         gradient: WORKPLACE_GRADIENT,
         tagColor: 'rgba(70, 165, 155, 0.95)',
         summary: workSummary(training),
@@ -104,52 +108,74 @@ export default function GrowScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.pageTitle}>Grow</Text>
-            <Text style={styles.pageSub}>Programs to train through PMS, and tools for the hard moments.</Text>
+            <Text style={styles.pageSub}>Build skills, then ease the hard days.</Text>
           </View>
 
-          {trainCards.map((c) => (
+          {/* The page reads top-to-bottom as the cycle does: the long build
+              stretch to train skills, then prep for the PMS week, then care
+              through the period itself. A single rail links the phase dots so
+              the three groups read as one path. */}
+          <View style={styles.pathWrap}>
+            {railHeight > 0 && <View style={[styles.rail, { height: railHeight }]} />}
+            <PhaseSection
+            label="Building"
+            sub="Between your periods"
+            hue={BUILD_HUE}
+          >
+            {trainCards.map((c) => (
+              <Shelf
+                key={c.key}
+                title={c.title}
+                sub={c.sub}
+                gradient={c.gradient}
+                tag={c.summary.statusWord === 'Continue' ? 'Continue' : undefined}
+                tagColor={c.tagColor}
+                backdrop={<SoulBackdrop />}
+                onOpen={c.onOpen}
+              />
+            ))}
+          </PhaseSection>
+
+          <PhaseSection
+            label="PMS prep"
+            sub="The week before your period"
+            hue={PMS_HUE}
+          >
             <Shelf
-              key={c.key}
-              title={c.title}
-              sub={c.sub}
-              gradient={c.gradient}
-              tag={c.summary.statusWord === 'Continue' ? 'Continue' : undefined}
-              tagColor={c.tagColor}
-              backdrop={<SoulBackdrop />}
-              onOpen={c.onOpen}
+              title="PMS day checklist"
+              sub="Proven ways to ease symptoms."
+              gradient={PMS_GRADIENT}
+              onOpen={openPmsChecklist}
             />
-          ))}
+            <Shelf
+              title="Prep your relationship for PMS"
+              sub="Face hard days as a team."
+              gradient={COUPLES_GRADIENT}
+              backdrop={<CouplesBackdrop />}
+              onOpen={openCouples}
+            />
+            <Shelf
+              title="Find calm now"
+              sub="Quick breathing to reset."
+              gradient={CALM_GRADIENT}
+              onOpen={openCalm}
+            />
+          </PhaseSection>
 
-          {/* The two cycle-care checklists: prep for the PMS week, then soothe
-              the period itself. */}
-          <Shelf
-            title="PMS day checklist"
-            sub="Science-backed ways to get through the week."
-            gradient={PMS_GRADIENT}
-            onOpen={openPmsChecklist}
-          />
-
-          <Shelf
-            title="Care through your period"
-            sub="Soothing things for the heavy days."
-            gradient={PERIOD_GRADIENT}
-            onOpen={openPeriodsCare}
-          />
-
-          <Shelf
-            title="Find calm now"
-            sub="Breathing and mindfulness for right now."
-            gradient={CALM_GRADIENT}
-            onOpen={openCalm}
-          />
-
-          <Shelf
-            title="Prep your relationship for PMS"
-            sub="Face the hard days as a team."
-            gradient={COUPLES_GRADIENT}
-            backdrop={<CouplesBackdrop />}
-            onOpen={openCouples}
-          />
+            <PhaseSection
+              label="Periods prep"
+              sub="During your period"
+              hue={PERIOD_HUE}
+              onLayout={(e) => setRailHeight(e.nativeEvent.layout.y)}
+            >
+              <Shelf
+                title="Care through your period"
+                sub="Comfort for heavy days."
+                gradient={PERIOD_GRADIENT}
+                onOpen={openPeriodsCare}
+              />
+            </PhaseSection>
+          </View>
           <View style={{ height: 12 }} />
         </ScrollView>
       </SafeAreaView>
@@ -228,6 +254,34 @@ function Shelf({
   );
 }
 
+// --- The phase section ------------------------------------------------------
+// A group header that names one cycle phase and colours it with a small dot,
+// then stacks that phase's shelves beneath it. The three sections read as one
+// path down the page: Building → PMS prep → Periods prep.
+
+function PhaseSection({
+  label,
+  sub,
+  hue,
+  onLayout,
+  children,
+}: {
+  label: string;
+  sub: string;
+  hue: string;
+  onLayout?: (e: LayoutChangeEvent) => void;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.phaseSection} onLayout={onLayout}>
+      <View style={[styles.phaseDot, { backgroundColor: hue }]} />
+      <Text style={styles.phaseLabel}>{label}</Text>
+      <Text style={styles.phaseSub}>{sub}</Text>
+      <View style={styles.phaseCards}>{children}</View>
+    </View>
+  );
+}
+
 function SoulBackdrop() {
   return (
     <View pointerEvents="none" style={styles.backdrop}>
@@ -298,12 +352,18 @@ const PERIOD_GRADIENT: readonly [string, string, string] = [
   'hsl(34, 44%, 33%)',
 ];
 
+// Phase-header dots — a brighter pull from each section's shelf hue so the
+// header ties to the cards it groups: build violet, PMS plum, period coral.
+const BUILD_HUE = 'hsl(280, 52%, 64%)';
+const PMS_HUE = 'hsl(320, 50%, 62%)';
+const PERIOD_HUE = 'hsl(22, 60%, 60%)';
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
   // The tab bar floats over the content now; padding lets the last card
   // scroll fully out from under the glass with a breath of air above it.
-  scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 120, gap: 14 },
+  scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 120, gap: 26 },
 
   header: { paddingHorizontal: 2, paddingTop: 8, paddingBottom: 2 },
   pageTitle: {
@@ -321,6 +381,47 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     marginTop: 4,
   },
+
+  // The three phase groups, linked by one vertical rail down the left gutter.
+  pathWrap: { position: 'relative', gap: 26 },
+  rail: {
+    position: 'absolute',
+    left: 5.25,
+    top: 11.5,
+    width: 1.5,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+  },
+
+  // One phase group: a node on the rail, a label, a one-line blurb, its shelves.
+  // The left padding clears the gutter the rail and dot live in.
+  phaseSection: { position: 'relative', paddingLeft: 24 },
+  phaseDot: {
+    position: 'absolute',
+    left: 1.5,
+    top: 7,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    zIndex: 2,
+  },
+  phaseLabel: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  phaseSub: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSubtitle,
+    letterSpacing: 0.1,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  phaseCards: { gap: 14 },
 
   // One card, one height for every shelf.
   shelfWrap: { marginBottom: 0 },

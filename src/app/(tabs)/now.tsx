@@ -660,7 +660,7 @@ export default function NowScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Reflect on your cycle"
                   >
-                    <SymbolView name="sparkles" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
+                    <SymbolView name="book.closed" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
                     <Text style={styles.actionBtnText}>Reflect</Text>
                   </Pressable>
                 </Animated.View>
