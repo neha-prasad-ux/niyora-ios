@@ -1,7 +1,7 @@
-// The daily PMS Day checklist, grouped by the jobs it does:
+// The daily PMS Day checklist. Purely proactive prep — getting ahead of the
+// day, not managing a spike (in-the-moment regulation lives in the "Steady
+// yourself" flow now). Grouped by the jobs it does:
 //
-//   Emotional regulation ("me") — name the wave, get a reframe for that feeling,
-//     breathe if it is big. Naming records a `notice` light event.
 //   Relationship ("us") — a heads-up before, and topics for if you fight. Each
 //     routes to an existing couples screen that scores itself.
 //   Life Style (body) — sleep enough, never run hungry, add these foods. Ticks
@@ -17,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { WhySheet } from '@/components/why-sheet';
-import { EmotionCard } from '@/components/emotion-card';
 import { RelationshipCard } from '@/components/relationship-card';
 import { LifeStyleCard } from '@/components/lifestyle-card';
 import { colors } from '@/theme/colors';
@@ -30,8 +29,6 @@ import {
   type ReadinessChecks,
   type ReadinessCheckId,
 } from '@/store/pms-readiness';
-import { recordLight } from '@/store/light-ledger';
-import { EMOTION_NAMED_REF_ID } from '@/models/emotion-regulation';
 
 const FRESH: ReadinessChecks = {
   calcium: false,
@@ -74,11 +71,6 @@ export default function PmsReadinessScreen() {
     setReadiness({ date: today, checks: next, doneForToday: false }).catch(() => {});
   };
 
-  // Naming a feeling is a recognition (moon-reward: notice). Best-effort.
-  const onNamed = () => {
-    recordLight('notice', { refId: EMOTION_NAMED_REF_ID }).catch(() => {});
-  };
-
   const goBack = () => {
     Haptics.selectionAsync().catch(() => {});
     router.back();
@@ -101,14 +93,10 @@ export default function PmsReadinessScreen() {
 
         <View style={styles.orbHeader}>
           <Text style={styles.header}>PMS Day checklist</Text>
-          <Text style={styles.subhead}>Science-backed ways to get through the week.</Text>
+          <Text style={styles.subhead}>A few kind things to get ahead of the day.</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Your emotions — the "me" job: name it, reframe it, breathe. */}
-          <SectionHeader title="Your emotions" hint="Observe it, reframe or step away, breathe" />
-          <EmotionCard onNamed={onNamed} />
-
           {/* Your partner — the "us" jobs: a heads-up, plus fight topics. */}
           <SectionHeader title="Your partner" hint="Keep things good between you" />
           <RelationshipCard />
