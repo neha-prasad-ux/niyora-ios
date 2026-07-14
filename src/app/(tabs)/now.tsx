@@ -3,8 +3,8 @@
 // the phase-action card (the cycle strip fused to the single ask picked by
 // lib/today-action, with the Periods door on its right), a one-line progress
 // strip, and Calm now docked above the tab bar so the SOS is guaranteed
-// visible on every device. This screen never shows more than two numbers:
-// the streak and the prep count. Everything browsable lives in Grow;
+// visible on every device. The only number it ever surfaces is today's prep
+// count, and only inside the window. Everything browsable lives in Grow;
 // everything reflective in You.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -32,6 +32,7 @@ import { OnboardingCard } from '@/components/onboarding-card';
 import { PeriodSheet } from '@/components/period-sheet';
 import { PhaseActionCard } from '@/components/phase-action-card';
 import { RecommendSheet } from '@/components/RecommendSheet';
+import { RingCelebration } from '@/components/RingCelebration';
 import { type RecResult } from '@/models/recommend';
 import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
 import { colors } from '@/theme/colors';
@@ -50,8 +51,14 @@ import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
 import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
 import { daysBetween, engagedDatesFrom, foldLedger } from '@/lib/moon-light';
+import { lightEarned } from '@/lib/light-bus';
 import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
 import { getLightLedger, recordLight } from '@/store/light-ledger';
+import {
+  clearPendingCrossings,
+  getPendingCrossings,
+  type PendingCrossing,
+} from '@/store/pending-crossing';
 import { getMoonState, recordCycleMint, type MoonState } from '@/store/moon-state';
 import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import {
@@ -260,6 +267,9 @@ export default function NowScreen() {
   // (the latter is what re-evaluates the 17:00 morning/evening flip — no
   // timers). The action itself is derived during render, never stored.
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  // A ring or material crossing owed a celebration, played as a bloom on the
+  // moon the moment she lands on Home (earned here or in a flow she just left).
+  const [crossing, setCrossing] = useState<PendingCrossing | null>(null);
   const reload = useCallback(() => {
     // The arrival earns its light (first open of the day; repeats are free
     // no-ops). The moon itself stays bright — absence never dims it; only
@@ -269,7 +279,18 @@ export default function NowScreen() {
       .finally(() => {
         loadSnapshot()
           .then(setSnapshot)
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            // A crossing earned anywhere — this visit, or a flow she just left —
+            // gets its moment here on the moon. Material milestones outrank rings.
+            getPendingCrossings()
+              .then((owed) => {
+                if (owed.length === 0) return;
+                clearPendingCrossings().catch(() => {});
+                setCrossing(owed.find((c) => c.kind === 'material') ?? owed[owed.length - 1]);
+              })
+              .catch(() => {});
+          });
       });
   }, []);
   useFocusEffect(
@@ -366,7 +387,10 @@ export default function NowScreen() {
   // keeps it to the transition, never on re-renders or on arriving at an
   // already-closed day.
   const glow = useSharedValue(1);
-  const glowStyle = useAnimatedStyle(() => ({ transform: [{ scale: glow.value }] }));
+  // A separate, subtler swell for "light landed" (the non-numeric cue); it
+  // multiplies with the ring-close pulse so the two never fight.
+  const shimmer = useSharedValue(1);
+  const glowStyle = useAnimatedStyle(() => ({ transform: [{ scale: glow.value * shimmer.value }] }));
   const ringWasClosed = useRef<boolean | null>(null);
   useEffect(() => {
     if (snapshot == null) return;
@@ -379,6 +403,30 @@ export default function NowScreen() {
     }
     ringWasClosed.current = ringClosed;
   }, [snapshot, ringClosed, glow]);
+
+  // The Home crossing moment: once a crossing is owed, play the bloom, land a
+  // success haptic, then let it clear itself.
+  useEffect(() => {
+    if (crossing == null) return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    const t = setTimeout(() => setCrossing(null), 2800);
+    return () => clearTimeout(t);
+  }, [crossing]);
+
+  // Light landed while she's on Home: the moon gives a quiet, wordless swell.
+  // No number, no counter — brighter is the whole reward, per the no-points design.
+  useFocusEffect(
+    useCallback(
+      () =>
+        lightEarned.subscribe(() => {
+          shimmer.value = withSequence(
+            withTiming(1.035, { duration: 220, easing: Easing.out(Easing.sin) }),
+            withTiming(1, { duration: 520, easing: Easing.inOut(Easing.sin) }),
+          );
+        }),
+      [shimmer],
+    ),
+  );
 
   // Setup copy nuance: a read left partway resumes, it doesn't restart.
   const actionForCard =
@@ -485,22 +533,18 @@ export default function NowScreen() {
     });
   };
 
-  // The strip's two numbers: the streak, and (inside the window) today's
-  // preps. A zero-day streak is noise, not motivation — it never renders; the
-  // strip disappears entirely when there is nothing worth saying.
+  // Inside the window, the strip shows today's preps — the one number worth
+  // saying. It disappears entirely otherwise, so there's never an empty rail.
   const stripParts: string[] = [];
-  if (snapshot != null) {
-    if (snapshot.streak.streak > 0) stripParts.push(`${snapshot.streak.streak}-day streak`);
-    if (phase === 'window') {
-      const preps = prepsDoneCount(snapshot.readiness.checks);
-      stripParts.push(`${preps}/${PREP_CHECK_COUNT} preps today`);
-    }
+  if (snapshot != null && phase === 'window') {
+    const preps = prepsDoneCount(snapshot.readiness.checks);
+    stripParts.push(`${preps}/${PREP_CHECK_COUNT} preps today`);
   }
   const stripText = stripParts.join(' · ');
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient topGlow={false} />
+      <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + 106 }]}
@@ -616,7 +660,7 @@ export default function NowScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Reflect on your cycle"
                   >
-                    <SymbolView name="sparkles" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
+                    <SymbolView name="book.closed" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
                     <Text style={styles.actionBtnText}>Reflect</Text>
                   </Pressable>
                 </Animated.View>
@@ -680,6 +724,23 @@ export default function NowScreen() {
         markedDates={snapshot?.periodHistory ?? []}
         cycleLength={snapshot?.prefs.cycleLength}
       />
+
+      {/* The unified crossing moment: a bloom on the moon with a plain line, for
+          a ring or material milestone earned via any path. Clears itself. */}
+      {crossing != null && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <RingCelebration hue={crossing.hue} />
+          <Animated.Text
+            entering={FadeIn.duration(500)}
+            exiting={FadeOut.duration(500)}
+            style={styles.crossingLabel}
+          >
+            {crossing.kind === 'material'
+              ? `Your soul is ${crossing.label} now`
+              : `New ring · ${crossing.label}`}
+          </Animated.Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -687,6 +748,18 @@ export default function NowScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
+  // The crossing line sits over the bloom, near the moon's centre.
+  crossingLabel: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    top: '42%',
+    textAlign: 'center',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: '#ffffff',
+    letterSpacing: 0.3,
+  },
   // Bottom padding is set inline: it clears the floating Calm dock and the
   // tab bar glass, both of which depend on the device's bottom inset.
   scroll: { paddingHorizontal: 20, paddingTop: 24, gap: 14 },

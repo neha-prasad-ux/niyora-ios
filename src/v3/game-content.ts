@@ -110,39 +110,39 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
 // of all women.
 export const L1_CARDS: L1Card[] = [
   {
-    id: 'l1-train',
-    statement: 'Learning to handle your emotions can make PMS easier.',
-    isTrue: true,
-    reveal:
-      'Handling hard feelings is a skill, not a fixed trait. The more you practice, the lighter your rough weeks get. That is exactly what we are building here.',
-  },
-  {
     id: 'l1-common',
-    statement: 'Irritability is the number one PMS symptom.',
+    statement: 'Irritability is the number one PMS symptom, ahead of the mood dips and the anxiety.',
     isTrue: true,
     reveal:
-      'Of everyone who gets PMS, about 95 percent feel irritable. That beats the mood swings, the sadness, and the anxiety. You are in very good company.',
+      'About 95 percent of people who get PMS feel it, more than any other symptom. If your fuse is short this week, you are in very good company, and it is the most normal thing in the world.',
   },
   {
-    id: 'l1-hormones',
-    statement: 'If PMS makes you snap, your hormones must be off.',
+    id: 'l1-vent',
+    statement: 'Letting the anger out, snapping or venting it, usually leaves you more wound up, not calmer.',
+    isTrue: true,
+    reveal:
+      'Venting feels like release, but it mostly rehearses the anger and keeps your body switched on. The calm comes from letting the heat drop, not from firing it off.',
+  },
+  {
+    id: 'l1-suppress',
+    statement: 'The grown-up move is to swallow it, keep smiling, and wait for it to blow over.',
     isTrue: false,
     reveal:
-      'Your hormones are completely normal. Your brain is just reading them louder this week. That is a real thing, and it does not mean something is wrong with you.',
+      'Clamped down, it does not clear, it leaks out later as a sharp tone or a bigger blowup. Naming it and giving it room is a different thing from bottling it, and it is what actually works.',
   },
   {
     id: 'l1-hungry',
-    statement: 'Skipping meals or sleep makes you more irritable.',
+    statement: 'Skipping meals or running short on sleep makes you quicker to snap.',
     isTrue: true,
     reveal:
-      'When your blood sugar dips or you are low on sleep, everything feels more annoying. So before you spiral, eat something and get some rest.',
+      'A dip in blood sugar or a rough night shortens anyone\'s fuse. Before you read too much into the mood, check whether she has eaten and slept.',
   },
   {
-    id: 'l1-exhale',
-    statement: 'To calm down, breathe in longer than you breathe out.',
+    id: 'l1-hormones',
+    statement: 'If your period turns you into someone who snaps, your hormones must be off.',
     isTrue: false,
     reveal:
-      'It is actually the other way around. A slow, long exhale is what tells your body to relax. We will practice the real thing, Wind Down, soon.',
+      'Your hormones are doing exactly what they should. Your brain is just reading them louder this week. Nothing about you is broken.',
   },
 ];
 
@@ -200,9 +200,9 @@ export const L2_SCENES: L2Scene[] = [
   },
   {
     id: 'l2-c',
-    scene: `${FRIEND_NAME} is snapping at little stuff, but she laughs when you point it out.`,
+    scene: `${FRIEND_NAME} is fuming, talking fast and loud about her day, but she still laughs when you tease her.`,
     answer: 'little',
-    why: 'Still reachable. She is not past talking.',
+    why: 'Loud and worked up on the surface, but still reachable and still joking. Loud is not the same as flooded.',
   },
   {
     id: 'l2-d',
@@ -259,9 +259,9 @@ export const L3_SCENES: L3Scene[] = [
     prompt: `${FRIEND_NAME} is annoyed her partner did not text back. What helps most?`,
     options: [
       {
-        label: 'It is not a big deal, let it go',
+        label: 'Decide she is being needy and drop it',
         tier: 'worst',
-        future: 'Waving it off buries it. It comes back louder.',
+        future: 'Calling herself needy just stacks shame on the annoyance. Buried, it does not leave, it comes back louder.',
       },
       {
         label: 'He is probably slammed at work',
@@ -286,9 +286,9 @@ export const L3_SCENES: L3Scene[] = [
         future: 'She is flooded. The gap lets the wave drop, then she can think.',
       },
       {
-        label: 'She is tough, she can power through',
+        label: 'Get straight back to work like nothing happened',
         tier: 'worst',
-        future: 'Powering through a flood does not calm it. It leaks out later.',
+        future: 'Powering through a flood does not calm it, it drives it underground. It leaks out later, usually at someone who did nothing.',
       },
       {
         label: 'He probably did not mean it',
@@ -313,31 +313,31 @@ export const L3_SCENES: L3Scene[] = [
         future: 'Flooded and shaking. First her body settles, then she sorts the passport.',
       },
       {
-        label: 'Stay composed and keep it in',
+        label: 'Force a calm face and swallow it',
         tier: 'worst',
-        future: 'Clamping down mid-crisis piles on pressure. It comes back louder.',
+        future: 'A calm face over a flood is just a lid. Clamping down mid-crisis piles pressure on pressure, and the lid comes off louder later.',
       },
     ],
   },
   {
     id: 'l3-snapping',
     intensity: 'little',
-    prompt: `${FRIEND_NAME} is snapping at little stuff, but she laughs when you point it out. What helps most?`,
+    prompt: `${FRIEND_NAME} is fuming and talking fast about her day, but she still laughs when you tease her. What helps most?`,
     options: [
       {
-        label: 'It is a rough day, not everyone turning on her',
+        label: 'It is a rough day talking, not everyone turning on her',
         tier: 'best',
-        future: 'Still reachable, so a fairer read lands and she softens.',
+        future: 'Loud but still reachable, so a fairer read lands and the heat drops.',
       },
       {
-        label: 'Tell her to ignore it',
+        label: 'Tell her she is being dramatic and needs to calm down',
         tier: 'worst',
-        future: 'Ignoring it lets it stack up. Small now, bigger later.',
+        future: 'Nobody has ever calmed down from being told to calm down. It just adds a fight to the bad day.',
       },
       {
         label: 'Send her off alone for 20',
         tier: 'lesser',
-        future: 'Overkill. She did not need space, a quick reframe would do it.',
+        future: 'Overkill. She is worked up but reachable, a quick reframe would do it without the timeout.',
       },
     ],
   },
@@ -701,38 +701,38 @@ export const ANXIETY: Chapter = {
   L1_CARDS: [
     {
       id: 'anx-l1-cycle',
-      statement: 'Anxiety that climbs before your period usually eases once it starts.',
+      statement: 'Anxiety that climbs before your period usually eases within a day or two of it starting.',
       isTrue: true,
       reveal:
-        'The calming brain chemistry that dips late in your cycle comes back as your period begins, so the edge tends to lift within a day or two. Knowing it is cyclical, not permanent, takes some of its bite out.',
-    },
-    {
-      id: 'anx-l1-threat',
-      statement: 'If you feel anxious, something must actually be wrong.',
-      isTrue: false,
-      reveal:
-        'Anxiety is your body preparing for a threat, not proof there is one. Before your period it can fire the alarm louder over smaller things. The feeling is real, the danger usually is not.',
+        'The calming brain chemistry that dips late in your cycle comes back as your period begins, so the edge tends to lift fast. Knowing it is cyclical, not permanent, takes some of the bite out.',
     },
     {
       id: 'anx-l1-suppress',
       statement: 'Telling yourself to stop worrying can make the worry louder.',
       isTrue: true,
       reveal:
-        'The harder you push a thought away, the more your brain keeps checking it is gone, which holds it front and center. The way out is not to fight it. You name it, then come back to what is real right now.',
+        'The harder you push a thought away, the more your brain keeps checking it is gone, which holds it front and center. You name it, then come back to what is real right now.',
+    },
+    {
+      id: 'anx-l1-check',
+      statement: 'When a worry will not quit, checking it one more time is the fastest way to put it to rest.',
+      isTrue: false,
+      reveal:
+        'Checking calms you for a second, then the doubt grows back a little stronger and asks to be checked again. Reassurance is a loop, not an exit. Naming the worry is what loosens it.',
     },
     {
       id: 'anx-l1-avoid',
-      statement: 'Avoiding what makes you anxious makes the anxiety grow.',
+      statement: 'Avoiding what makes you anxious quietly makes the anxiety bigger.',
       isTrue: true,
       reveal:
         'Every time you dodge it, your brain learns the thing was dangerous, so next time the fear is bigger. Facing it in small steps is what shrinks it.',
     },
     {
-      id: 'anx-l1-exhale',
-      statement: 'To calm down, breathe in longer than you breathe out.',
+      id: 'anx-l1-body',
+      statement: 'A pounding heart before a big moment is a sign something is about to go wrong.',
       isTrue: false,
       reveal:
-        'It is the other way around. A slow, long exhale is the signal that tells your body the alarm can switch off. We will practice the real thing soon.',
+        'That pounding is your body getting ready, the same surge that sharpens a sprinter. Read as readiness instead of dread and it works for you. The feeling is real, the danger usually is not.',
     },
   ],
   L1_INTRO: {
@@ -776,9 +776,9 @@ export const ANXIETY: Chapter = {
     },
     {
       id: 'anx-l2-c',
-      scene: `${FRIEND_NAME} feels a low buzz of nerves about the week, but she can still laugh it off.`,
+      scene: `${FRIEND_NAME} is fizzing before a call, tapping her pen and talking fast, but she can still crack a joke and follow the plan.`,
       answer: 'little',
-      why: 'Still reachable. The nerves are there, but they are not running her.',
+      why: 'Lots of nervous energy, but she is still reachable and thinking clearly. Wired is not the same as flooded.',
     },
     {
       id: 'anx-l2-d',
@@ -1068,38 +1068,38 @@ export const MOOD_SWINGS: Chapter = {
   L1_CARDS: [
     {
       id: 'mood-l1-name',
-      statement: 'Putting a feeling into words takes some of its power away.',
+      statement: 'Putting the feeling into words, like this is a wave of sadness, takes some of its power away.',
       isTrue: true,
       reveal:
-        'This is what naming it means: you say what you feel, like this is a wave of sadness, out loud or in your head. When you label a feeling instead of bottling it, your brain settles a little and the wave loses its grip. Saying it is what starts to shrink it.',
+        'Labeling a feeling instead of bottling it settles the brain a little and loosens the wave\'s grip. Saying what it is, out loud or in your head, is what starts to shrink it.',
     },
     {
-      id: 'mood-l1-rejection',
-      statement: 'Before your period, a neutral text can feel like a real rejection.',
+      id: 'mood-l1-passes',
+      statement: 'A mood swing usually rises, crests, and fades on its own if you do not act on it.',
       isTrue: true,
       reveal:
-        'Late in the cycle your brain gets more tuned to signs of rejection, so a short reply or a flat look can sting more than it was meant to. The hurt is real. The rejection usually is not.',
+        'Left alone, the wave breaks and drops, often within the hour. Most of the damage comes from acting while it is high, not from the wave itself.',
     },
     {
-      id: 'mood-l1-verdict',
-      statement: 'What you feel in the moment is the truth about your whole life.',
+      id: 'mood-l1-trust',
+      statement: 'The feeling is that strong for a reason, so you should trust it and act while it is real.',
       isTrue: false,
       reveal:
         'A swing makes everything feel bigger and more permanent than it is. The feeling is real, but it is a wave, not a verdict. Wait for the tide to drop before you trust the read.',
     },
     {
-      id: 'mood-l1-passes',
-      statement: 'A mood swing usually crests and fades if you do not act on it.',
+      id: 'mood-l1-rejection',
+      statement: 'Before your period, a neutral text or a flat look can land like a real rejection.',
       isTrue: true,
       reveal:
-        'Left alone, the wave rises, breaks, and drops, often within the hour. Most of the damage comes from acting while it is high, not from the wave itself.',
+        'Late in the cycle your brain tunes up to signs of rejection, so a short reply can sting more than it was meant to. The hurt is real. The rejection usually is not.',
     },
     {
-      id: 'mood-l1-exhale',
-      statement: 'To calm down, breathe in longer than you breathe out.',
+      id: 'mood-l1-hold',
+      statement: 'If you can hold the tears back and keep it together, the wave passes quicker.',
       isTrue: false,
       reveal:
-        'It is the other way around. A slow, long exhale is what tells your body to settle. We will practice the real thing soon.',
+        'Holding it in does not speed it up, it just adds a second job on top of the feeling. Letting the tears come, without acting on the story behind them, is what lets the wave move through.',
     },
   ],
   L1_INTRO: {
@@ -1143,9 +1143,9 @@ export const MOOD_SWINGS: Chapter = {
     },
     {
       id: 'mood-l2-c',
-      scene: `${FRIEND_NAME} feels a little extra sensitive today but can still let things go.`,
+      scene: `${FRIEND_NAME} wells up at a song and her voice wobbles, then she laughs at herself and carries on.`,
       answer: 'little',
-      why: 'Still reachable. The feeling is there, but it is not running her.',
+      why: 'Tears on the surface, but she is still steady underneath and lets it pass. Teary is not the same as flooded.',
     },
     {
       id: 'mood-l2-d',
@@ -1412,15 +1412,15 @@ export const WORK_ANXIETY: Chapter = {
   ],
   L1_CARDS: [
     { id: 'wanx-l1-energy', statement: 'A rush of nerves before a big moment can actually sharpen you.',
-      isTrue: true, reveal: 'That jolt is your body getting ready, more fuel not less. Read as readiness instead of dread, the same feeling works for you. The trick is what you call it.' },
-    { id: 'wanx-l1-threat', statement: 'If you feel anxious before a meeting, something must be wrong.',
-      isTrue: false, reveal: 'Anxiety is your body preparing for a threat, not proof there is one. A room full of colleagues is not a lion. The feeling is real, the danger usually is not.' },
+      isTrue: true, reveal: 'That jolt is your body getting ready, more fuel not less. Read as readiness instead of dread and the same feeling works for you. The trick is what you call it.' },
     { id: 'wanx-l1-avoid', statement: 'Dodging the thing that scares you at work makes the fear grow.',
       isTrue: true, reveal: 'Every time you skip the speak-up or the ask, your brain learns it was dangerous, so next time the fear is bigger. Doing it in small steps is what shrinks it.' },
-    { id: 'wanx-l1-suppress', statement: 'Telling yourself to stop worrying before a presentation makes it louder.',
-      isTrue: true, reveal: 'The harder you push a worry away, the more your brain keeps checking it is gone, which holds it front and center. You name it, then come back to what is real right now.' },
-    { id: 'wanx-l1-exhale', statement: 'To settle before you walk in, breathe in longer than you breathe out.',
-      isTrue: false, reveal: 'It is the other way around. A slow, long exhale is the signal that tells your body the alarm can switch off. We will practice the real thing soon.' },
+    { id: 'wanx-l1-check', statement: 'If a message is worrying you, rereading it a few times is the quickest way to feel sure.',
+      isTrue: false, reveal: 'Each reread calms you for a moment, then hands the doubt back a little bigger. Checking is a loop, not an exit. Naming the worry is what loosens it.' },
+    { id: 'wanx-l1-cram', statement: 'The more anxious you feel before a presentation, the more you should cram right up to the start.',
+      isTrue: false, reveal: 'Cramming on a racing mind does not stick and only winds you tighter. Once the prep is done, the job is to settle the body, not to pile on more.' },
+    { id: 'wanx-l1-suppress', statement: 'Telling yourself to stop being nervous before you walk in tends to make it louder.',
+      isTrue: true, reveal: 'The harder you push the nerves away, the more your brain keeps checking they are gone, which holds them front and center. You name them, then come back to what is real right now.' },
   ],
   L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to steady your nerves at work.', emotion: 'At work: Nerves', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },
@@ -1723,8 +1723,8 @@ export const ASSERTIVENESS: Chapter = {
       isTrue: true, reveal: 'Unsaid things do not disappear, they come out sideways, as a short tone or a slow build of resentment. Saying it cleanly once is kinder to everyone, including you.' },
     { id: 'assert-l1-no', statement: 'Saying no to extra work makes you look difficult.',
       isTrue: false, reveal: 'A clear, reasoned no reads as someone who knows their priorities. Saying yes to everything is what quietly costs you. A good no protects your best work.' },
-    { id: 'assert-l1-flooded', statement: 'The best time to raise something hard is the second you feel angry.',
-      isTrue: false, reveal: 'Mid-flood it comes out sharp and gets heard as an attack. You wait until you are steady, then say it. Same words, completely different landing.' },
+    { id: 'assert-l1-soften', statement: 'Wrapping a hard ask in enough apologies and reasons makes it land better.',
+      isTrue: false, reveal: 'A pile of sorries makes a simple ask sound like a problem and invites a no. Warm and clear, with the ask left plain, is what actually gets a yes.' },
   ],
   L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to speak up and be heard.', emotion: 'At work: Speaking up', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },

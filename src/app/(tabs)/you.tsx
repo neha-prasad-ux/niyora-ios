@@ -34,10 +34,11 @@ import {
   type MintedMoon,
   type MoonMaterial,
 } from '@/lib/moon-light';
-import { buildCycleSeries, type CyclePoint } from '@/lib/cycle-series';
+import { buildCycleSeries, currentCyclePoint, type CyclePoint } from '@/lib/cycle-series';
 import {
   getCycleImpacts,
   getMutedDomains,
+  latestReadsByAnchor,
   IMPACT_DOMAINS,
   IMPACT_DOMAIN_LABEL,
   type CycleImpactEntry,
@@ -254,11 +255,21 @@ export default function MySoulScreen() {
   const level = materialLevel(moonMaterial);
   const totals = foldLedger(ledger);
   const cycleSeries = buildCycleSeries(shelf, ledger);
+  // The live cycle joins the chart so You reflects Now the moment she shows up —
+  // shown once she's engaged this cycle, or alongside any completed cycles, but
+  // never as a lonely zero point that would only make the empty state look wrong.
+  const liveCycle = currentCyclePoint(pmsPrefs.lastPeriodStart, pmsPrefs.cycleLength, ledger, new Date());
+  const cycleSeriesLive =
+    liveCycle != null &&
+    !cycleSeries.some((p) => p.cycleStart === liveCycle.cycleStart) &&
+    (liveCycle.engagedDays > 0 || cycleSeries.length > 0)
+      ? [...cycleSeries, liveCycle]
+      : cycleSeries;
   const macSoul = effectiveSoul(isPaired, macSoulState);
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient topGlow={false} />
+      <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={styles.scrollBody}
@@ -266,7 +277,13 @@ export default function MySoulScreen() {
         >
           {/* Same header language as Grow: a big title over a one-line subtitle. */}
           <View style={styles.pageHeader}>
-            <Text style={styles.pageTitle}>You</Text>
+            {/* Dev-only: long-press the title to open the design-system reference. */}
+            <Pressable
+              onLongPress={__DEV__ ? () => router.push('/design-system' as Href) : undefined}
+              delayLongPress={600}
+            >
+              <Text style={styles.pageTitle}>You</Text>
+            </Pressable>
             <Text style={styles.pageSub}>Your journey with Niyora</Text>
           </View>
 
@@ -311,7 +328,7 @@ export default function MySoulScreen() {
 
               <SectionEyebrow title="Is it working?" hint="effort · impact" />
               <EffortImpactCard
-                series={cycleSeries}
+                series={cycleSeriesLive}
                 impacts={cycleImpacts}
                 muted={mutedDomains}
               />
@@ -773,7 +790,7 @@ function EffortChart({
             width={barW}
             height={Math.max(0, h)}
             rx={4}
-            fill="rgba(255,255,255,0.055)"
+            fill={p.provisional ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.055)'}
           />
         );
       })}
@@ -831,7 +848,7 @@ function EffortImpactCard({
     );
   }
 
-  const readByAnchor = new Map(impacts.map((e) => [e.cycleAnchor, e.reads]));
+  const readByAnchor = latestReadsByAnchor(impacts);
   const domain = visibleDomains.includes(selected) ? selected : visibleDomains[0] ?? 'work';
   const color = DOMAIN_COLOR[domain];
   const levels = series.map((p) => readByAnchor.get(p.cycleStart)?.[domain] ?? null);

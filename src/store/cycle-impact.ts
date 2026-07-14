@@ -4,11 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // chart. At each period boundary the Now tab asks, per life domain, how the
 // cycle that just ended actually landed (rough / okay / fine). Effort (light,
 // engaged days) answers "how much did she meet the app"; this answers "did it
-// help, and where". One entry per cycle, anchored to the cycle's start (the
-// same anchor remission-log uses), so a cycle is rated once. On device only.
+// help, and where". Append-only: she can look back on a cycle more than once,
+// each reflection a new timestamped entry. The chart folds the log to the
+// latest read per domain per cycle (latestReadsByAnchor). On device only.
 //
 // The Now tab owns the asking (when, tone, the "don't ask this" mute); this
-// store is the shared contract — the Now flow writes with recordCycleImpact /
+// store is the shared contract — the Reflect flow writes with appendCycleImpact /
 // setDomainMuted, the You tab reads with getCycleImpacts / getMutedDomains.
 
 export type ImpactDomain = 'work' | 'partner' | 'yourself';
@@ -78,35 +79,53 @@ export async function getCycleImpacts(): Promise<CycleImpactEntry[]> {
   return parseCycleImpact(await AsyncStorage.getItem(STORAGE_KEY));
 }
 
-function toYmd(d: Date): string {
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${m}-${day}`;
+/**
+ * Append one reflection's impact reads for a cycle. Every reflection stacks a
+ * new entry (she can look back more than once); nothing is overwritten. `at` is
+ * an ISO timestamp so same-day reflections still order. A read with no valid
+ * domains, or a malformed anchor, is a no-op.
+ */
+export async function appendCycleImpact(
+  cycleAnchor: string,
+  reads: Partial<Record<ImpactDomain, ImpactLevel>>,
+  at: string,
+): Promise<CycleImpactEntry[]> {
+  const clean = parseReads(reads);
+  if (!YMD.test(cycleAnchor) || Object.keys(clean).length === 0) return getCycleImpacts();
+  const log = await getCycleImpacts();
+  log.push({ cycleAnchor, reads: clean, at });
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+  return log;
 }
 
 /**
- * Record one domain's read for a cycle. Merges into any existing entry for
- * that cycle (she can rate work now and her partner a day later), and a later
- * read for the same domain overwrites the earlier one. Called by the Now flow.
+ * Fold the append-only log to one reads map per cycle for the chart: walking
+ * oldest → newest, a later reflection overwrites the domains it re-rates but
+ * never erases a domain it left out.
  */
-export async function recordCycleImpact(
-  cycleAnchor: string,
-  domain: ImpactDomain,
-  level: ImpactLevel,
-  now: Date = new Date(),
-): Promise<CycleImpactEntry[]> {
-  if (!YMD.test(cycleAnchor)) return getCycleImpacts();
-  const log = await getCycleImpacts();
-  const at = toYmd(now);
-  const existing = log.find((e) => e.cycleAnchor === cycleAnchor);
-  if (existing) {
-    existing.reads[domain] = level;
-    existing.at = at;
-  } else {
-    log.push({ cycleAnchor, reads: { [domain]: level }, at });
+export function latestReadsByAnchor(
+  log: readonly CycleImpactEntry[],
+): Map<string, Partial<Record<ImpactDomain, ImpactLevel>>> {
+  const sorted = [...log].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  const map = new Map<string, Partial<Record<ImpactDomain, ImpactLevel>>>();
+  for (const e of sorted) {
+    map.set(e.cycleAnchor, { ...(map.get(e.cycleAnchor) ?? {}), ...e.reads });
   }
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
-  return log;
+  return map;
+}
+
+/**
+ * The reads from her most recent reflection of any cycle — the ghost "last
+ * time" marker a fresh reflection is compared against.
+ */
+export function lastImpactReads(
+  log: readonly CycleImpactEntry[],
+): Partial<Record<ImpactDomain, ImpactLevel>> | null {
+  let latest: CycleImpactEntry | null = null;
+  for (const e of log) {
+    if (latest == null || e.at > latest.at) latest = e;
+  }
+  return latest?.reads ?? null;
 }
 
 // The domains she has muted ("don't ask this"). The Now tab stops asking; the
