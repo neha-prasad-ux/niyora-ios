@@ -17,22 +17,30 @@ import type { V3Answers } from '@/v3/v3-content';
 // --- The protocol -------------------------------------------------------
 
 /**
- * Engine steps. `confirm` is the beat 2->3 boundary (she confirms the thought
- * and names the feeling herself -- the user is the extractor, so no free-text
- * NLP is needed). The five progress dots map via STEP_DOT.
+ * Engine steps. The session opens straight at `confirm` — she picks the core
+ * thought from a fixed menu (no vent, no "feel heard" beat, no free text).
+ * `pattern` (spot the distortion) and `change` (can you change it?) are
+ * scripted-only beats. Six beats map to five progress dots via STEP_DOT.
  *
- *   vent -> heard -> confirm -> examine -> reframe -> keep
- *    (1)     (2)      (3)        (3)        (4)       (5)
+ *   confirm -> pattern -> examine -> change -> reframe -> keep
+ *     (1)        (2)        (3)        (4)       (4)       (5)
  */
-export type RoughStep = 'vent' | 'heard' | 'confirm' | 'examine' | 'reframe' | 'keep';
+export type RoughStep = 'confirm' | 'pattern' | 'examine' | 'change' | 'reframe' | 'keep';
 
-export const STEP_ORDER: RoughStep[] = ['vent', 'heard', 'confirm', 'examine', 'reframe', 'keep'];
+export const STEP_ORDER: RoughStep[] = [
+  'confirm',
+  'pattern',
+  'examine',
+  'change',
+  'reframe',
+  'keep',
+];
 
 export const STEP_DOT: Record<RoughStep, 1 | 2 | 3 | 4 | 5> = {
-  vent: 1,
-  heard: 2,
-  confirm: 3,
+  confirm: 1,
+  pattern: 2,
   examine: 3,
+  change: 4,
   reframe: 4,
   keep: 5,
 };
@@ -45,8 +53,9 @@ export function nextStep(step: RoughStep): RoughStep {
 }
 
 /** Hard cap on rendered messages (either side). At the cap the session jumps
- * straight to `keep` and still produces a card. */
-export const MAX_TURNS = 12;
+ * straight to `keep` and still produces a card. Sized above the longest
+ * scripted run (eight beats, each with an app line and a reply). */
+export const MAX_TURNS = 24;
 
 // --- Compact state (what the model sees) ---------------------------------
 
@@ -130,18 +139,26 @@ export interface TurnRequest {
  * Intelligence off) -- it must read complete on its own, not like an error.
  */
 export const SCRIPT = {
-  opener: 'What happened? Say it however it comes.',
-  ventMore: 'Anything else that belongs in it?',
-  ventMoreChip: 'that’s all of it',
-  ventThin: 'Even a few words are enough. What is the loudest part right now?',
-  heard: 'That sounds heavy. Thank you for putting it into words.',
-  confirmIntro: 'Underneath it, there is usually one thought doing the shouting · is it this?',
-  confirmOwnChip: 'let me say it in my own words',
-  feelingIntro: 'And the feeling, mostly?',
-  examine: 'When you look at it from a little outside · how big is tonight, really?',
+  confirmIntro: 'Do you feel any of these is true?',
+  // Spot the pattern: name the distortion in plain, first-person words, no
+  // jargon. Scripted (a fixed, gentle set), never model-generated.
+  patternIntro: 'Do you think any of these is true about how you feel?',
+  patternChips: [
+    'I am making it bigger than it is',
+    'I am taking all the blame',
+    'I am sure it will always be this way',
+    'Not sure',
+  ],
+  patternAck: 'Naming the shape takes some of its power. That is the pattern talking, not the whole truth.',
+  examine: 'When you look at it from a little outside · how big is this, really?',
   examineChips: ['It feels huge right now', 'Smaller than it feels', 'It has visited before'],
-  reframe: 'One hard evening is one hard evening. It is real, and it is not the whole story.',
-  keepQuote: 'Tonight was one moment, not the whole story.',
+  // Can you change it? One small step, or set it down for now.
+  changeIntro: 'Is this something you can do anything about right now?',
+  changeChips: ['Yes, there is one thing', 'No, not right now'],
+  changeYes: 'Good. One small step is enough · the rest can wait.',
+  changeNo: 'Then it is okay to set it down for now. It can wait until tomorrow.',
+  reframe: 'One hard moment is one hard moment. It is real, and it is not the whole story.',
+  keepQuote: 'This was one moment, not the whole story.',
   keepSupport: 'You caught the thought, looked at it, and it got a little smaller.',
 } as const;
 
@@ -149,11 +166,24 @@ export const SCRIPT = {
  * trimmed to chip length. */
 export function scriptedThoughtProposal(excerpt: string): string {
   const t = excerpt.replace(/\s+/g, ' ').trim();
-  if (!t) return 'Tonight feels like too much';
+  if (!t) return 'This feels like too much';
   return t.length <= 80 ? t : `${t.slice(0, 79)}…`;
 }
 
 export const FEELING_CHIPS = ['hurt', 'angry', 'scared', 'tired', 'something else'] as const;
+
+// The scripted (no-AI) distillation for the confirm beat: a small menu of the
+// core thoughts that usually sit under a rough moment, so she recognises hers.
+// These map to the universal core beliefs — worthless, abandoned, too-much,
+// helpless, unloved. With AI on, the model proposes her specific phrasing
+// instead and these are never shown.
+export const CONFIRM_THOUGHT_CHIPS = [
+  'I am not enough',
+  'I am going to be left',
+  'I am too much',
+  'I cannot handle this',
+  'No one really cares',
+] as const;
 
 /**
  * Build the bounded model request for a step, or null when the step never
@@ -162,29 +192,25 @@ export const FEELING_CHIPS = ['hurt', 'angry', 'scared', 'tired', 'something els
 export function buildTurnRequest(step: RoughStep, state: CompactState): TurnRequest | null {
   const cycle = state.cycleContext ? ` ${state.cycleContext}` : '';
   switch (step) {
-    case 'vent':
+    // `pattern` and `change` are scripted-only beats (a fixed, gentle set of
+    // plain-word distortions and a yes/no agency check) — they never call the
+    // model, so the effort gradient stays confirm + examine.
+    case 'pattern':
+    case 'change':
       return null;
-    case 'heard':
-      return {
-        instructions: INSTRUCTIONS,
-        prompt:
-          `She just wrote this about her evening:${cycle}\n"${state.ventExcerpt}"\n` +
-          'Reflect it back in one or two warm sentences so she feels heard. Use some of her own words. Do not advise, do not question yet.',
-        wantChips: false,
-      };
     case 'confirm':
       return {
         instructions: INSTRUCTIONS,
         prompt:
-          `She wrote:${cycle}\n"${state.ventExcerpt}"\n` +
-          'Name the single distressing thought most likely underneath, in her own vocabulary, under 12 words, first person. Put that thought in the chips (one or two candidate phrasings). The prose is one short sentence introducing it, like: Underneath it, there is usually one thought doing the shouting · is it this?',
+          `She just had a rough moment.${cycle}\n` +
+          'Name the single distressing thought most likely underneath, in her own vocabulary, under 12 words, first person. Put that thought in the chips (one or two candidate phrasings). The prose is one short sentence introducing it, like: Do you feel any of these is true?',
         wantChips: true,
       };
     case 'examine':
       return {
         instructions: INSTRUCTIONS,
         prompt:
-          `Her thought tonight: "${state.thought ?? state.ventExcerpt}". The feeling is mostly ${state.feeling ?? 'heavy'}.${cycle}\n` +
+          `Her thought right now: "${state.thought ?? state.ventExcerpt}". The feeling is mostly ${state.feeling ?? 'heavy'}.${cycle}\n` +
           'Ask one small, gentle CBT-style question that helps her look at the thought from a step outside (evidence, size, or whether it has visited before). The chips are two or three honest answers she might tap, in her vocabulary.',
         wantChips: true,
       };
@@ -193,7 +219,7 @@ export function buildTurnRequest(step: RoughStep, state: CompactState): TurnRequ
       return {
         instructions: INSTRUCTIONS,
         prompt:
-          `Her thought tonight: "${state.thought ?? state.ventExcerpt}". The feeling is mostly ${state.feeling ?? 'heavy'}.${tapped}${cycle}\n` +
+          `Her thought right now: "${state.thought ?? state.ventExcerpt}". The feeling is mostly ${state.feeling ?? 'heavy'}.${tapped}${cycle}\n` +
           'Offer one gentler, believable way to hold the thought. Not a denial, not a silver lining · a smaller, truer version. One or two sentences.',
         wantChips: false,
       };
@@ -202,7 +228,7 @@ export function buildTurnRequest(step: RoughStep, state: CompactState): TurnRequ
       return {
         instructions: INSTRUCTIONS,
         prompt:
-          `Her thought tonight: "${state.thought ?? state.ventExcerpt}".${cycle}\n` +
+          `Her thought right now: "${state.thought ?? state.ventExcerpt}".${cycle}\n` +
           'Write the single line she keeps: the gentler version of the thought, first person or plain statement, under 12 words, no quotes around it.',
         wantChips: false,
       };
@@ -227,7 +253,7 @@ export function buildKeep(
   if (pill) parts.push(pill.label + (pill.inWindow ? ' · window' : ''));
   parts.push('caught it, checked it, changed it');
   return {
-    title: 'Tonight’s thought',
+    title: 'The thought you caught',
     quote: (quote ?? SCRIPT.keepQuote).trim(),
     support: state.thought
       ? `The spiral said: “${state.thought}”. You looked at it, and it got a little smaller.`

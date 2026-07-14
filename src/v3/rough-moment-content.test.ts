@@ -4,6 +4,7 @@
 import {
   buildKeep,
   buildTurnRequest,
+  CONFIRM_THOUGHT_CHIPS,
   cycleContextLine,
   dayPill,
   EMPTY_COMPACT,
@@ -34,23 +35,25 @@ const state = (over: Partial<CompactState> = {}): CompactState => ({
 });
 
 describe('the arc', () => {
-  it('walks vent to keep and stays terminal at keep', () => {
-    expect(nextStep('vent')).toBe('heard');
-    expect(nextStep('heard')).toBe('confirm');
-    expect(nextStep('confirm')).toBe('examine');
-    expect(nextStep('examine')).toBe('reframe');
+  it('walks confirm to keep and stays terminal at keep', () => {
+    expect(nextStep('confirm')).toBe('pattern');
+    expect(nextStep('pattern')).toBe('examine');
+    expect(nextStep('examine')).toBe('change');
+    expect(nextStep('change')).toBe('reframe');
     expect(nextStep('reframe')).toBe('keep');
     expect(nextStep('keep')).toBe('keep');
   });
 
-  it('maps every step to one of the five dots, in order', () => {
+  it('folds every step into one of the five dots, in order', () => {
     const dots = STEP_ORDER.map((s) => STEP_DOT[s]);
-    expect(dots).toEqual([1, 2, 3, 3, 4, 5]);
+    // confirm/pattern/examine each get a dot; change/reframe share dot 4 —
+    // six beats, five dots.
+    expect(dots).toEqual([1, 2, 3, 4, 4, 5]);
   });
 
   it('caps well above the longest possible arc', () => {
-    // 2 user vents + opener + more + 4 app turns + confirm/feeling rows +
-    // 2 user answers stays under the cap; the cap is a backstop, not a wall.
+    // The longest scripted run is one app line plus one reply per beat; the cap
+    // is a backstop above that, not a wall.
     expect(MAX_TURNS).toBeGreaterThanOrEqual(STEP_ORDER.length * 2);
   });
 });
@@ -96,22 +99,30 @@ describe('dayPill', () => {
 });
 
 describe('buildTurnRequest', () => {
-  it('never calls the model for the vent (her words are hers alone)', () => {
-    expect(buildTurnRequest('vent', state())).toBeNull();
+  it('never calls the model for the scripted-only beats (pattern, change)', () => {
+    expect(buildTurnRequest('pattern', state())).toBeNull();
+    expect(buildTurnRequest('change', state())).toBeNull();
   });
 
-  const MODEL_STEPS: RoughStep[] = ['heard', 'confirm', 'examine', 'reframe', 'keep'];
+  // The beats that carry her confirmed thought forward.
+  const THOUGHT_STEPS: RoughStep[] = ['examine', 'reframe', 'keep'];
 
-  it.each(MODEL_STEPS)('%s: carries her words, bounded, with instructions', (step) => {
+  it.each(THOUGHT_STEPS)('%s: carries her thought, bounded, with instructions', (step) => {
     const req = buildTurnRequest(step, state({ thought: 'everything is falling apart' }));
     expect(req).not.toBeNull();
     expect(req!.instructions).toContain('never');
     expect(req!.prompt).toContain('falling apart');
   });
 
+  it('confirm opens the session bounded and wanting chips (no vent to carry)', () => {
+    const req = buildTurnRequest('confirm', state());
+    expect(req).not.toBeNull();
+    expect(req!.instructions).toContain('never');
+    expect(req!.wantChips).toBe(true);
+  });
+
   it('only confirm and examine want chips (the effort gradient)', () => {
     const s = state({ thought: 't', feeling: 'hurt' });
-    expect(buildTurnRequest('heard', s)!.wantChips).toBe(false);
     expect(buildTurnRequest('confirm', s)!.wantChips).toBe(true);
     expect(buildTurnRequest('examine', s)!.wantChips).toBe(true);
     expect(buildTurnRequest('reframe', s)!.wantChips).toBe(false);
@@ -119,12 +130,12 @@ describe('buildTurnRequest', () => {
   });
 
   it('injects cycle context when present', () => {
-    const req = buildTurnRequest('heard', state({ cycleContext: 'It is day 24 of her cycle.' }));
+    const req = buildTurnRequest('confirm', state({ cycleContext: 'It is day 24 of her cycle.' }));
     expect(req!.prompt).toContain('day 24');
   });
 
   it('quiet voice is enforced in instructions, not hoped for', () => {
-    const req = buildTurnRequest('heard', state());
+    const req = buildTurnRequest('confirm', state());
     expect(req!.instructions).toContain('No exclamation points');
     expect(req!.instructions).toContain('Never diagnose');
   });
@@ -132,9 +143,8 @@ describe('buildTurnRequest', () => {
 
 describe('scripted fallbacks (the session must always complete)', () => {
   it('has a scripted line for every beat of the arc', () => {
-    expect(SCRIPT.opener.length).toBeGreaterThan(0);
-    expect(SCRIPT.heard.length).toBeGreaterThan(0);
     expect(SCRIPT.confirmIntro.length).toBeGreaterThan(0);
+    expect(SCRIPT.patternIntro.length).toBeGreaterThan(0);
     expect(SCRIPT.examine.length).toBeGreaterThan(0);
     expect(SCRIPT.reframe.length).toBeGreaterThan(0);
     expect(SCRIPT.keepQuote.length).toBeGreaterThan(0);
@@ -145,6 +155,7 @@ describe('scripted fallbacks (the session must always complete)', () => {
     const all = [
       ...Object.values(SCRIPT).flatMap((v) => (Array.isArray(v) ? v : [v])),
       ...FEELING_CHIPS,
+      ...CONFIRM_THOUGHT_CHIPS,
     ].join(' ');
     expect(all).not.toMatch(/!/);
     expect(all).not.toMatch(/\p{Extended_Pictographic}/u);
@@ -156,7 +167,7 @@ describe('scripted fallbacks (the session must always complete)', () => {
     );
     const long = 'a'.repeat(120);
     expect(scriptedThoughtProposal(long)).toHaveLength(80);
-    expect(scriptedThoughtProposal('   ')).toBe('Tonight feels like too much');
+    expect(scriptedThoughtProposal('   ')).toBe('This feels like too much');
   });
 });
 
@@ -167,7 +178,7 @@ describe('buildKeep', () => {
       state({ thought: 'the relationship is falling apart' }),
       { label: 'day 24', inWindow: true },
     );
-    expect(keep.title).toBe('Tonight’s thought');
+    expect(keep.title).toBe('The thought you caught');
     expect(keep.quote).toBe('One quiet evening is not the relationship.');
     expect(keep.support).toContain('the relationship is falling apart');
     expect(keep.caption).toBe('day 24 · window · caught it, checked it, changed it');

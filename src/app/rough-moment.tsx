@@ -1,26 +1,19 @@
-// The "Rough moment" session: chat-shaped, protocol-driven CBT for the
-// mid-spiral moment. The five-beat arc lives in v3/rough-moment-content; this
-// screen renders it as a conversation with an effort gradient (free typing
-// while venting, tappable chips from beat 3 on, typing always available).
+// The "Rough moment" reflect session: chat-shaped, protocol-driven CBT for the
+// mid-spiral moment, and the "start fresh" step of the Steady-yourself flow.
+// The arc lives in v3/rough-moment-content; this screen renders it as a
+// conversation.
 //
-// Every model call: bounded prompt, 5s timeout, scripted fallback, advance.
-// The session is incapable of not finishing. Crisis language is scanned on
-// every send BEFORE anything touches the model and routes to a static,
-// human-written overlay. Backgrounding for more than 5 minutes discards the
-// session (11pm in bed: falling asleep mid-session is the normal case).
+// v1 ships with NO AI and NO typing: `REFLECT_AI` is off, so `modelTurn`
+// short-circuits and every beat renders its scripted line, and the whole
+// session is tap-driven. It opens straight at the core-thought menu (no vent,
+// no "feel heard" beat) and she picks from chips through to the keep card.
+// `modelTurn` is the single seam a future on-device provider plugs into; when
+// it lands, the vent and free text (and the crisis scan that guards it) come
+// back with it. Backgrounding for more than 5 minutes discards the session
+// (11pm in bed: falling asleep mid-session is expected, arguably a win).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  AppState,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -29,24 +22,23 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import { NiyoraFm } from 'niyora-fm';
-import { CRISIS_COPY, scanForCrisis } from '@/lib/crisis-scan';
+import { REFLECT_AI } from '@/config/features';
+import { recordLight } from '@/store/light-ledger';
 import { getPmsReads } from '@/store/pms-reads';
 import {
   buildKeep,
   buildTurnRequest,
+  CONFIRM_THOUGHT_CHIPS,
   cycleContextLine,
   dayPill,
   EMPTY_COMPACT,
-  FEELING_CHIPS,
   MAX_TURNS,
   SCRIPT,
-  scriptedThoughtProposal,
   STEP_DOT,
   type CompactState,
   type DayPill,
   type KeepCard,
   type RoughStep,
-  ventExcerpt,
 } from '@/v3/rough-moment-content';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -54,30 +46,28 @@ const tap = () => Haptics.selectionAsync().catch(() => {});
 const DISCARD_AFTER_MS = 5 * 60 * 1000;
 const MODEL_TIMEOUT_MS = 5000;
 
+// Ledger ref: finishing a reflect session is applying a skill in the moment
+// (moon-reward-spec: apply), same family as a repaired rupture.
+const REFLECT_REF = 'rough-moment';
+
 type Msg = { id: number; who: 'me' | 'app'; text: string };
 
 export default function RoughMoment() {
+  // Opens straight at the core-thought menu — no vent, no "feel heard" beat.
   const [messages, setMessages] = useState<Msg[]>([
-    { id: 0, who: 'app', text: SCRIPT.opener },
+    { id: 0, who: 'app', text: SCRIPT.confirmIntro },
   ]);
-  const [chips, setChips] = useState<string[]>([]);
-  const [input, setInput] = useState('');
+  const [chips, setChips] = useState<string[]>([...CONFIRM_THOUGHT_CHIPS]);
   const [busy, setBusy] = useState(false);
   const [dot, setDot] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [pill, setPill] = useState<DayPill | null>(null);
   const [keep, setKeep] = useState<KeepCard | null>(null);
-  const [crisis, setCrisis] = useState(false);
-  const [placeholder, setPlaceholder] = useState('Say it however it comes');
 
   // The flow's working memory lives in refs: the async model steps read and
   // mutate it directly, so there is no stale-closure risk across awaits.
   const compact = useRef<CompactState>({ ...EMPTY_COMPACT });
-  const stepRef = useRef<RoughStep>('vent');
-  const ventTexts = useRef<string[]>([]);
-  const thinPrompted = useRef(false);
-  const awaitingOwnThought = useRef(false);
-  const awaitingFeeling = useRef(false);
-  const msgCount = useRef(1); // the opener
+  const stepRef = useRef<RoughStep>('confirm');
+  const msgCount = useRef(1); // the opening question
   const nextId = useRef(1);
   const scroll = useRef<ScrollView>(null);
 
@@ -93,9 +83,9 @@ export default function RoughMoment() {
       setPill(p);
       compact.current.cycleContext = cycleContextLine(p);
     });
-    // Warm the model so the first turn (the "feel heard" beat, the one the
-    // feature hinges on) doesn't pay cold-start latency.
-    NiyoraFm.prewarm().catch(() => {});
+    // Warm the model so the first turn doesn't pay cold-start latency — only
+    // when the AI path is on. v1 (scripted) never touches the model.
+    if (REFLECT_AI) NiyoraFm.prewarm().catch(() => {});
     return () => {
       alive = false;
     };
@@ -123,12 +113,14 @@ export default function RoughMoment() {
   const setStep = useCallback((s: RoughStep) => {
     stepRef.current = s;
     setDot(STEP_DOT[s]);
-    if (s !== 'vent') setPlaceholder('Or type it out');
   }, []);
 
-  /** One bounded model turn; scripted fallback on any failure. */
+  /** One bounded model turn; scripted fallback on any failure. The single AI
+   *  seam: with REFLECT_AI off (v1) it returns nulls so every beat renders its
+   *  scripted line, and no provider is ever called. */
   const modelTurn = useCallback(
     async (step: RoughStep): Promise<{ prose: string | null; chips: string[] | null }> => {
+      if (!REFLECT_AI) return { prose: null, chips: null };
       const req = buildTurnRequest(step, compact.current);
       if (!req) return { prose: null, chips: null };
       const r = await NiyoraFm.generate(req.instructions, req.prompt, req.wantChips, MODEL_TIMEOUT_MS);
@@ -140,11 +132,17 @@ export default function RoughMoment() {
     [],
   );
 
-  /** The finale, reachable from anywhere (turn cap, failures, normal flow). */
+  /** The finale, reachable from anywhere (turn cap, failures, normal flow).
+   *  Completing the reflection earns its light once (moon-reward-spec: apply). */
+  const logged = useRef(false);
   const finishWithKeep = useCallback(async () => {
     setStep('keep');
     setChips([]);
     setBusy(true);
+    if (!logged.current) {
+      logged.current = true;
+      recordLight('apply', { refId: REFLECT_REF }).catch(() => {});
+    }
     const { prose } = await modelTurn('keep');
     setKeep(buildKeep(prose, compact.current, pill));
     setBusy(false);
@@ -153,25 +151,17 @@ export default function RoughMoment() {
   /** Cap check before any app turn; at the cap the session compresses to keep. */
   const overBudget = useCallback(() => msgCount.current >= MAX_TURNS - 1, []);
 
-  const runHeardThenConfirm = useCallback(async () => {
-    setBusy(true);
-    setStep('heard');
-    const heard = await modelTurn('heard');
-    append('app', heard.prose ?? SCRIPT.heard);
+  // Spot the pattern: a scripted beat (no model) naming the distortion in plain
+  // words, so she sees the thought has a familiar, beatable shape.
+  const runPattern = useCallback(async () => {
     if (overBudget()) {
       await finishWithKeep();
       return;
     }
-    setStep('confirm');
-    const confirm = await modelTurn('confirm');
-    append('app', confirm.prose ?? SCRIPT.confirmIntro);
-    const proposals =
-      confirm.chips && confirm.chips.length > 0
-        ? confirm.chips.slice(0, 2)
-        : [scriptedThoughtProposal(compact.current.ventExcerpt)];
-    setChips([...proposals, SCRIPT.confirmOwnChip]);
-    setBusy(false);
-  }, [append, finishWithKeep, modelTurn, overBudget, setStep]);
+    setStep('pattern');
+    append('app', SCRIPT.patternIntro);
+    setChips([...SCRIPT.patternChips]);
+  }, [append, finishWithKeep, overBudget, setStep]);
 
   const runExamine = useCallback(async () => {
     if (overBudget()) {
@@ -186,6 +176,18 @@ export default function RoughMoment() {
     setBusy(false);
   }, [append, finishWithKeep, modelTurn, overBudget, setStep]);
 
+  // Can you change it? A scripted agency check: one small step, or set it down
+  // for now. Either answer leads to the reframe.
+  const runChange = useCallback(async () => {
+    if (overBudget()) {
+      await finishWithKeep();
+      return;
+    }
+    setStep('change');
+    append('app', SCRIPT.changeIntro);
+    setChips([...SCRIPT.changeChips]);
+  }, [append, finishWithKeep, overBudget, setStep]);
+
   const runReframeThenKeep = useCallback(async () => {
     setBusy(true);
     setChips([]);
@@ -195,109 +197,41 @@ export default function RoughMoment() {
     await finishWithKeep();
   }, [append, finishWithKeep, modelTurn, setStep]);
 
-  /** She confirmed the thought; now the feeling row (scripted, always). */
-  const askFeeling = useCallback(
-    (thought: string) => {
-      compact.current.thought = thought;
-      awaitingFeeling.current = true;
-      append('app', SCRIPT.feelingIntro);
-      setChips([...FEELING_CHIPS]);
-    },
-    [append],
-  );
-
-  const handleUserText = useCallback(
-    async (text: string) => {
-      const t = text.trim();
-      if (!t || busy) return;
-      // The crisis scan runs BEFORE anything touches the model or state.
-      if (scanForCrisis(t)) {
-        setCrisis(true);
-        return;
-      }
-      setInput('');
-      append('me', t);
-
-      const step = stepRef.current;
-      if (step === 'vent') {
-        // Thin vents get one gentle re-prompt, then the session proceeds on
-        // whatever she gave rather than pretending to have material.
-        if (t.length < 4 && ventTexts.current.length === 0 && !thinPrompted.current) {
-          thinPrompted.current = true;
-          append('app', SCRIPT.ventThin);
-          return;
-        }
-        ventTexts.current.push(t);
-        if (ventTexts.current.length === 1) {
-          append('app', SCRIPT.ventMore);
-          setChips([SCRIPT.ventMoreChip]);
-          return;
-        }
-        compact.current.ventExcerpt = ventExcerpt(ventTexts.current.join(' '));
-        setChips([]);
-        await runHeardThenConfirm();
-        return;
-      }
-      if (step === 'confirm') {
-        if (awaitingFeeling.current) {
-          awaitingFeeling.current = false;
-          compact.current.feeling = t;
-          setChips([]);
-          await runExamine();
-          return;
-        }
-        // Typed instead of tapping: her own words become the thought.
-        awaitingOwnThought.current = false;
-        setPlaceholder('Or type it out');
-        setChips([]);
-        askFeeling(t);
-        return;
-      }
-      if (step === 'examine') {
-        compact.current.tappedChip = t;
-        await runReframeThenKeep();
-      }
-    },
-    [append, askFeeling, busy, runExamine, runHeardThenConfirm, runReframeThenKeep],
-  );
-
   const handleChip = useCallback(
     async (chip: string) => {
       if (busy) return;
       tap();
       const step = stepRef.current;
-      if (step === 'vent' && chip === SCRIPT.ventMoreChip) {
-        compact.current.ventExcerpt = ventExcerpt(ventTexts.current.join(' '));
+      if (step === 'confirm') {
+        // The core thought she recognises. Straight on to spotting the pattern.
+        compact.current.thought = chip;
+        append('me', chip);
         setChips([]);
-        await runHeardThenConfirm();
+        await runPattern();
         return;
       }
-      if (step === 'confirm') {
-        if (awaitingFeeling.current) {
-          awaitingFeeling.current = false;
-          compact.current.feeling = chip;
-          setChips([]);
-          await runExamine();
-          return;
-        }
-        if (chip === SCRIPT.confirmOwnChip) {
-          awaitingOwnThought.current = true;
-          setPlaceholder('The thought, in your words');
-          setChips([]);
-          return;
-        }
-        setChips([]);
+      if (step === 'pattern') {
         append('me', chip);
-        askFeeling(chip);
+        setChips([]);
+        append('app', SCRIPT.patternAck);
+        await runExamine();
         return;
       }
       if (step === 'examine') {
         append('me', chip);
+        setChips([]);
         compact.current.tappedChip = chip;
+        await runChange();
+        return;
+      }
+      if (step === 'change') {
+        append('me', chip);
+        setChips([]);
+        append('app', chip === SCRIPT.changeChips[0] ? SCRIPT.changeYes : SCRIPT.changeNo);
         await runReframeThenKeep();
       }
     },
-    [append, askFeeling, busy, runExamine, runHeardThenConfirm, runReframeThenKeep],
+    [append, busy, runChange, runExamine, runPattern, runReframeThenKeep],
   );
 
   return (
@@ -330,10 +264,7 @@ export default function RoughMoment() {
           )}
         </View>
 
-        <KeyboardAvoidingView
-          style={styles.body}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <View style={styles.body}>
           <ScrollView
             ref={scroll}
             style={styles.chat}
@@ -370,63 +301,21 @@ export default function RoughMoment() {
             </View>
           )}
 
-          {!keep ? (
-            <View>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.input}
-                  value={input}
-                  onChangeText={setInput}
-                  placeholder={placeholder}
-                  placeholderTextColor={colors.textTagline}
-                  multiline
-                  onSubmitEditing={() => handleUserText(input)}
-                />
-                <Pressable
-                  style={[styles.send, !input.trim() && styles.sendDim]}
-                  onPress={() => handleUserText(input)}
-                  accessibilityLabel="Send"
-                >
-                  <Text style={styles.sendText}>↑</Text>
-                </Pressable>
-              </View>
-              <Pressable onPress={() => setCrisis(true)} hitSlop={8}>
-                <Text style={styles.lifeline}>need a human? crisis resources</Text>
-              </Pressable>
-            </View>
-          ) : (
+          {keep && (
             <Pressable
               style={styles.done}
               onPress={() => {
                 tap();
                 router.back();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Done"
             >
               <Text style={styles.doneText}>DONE</Text>
             </Pressable>
           )}
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-
-      {crisis && (
-        <View style={styles.crisisWrap}>
-          <BackgroundGradient />
-          <SafeAreaView style={styles.crisis} edges={['top', 'bottom']}>
-            <Text style={styles.crisisTitle}>{CRISIS_COPY.title}</Text>
-            <Text style={styles.crisisBody}>{CRISIS_COPY.body}</Text>
-            {CRISIS_COPY.lines.map((l) => (
-              <View key={l.label} style={styles.crisisLine}>
-                <Text style={styles.crisisLabel}>{l.label}</Text>
-                <Text style={styles.crisisDetail}>{l.detail}</Text>
-              </View>
-            ))}
-            <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
-            <Pressable style={styles.crisisBack} onPress={() => setCrisis(false)}>
-              <Text style={styles.crisisBackText}>{CRISIS_COPY.back}</Text>
-            </Pressable>
-          </SafeAreaView>
         </View>
-      )}
+      </SafeAreaView>
     </View>
   );
 }
@@ -504,44 +393,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   chipText: { fontFamily: 'Poppins-Light', fontSize: 13, color: colors.textPrimary },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-    paddingHorizontal: 20,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderWidth: 1,
-    borderColor: v3.panelBorder,
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    color: colors.textPrimary,
-    backgroundColor: v3.panel,
-  },
-  send: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.beginStart,
-  },
-  sendDim: { opacity: 0.4 },
-  sendText: { fontFamily: 'Poppins-Medium', fontSize: 18, color: colors.textPrimary },
-  lifeline: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
-    color: colors.textTagline,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
-    paddingVertical: 8,
-  },
   keepCard: {
     marginTop: 14,
     borderWidth: 1,
@@ -581,6 +432,7 @@ const styles = StyleSheet.create({
   done: {
     marginHorizontal: 20,
     marginTop: 6,
+    marginBottom: 6,
     borderRadius: 26,
     paddingVertical: 14,
     alignItems: 'center',
@@ -593,40 +445,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 2,
     color: colors.textPrimary,
-  },
-  crisisWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  crisis: { flex: 1, paddingHorizontal: 28, justifyContent: 'center', gap: 14 },
-  crisisTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 22,
-    lineHeight: 30,
-    color: colors.textPrimary,
-  },
-  crisisBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.textSubtitle,
-  },
-  crisisLine: {
-    borderWidth: 1,
-    borderColor: v3.panelBorder,
-    borderRadius: 14,
-    padding: 14,
-    gap: 2,
-  },
-  crisisLabel: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary },
-  crisisDetail: { fontFamily: 'Poppins-Light', fontSize: 12, color: colors.textSubtitle },
-  crisisEmergency: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
-    color: colors.textTagline,
-  },
-  crisisBack: { paddingVertical: 12, alignItems: 'center' },
-  crisisBackText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
-    textDecorationLine: 'underline',
-    color: colors.textSubtitle,
   },
 });

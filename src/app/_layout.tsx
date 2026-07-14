@@ -161,20 +161,32 @@ export default function RootLayout() {
             name="reflect"
             options={{ animation: 'slide_from_right', gestureEnabled: true }}
           />
+          {/* The in-the-moment "Steady yourself" flow and its 20-minute break,
+              opened from the Now PMS card and the Grow PMS shelf. A calm fade,
+              like the breath session. */}
+          <Stack.Screen
+            name="steady-yourself"
+            options={{ animation: 'fade', animationDuration: 420, gestureEnabled: true }}
+          />
+          <Stack.Screen
+            name="steady-break"
+            options={{ animation: 'fade', animationDuration: 420, gestureEnabled: true }}
+          />
+          {/* The reflect ("start fresh") session, reached from the flow. Ships
+              scripted (no AI in v1), so it is always registered — only the dev
+              spike probe stays behind the experiment flag. */}
+          <Stack.Screen
+            name="rough-moment"
+            options={{
+              // Same calm fade as the breath session: an 11pm spiral does not
+              // deserve a hard sideways slide.
+              animation: 'fade',
+              animationDuration: 420,
+              gestureEnabled: true,
+            }}
+          />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
           {FM_EXPERIMENT && <Stack.Screen name="fm-probe" />}
-          {FM_EXPERIMENT && (
-            <Stack.Screen
-              name="rough-moment"
-              options={{
-                // Same calm fade as the breath session: an 11pm spiral does
-                // not deserve a hard sideways slide.
-                animation: 'fade',
-                animationDuration: 420,
-                gestureEnabled: true,
-              }}
-            />
-          )}
           {/* Dev-only material preview, reached by long-pressing the Now moon. */}
           {__DEV__ && (
             <Stack.Screen

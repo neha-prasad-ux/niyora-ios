@@ -106,30 +106,24 @@ describe('pickTodayAction: setup and window', () => {
     expect(a.route).toBe('/onboarding-v3');
   });
 
-  it('window morning with food lever weak asks the first food check', () => {
-    const a = pickTodayAction(input({ now: morning(2026, 1, 25), reads: [read({ food: 0 })] }));
-    expect(a.id).toBe('readiness:calcium');
+  it('offers the Steady-yourself flow through the PMS days, any time or lever', () => {
+    const times = [
+      morning(2026, 1, 22), // window opens
+      evening(2026, 1, 25),
+      morning(2026, 1, 28), // window closes
+    ];
+    const readSets = [[read({ food: 0 })], [read({ sleep: 0 })], [read({})]];
+    for (const now of times) {
+      for (const reads of readSets) {
+        const a = pickTodayAction(input({ now, reads }));
+        expect(a.kind).toBe('steady');
+        expect(a.id).toBe('steady');
+        expect(a.route).toBe('/steady-yourself');
+      }
+    }
   });
 
-  it('window morning with sleep lever weak still leads food-first', () => {
-    const a = pickTodayAction(input({ now: morning(2026, 1, 25), reads: [read({ sleep: 0 })] }));
-    expect(a.id).toBe('readiness:calcium');
-  });
-
-  it('window evening with sleep lever weak asks the wind-down', () => {
-    const a = pickTodayAction(input({ now: evening(2026, 1, 25), reads: [read({ sleep: 0 })] }));
-    expect(a.id).toBe('readiness:woundDown');
-  });
-
-  it('flips at 17:00 exactly', () => {
-    const at1659 = new Date(2026, 0, 25, 16, 59);
-    const at1700 = new Date(2026, 0, 25, 17, 0);
-    const reads = [read({ sleep: 0 })];
-    expect(pickTodayAction(input({ now: at1659, reads })).id).toBe('readiness:calcium');
-    expect(pickTodayAction(input({ now: at1700, reads })).id).toBe('readiness:woundDown');
-  });
-
-  it('settles once all five checks are done — calm is the button, never the ask', () => {
+  it('never settles to done in the window — the SOS is not a daily checkbox', () => {
     const now = morning(2026, 1, 25);
     const readiness = withChecks(now, {
       calcium: true,
@@ -140,17 +134,8 @@ describe('pickTodayAction: setup and window', () => {
     });
     const inp = input({ now, readiness });
     const a = pickTodayAction(inp);
-    expect(a.kind).toBe('done');
-    expect(isRingClosed(inp, a)).toBe(true);
-  });
-
-  it('is done once she taps done-for-today', () => {
-    const now = morning(2026, 1, 25);
-    const readiness = { ...freshReadiness(todayYmd(now)), doneForToday: true };
-    const inp = input({ now, readiness });
-    const a = pickTodayAction(inp);
-    expect(a.kind).toBe('done');
-    expect(isRingClosed(inp, a)).toBe(true);
+    expect(a.kind).toBe('steady');
+    expect(isRingClosed(inp, a)).toBe(false);
   });
 });
 
@@ -240,13 +225,13 @@ describe('pickTodayAction: build days (prep + open)', () => {
 });
 
 describe('ring progress', () => {
-  it('window readiness counts the five prep checks', () => {
+  it('the window steady action never closes the daily ring', () => {
     const now = morning(2026, 1, 25);
-    const readiness = withChecks(now, { calcium: true, steady: true });
-    const inp = input({ now, readiness });
+    const inp = input({ now });
     const a = pickTodayAction(inp);
-    expect(a.kind).toBe('readiness');
-    expect(todayRingProgress(inp, a)).toBeCloseTo(2 / 5);
+    expect(a.kind).toBe('steady');
+    expect(todayRingProgress(inp, a)).toBe(0);
+    expect(isRingClosed(inp, a)).toBe(false);
   });
 
   it('replay ring closes on a level replayed today (all-trained build day)', () => {

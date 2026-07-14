@@ -50,6 +50,10 @@ export default function GrowScreen() {
     Haptics.selectionAsync().catch(() => {});
     router.push('/couples');
   };
+  const openSteady = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/steady-yourself' as Href);
+  };
   const openPmsChecklist = () => {
     Haptics.selectionAsync().catch(() => {});
     router.push('/pms-readiness');
@@ -141,6 +145,12 @@ export default function GrowScreen() {
             sub="The week before your period"
             hue={PMS_HUE}
           >
+            <Shelf
+              title="Cried, fought, or snapped?"
+              sub="A science-backed way to feel better."
+              gradient={STEADY_GRADIENT}
+              onOpen={openSteady}
+            />
             <Shelf
               title="PMS day checklist"
               sub="Proven ways to ease symptoms."
@@ -345,6 +355,13 @@ const PMS_GRADIENT: readonly [string, string, string] = [
   'hsl(300, 40%, 29%)',
   'hsl(316, 40%, 30%)',
   'hsl(332, 40%, 31%)',
+];
+// The in-the-moment SOS: a warm rose-to-plum, distinct from the checklist's
+// magenta and the couples rose — the "move through it" tone.
+const STEADY_GRADIENT: readonly [string, string, string] = [
+  'hsl(334, 44%, 30%)',
+  'hsl(348, 42%, 31%)',
+  'hsl(322, 40%, 32%)',
 ];
 const PERIOD_GRADIENT: readonly [string, string, string] = [
   'hsl(6, 48%, 31%)',

@@ -17,12 +17,14 @@ Notifications.setNotificationHandler({
 
 const DAILY_REMINDER_ID = 'niyora-daily-reminder';
 export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
+export const BREAK_OVER_ID = 'niyora-break-over';
 const PMS_AHEAD_ID = 'niyora-pms-ahead';
 const PMS_START_ID = 'niyora-pms-start';
 
 const REMINDER_TITLE = 'Niyora';
 const REMINDER_BODY = 'A few breaths can settle the whole day.';
 const COMEBACK_NUDGE_BODY = 'When you\'re ready, a breath is here.';
+const BREAK_OVER_BODY = 'Your 20 minutes are up. Come back when you\'re ready.';
 const PMS_AHEAD_BODY = 'PMS in a day';
 const PMS_START_BODY = 'the PMS days are here';
 
@@ -81,6 +83,26 @@ export async function scheduleCombackNudge(): Promise<void> {
 
 export async function cancelCombackNudge(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(COMEBACK_NUDGE_ID).catch(() => {});
+}
+
+// A one-shot nudge for the Steady-yourself 20-minute break: fires once, N
+// seconds out, so she can leave the app and still be called back when the flood
+// has cleared. The fixed identifier means re-entering the break replaces any
+// pending one; coming back early cancels it.
+export async function scheduleBreakOver(seconds: number): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    identifier: BREAK_OVER_ID,
+    content: { title: REMINDER_TITLE, body: BREAK_OVER_BODY },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.round(seconds)),
+      repeats: false,
+    },
+  });
+}
+
+export async function cancelBreakOver(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(BREAK_OVER_ID).catch(() => {});
 }
 
 // Schedule the two one-shot heads-up reminders for the next predicted PMS

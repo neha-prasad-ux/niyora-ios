@@ -4,7 +4,6 @@ import type { PmsRead } from '@/store/pms-reads';
 import {
   READINESS_CHECK_IDS,
   todayYmd,
-  type ReadinessCheckId,
   type ReadinessChecks,
   type ReadinessState,
 } from '@/store/pms-readiness';
@@ -37,7 +36,13 @@ import { trainSummary, workSummary } from '@/v3/game-content';
 
 export type TodayPhase = 'setup' | 'window' | 'period' | 'prep' | 'open';
 
-export type TodayActionKind = 'assessment' | 'readiness' | 'train' | 'checkin' | 'done';
+export type TodayActionKind =
+  | 'assessment'
+  | 'readiness'
+  | 'steady'
+  | 'train'
+  | 'checkin'
+  | 'done';
 
 export type TodayAction = {
   id: string; // stable per ask, e.g. 'readiness:calcium', 'train:revisit'
@@ -62,7 +67,6 @@ export type TodayActionInput = {
 export type Lever = 'sleep' | 'food' | 'movement';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const EVENING_HOUR = 17;
 
 function parseDayNumber(iso: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -128,36 +132,17 @@ export function weakestLever(reads: PmsRead[]): Lever | null {
 
 // --- Ask content ---------------------------------------------------------
 
-// Imperative ask-form of the readiness checks (the stored titles are
-// first-person past tense, which reads wrong as a coached ask).
-const READINESS_ASK: Record<ReadinessCheckId, { title: string; caption: string }> = {
-  calcium: { title: 'Have calcium-rich food', caption: 'Yogurt, cheese, or greens' },
-  micronutrient: { title: 'A small handful of nuts or seeds', caption: 'Tops up magnesium' },
-  steady: { title: 'Eat steadily today', caption: 'No big sugar crash' },
-  antiInflammatory: {
-    title: 'Add anti-inflammatory food',
-    caption: 'Greens, ginger, berries, olive oil',
-  },
-  woundDown: { title: 'Wind down early tonight', caption: 'Screens off, dim lights' },
+// The PMS-days coached action: the in-the-moment Steady-yourself flow. During
+// the window the home shows this ONE action — the readiness checklist moved to
+// Grow and the pre-PMS notification — so a rough moment always has one
+// science-backed way through it, a single tap from home.
+const STEADY_ACTION: TodayAction = {
+  id: 'steady',
+  kind: 'steady',
+  title: 'Cried, fought, or snapped?',
+  caption: 'Science can help you move through it',
+  route: '/steady-yourself',
 };
-
-const FOOD_ORDER: readonly ReadinessCheckId[] = [
-  'calcium',
-  'micronutrient',
-  'steady',
-  'antiInflammatory',
-];
-
-function readinessAction(check: ReadinessCheckId): TodayAction {
-  const ask = READINESS_ASK[check];
-  return {
-    id: `readiness:${check}`,
-    kind: 'readiness',
-    title: ask.title,
-    caption: ask.caption,
-    route: '/pms-readiness',
-  };
-}
 
 const DONE_ACTION: TodayAction = {
   id: 'done',
@@ -206,18 +191,9 @@ function workAction(training: TrainingState): TodayAction | null {
 
 // --- Selection -----------------------------------------------------------
 
-function firstUnchecked(
-  readiness: ReadinessState,
-  order: readonly ReadinessCheckId[],
-): ReadinessCheckId | null {
-  return order.find((id) => !readiness.checks[id]) ?? null;
-}
-
 export function pickTodayAction(input: TodayActionInput): TodayAction {
-  const { prefs, reads, readiness, training, now } = input;
+  const { prefs, reads, training, now } = input;
   const phase = derivePhase(prefs, reads.length > 0, now);
-  const morning = now.getHours() < EVENING_HOUR;
-  const lever = weakestLever(reads);
 
   if (phase === 'setup') {
     return {
@@ -230,28 +206,11 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
   }
 
   if (phase === 'window') {
-    // The window day closes on the five checks (or her "done for today" tap).
-    // The calming practice is the checklist's bonus sixth item, reached via
-    // the ever-present Calm now button — never the coached ask.
-    if (readiness.doneForToday || READINESS_CHECK_IDS.every((id) => readiness.checks[id])) {
-      return DONE_ACTION;
-    }
-
-    let check: ReadinessCheckId | null;
-    if (morning) {
-      check =
-        lever === 'movement' || lever == null
-          ? firstUnchecked(readiness, READINESS_CHECK_IDS)
-          : firstUnchecked(readiness, FOOD_ORDER); // food and sleep both food-first in the morning
-    } else if (lever === 'food') {
-      check = !readiness.checks.steady ? 'steady' : firstUnchecked(readiness, ['woundDown', ...FOOD_ORDER]);
-    } else {
-      check = !readiness.checks.woundDown
-        ? 'woundDown'
-        : firstUnchecked(readiness, READINESS_CHECK_IDS);
-    }
-    if (check == null) return DONE_ACTION;
-    return readinessAction(check);
+    // PMS days: the one coached action is the in-the-moment Steady-yourself
+    // flow. It is a way through a rough moment, not a daily checkbox, so it
+    // never settles to "done", and Calm now folds into it (see now.tsx). The
+    // readiness checklist lives in Grow and the pre-PMS notification now.
+    return STEADY_ACTION;
   }
 
   if (phase === 'period') {
@@ -309,6 +268,8 @@ export function todayRingProgress(input: TodayActionInput, action: TodayAction):
     }
     case 'readiness':
       return prepsDoneCount(input.readiness.checks) / PREP_CHECK_COUNT;
+    case 'steady':
+      return 0; // the SOS is a way through a rough moment, never a daily ring
     case 'train':
       return input.training.lastCompletedOn === today ? 1 : 0;
     case 'checkin':
