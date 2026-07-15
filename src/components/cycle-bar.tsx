@@ -39,10 +39,18 @@ type CycleBarProps = {
   band: PhaseBand;
   /** The Periods zone glows a touch brighter when a period is predicted due. */
   periodEmphasized: boolean;
+  /**
+   * When set (0..1), the bar switches to preparedness mode: a single violet fill
+   * grows across the whole bar to this fraction (her PMS readiness), and the dot
+   * marks where she is in the cycle. The phase zones stay as a dim context track.
+   * When null (default), the elapsed cycle fills the zones as before.
+   */
+  readiness?: number | null;
 };
 
-export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
+export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarProps) {
   const curIdx = band.segments.findIndex((s) => s.phase === band.current);
+  const prepMode = readiness != null;
 
   // Today's position across the whole bar (0..1): full zones behind, plus the
   // pearl's place inside the current one.
@@ -50,12 +58,27 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
   for (let i = 0; i < curIdx; i++) elapsed += band.segments[i].fraction;
   elapsed += (band.segments[curIdx]?.fraction ?? 0) * band.pearl;
   const showPearl = elapsed > 0.015 && elapsed < 0.985;
+  const readyPct = Math.max(0, Math.min(1, readiness ?? 0)) * 100;
+
+  // Internal phase boundaries (0..1), drawn as seams on top of the readiness
+  // fill so the true proportions stay visible — Build is the long stretch, PMS a
+  // short slice near the end, Period shorter still.
+  const boundaries: number[] = [];
+  let acc = 0;
+  for (let i = 0; i < band.segments.length - 1; i++) {
+    acc += band.segments[i].fraction;
+    boundaries.push(acc);
+  }
+  // Where the PMS zone begins, to anchor its label under the real zone.
+  const pmsStart = band.segments[0]?.fraction ?? 0.64;
 
   return (
     <View style={styles.wrap}>
       <View style={styles.bar}>
         {band.segments.map((seg, i) => {
-          const fill = i < curIdx ? 1 : i > curIdx ? 0 : band.pearl;
+          // Prep mode leaves the zones as a dim track — the readiness overlay
+          // below is the only fill; otherwise the elapsed cycle lights the zones.
+          const fill = prepMode ? 0 : i < curIdx ? 1 : i > curIdx ? 0 : band.pearl;
           const z = ZONE[seg.phase];
           const emphasized = seg.phase === 'period' && periodEmphasized;
           return (
@@ -83,6 +106,18 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
             </View>
           );
         })}
+        {/* Preparedness fill: one violet sweep across the whole bar to her
+            readiness, sitting over the dim zone track. */}
+        {prepMode && readyPct > 0 && (
+          <View pointerEvents="none" style={[styles.fill, { width: `${readyPct}%` }]}>
+            <LinearGradient
+              colors={READY_FILL}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        )}
         {/* Glass sheen across the whole bar — brightest along the top edge. */}
         <LinearGradient
           pointerEvents="none"
@@ -92,32 +127,75 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        {/* Phase seams on top, so the readiness fill never hides the true zone
+            widths (Build long, PMS short, Period shorter). */}
+        {prepMode &&
+          boundaries.map((f, i) => (
+            <View key={i} pointerEvents="none" style={[styles.boundary, { left: `${f * 100}%` }]} />
+          ))}
       </View>
 
-      {/* Today: a luminous pearl on the fill edge, drawn in the unclipped wrap
-          so its glow isn't cut off by the bar's rounded mask. */}
-      {showPearl && (
-        <View pointerEvents="none" style={[styles.pearl, { left: `${elapsed * 100}%` }]}>
-          <View style={styles.pearlCore} />
-        </View>
-      )}
+      {/* Today: in prep mode a distinct vertical tick (a "you are here" goalpost,
+          not a slider thumb, since the fill is preparedness not time); otherwise
+          the luminous pearl on the elapsed edge. Drawn in the unclipped wrap so
+          the glow isn't cut by the bar's rounded mask. */}
+      {showPearl &&
+        (prepMode ? (
+          <View pointerEvents="none" style={[styles.todayTick, { left: `${elapsed * 100}%` }]} />
+        ) : (
+          <View pointerEvents="none" style={[styles.pearl, { left: `${elapsed * 100}%` }]}>
+            <View style={styles.pearlCore} />
+          </View>
+        ))}
 
-      {/* A legend under the bar — Build left, PMS centre, Periods right — so the
-          narrow Periods zone never has to hold its own word. */}
-      <View style={styles.legend}>
-        {band.segments.map((seg, i) => (
+      {/* The legend. In prep mode the labels anchor to their real zones (Build at
+          the start, PMS where its short slice begins, Periods at the end) so the
+          spacing reads the proportions. Otherwise the even Build/PMS/Periods row. */}
+      {prepMode ? (
+        <View style={styles.legendAnchored}>
           <Text
-            key={seg.phase}
-            style={[styles.legendLabel, i === curIdx ? styles.legendOn : styles.legendDim]}
+            style={[styles.legendLabel, curIdx === 0 ? styles.legendOn : styles.legendDim, styles.legendBuild]}
             numberOfLines={1}
           >
-            {LABEL[seg.phase]}
+            {LABEL.build}
           </Text>
-        ))}
-      </View>
+          <Text
+            style={[
+              styles.legendLabel,
+              curIdx === 1 ? styles.legendOn : styles.legendDim,
+              { position: 'absolute', left: `${pmsStart * 100}%` },
+            ]}
+            numberOfLines={1}
+          >
+            {LABEL.pms}
+          </Text>
+          <Text
+            style={[styles.legendLabel, curIdx === 2 ? styles.legendOn : styles.legendDim, styles.legendPeriod]}
+            numberOfLines={1}
+          >
+            {LABEL.period}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.legend}>
+          {band.segments.map((seg, i) => (
+            <Text
+              key={seg.phase}
+              style={[styles.legendLabel, i === curIdx ? styles.legendOn : styles.legendDim]}
+              numberOfLines={1}
+            >
+              {LABEL[seg.phase]}
+            </Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
+
+// The preparedness fill: the app's signature violet, lit along the top edge so
+// it reads as the same glass as the rest of the bar.
+const READY_FILL: [string, string] = ['hsla(268, 72%, 72%, 0.96)', 'hsla(262, 62%, 60%, 0.82)'];
 
 const BAR_HEIGHT = 12;
 // The today marker sits *within* the bar height (never protruding) and carries
@@ -158,6 +236,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 7,
     paddingHorizontal: 2,
+  },
+  // Prep-mode legend: labels positioned against their real zones.
+  legendAnchored: {
+    position: 'relative',
+    height: 16,
+    marginTop: 7,
+    paddingHorizontal: 2,
+  },
+  legendBuild: { position: 'absolute', left: 0 },
+  legendPeriod: { position: 'absolute', right: 0 },
+  // Boundary seam: a thin dark divider spanning the bar, marking a phase edge on
+  // top of the readiness fill.
+  boundary: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    marginLeft: -StyleSheet.hairlineWidth / 2,
+    backgroundColor: 'rgba(8, 7, 12, 0.55)',
+  },
+  // Today marker in prep mode: a slim luminous vertical tick, taller than the
+  // track so it reads as a position goalpost rather than a draggable thumb.
+  todayTick: {
+    position: 'absolute',
+    top: -2,
+    height: BAR_HEIGHT + 4,
+    width: 2.5,
+    marginLeft: -1.25,
+    borderRadius: 1.5,
+    backgroundColor: '#ffffff',
+    shadowColor: '#eaf0ff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 4,
   },
   legendLabel: {
     fontFamily: 'Poppins-Medium',

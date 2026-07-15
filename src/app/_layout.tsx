@@ -132,6 +132,15 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          {/* Neha's story — the PMS preparedness reader, opened from the Grow
+              PMS shelf and the Now readiness chip. */}
+          <Stack.Screen
+            name="pms-story"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
           <Stack.Screen
             name="activity"
             options={{
