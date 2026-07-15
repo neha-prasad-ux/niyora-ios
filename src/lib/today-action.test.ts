@@ -40,6 +40,7 @@ function input(overrides: Partial<TodayActionInput> & { now: Date }): TodayActio
     calmDoneToday: false,
     training: DEFAULT_TRAINING,
     remissionAnsweredThisCycle: false,
+    storyDoneThisCycle: false,
     lastAction: null,
     dismissedDate: null,
     ...overrides,
@@ -175,9 +176,9 @@ describe('pickTodayAction: period', () => {
   });
 });
 
-describe('pickTodayAction: build days (prep + open)', () => {
-  const prepMorning = morning(2026, 1, 19); // 3 days to window
-  const prepEvening = evening(2026, 1, 19);
+describe('pickTodayAction: open build days', () => {
+  const openMorning = morning(2026, 1, 10); // 12 days to window, far out
+  const openEvening = evening(2026, 1, 10);
 
   it('always asks training, whatever the weak lever or time of day', () => {
     const readSets = [
@@ -187,7 +188,7 @@ describe('pickTodayAction: build days (prep + open)', () => {
       [read({ sleep: 2, food: 2, movement: 2 })],
     ];
     for (const reads of readSets) {
-      for (const now of [prepMorning, prepEvening, morning(2026, 1, 10), evening(2026, 1, 10)]) {
+      for (const now of [openMorning, openEvening]) {
         const a = pickTodayAction(input({ now, reads }));
         expect(a.kind).toBe('train');
         expect(a.route).toContain('/game-v3');
@@ -196,31 +197,54 @@ describe('pickTodayAction: build days (prep + open)', () => {
   });
 
   it('asks a Grow replay when every level is trained, never the checklist', () => {
-    const training = {
-      ...DEFAULT_TRAINING,
-      completed: ALL_LEVELS,
-    };
-    for (const now of [prepMorning, prepEvening, morning(2026, 1, 10), evening(2026, 1, 10)]) {
+    const training = { ...DEFAULT_TRAINING, completed: ALL_LEVELS };
+    for (const now of [openMorning, openEvening]) {
       const a = pickTodayAction(input({ now, training }));
       expect(a.id).toBe('train:revisit');
       expect(a.route).toBe('/grow');
     }
   });
 
-  it('never asks a readiness check outside the window', () => {
-    // Sweep two full cycles, both halves of the day, with a weak lever set
-    // (the strongest pull toward checklist asks the old selector had).
+  it('never asks a readiness check on open days, even with the story done', () => {
+    // Sweep two full cycles; on the far-out open days the checklist never shows,
+    // whether or not the story is done (the checklist belongs to prep + window).
     const reads = [read({ sleep: 0, food: 0 })];
     for (let day = 1; day <= 56; day++) {
       for (const hour of [9, 18]) {
         const now = new Date(2026, 0, day, hour, 0);
-        const phase = derivePhase(PREFS, true, now);
-        if (phase !== 'window') {
-          const a = pickTodayAction(input({ now, reads }));
+        if (derivePhase(PREFS, true, now) === 'open') {
+          const a = pickTodayAction(input({ now, reads, storyDoneThisCycle: true }));
           expect(a.kind).not.toBe('readiness');
+          expect(a.kind).not.toBe('story');
         }
       }
     }
+  });
+});
+
+describe('pickTodayAction: prep run-up (the preparedness ladder)', () => {
+  const prepMorning = morning(2026, 1, 19); // 3 days to window
+  const prepEvening = evening(2026, 1, 19);
+
+  it('leads with Neha\'s story until it is done this cycle', () => {
+    for (const now of [prepMorning, prepEvening, morning(2026, 1, 15), morning(2026, 1, 21)]) {
+      const a = pickTodayAction(input({ now, storyDoneThisCycle: false }));
+      expect(a.kind).toBe('story');
+      expect(a.route).toBe('/pms-story');
+    }
+  });
+
+  it('hands to the PMS checklist once the story is done', () => {
+    const a = pickTodayAction(input({ now: prepMorning, storyDoneThisCycle: true }));
+    expect(a.kind).toBe('readiness');
+    expect(a.route).toBe('/pms-readiness');
+  });
+
+  it('moves on to training once the story and checklist are both done', () => {
+    const now = prepMorning;
+    const readiness = { ...withChecks(now, {}), doneForToday: true };
+    const a = pickTodayAction(input({ now, storyDoneThisCycle: true, readiness }));
+    expect(a.kind).toBe('train');
   });
 });
 

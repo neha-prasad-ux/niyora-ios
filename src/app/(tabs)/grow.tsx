@@ -58,6 +58,10 @@ export default function GrowScreen() {
     Haptics.selectionAsync().catch(() => {});
     router.push('/pms-readiness');
   };
+  const openStory = () => {
+    Haptics.selectionAsync().catch(() => {});
+    router.push('/pms-story' as Href);
+  };
   const openPeriodsCare = () => {
     Haptics.selectionAsync().catch(() => {});
     router.push('/periods-care' as Href);
@@ -145,6 +149,13 @@ export default function GrowScreen() {
             sub="The week before your period"
             hue={PMS_HUE}
           >
+            <Shelf
+              title="Neha's story"
+              sub="Get prepped for PMS, one story at a time."
+              gradient={STORY_GRADIENT}
+              backdrop={<StoryBackdrop />}
+              onOpen={openStory}
+            />
             <Shelf
               title="Cried, fought, or snapped?"
               sub="A science-backed way to feel better."
@@ -305,6 +316,16 @@ function SoulBackdrop() {
   );
 }
 
+function StoryBackdrop() {
+  return (
+    <View pointerEvents="none" style={styles.backdrop}>
+      <View style={styles.patTopRight}>
+        <Orb size={78} ringHues={SOUL_RING_HUES} still />
+      </View>
+    </View>
+  );
+}
+
 function CouplesBackdrop() {
   return (
     <View pointerEvents="none" style={styles.backdrop}>
@@ -355,6 +376,13 @@ const PMS_GRADIENT: readonly [string, string, string] = [
   'hsl(300, 40%, 29%)',
   'hsl(316, 40%, 30%)',
   'hsl(332, 40%, 31%)',
+];
+// Neha's story: a deep indigo-to-violet night, the storybook palette — set
+// apart from the checklist magenta and the steady rose, reads as "a story".
+const STORY_GRADIENT: readonly [string, string, string] = [
+  'hsl(250, 44%, 26%)',
+  'hsl(264, 42%, 28%)',
+  'hsl(276, 40%, 30%)',
 ];
 // The in-the-moment SOS: a warm rose-to-plum, distinct from the checklist's
 // magenta and the couples rose — the "move through it" tone.

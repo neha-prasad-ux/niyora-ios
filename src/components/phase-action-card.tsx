@@ -54,6 +54,12 @@ type PhaseActionCardProps = {
   ctaDisabled: boolean;
   rose: boolean;
   periodEmphasized: boolean;
+  /**
+   * This cycle's PMS readiness (0..1). When set, a "Your PMS preparedness · N%"
+   * row sits above the cycle bar and the bar fills to it (the dot still marks
+   * today). Null on PMS/period days, where the bar stays the plain cycle strip.
+   */
+  readiness?: number | null;
 };
 
 export function PhaseActionCard({
@@ -66,8 +72,11 @@ export function PhaseActionCard({
   ctaDisabled,
   rose,
   periodEmphasized,
+  readiness = null,
 }: PhaseActionCardProps) {
   const field = done ? DONE_GRADIENT : rose ? ROSE_GRADIENT : ASK_GRADIENT;
+  const showPrep = readiness != null;
+  const readyPct = Math.round(Math.max(0, Math.min(1, readiness ?? 0)) * 100);
   return (
     <View style={styles.card}>
       {/* Textured header: the field gradient, a soft top-light sheen for
@@ -114,10 +123,17 @@ export function PhaseActionCard({
         </View>
       </View>
 
-      {/* The cycle bar — the card's foot. */}
+      {/* The cycle bar — the card's foot. On build days it carries the
+          preparedness row + readiness fill; otherwise the plain cycle strip. */}
       {band != null && (
         <View style={styles.barSection}>
-          <CycleBar band={band} periodEmphasized={periodEmphasized} />
+          {showPrep && (
+            <View style={styles.prepRow}>
+              <Text style={styles.prepLabel}>Your PMS preparedness</Text>
+              <Text style={styles.prepPct}>{readyPct}%</Text>
+            </View>
+          )}
+          <CycleBar band={band} periodEmphasized={periodEmphasized} readiness={readiness} />
         </View>
       )}
     </View>
@@ -175,5 +191,24 @@ const styles = StyleSheet.create({
     paddingTop: 13,
     paddingBottom: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
+  },
+  prepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: 9,
+    paddingHorizontal: 2,
+  },
+  prepLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.82)',
+    letterSpacing: 0.2,
+  },
+  prepPct: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
+    color: '#ffffff',
+    letterSpacing: 0.3,
   },
 });

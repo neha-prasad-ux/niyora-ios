@@ -2,6 +2,7 @@ import { daysUntilPmsWindow, pmsOffsetDays, PMS_GRACE_AFTER_DAYS } from '@/lib/p
 import type { PmsPrefs } from '@/store/pms-prefs';
 import type { PmsRead } from '@/store/pms-reads';
 import {
+  isReadyDone,
   READINESS_CHECK_IDS,
   todayYmd,
   type ReadinessChecks,
@@ -17,10 +18,12 @@ import { trainSummary, workSummary } from '@/v3/game-content';
 // whole clear stretch (the spec's prep + open). Pure functions only, so the
 // whole matrix is unit-testable.
 //
-// The phase grammar: build days always coach from Grow (training), PMS days
-// own the checklist, period days carry the once-a-cycle check-ins. A
-// readiness ask NEVER appears outside the window — the checklist is the
-// window's tool, not an everyday chore. Within the window, asks are
+// The phase grammar: the far-out "open" build days coach from Grow (training);
+// the pre-PMS "prep" run-up (1-7 days out) runs the preparedness ladder — Neha's
+// story first, then once that's done the PMS checklist, then training; PMS days
+// own the in-the-moment flow; period days carry the once-a-cycle check-ins. The
+// checklist only surfaces in the prep run-up (after the story) or the window
+// itself, never as an everyday open-day chore. Within the window, asks are
 // personalised by the weakest lifestyle lever from her last PMS read, split
 // morning/evening at 17:00.
 //
@@ -38,6 +41,7 @@ export type TodayPhase = 'setup' | 'window' | 'period' | 'prep' | 'open';
 
 export type TodayActionKind =
   | 'assessment'
+  | 'story'
   | 'readiness'
   | 'steady'
   | 'train'
@@ -59,6 +63,8 @@ export type TodayActionInput = {
   calmDoneToday: boolean; // any session recorded today
   training: TrainingState;
   remissionAnsweredThisCycle: boolean;
+  /** Whether she has finished Neha's story this cycle (from the prep store). */
+  storyDoneThisCycle: boolean;
   lastAction: { date: string; id: string } | null;
   dismissedDate: string | null;
   now: Date;
@@ -152,6 +158,28 @@ const DONE_ACTION: TodayAction = {
   route: '',
 };
 
+// The pre-PMS run-up leads with Neha's story (the preparedness serial), then
+// once it is done hands to the checklist. The story is the first coached step
+// so she arrives at the window already prepped and reassured.
+const STORY_ACTION: TodayAction = {
+  id: 'story',
+  kind: 'story',
+  title: "Neha's story",
+  caption: 'A few minutes to get prepped',
+  route: '/pms-story',
+};
+
+// After the story, the run-up asks the evidence-backed checklist (the same one
+// the window uses). Only reached in prep once the story is done, so it is never
+// an everyday open-day chore.
+const CHECKLIST_ACTION: TodayAction = {
+  id: 'readiness:checklist',
+  kind: 'readiness',
+  title: 'PMS day checklist',
+  caption: 'Proven ways to ease symptoms',
+  route: '/pms-readiness',
+};
+
 // Every chapter trained: build days still point at Grow, asking for a replay.
 // Replays stamp lastCompletedOn (store/training-v3) without inflating
 // progress, so the ring can still close honestly on an all-trained day.
@@ -241,9 +269,24 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
     return DONE_ACTION;
   }
 
-  // Build days (the spec's prep + open): the ask always comes from Grow —
-  // walk the mind pillar, then the work pillar, and only replay once every
-  // course is trained. Never the checklist; readiness asks belong to the window.
+  if (phase === 'prep') {
+    // The pre-PMS run-up: Neha's story first (the preparedness serial), then
+    // once it is done the daily checklist, then training as other topics. This
+    // is the one place the checklist appears outside the window — after the
+    // story has set her up for the week.
+    if (!input.storyDoneThisCycle) return STORY_ACTION;
+    const checklistDone = isReadyDone(
+      input.readiness.checks,
+      input.calmDoneToday,
+      input.readiness.doneForToday,
+    );
+    if (!checklistDone) return CHECKLIST_ACTION;
+    return trainAction(training) ?? workAction(training) ?? GROW_REVISIT_ACTION;
+  }
+
+  // Far-out "open" build days: the ask comes from Grow — walk the mind pillar,
+  // then the work pillar, and only replay once every course is trained. Never
+  // the checklist; readiness asks belong to the prep run-up and the window.
   return trainAction(training) ?? workAction(training) ?? GROW_REVISIT_ACTION;
 }
 
@@ -266,6 +309,9 @@ export function todayRingProgress(input: TodayActionInput, action: TodayAction):
       const last = input.reads[input.reads.length - 1];
       return last != null && last.at === today ? 1 : 0;
     }
+    case 'story':
+      // Finishing the story this cycle closes the day's ring (a once-a-cycle win).
+      return input.storyDoneThisCycle ? 1 : 0;
     case 'readiness':
       return prepsDoneCount(input.readiness.checks) / PREP_CHECK_COUNT;
     case 'steady':

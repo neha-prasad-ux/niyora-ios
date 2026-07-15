@@ -37,6 +37,7 @@ import { type RecResult } from '@/models/recommend';
 import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { bandHeadline, derivePhaseBand } from '@/lib/phase-band';
+import { cycleKeyFor, getPrep, prepReadiness, type PrepState } from '@/store/pms-prep';
 import {
   isRingClosed,
   periodButtonState,
@@ -142,6 +143,8 @@ type Snapshot = {
   // from the persisted moon-state (moon-reward-spec.md).
   moonState: MoonState;
   lifetimeLight: number;
+  // This cycle's isolated preparedness state (Neha's story rings + readiness).
+  prep: PrepState;
   now: Date;
 };
 
@@ -174,6 +177,9 @@ async function loadSnapshot(): Promise<Snapshot> {
     getMoonState(),
     getLightLedger(),
   ]);
+  // Prep is keyed by the cycle anchor, which comes from prefs, so it loads after
+  // the parallel batch resolves.
+  const prep = await getPrep(cycleKeyFor(prefs.lastPeriodStart));
   return {
     prefs,
     reads,
@@ -187,6 +193,7 @@ async function loadSnapshot(): Promise<Snapshot> {
     setupCard: progress == null ? null : setupCardFor(progress),
     moonState,
     lifetimeLight: foldLedger(ledger).lifetimeLight,
+    prep,
     now,
   };
 }
@@ -199,6 +206,7 @@ function selectorInput(s: Snapshot): TodayActionInput {
     calmDoneToday: s.sessionsToday > 0,
     training: s.training,
     remissionAnsweredThisCycle: answeredForCycle(s.remissionLog, s.prefs.lastPeriodStart),
+    storyDoneThisCycle: s.prep.chaptersDone.length > 0,
     lastAction: s.memory.last,
     dismissedDate: s.memory.dismissedDate,
     now: s.now,
@@ -346,10 +354,26 @@ export default function NowScreen() {
           const work = workSummary(snapshot.training);
           return work.next != null ? work : null;
         })();
-  const buildTitle = buildSummary?.next
-    ? (COURSE_TITLE[buildSummary.next.chapterId] ?? buildSummary.detail.replace(/^Begin with /, ''))
-    : 'Revisit a practice';
-  const buildVerb = buildSummary ? buildSummary.statusWord : 'Practice';
+  // In the pre-PMS run-up the coached action becomes Neha's story, then the
+  // checklist (from the today-action ladder). When it does, the card takes its
+  // title + verb straight from that action so the header matches where the
+  // button goes; otherwise it walks the training courses.
+  const buildIsStory = action?.kind === 'story';
+  const buildIsChecklist = action?.kind === 'readiness';
+  const buildTitle =
+    buildIsStory || buildIsChecklist
+      ? action!.title
+      : buildSummary?.next
+        ? (COURSE_TITLE[buildSummary.next.chapterId] ??
+          buildSummary.detail.replace(/^Begin with /, ''))
+        : 'Revisit a practice';
+  const buildVerb = buildIsStory
+    ? 'Read'
+    : buildIsChecklist
+      ? 'Prep'
+      : buildSummary
+        ? buildSummary.statusWord
+        : 'Practice';
   const phaseTitle =
     band != null && band.current === 'period'
       ? 'Look back'
@@ -620,7 +644,9 @@ export default function NowScreen() {
             actionForCard != null && (
               <>
                 {/* The one coached action: a textured phase header (why + what +
-                    the phase verb) over the cycle bar. */}
+                    the phase verb) over the cycle bar. On build days the bar
+                    carries "Your PMS preparedness · N%" and fills to this cycle's
+                    readiness (the dot still marks today). */}
                 <Animated.View entering={FadeInDown.delay(60).duration(500)}>
                   <PhaseActionCard
                     band={band}
@@ -638,6 +664,11 @@ export default function NowScreen() {
                     ctaDisabled={ctaDisabled}
                     rose={rose}
                     periodEmphasized={periodButton?.emphasized ?? false}
+                    readiness={
+                      snapshot != null && band != null && band.current === 'build'
+                        ? prepReadiness(snapshot.prep)
+                        : null
+                    }
                   />
                 </Animated.View>
 
