@@ -201,6 +201,9 @@ export default function MySoulScreen() {
     setReminderState(next);
     await setReminder(next).catch(() => {});
     await scheduleDailyReminder(next.hour, next.minute).catch(() => {});
+    // If she enables it mid-PMS-span, hand straight to the reconciler so the
+    // breath reminder pauses right away instead of doubling up until next launch.
+    await syncPmsReminders().catch(() => {});
   }
 
   async function handleReminderTimeChange(hour: number, minute: number) {
