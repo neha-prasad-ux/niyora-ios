@@ -430,7 +430,7 @@ export default function NowScreen() {
   // Setup copy nuance: a read left partway resumes, it doesn't restart.
   const actionForCard =
     action != null && action.kind === 'assessment' && snapshot?.setupCard === 'resume'
-      ? { ...action, caption: 'Pick up where you left off' }
+      ? { ...action, caption: 'A fresh start' }
       : action;
 
   // --- Handlers -----------------------------------------------------------
@@ -657,7 +657,7 @@ export default function NowScreen() {
                     style={styles.actionBtn}
                     onPress={openReflect}
                     accessibilityRole="button"
-                    accessibilityLabel="Reflect on your cycle"
+                    accessibilityLabel="How did this PMS go?"
                   >
                     <SymbolView name="book.closed" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
                     <Text style={styles.actionBtnText}>Reflect</Text>
@@ -704,7 +704,7 @@ export default function NowScreen() {
                 setRecommendVisible(true);
               }}
             />
-            <Text style={styles.calmHint}>Feeling worked up? Start here.</Text>
+            <Text style={styles.calmHint}>Enjoy 30+ ways to relax</Text>
           </Animated.View>
         )}
       </SafeAreaView>

@@ -149,17 +149,17 @@ export const SCRIPT = {
     'I am sure it will always be this way',
     'Not sure',
   ],
-  patternAck: 'Naming the shape takes some of its power. That is the pattern talking, not the whole truth.',
-  examine: 'When you look at it from a little outside · how big is this, really?',
+  patternAck: 'Naming the feeling takes some of its power off. That is not the whole truth.',
+  examine: 'When you look at it from a little outside · how big is this concern, really?',
   examineChips: ['It feels huge right now', 'Smaller than it feels', 'It has visited before'],
   // Can you change it? One small step, or set it down for now.
   changeIntro: 'Is this something you can do anything about right now?',
   changeChips: ['Yes, there is one thing', 'No, not right now'],
   changeYes: 'Good. One small step is enough · the rest can wait.',
-  changeNo: 'Then it is okay to set it down for now. It can wait until tomorrow.',
-  reframe: 'One hard moment is one hard moment. It is real, and it is not the whole story.',
-  keepQuote: 'This was one moment, not the whole story.',
-  keepSupport: 'You caught the thought, looked at it, and it got a little smaller.',
+  changeNo: 'So it is okay to sleep on it, it can wait',
+  reframe: 'A hard moment is real but not the whole story',
+  keepQuote: 'This is not the whole story, it is a moment',
+  keepSupport: 'You noticed the thought, reflected on it, and now you know it is a smaller than you perceived',
 } as const;
 
 /** Fallback thought proposal when the model can't offer one: her own words,
@@ -253,7 +253,7 @@ export function buildKeep(
   if (pill) parts.push(pill.label + (pill.inWindow ? ' · window' : ''));
   parts.push('caught it, checked it, changed it');
   return {
-    title: 'The thought you caught',
+    title: 'The thought you observed',
     quote: (quote ?? SCRIPT.keepQuote).trim(),
     support: state.thought
       ? `The spiral said: “${state.thought}”. You looked at it, and it got a little smaller.`

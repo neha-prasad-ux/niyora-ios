@@ -86,7 +86,7 @@ export default function GrowScreen() {
       {
         key: 'train',
         title: 'Master emotional regulation',
-        sub: 'Stay steady when emotions spike.',
+        sub: 'Own your emotions',
         gradient: TRAIN_GRADIENT,
         tagColor: 'rgba(150, 110, 205, 0.95)',
         summary: trainSummary(training),
@@ -95,7 +95,7 @@ export default function GrowScreen() {
       {
         key: 'work',
         title: 'Build confidence at work',
-        sub: 'Speak up under pressure.',
+        sub: 'Sound strong under pressure',
         gradient: WORKPLACE_GRADIENT,
         tagColor: 'rgba(70, 165, 155, 0.95)',
         summary: workSummary(training),
@@ -111,8 +111,8 @@ export default function GrowScreen() {
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <Text style={styles.pageTitle}>Grow</Text>
-            <Text style={styles.pageSub}>Build skills, then ease the hard days.</Text>
+            <Text style={styles.pageTitle}>Train</Text>
+            <Text style={styles.pageSub}>Master emotions, PMS will get easier</Text>
           </View>
 
           {/* The page reads top-to-bottom as the cycle does: the long build
@@ -122,8 +122,8 @@ export default function GrowScreen() {
           <View style={styles.pathWrap}>
             {railHeight > 0 && <View style={[styles.rail, { height: railHeight }]} />}
             <PhaseSection
-            label="Building"
-            sub="Between your periods"
+            label="Training"
+            sub="After Periods"
             hue={BUILD_HUE}
           >
             {trainCards.map((c) => (
@@ -147,7 +147,7 @@ export default function GrowScreen() {
           >
             <Shelf
               title="Cried, fought, or snapped?"
-              sub="A science-backed way to feel better."
+              sub="Feel relax the science way"
               gradient={STEADY_GRADIENT}
               onOpen={openSteady}
             />
@@ -158,15 +158,15 @@ export default function GrowScreen() {
               onOpen={openPmsChecklist}
             />
             <Shelf
-              title="Prep your relationship for PMS"
-              sub="Face hard days as a team."
+              title="Relationship & PMS"
+              sub="Win PMS together"
               gradient={COUPLES_GRADIENT}
               backdrop={<CouplesBackdrop />}
               onOpen={openCouples}
             />
             <Shelf
-              title="Find calm now"
-              sub="Quick breathing to reset."
+              title="Enjoy calmness now"
+              sub="Quick breathing to zen"
               gradient={CALM_GRADIENT}
               onOpen={openCalm}
             />
@@ -180,7 +180,7 @@ export default function GrowScreen() {
             >
               <Shelf
                 title="Care through your period"
-                sub="Comfort for heavy days."
+                sub="Comfort for PMS"
                 gradient={PERIOD_GRADIENT}
                 onOpen={openPeriodsCare}
               />

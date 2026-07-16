@@ -178,7 +178,7 @@ describe('buildKeep', () => {
       state({ thought: 'the relationship is falling apart' }),
       { label: 'day 24', inWindow: true },
     );
-    expect(keep.title).toBe('The thought you caught');
+    expect(keep.title).toBe('The thought you observed');
     expect(keep.quote).toBe('One quiet evening is not the relationship.');
     expect(keep.support).toContain('the relationship is falling apart');
     expect(keep.caption).toBe('day 24 · window · caught it, checked it, changed it');

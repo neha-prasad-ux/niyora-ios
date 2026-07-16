@@ -285,9 +285,9 @@ export default function MySoulScreen() {
               onLongPress={__DEV__ ? () => router.push('/design-system' as Href) : undefined}
               delayLongPress={600}
             >
-              <Text style={styles.pageTitle}>You</Text>
+              <Text style={styles.pageTitle}>Soul</Text>
             </Pressable>
-            <Text style={styles.pageSub}>Your journey with Niyora</Text>
+            <Text style={styles.pageSub}>Your journey</Text>
           </View>
 
           {/* Two segments split the page so neither side is a long scroll:
@@ -329,14 +329,14 @@ export default function MySoulScreen() {
                 streak={currentStreak}
               />
 
-              <SectionEyebrow title="Is it working?" hint="effort · impact" />
+              <SectionEyebrow title="Your effort vs the impact" />
               <EffortImpactCard
                 series={cycleSeriesLive}
                 impacts={cycleImpacts}
                 muted={mutedDomains}
               />
 
-              <SectionEyebrow title="Your cycles" hint="the record" />
+              <SectionEyebrow title="Your growth" />
               <CyclesShelfCard shelf={shelf} />
 
               <PmsReadCard
@@ -417,8 +417,7 @@ export default function MySoulScreen() {
               </Pressable>
 
               <Text style={styles.footer}>
-                Niyora runs entirely on your iPhone. No accounts, no profiles.
-                Breathe easy.
+                Niyora does not collect any data
               </Text>
               <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
             </>
@@ -589,19 +588,19 @@ const DOMAIN_COLOR: Record<ImpactDomain, string> = {
 // (moon-reward-spec.md: honesty is never penalized, copy never says "failed").
 const IMPACT_CAPS: Record<ImpactDomain, Record<'up' | 'flat' | 'down', string>> = {
   work: {
-    up: 'Work got easier as you showed up more.',
-    flat: 'Work held steady this cycle.',
-    down: 'A harder cycle at work. That happens. You still showed up.',
+    up: 'Yey! Your effort on Niyora is paying off',
+    flat: 'PMS is not affecting work as much',
+    down: 'This cycle was a tough one at work',
   },
   partner: {
-    up: 'Things eased with your partner as the effort held.',
-    flat: 'Steady with your partner this cycle.',
-    down: 'A harder cycle with your partner. That happens. You still showed up.',
+    up: 'Yey! Your effort on Niyora is paying off',
+    flat: 'PMS is not affecting your partner as much',
+    down: 'This cycle was a tough one with your partner',
   },
   yourself: {
-    up: "You're gentler with yourself lately.",
-    flat: 'Steady with yourself this cycle.',
-    down: 'A harder cycle with yourself. That happens. You still showed up.',
+    up: 'Self love is back this cycle',
+    flat: 'PMS is not affecting you as much',
+    down: 'This was a tough cycle for you',
   },
 };
 
@@ -611,11 +610,11 @@ function monthShort(ymd: string): string {
   return m ? CYCLE_MONTHS[Number(m[1]) - 1] ?? '' : '';
 }
 
-function SectionEyebrow({ title, hint }: { title: string; hint: string }) {
+function SectionEyebrow({ title, hint }: { title: string; hint?: string }) {
   return (
     <View style={styles.eyebrow}>
       <Text style={styles.eyebrowTitle}>{title}</Text>
-      <Text style={styles.eyebrowHint}>{hint}</Text>
+      {hint ? <Text style={styles.eyebrowHint}>{hint}</Text> : null}
     </View>
   );
 }
@@ -860,9 +859,9 @@ function EffortImpactCard({
   const present = levels.filter((l): l is 1 | 2 | 3 => l != null);
   let caption: string;
   if (!haveReads) {
-    caption = 'The impact check-in lives on the Now tab. Your first read appears here next cycle.';
+    caption = 'Is your PMS getting any better?';
   } else if (present.length < 2) {
-    caption = 'One read so far. The trend shows from your next cycle.';
+    caption = "We have just one cycle to see now, let's see next month";
   } else {
     const delta = present[present.length - 1] - present[present.length - 2];
     caption = IMPACT_CAPS[domain][delta > 0 ? 'up' : delta === 0 ? 'flat' : 'down'];
@@ -1168,9 +1167,9 @@ function PmsReadCard({
         onPress={onRetake}
         style={styles.primarySmallButton}
         accessibilityRole="button"
-        accessibilityLabel="Retake to track your progress"
+        accessibilityLabel="Check your PMS level"
       >
-        <Text style={styles.primarySmallButtonLabel}>Retake to track progress</Text>
+        <Text style={styles.primarySmallButtonLabel}>Check your PMS level</Text>
       </Pressable>
     </View>
   );
@@ -1196,7 +1195,7 @@ function PmsCard({
         <View style={{ flex: 1, paddingRight: 16 }}>
           <Text style={styles.cardTitle}>Smart PMS mode</Text>
           <Text style={[styles.cardCopy, { marginTop: 6 }]}>
-            Niyora tracks your cycle so it can reach you before your rough week, and stay quiet the rest of the month.
+            Niyora tracks your cycle so it helps you with PMS
           </Text>
         </View>
         <Switch
@@ -1315,7 +1314,7 @@ function MessageCard() {
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Message the founder</Text>
       <Text style={[styles.cardCopy, { marginTop: 6 }]}>
-        Tell Neha what's working, what isn't, what you'd love next.
+        Hi, Tell Me what's working, what isn't, what you'd love next. I genuinely appreciate it
       </Text>
       <Pressable
         onPress={handleOpen}

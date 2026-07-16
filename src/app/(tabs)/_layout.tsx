@@ -28,14 +28,14 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="now"
           options={{
-            title: 'Now',
+            title: 'Today',
             tabBarIcon: ({ focused }) => <TabMoon focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="grow"
           options={{
-            title: 'Grow',
+            title: 'Train',
             // Training weights: Grow is where she trains, and the grid read
             // as a settings sheet rather than a place to work out the mind.
             tabBarIcon: ({ color, focused }) => (
@@ -51,7 +51,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="you"
           options={{
-            title: 'You',
+            title: 'Soul',
             tabBarIcon: ({ color, focused }) => (
               <SymbolView
                 name={focused ? 'person.fill' : 'person'}

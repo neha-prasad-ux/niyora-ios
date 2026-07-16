@@ -35,10 +35,10 @@ export const KINDER_READ: Record<WhatHappenedId, string> = {
     'You are on edge right now. That was the pressure talking, not the truth of who you are.',
   cried: 'Tears are pressure finding a way out. Nothing about that is weak, and it will pass.',
   quiet:
-    'Going quiet is your system trying to protect you. Pulling back for a moment is allowed.',
+    'Going quiet is your system trying to protect you. It is very helpful.',
   'turned-on-self':
-    'The voice being hardest on you right now is not the fair one. It gets louder this week, and it is not telling the whole truth.',
-  else: 'This week turns the volume up on everything. What you feel is real, and it will pass.',
+    'The voice inside you is not very kind to you this week, you are way more than that',
+  else: 'PMS make you feel everything stronger, the feeling is real & it will pass',
 };
 
 // --- One breath ----------------------------------------------------------

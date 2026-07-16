@@ -264,7 +264,7 @@ export const L3_SCENES: L3Scene[] = [
         future: 'Calling herself needy just stacks shame on the annoyance. Buried, it does not leave, it comes back louder.',
       },
       {
-        label: 'He is probably slammed at work',
+        label: 'Think "He is probably slammed at work"',
         tier: 'best',
         future: 'A fairer read, and it lands because she can still think. The annoyance eases.',
       },

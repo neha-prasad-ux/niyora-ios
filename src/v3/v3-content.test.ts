@@ -131,7 +131,7 @@ describe('deriveCopingStanding', () => {
   it('names the standing without a personality label', () => {
     const copy = copingStandingCopy('disengaging');
     expect(copy?.line).toContain('push feelings down');
-    expect(copy?.tail).toContain('trainable');
+    expect(copy?.tail).toContain('work on');
     expect(copingStandingCopy(null)).toBeNull();
   });
 });
