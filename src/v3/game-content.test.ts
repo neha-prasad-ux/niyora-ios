@@ -182,7 +182,7 @@ function workExtras(ch: Chapter): string[] {
       ch.L4_SCRIPT.teach.title,
       ...ch.L4_SCRIPT.teach.rows.flatMap((r) => [r.part, r.hint]),
       ch.L4_SCRIPT.scenario,
-      ...ch.L4_SCRIPT.lines.flatMap((l) => [l.part, l.text]),
+      ...ch.L4_SCRIPT.steps.flatMap((s) => [s.part, s.hint, s.correct, s.decoy, s.why]),
       ch.L4_SCRIPT.sayIt,
     );
   }
@@ -230,7 +230,7 @@ describe('workplace track', () => {
     expect(conf.L4_COMPASSION?.kindLines.length).toBeGreaterThanOrEqual(2);
     const assert = byId('assertiveness');
     expect(assert.levels.some((l) => l.kind === 'script')).toBe(true);
-    expect(assert.L4_SCRIPT?.lines.length).toBe(4);
+    expect(assert.L4_SCRIPT?.steps.length).toBe(4);
   });
 
   it('each L3 scene and the L5 capstone have one best/lesser/worst', () => {

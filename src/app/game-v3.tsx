@@ -1268,16 +1268,38 @@ function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => vo
 function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
   const { L1_INTRO, L4_INTRO, L4_CONGRATS, L4_SCRIPT } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'teach' | 'build' | 'congrats'>('levelIntro');
-  const [revealed, setRevealed] = useState(0);
+  const [step, setStep] = useState(0); // which part she is choosing
+  const [wrongIdx, setWrongIdx] = useState<number | null>(null); // decoy she tapped, to show why
 
   if (!L4_SCRIPT) return null; // a 'script' level always carries this
-  const { teach, scenario, lines, sayIt } = L4_SCRIPT;
-  const allRevealed = revealed >= lines.length;
+  const { teach, scenario, steps, sayIt } = L4_SCRIPT;
+  const cur = step < steps.length ? steps[step] : null;
+  const built = step >= steps.length;
+  const fullLine = steps.map((s) => s.correct).join(' ');
+  // Alternate which side the right answer sits on, so she reads, not pattern-matches.
+  const options = cur
+    ? step % 2 === 0
+      ? [{ text: cur.correct, ok: true }, { text: cur.decoy, ok: false }]
+      : [{ text: cur.decoy, ok: false }, { text: cur.correct, ok: true }]
+    : [];
+
+  const choose = (j: number) => {
+    tap();
+    if (options[j].ok) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setWrongIdx(null);
+      setStep(step + 1);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setWrongIdx(j);
+    }
+  };
 
   const back = () => {
     tap();
     if (stage === 'build') {
-      setRevealed(0);
+      setStep(0);
+      setWrongIdx(null);
       setStage('teach');
     } else if (stage === 'teach') {
       setStage('levelIntro');
@@ -1336,39 +1358,60 @@ function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; 
 
         {stage === 'build' && (
           <View style={styles.l1Body}>
-            <Text style={styles.l5StepLabel}>Your situation</Text>
-            <Text style={styles.l3Prompt}>{scenario}</Text>
-            <ScrollView contentContainerStyle={{ gap: 10, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
-              {lines.slice(0, revealed).map((ln) => (
-                <View
-                  key={ln.part}
-                  style={{
-                    padding: 14,
-                    borderRadius: 14,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: v3.panelBorder,
-                    backgroundColor: v3.panel,
-                  }}
-                >
-                  <Text style={[styles.l1Eyebrow, { textAlign: 'left', marginBottom: 4 }]}>{ln.part}</Text>
-                  <Text style={styles.l1RevealText}>{ln.text}</Text>
+            {!built && cur ? (
+              <>
+                <Text style={styles.l5StepLabel}>{`Part ${step + 1} of ${steps.length}`}</Text>
+                <Text style={styles.l3Prompt}>{scenario}</Text>
+                <View style={{ alignItems: 'center', gap: 2, marginBottom: 16 }}>
+                  <Text style={styles.l1Eyebrow}>{cur.part}</Text>
+                  <Text style={styles.l2Subtitle}>{cur.hint}</Text>
                 </View>
-              ))}
-            </ScrollView>
-            {!allRevealed ? (
-              <BeginButton
-                fullWidth
-                label={revealed === 0 ? 'Start the line' : 'Add the next part'}
-                onPress={() => { tap(); setRevealed(revealed + 1); }}
-              />
+                <View style={{ gap: 10 }}>
+                  {options.map((o, j) => (
+                    <Pressable
+                      key={j}
+                      onPress={() => choose(j)}
+                      accessibilityRole="button"
+                      accessibilityLabel={o.text}
+                      style={[
+                        styles.l3Solution,
+                        wrongIdx === j && {
+                          borderColor: hsla(v3.activated, 0.6),
+                          backgroundColor: hsla(v3.activated, 0.12),
+                        },
+                      ]}
+                    >
+                      <Text style={styles.l3SolutionText}>{o.text}</Text>
+                      {wrongIdx === j && (
+                        <Text
+                          style={{
+                            fontFamily: 'Poppins-Regular',
+                            fontSize: 13,
+                            lineHeight: 18,
+                            color: colors.textSubtitle,
+                            textAlign: 'center',
+                            marginTop: 8,
+                          }}
+                        >
+                          {cur.why}
+                        </Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </>
             ) : (
-              <View style={{ gap: 12 }}>
-                <View style={[styles.l1Reveal, styles.l1RevealRight]}>
-                  <Text style={[styles.l1Verdict, { color: v3.regulated }]}>That is your line</Text>
-                  <Text style={styles.l1RevealText}>{sayIt}</Text>
+              <>
+                <Text style={styles.l5StepLabel}>Your line</Text>
+                <View style={{ flex: 1, justifyContent: 'center', gap: 14 }}>
+                  <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                    <Text style={[styles.l1Verdict, { color: v3.regulated }]}>This is how you would sound</Text>
+                    <Text style={styles.l1RevealText}>{fullLine}</Text>
+                  </View>
+                  <Text style={[styles.l1RevealText, { textAlign: 'center', color: colors.textSubtitle }]}>{sayIt}</Text>
                 </View>
                 <BeginButton fullWidth label="I said it" onPress={() => { tap(); setStage('congrats'); }} />
-              </View>
+              </>
             )}
           </View>
         )}

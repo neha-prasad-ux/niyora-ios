@@ -570,15 +570,23 @@ export interface CompassionContent {
   kindLines: string[]; // she picks one
 }
 
-// The script-builder power move (Assertiveness chapter). v1 is instruction-first:
-// teach the four-part shape, then reveal a worked line one part at a time, then
-// she reads the whole thing out loud. AI feedback comes later; for now the script
-// is prewritten and specific.
+// The script-builder power move (Assertiveness chapter). She builds the four-part
+// line by choosing, one part per page: each step offers the version that lands and
+// a tempting decoy, a different failure mode each time (blame, judgment, hedge,
+// threat). The correct picks assemble into her line. AI feedback comes later; the
+// copy is fixed.
+export interface ScriptStep {
+  part: string; // 'Name it'
+  hint: string; // 'the facts, no blame'
+  correct: string; // the version that lands; assembles into the final line
+  decoy: string; // the tempting mistake she chooses against
+  why: string; // why the decoy backfires, shown when she taps it
+}
 export interface ScriptContent {
   teach: { kicker: string; title: string; rows: { part: string; hint: string }[] };
   scenario: string;
-  lines: { part: string; text: string }[]; // revealed one at a time, then assembled
-  sayIt: string; // the "read it out loud" close
+  steps: ScriptStep[];
+  sayIt: string; // the "read it out loud" close on the assembled line
 }
 
 export interface Chapter {
@@ -1788,16 +1796,28 @@ export const ASSERTIVENESS: Chapter = {
       { part: 'Ask', hint: 'the clear change you want' },
       { part: 'Because', hint: 'the upside for both of you' },
     ] },
-    scenario: 'A teammate keeps talking over you in meetings.',
-    lines: [
-      { part: 'Name it', text: 'In the last few meetings, I have been cut off before I finished my point.' },
-      { part: 'How it lands', text: 'It makes it hard for me to get my ideas into the room.' },
-      { part: 'Ask', text: 'Could we let each other finish before jumping in?' },
-      { part: 'Because', text: 'I think we will both make sharper calls if we hear the whole thing.' },
+    scenario: 'A teammate keeps interrupting when you speak.',
+    steps: [
+      { part: 'Name it', hint: 'the facts, no blame',
+        correct: 'In the last few meetings, I have been cut off before I finished my point.',
+        decoy: 'You keep interrupting me and talking over everyone.',
+        why: 'That opens with blame, so he goes defensive before he hears the ask.' },
+      { part: 'How it lands', hint: 'the effect on you or the work',
+        correct: 'It makes it hard for me to get my ideas into the room.',
+        decoy: 'It is rude and pretty unprofessional.',
+        why: 'That is a label, not an effect. It makes it about his character, not the work.' },
+      { part: 'Ask', hint: 'the clear change you want',
+        correct: 'Could we let each other finish before jumping in?',
+        decoy: 'Could you maybe try to be a bit better about that?',
+        why: 'Too vague to act on, and the hedge invites a shrug.' },
+      { part: 'Because', hint: 'the upside for both of you',
+        correct: 'We will both do our best thinking if we hear the whole thing.',
+        decoy: 'Otherwise I will have to bring it up with our manager.',
+        why: 'A threat turns a fair ask into a fight. The upside is what makes it land.' },
     ],
-    sayIt: 'Read your line out loud once, so it is in your mouth and not just your head.',
+    sayIt: 'Read your whole line out loud once, so it is in your mouth and not just your head.',
   },
-  L5_INTRO: { level: 'Level 4', title: 'The last test', subtitle: 'One real work moment, start to finish. Read it, choose your moment, build the line.' },
+  L5_INTRO: { level: 'Level 4', title: 'The last test', subtitle: 'A few real work moments, quick. Read each one and make the call.' },
   L5_CAPSTONE: { scene: `${FRIEND_NAME} was just talked over again in a meeting and she is furious, gripping her pen under the table.`, size: 'lot', sizeWhy: 'Furious and gripping. Right now it would come out as an attack. She needs to steady first.', prompt: 'What helps her most right now?', options: [
     { label: 'Take a breath, wait, then raise it with her line', tier: 'best', future: 'The heat drops, so her four-part line lands as a fair ask instead of a blowup.' },
     { label: 'Laugh it off now and vent about it after', tier: 'worst', future: 'Joking hides it and venting changes nothing. The one person who could fix it never hears the ask.' },
@@ -1824,32 +1844,32 @@ export const ASSERTIVENESS: Chapter = {
     stepLabel: 'Route each moment',
     gates: {
       basics: { lead: 'Basics first', move: 'food or sleep' },
-      small: { lead: 'Steady', move: 'say it now' },
-      big: { lead: 'Worked up', move: 'wait, then line' },
+      small: { lead: 'Now', move: 'say it, kind and clear' },
+      big: { lead: 'Later', move: 'wait, then your line' },
     },
     cards: [
       {
         id: 'assert-d1',
-        scene: `${FRIEND_NAME} is short and prickly before a hard conversation, running on no lunch and little sleep.`,
+        scene: `${FRIEND_NAME} worked through the whole night and walked straight into an early meeting. She cannot think straight.`,
         route: 'basics',
         foil: 'big',
-        reveal: 'Empty and tired sharpens every word. Steady the body before she speaks.',
-        nudge: 'Check the basics before she says a thing.',
+        reveal: 'Running on no sleep. Get her rested before she says a word, or it comes out as pure exhaustion.',
+        nudge: 'Before you read the mood, check the sleep.',
       },
       {
         id: 'assert-d2',
-        scene: `${FRIEND_NAME}'s teammate took credit for her idea. Her voice is level and she is already drafting what to say.`,
+        scene: `${FRIEND_NAME}'s teammate took the credit for her work. She did not react in the moment, and now she is calmly drafting what to say.`,
         route: 'small',
         foil: 'big',
-        reveal: 'Steady and planning. She can say it now, kind and clear.',
-        nudge: 'Her voice is level. Can she speak evenly right now?',
+        reveal: 'Quiet then, but steady now and already planning. She can send it, kind and clear.',
+        nudge: 'She is calm and drafting. Ready to speak, or actually too worked up?',
       },
       {
         id: 'assert-d3',
-        scene: `${FRIEND_NAME} was talked over a third time. Her jaw is tight and she is gripping her pen.`,
+        scene: `${FRIEND_NAME} was talked over for the third time. Her jaw is tight and she is gripping her pen under the table.`,
         route: 'big',
         foil: 'small',
-        reveal: 'Flooded, it would come out as an attack. She waits, then uses her line.',
+        reveal: 'Too worked up, it would come out as an attack. She waits, then uses her line.',
         nudge: 'Tight jaw, gripped pen. Would it come out clean right now?',
       },
       {
