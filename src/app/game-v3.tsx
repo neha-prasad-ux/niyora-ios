@@ -1081,6 +1081,9 @@ function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => vo
                   </View>
                 ))}
               </View>
+              {teach.foot && (
+                <Text style={[styles.l2Subtitle, { marginTop: 16 }]}>{teach.foot}</Text>
+              )}
             </View>
             <BeginButton fullWidth label="Let's do it" onPress={() => { tap(); setStage('practice'); }} />
           </View>
