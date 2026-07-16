@@ -1428,13 +1428,13 @@ export const MOOD_SWINGS: Chapter = {
 // nerves you name and ground, big nerves you step away from and breathe down.
 export const WORK_ANXIETY: Chapter = {
   id: 'work-anxiety',
-  emotion: 'Nerves at work',
+  emotion: 'Nervousness at work',
   track: 'workplace',
   levels: [
     { id: 'wanx-l1', n: 1, title: 'Know the water', kind: 'swipe',
-      intro: "Real quick, let's clear up a few things about nerves at work. Swipe right if it is true, left if it is a myth." },
+      intro: "Real quick, let's clear up a few things about nervousness at work. Swipe right if it is true, left if it is a myth." },
     { id: 'wanx-l2', n: 2, title: 'Read the wave', kind: 'tap',
-      intro: 'Here is what changes everything. How big are the nerves, a little or a lot? What helps depends entirely on the answer.' },
+      intro: 'Here is what changes everything. How big is the nervousness, a little or a lot? What helps depends entirely on the answer.' },
     { id: 'wanx-l3', n: 3, title: 'Match the move', kind: 'preview',
       intro: 'You can read it now. So pick what actually calms her. Not sure? Hold a card to see how it plays out before you commit.' },
     { id: 'wanx-l4', n: 4, title: 'The power move', kind: 'breathe',
@@ -1443,34 +1443,34 @@ export const WORK_ANXIETY: Chapter = {
       intro: 'Last one. Put the whole chapter into a single plan, in your own words, so it is ready before you need it.' },
   ],
   L1_CARDS: [
-    { id: 'wanx-l1-energy', statement: 'A rush of nerves before a big moment can actually sharpen you.',
-      isTrue: true, reveal: 'That jolt is your body getting ready, more fuel not less. Read as readiness instead of dread and the same feeling works for you. The trick is what you call it.' },
-    { id: 'wanx-l1-avoid', statement: 'Dodging the thing that scares you at work makes the fear grow.',
-      isTrue: true, reveal: 'Every time you skip the speak-up or the ask, your brain learns it was dangerous, so next time the fear is bigger. Doing it in small steps is what shrinks it.' },
+    { id: 'wanx-l1-energy', statement: 'The nervousness you feel before a big moment can help you perform better.',
+      isTrue: true, reveal: 'That jolt is your body getting ready, more fuel not less. Read it as readiness instead of dread and the same feeling works for you. The trick is what you call it.' },
+    { id: 'wanx-l1-face', statement: 'Facing the thing that scares you at work, bit by bit, is what shrinks the fear.',
+      isTrue: true, reveal: 'Every time you skip the speak-up or the ask, your brain files it as dangerous and the fear grows. Do it in small steps and the thing you dread rarely lands the way you feared, so the fear shrinks instead.' },
     { id: 'wanx-l1-check', statement: 'If a message is worrying you, rereading it a few times is the quickest way to feel sure.',
       isTrue: false, reveal: 'Each reread calms you for a moment, then hands the doubt back a little bigger. Checking is a loop, not an exit. Naming the worry is what loosens it.' },
-    { id: 'wanx-l1-cram', statement: 'The more anxious you feel before a presentation, the more you should cram right up to the start.',
-      isTrue: false, reveal: 'Cramming on a racing mind does not stick and only winds you tighter. Once the prep is done, the job is to settle the body, not to pile on more.' },
     { id: 'wanx-l1-suppress', statement: 'Telling yourself to stop being nervous before you walk in tends to make it louder.',
-      isTrue: true, reveal: 'The harder you push the nerves away, the more your brain keeps checking they are gone, which holds them front and center. You name them, then come back to what is real right now.' },
+      isTrue: true, reveal: 'The harder you push the nervousness away, the more your brain keeps checking it is gone, which holds it front and center. You name it, then come back to what is real right now.' },
+    { id: 'wanx-l1-seen', statement: 'The people watching can always tell how nervous you are.',
+      isTrue: false, reveal: 'What feels obvious to you barely shows. The shaky hands and racing heart live mostly on the inside, and the room catches a fraction of what you feel. People are watching your point, not hunting for your nervousness.' },
   ],
-  L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to steady your nerves at work.', emotion: 'At work: Nerves', level: 'Level 1', round: 'Easy round' },
+  L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to steady your nervousness at work.', emotion: 'At work: Nervousness', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },
-  L2_INTRO: { level: 'Level 2', title: 'Big or small?', subtitle: 'Nerves come big or small. Noticing which comes before any fix.' },
+  L2_INTRO: { level: 'Level 2', title: 'Big or small?', subtitle: 'Nervousness comes big or small. Noticing which comes before any fix.' },
   L2_CHEAT: { kicker: 'Cheat code', title: 'How to spot the size', rows: [
     { label: 'Thinking', small: 'one worry you can name', big: 'what-if loops, mind goes blank' },
     { label: 'Body', small: 'a little tense or fidgety', big: 'racing heart, tight chest, shaky' },
     { label: 'Control', small: 'can still start the task', big: 'frozen, or avoiding it altogether' },
   ] },
   L2_SCENES: [
-    { id: 'wanx-l2-a', scene: `${FRIEND_NAME} presents in an hour. Her heart is quick, but she is calmly running her opening line.`, answer: 'little', why: 'A quick heart on its own does not make it big. She is still thinking clearly and prepping. Reachable, so small.' },
-    { id: 'wanx-l2-b', scene: `${FRIEND_NAME} says she is fine about the review. She looks calm, but she has reread one email for ten minutes and cannot start her real work.`, answer: 'lot', why: 'Calm face, but she is stuck and cannot function. Frozen counts as big, even when it looks quiet.' },
-    { id: 'wanx-l2-c', scene: `${FRIEND_NAME} is wound up before a call, pacing and talking fast, but she can still answer a question and crack a joke.`, answer: 'little', why: 'Lots of energy, but she is still in the driver seat. Loud is not the same as flooded. She can be reached.' },
-    { id: 'wanx-l2-d', scene: `${FRIEND_NAME} went quiet in a meeting and gave short answers, and now she cannot shake that she blew it.`, answer: 'lot', why: 'Quiet and short is the tell, plus a thought she cannot put down. She is flooded under the calm surface.' },
-    { id: 'wanx-l2-e', scene: `${FRIEND_NAME} has knots before giving feedback, but she has written out what she wants to say.`, answer: 'little', why: 'Knots, yes, but she can plan and prepare. Still in control, still small.' },
+    { id: 'wanx-l2-a', scene: `${FRIEND_NAME} presents in an hour, heart quick, but calmly running her opening line.`, answer: 'little', why: 'A quick heart on its own does not make it big. She is still thinking clearly and prepping. Reachable, so small.' },
+    { id: 'wanx-l2-b', scene: `${FRIEND_NAME} says she is fine about the review and looks calm, but has reread one email for ten minutes and cannot start her work.`, answer: 'lot', why: 'Calm face, but she is stuck and cannot function. Frozen counts as big, even when it looks quiet.' },
+    { id: 'wanx-l2-c', scene: `${FRIEND_NAME} is pacing and talking fast during the call, but can still answer a question and crack a joke.`, answer: 'little', why: 'Lots of energy, but she is still in the driver seat. Loud is not the same as flooded. She can be reached.' },
+    { id: 'wanx-l2-d', scene: `${FRIEND_NAME} went quiet in a meeting, gave short answers, and now cannot stop thinking she blew it.`, answer: 'lot', why: 'Quiet and short is the tell, plus a thought she cannot put down. She is flooded under the calm surface.' },
+    { id: 'wanx-l2-e', scene: `${FRIEND_NAME} is tense before giving feedback, but has written out what she wants to say.`, answer: 'little', why: 'Tense, yes, but she can plan and prepare. Still in control, still small.' },
   ],
   L2_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 2', body: 'You can read the size now. That is the read the whole game turns on.' },
-  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle work nerves best.', points: [
+  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle nervousness at work best.', points: [
     { term: 'Name and ground', def: 'label the worry, then come back to what is real right now' },
     { term: 'Step away and breathe', def: 'leave the trigger for a bit and slow your exhale' },
   ] },
@@ -1480,46 +1480,46 @@ export const WORK_ANXIETY: Chapter = {
     { label: 'Check and re-check', small: 'feels safe, feeds the loop', big: 'feeds the loop, faster', bad: true },
   ] },
   L3_SCENES: [
-    { id: 'wanx-l3-msg', intensity: 'little', prompt: `${FRIEND_NAME} is tense about a message she already sent her manager. What helps most?`, options: [
+    { id: 'wanx-l3-msg', intensity: 'little', prompt: `${FRIEND_NAME} sent her manager a message and now cannot stop worrying about it. What helps most?`, options: [
       { label: 'Name it, this is a worry, not a fact', tier: 'best', future: 'Naming it puts a gap between her and the thought. It loses its grip and she moves on.' },
       { label: 'Reread the message a few more times to be sure', tier: 'worst', future: 'Checking calms her for a second, then the doubt grows back bigger. Each reread teaches her she cannot trust the last one.' },
       { label: 'Step away from her desk for a while and breathe', tier: 'lesser', future: 'Not wrong, but this one is small. Naming it would settle it without the break.' },
     ] },
-    { id: 'wanx-l3-present', intensity: 'lot', prompt: `${FRIEND_NAME} presents in an hour, heart pounding, thoughts racing, cannot focus. What helps most?`, options: [
-      { label: 'Step away for a few and breathe slow', tier: 'best', future: 'She is flooded. A few slow exhales drop the alarm, then her head clears.' },
+    { id: 'wanx-l3-present', intensity: 'lot', prompt: `${FRIEND_NAME} has to present in an hour. Her heart is pounding, her thoughts are racing, and she cannot focus. What helps most?`, options: [
+      { label: 'Step away for a few minutes and breathe out slow', tier: 'best', future: 'She is flooded. A few slow exhales drop the alarm, then her head clears.' },
       { label: 'Run the whole deck one more time to feel ready', tier: 'worst', future: 'Cramming on a racing mind does not stick, and it winds her tighter. The prep is done, the body is not.' },
       { label: 'Tell herself there is nothing to fear', tier: 'lesser', future: 'A fair thought, but mid-spiral it bounces off. Her body has to settle first.' },
     ] },
-    { id: 'wanx-l3-froze', intensity: 'lot', prompt: `${FRIEND_NAME} went quiet in a meeting and cannot shake that she blew it. What helps most?`, options: [
-      { label: 'Step out, breathe slow, let the wave drop', tier: 'best', future: 'Flooded and stuck on it. First the body settles, then the thought loses its grip.' },
+    { id: 'wanx-l3-froze', intensity: 'lot', prompt: `${FRIEND_NAME} went quiet in a meeting, and now cannot stop thinking she blew it. What helps most?`, options: [
+      { label: 'Step away, breathe out slow, and let it settle', tier: 'best', future: 'Flooded and stuck on it. First the body settles, then the thought loses its grip.' },
       { label: 'Ask a colleague if it really went that badly', tier: 'worst', future: 'A yes calms her for a minute, a maybe spikes her. Reassurance hands the worry to someone else and it comes right back.' },
-      { label: 'Remind herself one quiet moment is not a verdict', tier: 'lesser', future: 'True, but too worked up to hear it. The reframe has to wait for calm.' },
+      { label: 'Remind herself one quiet moment does not mean she failed', tier: 'lesser', future: 'True, but too worked up to hear it. The reframe has to wait for calm.' },
     ] },
-    { id: 'wanx-l3-buzz', intensity: 'little', prompt: `${FRIEND_NAME} has a low buzz of nerves about a review but can still work. What helps most?`, options: [
-      { label: 'Name it, nerves, not danger', tier: 'best', future: 'Still reachable, so naming it lands and the buzz eases.' },
-      { label: 'Google how to survive a performance review', tier: 'worst', future: 'An hour of worst-case reading later, the buzz is a spiral. Chasing certainty feeds the fear.' },
-      { label: 'Take a long walk to shake it off', tier: 'lesser', future: 'Pleasant, but overkill here. Naming it would do it in a moment.' },
+    { id: 'wanx-l3-buzz', intensity: 'little', prompt: `${FRIEND_NAME} feels a little nervous about a review but can still work. What helps most?`, options: [
+      { label: 'Name it, nervousness, not danger', tier: 'best', future: 'Still reachable, so naming it lands and the nervousness eases.' },
+      { label: 'Google how to survive a performance review', tier: 'worst', future: 'An hour of worst-case reading later, the nervousness has spiraled. Chasing certainty feeds the fear.' },
+      { label: 'Take a long walk to clear her head', tier: 'lesser', future: 'Pleasant, but overkill here. Naming it would do it in a moment.' },
     ] },
   ],
   L3_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 3', body: 'You can pick the calm that fits the size now. That is the move the whole game builds to.' },
-  L4_INTRO: { level: 'Level 4', title: 'The power move', subtitle: 'You can read your nerves now. Here is the one move that switches the alarm off before you walk in.' },
+  L4_INTRO: { level: 'Level 4', title: 'The power move', subtitle: 'You can read your nervousness now. Here is the one move that switches the alarm off before you walk in.' },
   L4_TEACH: { kicker: 'The cheat code', title: 'Make your exhale longer', rule: 'Breathe in for 4, out for 8. The long exhale is the part that calms the alarm.', doses: [
     { size: 'Small feeling', amount: '3 slow rounds' },
-    { size: 'Big feeling', amount: 'Step away and keep breathing slow' },
+    { size: 'Big feeling', amount: 'Step away and keep breathing out slow' },
   ], cta: "Let's breathe" },
   L4_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 4', body: 'That long exhale is your power move now. Three slow rounds, any time the alarm gets loud before a big moment.' },
   L5_INTRO: { level: 'Level 5', title: 'The last test', subtitle: 'One real work moment, start to finish. Read it, handle it, breathe.' },
   L5_CAPSTONE: { scene: `${FRIEND_NAME} is up next to present. Her chest is tight, her thoughts are racing, and she cannot slow down.`, size: 'lot', sizeWhy: 'Tight chest and racing thoughts. Her body is in alarm, so thinking will not land yet.', prompt: 'What helps her most right now?', options: [
-    { label: 'Step away and breathe slow for a few', tier: 'best', future: 'The slow exhales drop the alarm. Then her thoughts stop sprinting and she can walk in.' },
-    { label: 'Rehearse every line one more frantic time', tier: 'worst', future: 'Cramming mid-flood spins her faster. It has to wait until she is steady.' },
+    { label: 'Step away and breathe out slow for a few minutes', tier: 'best', future: 'The slow exhales drop the alarm. Then her thoughts stop sprinting and she can walk in.' },
+    { label: 'Frantically rehearse every line one more time', tier: 'worst', future: 'Cramming mid-flood spins her faster. It has to wait until she is steady.' },
     { label: 'Tell herself it will be fine', tier: 'lesser', future: 'A kind thought, but flooded it bounces off. Her body has to settle first.' },
   ] },
   L5_BREATH_Q: BREATH_Q_SHARED,
-  L5_REORDER: { stepLabel: 'Put it in order', prompt: 'When nerves hit before a work moment, what do you do?', steps: [
+  L5_REORDER: { stepLabel: 'Put it in order', prompt: 'When nervousness hits before a work moment, what do you do?', steps: [
     'Check if I am hungry or tired',
     'Read the size, big or small',
     'Small feeling, name it and ground',
-    'Big feeling, step away and breathe slow',
+    'Big feeling, step away and breathe out slow',
   ], whyRight: 'That is the whole method, start to finish.', whyWrong: 'Not the order yet. Move the steps around and try again.' },
   L5_DECK: {
     stepLabel: 'Route each moment',
@@ -1534,8 +1534,8 @@ export const WORK_ANXIETY: Chapter = {
         scene: `${FRIEND_NAME} is wired before a call and snappy in the chat, running on no lunch and a rough night.`,
         route: 'basics',
         foil: 'big',
-        reveal: 'Empty and tired first. Steady the body before you read the nerves.',
-        nudge: 'Check food and sleep before the nerves.',
+        reveal: 'Empty and tired first. Steady the body before you read the nervousness.',
+        nudge: 'Check food and sleep before the nervousness.',
       },
       {
         id: 'wanx-d2',
@@ -1555,15 +1555,15 @@ export const WORK_ANXIETY: Chapter = {
       },
       {
         id: 'wanx-d4',
-        scene: `${FRIEND_NAME} has knots before giving feedback but has written out what she wants to say.`,
+        scene: `${FRIEND_NAME} has an update to give in standup, a little nervous, but she knows her three points.`,
         route: 'small',
         foil: 'big',
-        reveal: 'Knots, but she can plan. Name it, ground, and go.',
-        nudge: 'She can still prepare. This one is small.',
+        reveal: 'A little nervous, but she is ready and can speak. Name it, ground, and go.',
+        nudge: 'She knows her points. How big is this?',
       },
     ],
   },
-  L5_CONGRATS: { title: 'Congratulations', body: 'You have crossed every level in steadying your nerves at work. Try it before your next big moment, and tell me how it goes. I would love to know.' },
+  L5_CONGRATS: { title: 'Congratulations', body: 'You have crossed every level in steadying your nervousness at work. Try it before your next big moment, and tell me how it goes. I would love to know.' },
 };
 
 // Chapter 5 · Confidence. The graded levels teach reading and reframing self-doubt;
@@ -1899,7 +1899,7 @@ export const COURSE_TITLE: Record<string, string> = {
   irritability: 'Stay steady',
   anxiety: 'Calm the spiral',
   'mood-swings': 'Ride the waves',
-  'work-anxiety': 'Steady your nerves',
+  'work-anxiety': 'Overcome nervousness',
   confidence: 'Sound confident',
   assertiveness: 'Speak up',
 };
