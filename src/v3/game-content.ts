@@ -1159,31 +1159,31 @@ export const MOOD_SWINGS: Chapter = {
   L2_SCENES: [
     {
       id: 'mood-l2-a',
-      scene: `${FRIEND_NAME} tears up at an advert, then laughs at herself.`,
+      scene: `${FRIEND_NAME} tears up at a TV commercial, then laughs at herself.`,
       answer: 'little',
       why: 'A quick wave she can name. She feels it, but she is still steady.',
     },
     {
       id: 'mood-l2-b',
-      scene: `${FRIEND_NAME} reads one short text, decides everyone is sick of her, and is typing a long reply she means to send now.`,
+      scene: `${FRIEND_NAME} gets a short text. She reads it and decides everyone is sick of her. Now she is typing a long reply to send right away.`,
       answer: 'lot',
-      why: 'One text became a verdict about everything, and she is about to act on it. That is a big wave.',
+      why: 'One text turned into a verdict about everything. And she is about to act on it. Big wave.',
     },
     {
       id: 'mood-l2-c',
-      scene: `${FRIEND_NAME} wells up at a song and her voice wobbles, then she laughs at herself and carries on.`,
+      scene: `${FRIEND_NAME} snaps at her sister over nothing. A second later she feels bad and lets it go.`,
       answer: 'little',
-      why: 'Tears on the surface, but she is still steady underneath and lets it pass. Teary is not the same as flooded.',
+      why: 'A flash of temper, gone as fast as it came. She caught it and let it drop. Small.',
     },
     {
       id: 'mood-l2-d',
-      scene: `${FRIEND_NAME} is crying hard, sure the friendship is over, and cannot get a sentence out.`,
+      scene: `${FRIEND_NAME} is crying hard. She is sure the friendship is over. She cannot get a word out.`,
       answer: 'lot',
       why: 'Full tears and a cannot-talk flood. The wave is at its peak, so nothing gets decided yet.',
     },
     {
       id: 'mood-l2-e',
-      scene: `${FRIEND_NAME}'s partner makes a small joke and she is suddenly furious and close to tears, phone in hand.`,
+      scene: `${FRIEND_NAME}'s partner makes a small joke. Out of nowhere she is furious and close to tears, phone in hand.`,
       answer: 'lot',
       why: 'A small spark, a big surge, a phone in hand. She is flooded and about to act. Wait first.',
     },
@@ -1215,15 +1215,15 @@ export const MOOD_SWINGS: Chapter = {
     {
       id: 'mood-l3-advert',
       intensity: 'little',
-      prompt: `${FRIEND_NAME} tears up at an advert, then laughs at herself. What helps most?`,
+      prompt: `${FRIEND_NAME} tears up at a TV commercial, then laughs at herself. What helps most?`,
       options: [
         {
           label: 'Name it, I feel tender right now, it passes',
           tier: 'best',
-          future: 'She said what it was, a wave of tender, not a verdict. Named, it moves through and a minute later it is gone.',
+          future: 'She said what it was, a wave of tenderness, not a verdict. Named, it moves through and a minute later it is gone.',
         },
         {
-          label: 'Decide something is wrong with her',
+          label: 'Decide something is wrong with you',
           tier: 'worst',
           future: 'Turning a small wave into a verdict makes it stick. It snowballs.',
         },
@@ -1237,7 +1237,7 @@ export const MOOD_SWINGS: Chapter = {
     {
       id: 'mood-l3-text',
       intensity: 'lot',
-      prompt: `${FRIEND_NAME} read one text, decided everyone is sick of her, and is about to send a long reply. What helps most?`,
+      prompt: `${FRIEND_NAME} got a short text. She decided everyone is sick of her. She is about to send a long reply. What helps most?`,
       options: [
         {
           label: 'Do not send it yet, step away and breathe',
@@ -1250,7 +1250,7 @@ export const MOOD_SWINGS: Chapter = {
           future: 'Sending mid-wave says things she does not mean. It cannot be unsent.',
         },
         {
-          label: 'Tell herself they are probably not upset',
+          label: 'Tell yourself they are probably not upset',
           tier: 'lesser',
           future: 'A fair read, but mid-flood it bounces off. First the wave has to drop.',
         },
@@ -1289,12 +1289,12 @@ export const MOOD_SWINGS: Chapter = {
           future: 'She named the feeling out loud, so it lands and the edge softens. Still reachable, no need to leave.',
         },
         {
-          label: 'Tell her to toughen up',
+          label: 'Tell yourself to toughen up',
           tier: 'worst',
           future: 'Pushing it down stacks it up. Small now, bigger later.',
         },
         {
-          label: 'Send her off alone for 20',
+          label: 'Go off alone for 20',
           tier: 'lesser',
           future: 'Overkill. She did not need space, naming it would do it.',
         },
@@ -1314,10 +1314,10 @@ export const MOOD_SWINGS: Chapter = {
   L4_TEACH: {
     kicker: 'The cheat code',
     title: 'Make your exhale longer',
-    rule: 'Breathe in for 4, out for 8. The long exhale buys the time for the wave to crest.',
+    rule: 'Breathe in for 4, out for 8. A long exhale tells the body to stand down, which buys time for the wave to crest.',
     doses: [
       { size: 'Small feeling', amount: '3 slow rounds' },
-      { size: 'Big feeling', amount: 'Breathe slow and wait before you decide' },
+      { size: 'Big feeling', amount: 'Slow rounds, and decide nothing yet' },
     ],
     cta: "Let's breathe",
   },
@@ -1332,7 +1332,7 @@ export const MOOD_SWINGS: Chapter = {
     subtitle: 'One real moment, start to finish. Read it, handle it, breathe.',
   },
   L5_CAPSTONE: {
-    scene: `It is a rough PMS day. ${FRIEND_NAME} read a short text, decided her friend is done with her, and she is crying with the phone in her hand.`,
+    scene: `It is a rough PMS day. ${FRIEND_NAME} got a short text. She decided her friend is done with her. Now she is crying with the phone in her hand.`,
     size: 'lot',
     sizeWhy: 'Tears, a verdict from one text, phone in hand. She is flooded and about to act.',
     prompt: 'What helps her most right now?',
@@ -1385,7 +1385,7 @@ export const MOOD_SWINGS: Chapter = {
       },
       {
         id: 'mood-d2',
-        scene: `${FRIEND_NAME} tears up at an advert, then laughs at herself.`,
+        scene: `${FRIEND_NAME} tears up at a TV commercial, then laughs at herself.`,
         route: 'small',
         foil: 'big',
         reveal: 'A quick wave she can name. She feels it, and it passes.',
@@ -1393,11 +1393,11 @@ export const MOOD_SWINGS: Chapter = {
       },
       {
         id: 'mood-d3',
-        scene: `${FRIEND_NAME} read one short text, decided everyone is done with her, and is crying too hard to speak.`,
+        scene: `${FRIEND_NAME} is mid-argument with her sister. Everything feels like it is falling apart. She is about to say the one thing she cannot take back.`,
         route: 'big',
         foil: 'small',
-        reveal: 'Flooded. She holds off on deciding anything and is gentle with herself first.',
-        nudge: 'She cannot get a sentence out. Is she deciding clearly right now?',
+        reveal: 'Flooded and about to say it. She holds the sentence, breathes, and is gentle with herself first.',
+        nudge: 'She is about to say something she cannot unsay. How big is this wave?',
       },
       {
         id: 'mood-d4',
