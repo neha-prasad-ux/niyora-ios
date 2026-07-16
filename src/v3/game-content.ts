@@ -564,7 +564,7 @@ export interface Deck {
 // The self-compassion power move (Confidence chapter). Two guided beats she taps
 // through, then she picks one kind line to keep. No right or wrong, like the breath.
 export interface CompassionContent {
-  teach: { kicker: string; title: string; beats: string[] };
+  teach: { kicker: string; title: string; beats: string[]; foot?: string }; // foot: optional dosing note under the beats
   practice: { label: string; line: string; cue: string }[]; // the tap-through beats
   kindPrompt: string; // the prompt above the kind-line options
   kindLines: string[]; // she picks one
@@ -1585,16 +1585,16 @@ export const CONFIDENCE: Chapter = {
       intro: 'Last one. Put the whole chapter into a single plan, in your own words, so it is ready before you need it.' },
   ],
   L1_CARDS: [
-    { id: 'conf-l1-impostor', statement: 'Feeling like a fraud at work is common, even among people who are very good.',
+    { id: 'conf-l1-impostor', statement: 'The more you grow, the more you feel like you do not deserve it.',
       isTrue: true, reveal: 'Around half of people feel it, and it climbs with how capable you actually are. It is a feeling, not a fact about your work. You are in a big, quiet club.' },
     { id: 'conf-l1-action', statement: 'You have to feel confident before you can do the hard thing.',
       isTrue: false, reveal: 'It runs the other way. You do the thing a little scared, it goes okay, and the confidence follows. Waiting to feel ready is the trap. Action builds it, not the other way around.' },
-    { id: 'conf-l1-compare', statement: 'Measuring yourself against how sorted everyone else looks fuels the doubt.',
-      isTrue: true, reveal: 'You are comparing your inside to their outside. Everyone else is winging parts of it too, they just do it quietly. The reel is not the room.' },
-    { id: 'conf-l1-harsh', statement: 'Being hard on yourself is what keeps your standards high.',
+    { id: 'conf-l1-gap', statement: 'Women evaluate themselves lower than equally performing men.',
+      isTrue: true, reveal: 'It is a self-evaluation gap, not a skill gap. Women rate their own work lower than men do, even when the work is just as good and even when they know someone is watching. The doubt is not reading your ability. It is misreading it.' },
+    { id: 'conf-l1-harsh', statement: 'Being cruel to yourself helps you grow more than being kind.',
       isTrue: false, reveal: 'A harsh inner voice mostly makes you anxious and slower. Talking to yourself the way you would a friend is what actually keeps you steady and sharp. Kind beats cruel, every time.' },
     { id: 'conf-l1-evidence', statement: 'Recalling a real past win can quiet a flare of self-doubt.',
-      isTrue: true, reveal: 'Doubt deals in feelings. Evidence deals in facts. One concrete thing you handled before is a fact the doubt cannot argue with.' },
+      isTrue: true, reveal: 'Doubt is a guess, not a fact. It deals in feelings, evidence deals in facts. One concrete thing you handled before is a fact the guess cannot argue with. When in doubt, recall the wins.' },
   ],
   L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills for a steadier sense of yourself at work.', emotion: 'At work: Confidence', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },
@@ -1605,27 +1605,27 @@ export const CONFIDENCE: Chapter = {
     { label: 'Control', small: 'can still speak up', big: 'shrinking, going quiet, pulling back' },
   ] },
   L2_SCENES: [
-    { id: 'conf-l2-a', scene: `${FRIEND_NAME} has an idea in a meeting and feels a flicker of is-this-obvious, but her hand is already half up.`, answer: 'little', why: 'A flicker, and she is still moving toward speaking. Small doubt, still in the driver seat.' },
-    { id: 'conf-l2-b', scene: `${FRIEND_NAME} smiles and says she is thrilled about the promotion, then quietly starts listing everyone more qualified than her.`, answer: 'lot', why: 'The smile hides it. That list is the I-do-not-belong loop starting up. Big, even when it looks fine.' },
-    { id: 'conf-l2-c', scene: `${FRIEND_NAME} got sharp feedback and feels the sting, but she can already see one fair point in it.`, answer: 'little', why: 'It stings, but she is still weighing it clearly. Reachable, so it is small.' },
-    { id: 'conf-l2-d', scene: `${FRIEND_NAME} keeps rereading one critical Slack line and has stopped opening her other work.`, answer: 'lot', why: 'One line has taken over and she cannot function around it. That is the big one, however quiet it looks.' },
-    { id: 'conf-l2-e', scene: `${FRIEND_NAME} wonders out loud if she has enough experience for a role, and pulls up the job description to check.`, answer: 'little', why: 'A real question she is actually checking, not a spiral. Still steady.' },
+    { id: 'conf-l2-a', scene: `${FRIEND_NAME} has an idea in a meeting, thinks is-this-obvious, hand already half up.`, answer: 'little', why: 'A flicker, and she is still moving toward speaking. Small doubt, still in the driver seat.' },
+    { id: 'conf-l2-b', scene: `${FRIEND_NAME} smiles when asked about the promotion, then quietly lists everyone more qualified.`, answer: 'lot', why: 'The smile hides it. That list is the I-do-not-belong loop starting up. Big, even when it looks fine.' },
+    { id: 'conf-l2-c', scene: `${FRIEND_NAME} gets sharp feedback, feels the sting, but can see one fair point.`, answer: 'little', why: 'It stings, but she is still weighing it clearly. Reachable, so it is small.' },
+    { id: 'conf-l2-d', scene: `${FRIEND_NAME} rereads one critical Slack line, has stopped working.`, answer: 'lot', why: 'One line has taken over and she cannot function around it. That is the big one, however quiet it looks.' },
+    { id: 'conf-l2-e', scene: `${FRIEND_NAME} wonders if she has enough experience, pulls up the job description to check.`, answer: 'little', why: 'A real question she is actually checking, not a spiral. Still steady.' },
   ],
   L2_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 2', body: 'You can read the size now. That is the read the whole game turns on.' },
-  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle self-doubt best.', points: [
-    { term: 'Name it and check the facts', def: 'call it doubt, then recall one real win it cannot argue with' },
+  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle self-doubt best. The catch: the bigger the doubt, the less the facts land, so a big one needs kindness first.', points: [
+    { term: 'You know it is doubt, check the facts', def: 'a guess, not a fact, so recall one real win it cannot argue with' },
     { term: 'Be kind and steady', def: 'talk to yourself like a friend, and take the next small step anyway' },
   ] },
   L3_CHEAT: { kicker: 'Cheat code', title: 'When to check the facts, when to be kind', rows: [
-    { label: 'Name it and check the facts', small: 'works best', big: 'not enough on its own', bad: false },
+    { label: 'You know it is doubt, check the facts', small: 'works best', big: 'not enough on its own', bad: false },
     { label: 'Be kind and steady', small: 'more than she needs', big: 'best, it steadies her', bad: false },
     { label: 'Prove it to everyone', small: 'the bar just moves', big: 'the bar keeps moving', bad: true },
   ] },
   L3_SCENES: [
     { id: 'conf-l3-idea', intensity: 'little', prompt: `${FRIEND_NAME} feels an is-this-obvious flicker before sharing an idea. What helps most?`, options: [
-      { label: 'Name it, that is doubt, and say it anyway', tier: 'best', future: 'Named, the flicker loses its grip, and saying it is how the confidence grows.' },
+      { label: 'You know it is doubt, say it anyway', tier: 'best', future: 'You know it is doubt, so the flicker loses its grip, and saying it is how the confidence grows.' },
       { label: 'Wait to see if someone smarter says it first', tier: 'worst', future: 'Holding back feels humble, but it teaches her to stay quiet, and someone else gets the credit for her idea.' },
-      { label: 'Quietly recall a past win before she speaks', tier: 'lesser', future: 'Fine, but this one is small. Naming it and speaking would do it.' },
+      { label: 'Quietly recall a past win before she speaks', tier: 'lesser', future: 'Fine, but this one is small. You know it is doubt, and speaking would do it.' },
     ] },
     { id: 'conf-l3-table', intensity: 'lot', prompt: `${FRIEND_NAME} is spiraling that the senior table will find out she does not belong. What helps most?`, options: [
       { label: 'Be kind to herself and take one small step in', tier: 'best', future: 'Flooded, she needs steadying before facts. A kind word and one small action settle her.' },
@@ -1638,7 +1638,7 @@ export const CONFIDENCE: Chapter = {
       { label: 'Weigh the praise against the one critique', tier: 'lesser', future: 'Sensible, but too worked up to hold both. Calm has to come first.' },
     ] },
     { id: 'conf-l3-apply', intensity: 'little', prompt: `${FRIEND_NAME} hesitates to apply, unsure she ticks enough boxes. What helps most?`, options: [
-      { label: 'Name the doubt and check the actual boxes', tier: 'best', future: 'Still steady, so the facts land. She sees she is closer than the doubt claimed.' },
+      { label: 'You know it is doubt, check the actual boxes', tier: 'best', future: 'Still steady, so the facts land. She sees she is closer than the doubt claimed.' },
       { label: 'Add one more course before she feels ready', tier: 'worst', future: 'There is always one more course. Waiting to feel ready is how the role passes her by.' },
       { label: 'Give herself a quick pep talk first', tier: 'lesser', future: 'Not wrong, but overkill here. A quick box-check would do it.' },
     ] },
@@ -1655,10 +1655,10 @@ export const CONFIDENCE: Chapter = {
       'Notice it. Say, this one is hard right now.',
       'Remember, everyone who has stood here has felt it too.',
       'Say one kind thing, the way you would to a friend.',
-    ] },
+    ], foot: 'Small wobble, just the kind line. Big one, all three beats.' },
     practice: [
       { label: 'Notice', line: 'This one is hard right now.', cue: 'I feel this' },
-      { label: 'Not alone', line: 'Everyone who has sat at that table has felt this too.', cue: 'I am not the only one' },
+      { label: 'Not alone', line: 'Everyone who has stood where you are has felt this too.', cue: 'I am not the only one' },
     ],
     kindPrompt: 'Now the kind thing. Pick the line you would offer a friend standing here.',
     kindLines: [
@@ -1687,7 +1687,7 @@ export const CONFIDENCE: Chapter = {
   L5_REORDER: { stepLabel: 'Put it in order', prompt: 'When self-doubt hits at work, what do you do?', steps: [
     'Check if I am hungry or tired',
     'Read the size, big or small',
-    'Small doubt, name it and recall a real win',
+    'Small doubt, know it is a guess, recall a real win',
     'Big doubt, be kind and take one small step',
   ], whyRight: 'That is the whole method, start to finish.', whyWrong: 'Not the order yet. Move the steps around and try again.' },
   L5_DECK: {
@@ -1708,15 +1708,15 @@ export const CONFIDENCE: Chapter = {
       },
       {
         id: 'conf-d2',
-        scene: `${FRIEND_NAME} feels an is-this-obvious flicker before sharing an idea, but her hand is already half up.`,
+        scene: `${FRIEND_NAME} has an idea in a meeting, thinks is-this-obvious, hand already half up.`,
         route: 'small',
         foil: 'big',
-        reveal: 'A small flicker, still moving. Name it and recall one real win.',
+        reveal: 'A small flicker, still moving. Just a guess, not a fact. Recall one real win.',
         nudge: 'She is already reaching to speak. How big is this?',
       },
       {
         id: 'conf-d3',
-        scene: `${FRIEND_NAME} smiles about the promotion, then quietly lists everyone more qualified than her.`,
+        scene: `${FRIEND_NAME} smiles when asked about the promotion, then quietly lists everyone more qualified.`,
         route: 'big',
         foil: 'small',
         reveal: 'That list is the I-do-not-belong loop. A kind word first, then one small step.',
@@ -1724,7 +1724,7 @@ export const CONFIDENCE: Chapter = {
       },
       {
         id: 'conf-d4',
-        scene: `${FRIEND_NAME} got sharp feedback and feels the sting but can already see one fair point in it.`,
+        scene: `${FRIEND_NAME} gets sharp feedback, feels the sting, but can see one fair point.`,
         route: 'small',
         foil: 'big',
         reveal: 'Still weighing it clearly. Name the sting and recall what she does well.',
