@@ -26,6 +26,8 @@ import Animated, {
   FadeInDown,
   FadeInUp,
   FadeOut,
+  SlideInRight,
+  SlideOutLeft,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -52,7 +54,7 @@ import {
   recordChapterComplete,
 } from '@/store/pms-prep';
 
-type Phase = 'opening' | 'beats' | 'reflectIntro' | 'reflect' | 'kitIntro' | 'kit' | 'payoff';
+type Phase = 'opening' | 'beats' | 'reflect' | 'kit' | 'payoff';
 
 export default function PmsStoryScreen() {
   const params = useLocalSearchParams<{ chapter?: string }>();
@@ -91,12 +93,12 @@ export default function PmsStoryScreen() {
     router.back();
   }, []);
 
-  // Beats read straight through; the last beat hands to the reflect intro.
+  // Beats read straight through; the last beat hands straight into the questions.
   const nextBeat = useCallback(() => {
     Haptics.selectionAsync().catch(() => {});
     setBeatIndex((i) => {
       if (i < chapter.beats.length - 1) return i + 1;
-      setPhase('reflectIntro');
+      setPhase('reflect');
       return i;
     });
   }, [chapter.beats.length]);
@@ -105,7 +107,7 @@ export default function PmsStoryScreen() {
     Haptics.selectionAsync().catch(() => {});
     setReflectIndex((i) => {
       if (i < chapter.reflect.length - 1) return i + 1;
-      setPhase('kitIntro');
+      setPhase('kit');
       return i;
     });
   }, [chapter.reflect.length]);
@@ -125,13 +127,9 @@ export default function PmsStoryScreen() {
       else setPhase('opening');
     } else if (phase === 'reflect') {
       if (reflectIndex > 0) setReflectIndex((i) => i - 1);
-      else setPhase('reflectIntro');
-    } else if (phase === 'reflectIntro') {
-      setPhase('beats');
-    } else if (phase === 'kitIntro') {
-      setPhase('reflect');
+      else setPhase('beats');
     } else if (phase === 'kit') {
-      setPhase('kitIntro');
+      setPhase('reflect');
     } else {
       // opening (and any terminal step) leaves the flow.
       router.back();
@@ -180,13 +178,6 @@ export default function PmsStoryScreen() {
             last={beatIndex === chapter.beats.length - 1}
             onNext={nextBeat}
           />
-        ) : phase === 'reflectIntro' ? (
-          <IntroCard
-            title="A moment to reflect"
-            body="Two quick ones. There's no wrong answer here."
-            cta="Okay"
-            onNext={() => tap('reflect')}
-          />
         ) : phase === 'reflect' ? (
           <Reflect
             key={reflectIndex}
@@ -194,13 +185,6 @@ export default function PmsStoryScreen() {
             index={reflectIndex}
             total={chapter.reflect.length}
             onNext={nextQuestion}
-          />
-        ) : phase === 'kitIntro' ? (
-          <IntroCard
-            title="Build your own better-PMS kit"
-            body="Pick the moves you'd actually reach for. They become your checklist."
-            cta="Let's build it"
-            onNext={() => tap('kit')}
           />
         ) : phase === 'kit' ? (
           <Kit kit={chapter.kit} onDone={finishKit} />
@@ -283,7 +267,7 @@ function Beat({
         </ScrollView>
       </Animated.View>
       <View style={styles.beatFooter}>
-        <NextButton label={last ? 'A moment to reflect' : 'Next'} onPress={onNext} />
+        <NextButton label={last ? 'So, what worked?' : 'Next'} onPress={onNext} />
       </View>
     </View>
   );
@@ -328,37 +312,11 @@ function NextButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-// --- A soft interstitial ("a moment to reflect", "build your kit") ----------
-
-function IntroCard({
-  title,
-  body,
-  cta,
-  onNext,
-}: {
-  title: string;
-  body: string;
-  cta: string;
-  onNext: () => void;
-}) {
-  return (
-    <View style={styles.center}>
-      <Animated.View entering={FadeIn.duration(500)} style={styles.block}>
-        <Text style={styles.introTitle}>{title}</Text>
-        <Text style={styles.introBody}>{body}</Text>
-      </Animated.View>
-      <View style={styles.footer}>
-        <BeginButton label={cta} onPress={onNext} fullWidth />
-      </View>
-    </View>
-  );
-}
-
 // --- Reflect ----------------------------------------------------------------
-// Un-failable. She taps an option; a wrong tap surfaces the warm redirect and
-// gently reveals the true answer, a right tap affirms. Either way Continue then
-// carries on — nothing here can be failed. Remounted per question (keyed) so the
-// picked state resets cleanly without a state-syncing effect.
+// Un-failable. She taps an option; a wrong tap tints her pick and reveals the
+// true answer, then a one-line takeaway teaches. Nothing here can be failed.
+// Keyed per question, so each one slides in from the right as the last slides
+// out to the left — the questions read as a moving deck.
 
 function Reflect({
   question,
@@ -384,9 +342,13 @@ function Reflect({
   };
 
   return (
-    <View style={styles.reflectWrap}>
+    <Animated.View
+      style={styles.reflectWrap}
+      entering={SlideInRight.duration(360)}
+      exiting={SlideOutLeft.duration(240)}
+    >
       <ScrollView contentContainerStyle={styles.reflectScroll} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeIn.duration(400)}>
+        <View>
           <Text style={styles.reflectCount}>{`Reflect · ${index + 1} of ${total}`}</Text>
           <Text style={styles.reflectPrompt}>{question.prompt}</Text>
           <View style={styles.reflectOptions}>
@@ -424,25 +386,26 @@ function Reflect({
               {question.takeaway}
             </Animated.Text>
           )}
-        </Animated.View>
+        </View>
       </ScrollView>
       {answered && (
         <Animated.View entering={FadeInUp.duration(300)} style={styles.footer}>
           <BeginButton
-            label={index < total - 1 ? 'Next' : 'Build your kit'}
+            label={index < total - 1 ? 'Next' : 'Create your own PMS prep list'}
             onPress={onNext}
             fullWidth
           />
         </Animated.View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
-// --- Build your kit ---------------------------------------------------------
+// --- Build your prep list ---------------------------------------------------
 // A short list with exactly one wrong option. Tapping a good move adds it to her
-// kit (and, at the payoff, lands a ring); tapping the wrong one surfaces its soft
-// redirect and simply cannot be added. Un-failable: she moves on whenever.
+// prep list (and, at the payoff, lands a ring); tapping the wrong one surfaces
+// its soft redirect and simply cannot be added. Un-failable: she moves on
+// whenever. Slides in from the reflect step to keep the deck feel.
 
 function Kit({ kit, onDone }: { kit: readonly KitItem[]; onDone: (ids: string[]) => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -463,9 +426,9 @@ function Kit({ kit, onDone }: { kit: readonly KitItem[]; onDone: (ids: string[])
   };
 
   return (
-    <View style={styles.kitWrap}>
+    <Animated.View style={styles.kitWrap} entering={SlideInRight.duration(360)}>
       <ScrollView contentContainerStyle={styles.kitScroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.kitLead}>Tap the ones you'd keep.</Text>
+        <Text style={styles.kitTitle}>Choose everything that helps with PMS</Text>
         {kit.map((item) => {
           const on = chosen.has(item.id);
           const isStruck = struck === item.id;
@@ -493,9 +456,9 @@ function Kit({ kit, onDone }: { kit: readonly KitItem[]; onDone: (ids: string[])
         })}
       </ScrollView>
       <View style={styles.footer}>
-        <BeginButton label="Add these to my kit" onPress={() => onDone([...chosen])} fullWidth />
+        <BeginButton label="Add to my prep list" onPress={() => onDone([...chosen])} fullWidth />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -665,24 +628,6 @@ const styles = StyleSheet.create({
   },
   nextIcon: { marginTop: 1 },
 
-  introTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 25,
-    lineHeight: 32,
-    color: colors.textPrimary,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-  },
-  introBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 23,
-    color: colors.textSubtitle,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    maxWidth: 320,
-  },
-
   // Reflect.
   reflectWrap: { flex: 1 },
   reflectScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24 },
@@ -740,13 +685,13 @@ const styles = StyleSheet.create({
   // Kit.
   kitWrap: { flex: 1 },
   kitScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24, gap: 12 },
-  kitLead: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSubtitle,
+  kitTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 21,
+    lineHeight: 28,
+    color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginBottom: 4,
+    marginBottom: 10,
   },
   kitItem: {
     flexDirection: 'row',

@@ -78,7 +78,7 @@ const STORY1: Chapter = {
   intro: 'A story about a big move.',
   beats: [
     {
-      text: `Neha was moving across the world in a few days. New country, new job, new everything. She'd wanted this forever, and now that it was happening, she was equal parts thrilled and totally freaking out.`,
+      text: `I was moving across the world in a few days. New country, new job, new everything. I'd wanted this forever, and now that it was happening, I was equal parts thrilled and totally freaking out.`,
       scene: {
         image: 's1-suitcase',
         moon: true,
@@ -86,7 +86,7 @@ const STORY1: Chapter = {
       },
     },
     {
-      text: `The night before her flight, she could not sleep. What if it's lonely there. What if I mess it all up. "Okay, this is my fear talking, it always assumes the worst. I went off to boarding school, got bullied, had no friends for a while, and look at me now, flying off to a whole new country. Uncomfortable isn't the same as bad."`,
+      text: `The night before my flight, I could not sleep. What if it's lonely there. What if I mess it all up. Okay, this is my fear talking, it always assumes the worst. I went off to boarding school, got bullied, had no friends for a while, and look at me now, flying off to a whole new country. Uncomfortable isn't the same as bad.`,
       scene: {
         image: 's1-bed',
         moon: true,
@@ -94,7 +94,7 @@ const STORY1: Chapter = {
       },
     },
     {
-      text: `Next day her mom came to see her off. Neha was holding it together, because the second she cried, her mom would too. Trying to lighten things up, her mom teased her about how she always complained about her tiny room. "At least now you get a place you actually like." Neha didn't find it funny. "Momma, I wasn't always complaining. Why would you even say that."`,
+      text: `The next day my mom came to see me off. I was holding it together, because the second I cried, she would too. Trying to lighten things up, she teased me about how I always complained about my tiny room. "At least now you get a place you actually like." I didn't find it funny. "Momma, I wasn't always complaining. Why would you even say that."`,
       scene: {
         image: 's1-gate',
         moon: true,
@@ -102,7 +102,7 @@ const STORY1: Chapter = {
       },
     },
     {
-      text: `She stepped away, didn't want to make things worse, and wandered into the airport bookshop. She grabbed a cozy romance. In the rush she'd skipped lunch, so she got some nuts and a nice coffee, found a seat in the cafe, and skimmed the book while she breathed, really slowly.`,
+      text: `I stepped away, didn't want to make things worse, and wandered into the airport bookshop. I grabbed a cozy romance. In the rush I'd skipped lunch, so I got some nuts and a nice coffee, found a seat in the cafe, and skimmed the book while I breathed, really slowly.`,
       scene: {
         image: 's1-cafe',
         moon: true,
@@ -111,7 +111,7 @@ const STORY1: Chapter = {
       },
     },
     {
-      text: `Twenty minutes later, she texted her mom. "Momma, I can only imagine how hard it is to send your best friend off, and you're doing it so well. The travel plus the PMS have me feeling really weak, and I'm sorry I snapped. It's not you. I love you, and I'm going to miss you so much." She walked back over. Her mom was already crying. It was time to go. They hugged for a long time.`,
+      text: `Twenty minutes later, I texted my mom. "Momma, I can only imagine how hard it is to send your best friend off, and you're doing it so well. The travel plus the PMS have me feeling really weak, and I'm sorry I snapped. It's not you. I love you, and I'm going to miss you so much." I walked back over. She was already crying. It was time to go. We hugged for a long time.`,
       scene: {
         image: 's1-plane',
         moon: true,
@@ -122,11 +122,11 @@ const STORY1: Chapter = {
   ],
   reflect: [
     {
-      prompt: 'What finally helped Neha sleep?',
+      prompt: 'What finally settled the racing thoughts?',
       options: [
-        { label: 'Scrolling on her phone', correct: false },
+        { label: 'Scrolling on the phone', correct: false },
         { label: 'Forcing the thoughts away', correct: false },
-        { label: "Recalling a hard thing she'd handled", correct: true },
+        { label: 'Recalling a past win', correct: true },
       ],
       takeaway: 'A real past win quiets a racing mind better than forcing it to stop.',
     },
