@@ -730,6 +730,13 @@ export const ANXIETY: Chapter = {
         'The calming brain chemistry that dips late in your cycle comes back as your period begins, so the edge tends to lift fast. Knowing it is cyclical, not permanent, takes some of the bite out.',
     },
     {
+      id: 'anx-l1-pmdd',
+      statement: 'If PMS anxiety hits you hard, you probably have PMDD.',
+      isTrue: false,
+      reveal:
+        'PMDD is real, but far rarer than the internet makes it look. Many more people believe they have it than actually do when it is tracked properly. A hard premenstrual week is common, and it is not the same thing.',
+    },
+    {
       id: 'anx-l1-suppress',
       statement: 'Telling yourself to stop worrying can make the worry louder.',
       isTrue: true,
@@ -742,13 +749,6 @@ export const ANXIETY: Chapter = {
       isTrue: false,
       reveal:
         'Checking calms you for a second, then the doubt grows back a little stronger and asks to be checked again. Reassurance is a loop, not an exit. Naming the worry is what loosens it.',
-    },
-    {
-      id: 'anx-l1-avoid',
-      statement: 'Avoiding what makes you anxious quietly makes the anxiety bigger.',
-      isTrue: true,
-      reveal:
-        'Every time you dodge it, your brain learns the thing was dangerous, so next time the fear is bigger. Facing it in small steps is what shrinks it.',
     },
     {
       id: 'anx-l1-body',
@@ -836,7 +836,7 @@ export const ANXIETY: Chapter = {
     rows: [
       { label: 'Name and ground', small: 'works best', big: 'not enough on its own', bad: false },
       { label: 'Step away and breathe', small: 'more than she needs', big: 'best, it settles the alarm', bad: false },
-      { label: 'Push it away', small: 'not a good choice', big: 'comes back stronger', bad: true },
+      { label: 'Make it worse', small: 'not a good choice', big: 'comes back stronger', bad: true },
     ],
   },
   L3_SCENES: [
@@ -851,9 +851,9 @@ export const ANXIETY: Chapter = {
           future: 'Naming it puts a gap between her and the thought. It loses its grip and she moves on.',
         },
         {
-          label: 'Push the worry down and power on',
+          label: 'Check it one more time to be sure',
           tier: 'worst',
-          future: 'Buried, it keeps buzzing under everything. It comes back stronger.',
+          future: 'One check quiets it for a second, then the doubt grows back and asks for another. That is the loop.',
         },
         {
           label: 'Leave the room for 20 and breathe',
@@ -942,7 +942,7 @@ export const ANXIETY: Chapter = {
   L4_TEACH: {
     kicker: 'The cheat code',
     title: 'Make your exhale longer',
-    rule: 'Breathe in for 4, out for 8. The long exhale is the part that calms the alarm.',
+    rule: 'Breathe in for 4, out for 8. The out-breath is where your heart slows, so a long exhale is what calms the alarm.',
     doses: [
       { size: 'Small feeling', amount: '3 slow rounds' },
       { size: 'Big feeling', amount: 'Step away and keep breathing slow' },
@@ -1039,7 +1039,8 @@ export const ANXIETY: Chapter = {
   },
   L5_CONGRATS: {
     title: 'Congratulations',
-    body: 'You have crossed every level in steadying anxiety. Try it in real life, and tell me how it goes. I would love to know.',
+    subtitle: 'The moves are yours now',
+    body: 'The alarm will still sound some months. Now you know it is usually false, and you know how to quiet it. Be kind to yourself the first few times.',
   },
 };
 

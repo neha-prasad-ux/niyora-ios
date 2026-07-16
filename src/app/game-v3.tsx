@@ -974,7 +974,7 @@ function L4Backdrop() {
   );
 }
 
-// The guided breath itself: five slow rounds of a 4s inhale / 8s exhale, driving
+// The guided breath itself: three slow rounds of a 4s inhale / 8s exhale, driving
 // the same growing orb as Quick Calm (breathRange) via useBreathCycle. Mounted
 // only once she taps in, so each run starts fresh from round 1. No skipping.
 const POWER_PHASES: BreathPhase[] = [
@@ -1023,7 +1023,7 @@ function PowerBreath({
 
 // --- Level 4 · The power move (teach the long exhale, then breathe) ----
 // We have not covered breathing yet, so this level introduces it: what the move
-// is, why the long exhale calms you, then five rounds done together. No skip.
+// is, why the long exhale calms you, then three rounds done together. No skip.
 function LevelFour({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
   const { L1_INTRO, L4_INTRO, L4_TEACH, L4_CONGRATS } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'breathe' | 'congrats'>('levelIntro');
