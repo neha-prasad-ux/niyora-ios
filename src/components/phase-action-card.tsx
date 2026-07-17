@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 
 import { CycleBar } from '@/components/cycle-bar';
+import { prepBand } from '@/lib/preparedness';
 import { secondaryButtonSurface } from '@/theme/controls';
 import type { PhaseBand } from '@/lib/phase-band';
 
@@ -54,6 +55,14 @@ type PhaseActionCardProps = {
   ctaDisabled: boolean;
   rose: boolean;
   periodEmphasized: boolean;
+  /**
+   * This cycle's PMS readiness (0..1). When set, a "Your PMS preparedness" band
+   * row sits above the cycle bar and the bar fills to it. Null on PMS/period
+   * days, where the bar stays the plain cycle strip.
+   */
+  readiness?: number | null;
+  /** Tapping the preparedness row/bar opens the PrepSheet. Only wired in prep mode. */
+  onPrepPress?: () => void;
 };
 
 export function PhaseActionCard({
@@ -66,8 +75,14 @@ export function PhaseActionCard({
   ctaDisabled,
   rose,
   periodEmphasized,
+  readiness = null,
+  onPrepPress,
 }: PhaseActionCardProps) {
   const field = done ? DONE_GRADIENT : rose ? ROSE_GRADIENT : ASK_GRADIENT;
+  const showPrep = readiness != null;
+  // The band word is the hero — no standing percentage (a percent reintroduces
+  // "why not 100 / why did it drop"). Movement shows through the bar filling.
+  const band_ = showPrep ? prepBand(readiness ?? 0) : '';
   return (
     <View style={styles.card}>
       {/* Textured header: the field gradient, a soft top-light sheen for
@@ -114,11 +129,39 @@ export function PhaseActionCard({
         </View>
       </View>
 
-      {/* The cycle bar — the card's foot. */}
+      {/* The cycle bar — the card's foot. On build days it carries the
+          preparedness row + readiness fill and, when tappable, opens the
+          PrepSheet; otherwise the plain cycle strip. */}
       {band != null && (
-        <View style={styles.barSection}>
-          <CycleBar band={band} periodEmphasized={periodEmphasized} />
-        </View>
+        <Pressable
+          style={styles.barSection}
+          onPress={showPrep ? onPrepPress : undefined}
+          disabled={!showPrep || onPrepPress == null}
+          accessibilityRole={showPrep && onPrepPress != null ? 'button' : undefined}
+          accessibilityLabel={showPrep ? 'See your PMS preparedness' : undefined}
+        >
+          {showPrep && (
+            <View style={styles.prepRow}>
+              <Text style={styles.prepLabel} numberOfLines={1}>
+                Your PMS preparedness
+              </Text>
+              <View style={styles.prepBandWrap}>
+                <Text style={styles.prepPct} numberOfLines={1}>
+                  {band_}
+                </Text>
+                {onPrepPress != null && (
+                  <SymbolView
+                    name="chevron.right"
+                    tintColor="rgba(255,255,255,0.55)"
+                    size={12}
+                    weight="semibold"
+                  />
+                )}
+              </View>
+            </View>
+          )}
+          <CycleBar band={band} periodEmphasized={periodEmphasized} readiness={readiness} />
+        </Pressable>
       )}
     </View>
   );
@@ -175,5 +218,30 @@ const styles = StyleSheet.create({
     paddingTop: 13,
     paddingBottom: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
+  },
+  prepRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 9,
+    paddingHorizontal: 2,
+    gap: 10,
+  },
+  prepBandWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  prepLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12.5,
+    color: 'rgba(255, 255, 255, 0.82)',
+    letterSpacing: 0.2,
+    flexShrink: 1,
+  },
+  // The band word is the emphasis; it stays whole and the label yields if space
+  // runs short.
+  prepPct: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 13,
+    color: '#ffffff',
+    letterSpacing: 0.3,
+    flexShrink: 0,
   },
 });

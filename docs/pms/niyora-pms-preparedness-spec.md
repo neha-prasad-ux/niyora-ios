@@ -447,11 +447,147 @@ Feature-sized change to the shipped moon system — build it **with** the
 preparedness feature, not as a standalone gut. Removing permanent rings before the
 cyclical replacement exists would break the celebrations and several screens.
 
+## v2 update — scoring, pillars, phases, presentation (2026-07-17)
+
+Supersedes the v1 parts noted below where they conflict. The change: v1 framed the
+score as a completion checklist (fillable to 100%). In review that read wrong.
+"Preparedness" should mean *how ready you are to cope*, not a task you finish. You
+cannot fully prepare for something unpredictable, so the number must never reach 100.
+This turns the old ceiling from a bug into the whole message.
+
+### Scoring — a readiness estimate, not a completion bar
+
+- **Model:** `prepared = 1 − Π(1 − cᵢ)` over each prep action's contribution `cᵢ`.
+  It always climbs, each action adds a little less than the last (natural diminishing
+  returns), and it approaches a ~90% ceiling it never reaches. This is exactly the
+  mental model "every activity makes me more likely to be prepared."
+- **Per-pillar caps** so breadth beats grinding one action.
+- Display may hard-stop at ~90 so it never rounds to 100.
+- Supersedes v1 "100% = moon full / all rings" (see reconciliation below).
+
+### Four pillars (evolves the three tracks)
+
+Promotes v1's "story / education" layer into its own scored track.
+
+| Pillar | Was (v1) | Fed by |
+|---|---|---|
+| **Aware** | (the story layer) | Neha's story + Build/training knowledge |
+| **Nourish** | Body | the body basics: **fuel + rest + movement** |
+| **Calm** | Mind | the regulation practice + the Steady moves |
+| **Together** | Us | the couples/relationship chapters |
+
+**Nourish = the body basics: fuel (food) + rest (sleep) + movement (exercise).** All
+three are first-class factors, not footnotes under food. Today the checklist only names
+food; **sleep** is implicit as "I wound down early" (`woundDown`, sleep hygiene) and
+**movement** is absent. Add both as explicit factors:
+
+Both follow the checklist's existing **warm title + example hint** pattern (calcium is
+"I had calcium-rich food" / "yogurt, cheese, greens"). The number lives in the hint, not
+the gate:
+
+- **Sleep** — tick **"I slept well"**, hint *"a full night, around 7–8h"*. The sleep
+  clock shifts before the period and nudging it back eases symptoms (v1 cites the
+  PMDD/melatonin source). Broaden `woundDown` into this, or add it alongside.
+- **Movement** — tick **"I moved my body"**, hint *"a walk or workout, even 30 min"*.
+
+**No hard targets.** The number is a gentle example, never a pass/fail threshold: she
+ticks it for *prioritising* the thing, not for hitting 8h or 30 min (the score reflects
+effort, never demands completion, never subtracts for a miss). Say **7–8h**, not a hard
+8. Harder numbers (7–9h, ~150 min/week) belong in the **"know why"** content with the
+sources, out of the daily tick.
+
+Like nutrition, both are **keep-through** habits (help most maintained into the luteal
+days). Naming note: "Nourish" leans food-ish for a pillar that now holds rest and
+movement too; keep the pillar copy framed as *caring for your body*, not just eating.
+Copy above is the proposed default; final words are Neha's.
+
+- Reweights with **zero penalty** when a track doesn't apply (unchanged from v1).
+- Pillar is a **colour** on the path, not a section, so breadth stays visible without
+  reading as a checklist.
+
+### Band ladder (the hero; the number is optional)
+
+The band word leads; **no standing percentage** (a persistent percent reintroduces
+"why not 100 / why did it drop"). Live movement comes from the **bar filling** and an
+optional momentary micro-cue when an action lands, not a number.
+
+`Getting started` → `A little` → `Half way` → `Well prepared` → `You are doing great`
+
+The top rung praises effort, it never claims completion, which keeps the never-100
+honesty warm rather than deflating.
+
+### Pillar timing — rehearse-before vs keep-through
+
+- **Aware, Calm, Together:** learn / rehearse / send the heads-up *before* PMS, deploy
+  *during*. Before is the point.
+- **Nourish is the exception:** a *maintained* habit. The calcium/magnesium/sleep
+  evidence is about sustained intake, not a single pre-PMS tick, so it should keep
+  running *through* the luteal days, not one-and-done.
+- Copy must never imply prep makes the week disappear. Prep readies her; Steady-yourself
+  catches the moment. "Enough to be ready" is not "immune" — same truth as never-100.
+
+### Four-phase content map
+
+Splits v1's single "PMS prep" surface into **Before PMS** (prep) and **During PMS**
+(support). Read top-to-bottom in cycle order.
+
+| Content | After periods | Before PMS | During PMS | During periods | Screen |
+|---|:---:|:---:|:---:|:---:|---|
+| **Build** (training) | ✓ | | | | `/train` |
+| **PMS checklist** (holds Food) | ✓ daily habit | ✓ | ✓ | | `/pms-readiness` |
+| **Calm** | ✓ | ✓ | ✓ | ✓ | RecommendSheet → `/result` |
+| **Neha's story** | | ✓ | ✓ | | new (story serial) |
+| **Relationship** | | ✓ ch.1 | ✓ ch.2–4 | | `/couples` |
+| **Cried, fought, snapped** (Steady) | | | ✓ | | `/steady-yourself` |
+| **Care through periods** (rest first) | | | | ✓ | `/periods-care` |
+
+- **Scoring phases** (fill preparedness): *After periods + Before PMS.*
+  **Support phases** (reassurance + in-the-moment): *During PMS + During periods.*
+- **No separate Food page.** Food *is* the checklist (it already holds the food items
+  and their "know why" science). Running the checklist's food/lifestyle habit through
+  the build stretch matches Nourish being a maintained habit.
+- **Period = rest first.** Only Care + Calm, no asks. Any nourishment lives *inside*
+  "Care through periods" as comfort (warm food, a hot drink), never a checklist tick.
+- **Relationship is a serial:** ch.1 (the proactive heads-up / prep well together)
+  Before PMS; ch.2–4 (handling it in the moment) During PMS. Ch.2–4 content still to
+  write.
+- **Calm** is the daily constant, present in every phase.
+
+### Presentation
+
+- **Now card:** the preparedness **bar** (phase labels removed), **band** as the
+  header, reserved ceiling sliver ("the rest you meet in the moment"). Tapping it opens
+  the PrepSheet.
+- **PrepSheet:** a slide-up overlay reusing the `WhySheet` Modal pattern (backdrop +
+  grabber, swipe-to-dismiss), but **tall and scrollable**. Shows the **current phase's**
+  prep items as a short path with **done markers** — framed as *what helps* (a map),
+  never *what you owe* (a backlog). Tapping an item **dismisses the sheet and navigates**
+  to that action screen; the action is never nested inside the sheet.
+- **Grow:** holds the **full four-phase path** (rail + nodes, the browse-all library).
+  Split today's single "PMS prep" section into Before PMS and During PMS (four sections).
+- **Division of labour:** Today action = the one thing to do · PrepSheet = quick
+  contextual peek from Now · Grow = the whole map. Today action stays a real action, not
+  a link to a page.
+
+### Reconciliation with the reward model
+
+No conflict with the resolved reward model — the never-100 estimate and the completable
+rings are **different signals**:
+
+- **Bar / band = this cycle's readiness estimate** (climbs, never full).
+- **Rings = this cycle's story completion** (completable, lost and re-earned each cycle).
+- **Moon colour = lifetime progression** · **Fullness = engagement.**
+
 ## Still open
 
 - Neha's season arc (life-events → skills) as the monthly content pipeline. Story 2
   ends on "to be continued" — the husband repair is the open thread the next chapter
   picks up.
+- **Relationship ch.2–4** (the During-PMS, in-the-moment chapters) — content to write.
+- **Build → which pillar** — training/regulation courses feed Aware (knowledge) or
+  should share Calm (regulation skills)? Decide when wiring the score.
+- **PrepSheet scope** — current-phase peek (recommended) vs the full four-phase path in
+  the sheet. Confirm before building the sheet.
 
 _Both stories fully locked: copy · reflect · kit · sourced science · all images placed
 (story-1 and story-2, 5 scenes each)._

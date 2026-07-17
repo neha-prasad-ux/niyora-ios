@@ -130,7 +130,8 @@ describe('pickTodayAction: setup and window', () => {
       micronutrient: true,
       steady: true,
       antiInflammatory: true,
-      woundDown: true,
+      sleep: true,
+      move: true,
     });
     const inp = input({ now, readiness });
     const a = pickTodayAction(inp);

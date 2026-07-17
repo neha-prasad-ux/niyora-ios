@@ -4,17 +4,11 @@
 // luminous pearl marks today at the fill's leading edge. Display only — the
 // doors it used to hold now live on the card button and the utility row.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import type { BandPhase, PhaseBand } from '@/lib/phase-band';
 import { colors } from '@/theme/colors';
-
-const LABEL: Record<BandPhase, string> = {
-  build: 'Build',
-  pms: 'PMS',
-  period: 'Periods',
-};
 
 // Per-phase vertical gradient pairs — a dim resting wash and a lit elapsed wash,
 // each with a soft top-to-bottom shade so the bar reads as glass. On-brand: it
@@ -39,10 +33,18 @@ type CycleBarProps = {
   band: PhaseBand;
   /** The Periods zone glows a touch brighter when a period is predicted due. */
   periodEmphasized: boolean;
+  /**
+   * When set (0..1), the bar switches to preparedness mode: a single violet fill
+   * grows across the whole bar to this fraction (her PMS readiness), and the tick
+   * marks where she is in the cycle. The phase zones stay as a dim context track.
+   * When null (default), the elapsed cycle fills the zones as before.
+   */
+  readiness?: number | null;
 };
 
-export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
+export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarProps) {
   const curIdx = band.segments.findIndex((s) => s.phase === band.current);
+  const prepMode = readiness != null;
 
   // Today's position across the whole bar (0..1): full zones behind, plus the
   // pearl's place inside the current one.
@@ -50,12 +52,25 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
   for (let i = 0; i < curIdx; i++) elapsed += band.segments[i].fraction;
   elapsed += (band.segments[curIdx]?.fraction ?? 0) * band.pearl;
   const showPearl = elapsed > 0.015 && elapsed < 0.985;
+  const readyPct = Math.max(0, Math.min(1, readiness ?? 0)) * 100;
+
+  // Internal phase boundaries (0..1), drawn as seams on top of the readiness
+  // fill so the true proportions stay visible — Build is the long stretch, PMS a
+  // short slice near the end, Period shorter still.
+  const boundaries: number[] = [];
+  let acc = 0;
+  for (let i = 0; i < band.segments.length - 1; i++) {
+    acc += band.segments[i].fraction;
+    boundaries.push(acc);
+  }
 
   return (
     <View style={styles.wrap}>
       <View style={styles.bar}>
         {band.segments.map((seg, i) => {
-          const fill = i < curIdx ? 1 : i > curIdx ? 0 : band.pearl;
+          // Prep mode leaves the zones as a dim track — the readiness overlay
+          // below is the only fill; otherwise the elapsed cycle lights the zones.
+          const fill = prepMode ? 0 : i < curIdx ? 1 : i > curIdx ? 0 : band.pearl;
           const z = ZONE[seg.phase];
           const emphasized = seg.phase === 'period' && periodEmphasized;
           return (
@@ -83,6 +98,18 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
             </View>
           );
         })}
+        {/* Preparedness fill: one violet sweep across the whole bar to her
+            readiness, sitting over the dim zone track. */}
+        {prepMode && readyPct > 0 && (
+          <View pointerEvents="none" style={[styles.fill, { width: `${readyPct}%` }]}>
+            <LinearGradient
+              colors={READY_FILL}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
+        )}
         {/* Glass sheen across the whole bar — brightest along the top edge. */}
         <LinearGradient
           pointerEvents="none"
@@ -92,32 +119,29 @@ export function CycleBar({ band, periodEmphasized }: CycleBarProps) {
           end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
+        {/* Phase seams on top, so the readiness fill never hides the true zone
+            widths (Build long, PMS short, Period shorter). */}
+        {prepMode &&
+          boundaries.map((f, i) => (
+            <View key={i} pointerEvents="none" style={[styles.boundary, { left: `${f * 100}%` }]} />
+          ))}
       </View>
 
-      {/* Today: a luminous pearl on the fill edge, drawn in the unclipped wrap
-          so its glow isn't cut off by the bar's rounded mask. */}
-      {showPearl && (
+      {/* Today: a luminous pearl on the elapsed edge (cycle mode only). In prep
+          mode the fill is preparedness, not time, so there is no today marker.
+          Drawn in the unclipped wrap so the glow isn't cut by the bar's mask. */}
+      {showPearl && !prepMode && (
         <View pointerEvents="none" style={[styles.pearl, { left: `${elapsed * 100}%` }]}>
           <View style={styles.pearlCore} />
         </View>
       )}
-
-      {/* A legend under the bar — Build left, PMS centre, Periods right — so the
-          narrow Periods zone never has to hold its own word. */}
-      <View style={styles.legend}>
-        {band.segments.map((seg, i) => (
-          <Text
-            key={seg.phase}
-            style={[styles.legendLabel, i === curIdx ? styles.legendOn : styles.legendDim]}
-            numberOfLines={1}
-          >
-            {LABEL[seg.phase]}
-          </Text>
-        ))}
-      </View>
     </View>
   );
 }
+
+// The preparedness fill: the app's signature violet, lit along the top edge so
+// it reads as the same glass as the rest of the bar.
+const READY_FILL: [string, string] = ['hsla(268, 72%, 72%, 0.96)', 'hsla(262, 62%, 60%, 0.82)'];
 
 const BAR_HEIGHT = 12;
 // The today marker sits *within* the bar height (never protruding) and carries
@@ -152,20 +176,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.bandRoseBorder,
   },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 7,
-    paddingHorizontal: 2,
+  // Boundary seam: a thin dark divider spanning the bar, marking a phase edge on
+  // top of the readiness fill.
+  boundary: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: StyleSheet.hairlineWidth,
+    marginLeft: -StyleSheet.hairlineWidth / 2,
+    backgroundColor: 'rgba(8, 7, 12, 0.55)',
   },
-  legendLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11.5,
-    letterSpacing: 0.3,
-  },
-  legendOn: { color: 'rgba(255, 255, 255, 0.92)' },
-  legendDim: { color: 'rgba(255, 255, 255, 0.42)' },
   // The pearl sits centered on the bar height; marginLeft pulls it onto the edge.
   pearl: {
     position: 'absolute',
