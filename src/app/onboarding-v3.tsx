@@ -1667,17 +1667,16 @@ type StartCard = {
   tag: string; // format label: Game / Quiz / Story
   title: string;
   dest: Href;
-  accent: string; // tag colour + fallback tint
-  image?: ImageSourcePropType; // real card art; falls back to a gradient tile
-  icon?: React.ComponentProps<typeof SymbolView>['name']; // symbol on the fallback tile
-  gradient?: readonly [string, string]; // fallback tile field
+  accent: string; // tag colour
+  image?: ImageSourcePropType; // real card art (story); otherwise a live mini-render
+  previewKind?: 'emotion' | 'workplace' | 'partner'; // faithful in-card rebuild of the real screen
   soon?: boolean; // not yet playable — shown dimmed with a "Soon" pill
 };
 
-// Real card art is captured per pillar (drop screenshots in assets/images/
-// onboarding and set `image`). Until one lands, a card falls back to a tinted
-// tile + icon. Story already has its scene art, so it shows the real image even
-// while its player screen is pending.
+// Each card previews its pillar with a faithful in-card mini-render (CardPreview)
+// rebuilt from the real screen's own colours/shapes — no screenshot, no drift.
+// Story already has scene art, so it shows the real image while its player is
+// pending on this branch.
 const START_CARDS: StartCard[] = [
   {
     key: 'emotion',
@@ -1685,8 +1684,7 @@ const START_CARDS: StartCard[] = [
     title: 'Feel steadier when it spikes',
     dest: '/train' as Href,
     accent: 'hsl(220, 55%, 74%)',
-    icon: 'checkmark.square',
-    gradient: ['hsl(218, 40%, 26%)', 'hsl(230, 38%, 18%)'],
+    previewKind: 'emotion',
   },
   {
     key: 'workplace',
@@ -1694,8 +1692,7 @@ const START_CARDS: StartCard[] = [
     title: 'Hold your ground at work',
     dest: '/train?track=workplace' as Href,
     accent: 'hsl(35, 75%, 66%)',
-    icon: 'rectangle.stack',
-    gradient: ['hsl(32, 42%, 26%)', 'hsl(20, 40%, 18%)'],
+    previewKind: 'workplace',
   },
   {
     key: 'partner',
@@ -1703,8 +1700,7 @@ const START_CARDS: StartCard[] = [
     title: 'Words for your partner',
     dest: '/couples-prep' as Href,
     accent: 'hsl(8, 72%, 70%)',
-    icon: 'heart',
-    gradient: ['hsl(348, 40%, 26%)', 'hsl(332, 40%, 18%)'],
+    previewKind: 'partner',
   },
   {
     key: 'story',
@@ -1767,24 +1763,7 @@ function PickCard({
         {card.image ? (
           <Image source={card.image} style={StyleSheet.absoluteFill} resizeMode="cover" />
         ) : (
-          <>
-            <LinearGradient
-              colors={card.gradient ?? ['#1a1622', '#0e0b14']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            {card.icon ? (
-              <View style={styles.pickIconWrap} pointerEvents="none">
-                <SymbolView
-                  name={card.icon}
-                  tintColor="rgba(255, 255, 255, 0.30)"
-                  size={38}
-                  weight="light"
-                />
-              </View>
-            ) : null}
-          </>
+          <CardPreview kind={card.previewKind} />
         )}
         <LinearGradient
           colors={['transparent', 'rgba(0, 0, 0, 0.86)']}
@@ -1805,6 +1784,66 @@ function PickCard({
       </Pressable>
     </Animated.View>
   );
+}
+
+// Live, faithful mini-renders of each pillar's real screen, rebuilt from that
+// screen's own colours + shapes (game-v3, couples-quiz). No screenshot, so they
+// stay crisp at any size and never drift from the source. Values mirror:
+// - emotion: the L1 Truth/Myth hero pair (TRUTH_BLUE calm-blue -8deg over
+//   MYTH_PINK +7deg), on the game's indigo.
+// - workplace: the L5 routing deck (violet situation card + two peeks, the
+//   basics/small/big gate colours as a chip row).
+// - partner: the couples "PMS or real?" coral heart over faint drifting hearts.
+function CardPreview({ kind }: { kind?: StartCard['previewKind'] }) {
+  if (kind === 'emotion') {
+    return (
+      <View style={[styles.pvFill, styles.pvBgEmotion, styles.pvRow]}>
+        <View style={[styles.pvHero, styles.pvHeroTruth]}>
+          <Text style={styles.pvHeroText}>Truth</Text>
+        </View>
+        <View style={[styles.pvHero, styles.pvHeroMyth]}>
+          <Text style={styles.pvHeroText}>Myth</Text>
+        </View>
+      </View>
+    );
+  }
+  if (kind === 'workplace') {
+    return (
+      <View style={[styles.pvFill, styles.pvBgWork]}>
+        <View style={styles.pvDeck}>
+          <View style={[styles.pvPeek, styles.pvPeekLeft]} />
+          <View style={[styles.pvPeek, styles.pvPeekRight]} />
+          <View style={styles.pvDeckFront}>
+            <View style={styles.pvGateRow}>
+              <View style={[styles.pvGateDot, { backgroundColor: 'hsl(42, 68%, 60%)' }]} />
+              <View style={[styles.pvGateDot, { backgroundColor: 'hsl(330, 68%, 74%)' }]} />
+              <View style={[styles.pvGateDot, { backgroundColor: 'hsl(8, 72%, 68%)' }]} />
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  if (kind === 'partner') {
+    return (
+      <View style={[styles.pvFill, styles.pvBgPartner]}>
+        <SymbolView
+          name="heart.fill"
+          tintColor="rgba(255, 255, 255, 0.08)"
+          size={70}
+          style={styles.pvHeartFaint1}
+        />
+        <SymbolView
+          name="heart.fill"
+          tintColor="rgba(255, 255, 255, 0.07)"
+          size={44}
+          style={styles.pvHeartFaint2}
+        />
+        <SymbolView name="heart.fill" tintColor="hsl(8, 72%, 68%)" size={46} weight="semibold" />
+      </View>
+    );
+  }
+  return <View style={[styles.pvFill, styles.pvBgEmotion]} />;
 }
 
 // A section header: the "when" line, the feature title, and a one-line sub.
@@ -2088,7 +2127,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickCardSoon: { opacity: 0.6 },
-  pickIconWrap: {
+  // Card mini-render previews (CardPreview): faithful rebuilds of each screen.
+  pvFill: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -2096,7 +2136,61 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingBottom: 30,
   },
+  pvRow: { flexDirection: 'row' },
+  pvBgEmotion: { backgroundColor: '#141024' },
+  pvBgWork: { backgroundColor: '#1a1330' },
+  pvBgPartner: { backgroundColor: '#241019' },
+  // emotion: the L1 Truth/Myth hero pair.
+  pvHero: {
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pvHeroTruth: {
+    backgroundColor: 'hsla(220, 55%, 75%, 0.92)',
+    transform: [{ rotate: '-8deg' }],
+    marginRight: -10,
+    zIndex: 2,
+  },
+  pvHeroMyth: {
+    backgroundColor: 'hsla(330, 68%, 72%, 0.88)',
+    transform: [{ rotate: '7deg' }],
+  },
+  pvHeroText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#1a1526' },
+  // workplace: the L5 routing deck (front situation card + two peeks + gates).
+  pvDeck: { width: 82, height: 100, alignItems: 'center', justifyContent: 'center' },
+  pvPeek: {
+    position: 'absolute',
+    width: 82,
+    height: 100,
+    borderRadius: 14,
+    backgroundColor: 'hsl(266, 34%, 19%)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  pvPeekLeft: { transform: [{ rotate: '-7deg' }, { translateX: -5 }] },
+  pvPeekRight: { transform: [{ rotate: '7deg' }, { translateX: 5 }] },
+  pvDeckFront: {
+    width: 82,
+    height: 100,
+    borderRadius: 14,
+    backgroundColor: 'hsl(266, 42%, 24%)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 12,
+    zIndex: 2,
+  },
+  pvGateRow: { flexDirection: 'row', gap: 6 },
+  pvGateDot: { width: 12, height: 12, borderRadius: 6 },
+  // partner: the couples coral heart over faint drifting hearts.
+  pvHeartFaint1: { position: 'absolute', top: 10, right: 14, transform: [{ rotate: '12deg' }] },
+  pvHeartFaint2: { position: 'absolute', bottom: 20, left: 12, transform: [{ rotate: '-10deg' }] },
   pickScrim: {
     position: 'absolute',
     left: 0,
