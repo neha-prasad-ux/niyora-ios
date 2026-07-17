@@ -377,8 +377,10 @@ email, and the fight is still open ("to be continued").
 
 **Asset slots** (generate from the prompts above; drop each file in and swap the
 prompt text for its path):
-- Story 1: `assets/images/stories/story-1/scene-1.png` … `scene-5.png` — added / in a
-  separate session
+- Story 1: all 5 placed and vetted on-theme
+  (`assets/images/stories/story-1/scene-1.png` … `scene-5.png`). Source files were
+  numbered out of beat order (airport = beat 3, airplane = beat 5); remapped by content
+  on placement.
 - Story 2: all 5 placed and vetted on-theme
   (`assets/images/stories/story-2/scene-1.png` … `scene-5.png`).
 
@@ -451,5 +453,5 @@ cyclical replacement exists would break the celebrations and several screens.
   ends on "to be continued" — the husband repair is the open thread the next chapter
   picks up.
 
-_Story 2 is fully locked: copy · reflect · kit · sourced science · all 5 images placed.
-(Story 1's images are done / in a separate session.)_
+_Both stories fully locked: copy · reflect · kit · sourced science · all images placed
+(story-1 and story-2, 5 scenes each)._
