@@ -19,9 +19,13 @@ import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { trainSummary, workSummary, type TrainSummary } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
+import { getPmsPrefs, type StartedWith } from '@/store/pms-prefs';
 
 export default function GrowScreen() {
   const [training, setTraining] = useState<TrainingState>(DEFAULT_TRAINING);
+  // The pillar she picked at the end of onboarding ("where do you want to
+  // start?"). The training shelf leads with it so the choice keeps paying off.
+  const [startedWith, setStartedWith] = useState<StartedWith | null>(null);
   // The left rail connecting the phase dots runs from the first dot to the
   // last. We measure the last section's offset so the line ends exactly on its
   // dot rather than overhanging past the final card.
@@ -31,6 +35,9 @@ export default function GrowScreen() {
       let alive = true;
       getTraining().then((t) => {
         if (alive) setTraining(t);
+      });
+      getPmsPrefs().then((p) => {
+        if (alive) setStartedWith(p.startedWith ?? null);
       });
       return () => {
         alive = false;
@@ -81,6 +88,8 @@ export default function GrowScreen() {
   // The two trainable shelves carry progress, so they reorder: the one she can
   // continue floats to the top, anything finished sinks below. The calm and
   // couples tools have no "done" state, so they hold their place underneath.
+  // Ahead of that, the pillar she chose at onboarding leads, so her first pick
+  // stays front-and-centre when she comes back.
   const trainCards = useMemo(() => {
     const cards = [
       {
@@ -102,8 +111,17 @@ export default function GrowScreen() {
         onOpen: openWorkplace,
       },
     ];
-    return cards.sort((a, b) => stateRank(a.summary.statusWord) - stateRank(b.summary.statusWord));
-  }, [training]);
+    // Map the onboarding pick to the shelf it corresponds to (the two training
+    // shelves are emotion + workplace; partner/story live in other sections).
+    const startedKey = startedWith === 'workplace' ? 'work' : startedWith === 'emotion' ? 'train' : null;
+    return cards.sort((a, b) => {
+      if (startedKey) {
+        if (a.key === startedKey && b.key !== startedKey) return -1;
+        if (b.key === startedKey && a.key !== startedKey) return 1;
+      }
+      return stateRank(a.summary.statusWord) - stateRank(b.summary.statusWord);
+    });
+  }, [training, startedWith]);
 
   return (
     <View style={styles.root}>

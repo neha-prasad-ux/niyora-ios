@@ -850,9 +850,7 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 20, paddingTop: 24, gap: 14 },
   // The orb's canvas is 1.8x the sphere (halo room), so a chunk of transparent
   // padding sits below the visible moon; a negative margin pulls the card up
-  // into that gap so the moon and the ask read as one composition. Kept large
-  // enough that the whole composition rides above the floating Calm dock at
-  // rest, so the Add periods / Reflect row never sits under it before scroll.
+  // into that gap so the moon and the ask read as one composition.
   // marginBottom is applied inline (heroPullUp) since it scales with the moon.
   hero: { alignItems: 'center', marginTop: 4 },
   // The cue overlay centers on the orb's oversized canvas so the words sit on
