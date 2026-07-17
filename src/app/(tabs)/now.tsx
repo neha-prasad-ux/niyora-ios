@@ -376,7 +376,7 @@ export default function NowScreen() {
         : 'Practice';
   const phaseTitle =
     band != null && band.current === 'period'
-      ? 'Look back'
+      ? 'Reflect'
       : band != null && band.current === 'pms'
         ? 'Cried, fought, or snapped?'
         : buildTitle;

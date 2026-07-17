@@ -39,6 +39,7 @@ import {
   getCycleImpacts,
   getMutedDomains,
   latestReadsByAnchor,
+  levelOf,
   IMPACT_DOMAINS,
   IMPACT_DOMAIN_LABEL,
   type CycleImpactEntry,
@@ -720,7 +721,7 @@ const GHOST_SERIES: CyclePoint[] = [
   { cycleStart: '2026-06-01', cycleEnd: '2026-07-01', label: 'Jun', engagedDays: 9, span: 30 },
   { cycleStart: '2026-07-01', cycleEnd: '2026-08-01', label: 'Jul', engagedDays: 12, span: 31 },
 ];
-const GHOST_LEVELS: (1 | 2 | 3)[] = [1, 2, 2, 3];
+const GHOST_LEVELS: (number | null)[] = [18, 44, 52, 82];
 const GHOST_SHELF: MintedMoon[] = [
   { cycleStart: '2026-04-01', cycleEnd: '2026-05-01', fullness: 0.4, clarity: null, material: 'moonstone', kept: false },
   { cycleStart: '2026-05-01', cycleEnd: '2026-06-01', fullness: 0.62, clarity: null, material: 'moonstone', kept: true },
@@ -730,7 +731,8 @@ const GHOST_SHELF: MintedMoon[] = [
 const CHART_H = 156;
 
 // The chart drawing, split out so the live card and the blurred preview render
-// the same shape. `levels` is one impact reading per cycle (null = not rated).
+// the same shape. `levels` is one impact reading per cycle on the 0–100 scale
+// (null = not rated), so the line lands at any height and shows a real slope.
 function EffortChart({
   series,
   levels,
@@ -739,7 +741,7 @@ function EffortChart({
   showLine,
 }: {
   series: CyclePoint[];
-  levels: (1 | 2 | 3 | null)[];
+  levels: (number | null)[];
   color: string;
   width: number;
   showLine: boolean;
@@ -753,11 +755,11 @@ function EffortChart({
   const plotH = CHART_H - padT - padB;
   const n = series.length;
   const xAt = (i: number) => (n === 1 ? padL + plotW / 2 : padL + (i * plotW) / (n - 1));
-  const yForLevel = (lvl: number) => padT + ((3 - lvl) / 2) * plotH;
+  const yForValue = (v: number) => padT + ((100 - v) / 100) * plotH;
   const maxEngaged = Math.max(1, ...series.map((p) => p.engagedDays));
   const barW = Math.min(26, (plotW / n) * 0.5);
   const linePts = series
-    .map((p, i) => (levels[i] != null ? `${xAt(i)},${yForLevel(levels[i] as number)}` : null))
+    .map((p, i) => (levels[i] != null ? `${xAt(i)},${yForValue(levels[i] as number)}` : null))
     .filter((s): s is string => s != null)
     .join(' ');
 
@@ -768,11 +770,14 @@ function EffortChart({
       accessibilityElementsHidden={true}
       importantForAccessibility="no-hide-descendants"
     >
-      {[3, 2, 1].map((lvl) => {
-        const y = yForLevel(lvl);
-        const label = lvl === 3 ? 'fine' : lvl === 2 ? 'okay' : 'rough';
+      {[
+        { v: 100, label: 'fine' },
+        { v: 50, label: 'okay' },
+        { v: 0, label: 'rough' },
+      ].map(({ v, label }) => {
+        const y = yForValue(v);
         return (
-          <G key={lvl}>
+          <G key={label}>
             <Line x1={padL} y1={y} x2={w - padR} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
             <SvgText x={w - padR + 5} y={y + 3} fill="rgba(244,242,248,0.3)" fontSize={8.5}>
               {label}
@@ -802,7 +807,7 @@ function EffortChart({
           <Circle
             key={`pt-${p.cycleEnd}`}
             cx={xAt(i)}
-            cy={yForLevel(levels[i] as number)}
+            cy={yForValue(levels[i] as number)}
             r={i === n - 1 ? 5 : 4}
             fill={color}
             stroke="#14101c"
@@ -854,14 +859,16 @@ function EffortImpactCard({
   const levels = series.map((p) => readByAnchor.get(p.cycleStart)?.[domain] ?? null);
   const haveReads = levels.some((l) => l != null);
 
-  const present = levels.filter((l): l is 1 | 2 | 3 => l != null);
+  const present = levels.filter((l): l is number => l != null);
   let caption: string;
   if (!haveReads) {
     caption = 'The impact check-in lives on the Now tab. Your first read appears here next cycle.';
   } else if (present.length < 2) {
     caption = 'One read so far. The trend shows from your next cycle.';
   } else {
-    const delta = present[present.length - 1] - present[present.length - 2];
+    // A small wobble on the continuous scale isn't a real move — only credit a
+    // change once it crosses a band, so the copy doesn't flip on noise.
+    const delta = levelOf(present[present.length - 1]) - levelOf(present[present.length - 2]);
     caption = IMPACT_CAPS[domain][delta > 0 ? 'up' : delta === 0 ? 'flat' : 'down'];
   }
 
