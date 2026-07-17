@@ -20,6 +20,8 @@ import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import {
   AccessibilityInfo,
+  Image,
+  type ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,7 +42,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { PeriodSheet } from '@/components/period-sheet';
-import { DEFAULT_CYCLE_LENGTH, DEFAULT_PERIOD_LENGTH, setPmsPrefs } from '@/store/pms-prefs';
+import {
+  DEFAULT_CYCLE_LENGTH,
+  DEFAULT_PERIOD_LENGTH,
+  getPmsPrefs,
+  setPmsPrefs,
+} from '@/store/pms-prefs';
 import {
   getOnboardingV3Progress,
   setOnboardingV3Progress,
@@ -105,6 +112,7 @@ type StepId =
   | 'loading'
   | 'result'
   | 'goal'
+  | 'pick' // after the plan: choose the first experience (Grow leads with it)
   | 'compare'; // retake mode only: her level then vs. now
 
 const SEQUENCE: StepId[] = [
@@ -121,7 +129,8 @@ const SEQUENCE: StepId[] = [
   'fact_trainable', // final fact: your response is trainable
   'loading',
   'result',
-  'goal', // pick-up: her goal + how Niyora will help, then home
+  'goal', // pick-up: her goal + how Niyora will help
+  'pick', // "where do you want to start?" — routes into the chosen pillar
 ];
 
 // Retake ("measure your progress", entered from My Soul with mode=retake): just
@@ -281,8 +290,13 @@ export default function OnboardingV3Screen() {
 
   // The plan hand-off: write her cycle into the app's real PMS prefs (so home,
   // the luteal card, reminders, and the game all read it), remember the period in
-  // the additive history, mark onboarding done, then land on the dashboard.
-  const complete = useCallback(async () => {
+  // the additive history, mark onboarding done. Does NOT navigate — the pick step
+  // that follows chooses where she lands. Guarded by a ref so backing into the
+  // plan and re-committing cannot record a duplicate baseline read.
+  const committed = useRef(false);
+  const persistPlan = useCallback(async () => {
+    if (committed.current) return;
+    committed.current = true;
     const c = answers.cycle;
     const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
     const hasDate = !c.unsure && starts.length > 0;
@@ -298,8 +312,28 @@ export default function OnboardingV3Screen() {
     // Record the finished read as her baseline, so My Soul can show where she
     // stands and a later retake has something to compare against.
     await addPmsRead({ at: toYmd(new Date()), answers }).catch(() => {});
-    router.replace('/now' as Href);
   }, [answers, stepIndex]);
+
+  // "I commit": lock the plan in, then move to the pick step so she chooses her
+  // first experience instead of dropping straight onto the dashboard.
+  const commitPlan = useCallback(async () => {
+    await persistPlan();
+    advance();
+  }, [persistPlan, advance]);
+
+  // Her first move: remember which pillar she chose (so Grow leads with it) and
+  // open it. pmsMode/cycle are already written by persistPlan; we only add the
+  // choice on top of whatever is stored, then land inside the chosen experience.
+  const startWith = useCallback(async (choice: StartChoice) => {
+    const prev = await getPmsPrefs().catch(() => null);
+    await setPmsPrefs({
+      pmsMode: true,
+      lastPeriodStart: prev?.lastPeriodStart ?? null,
+      cycleLength: prev?.cycleLength ?? DEFAULT_CYCLE_LENGTH,
+      startedWith: choice.key,
+    }).catch(() => {});
+    router.replace(choice.dest);
+  }, []);
 
   // Progress bar + moon show on the question steps and the loading beat, then
   // hand off to the full orb on the result. Hidden on the fact screens: those
@@ -310,6 +344,7 @@ export default function OnboardingV3Screen() {
     step !== 'privacy' &&
     step !== 'result' &&
     step !== 'goal' &&
+    step !== 'pick' &&
     step !== 'compare' &&
     !step.startsWith('fact_');
 
@@ -355,7 +390,8 @@ export default function OnboardingV3Screen() {
             update={update}
             advance={advance}
             finish={finish}
-            complete={complete}
+            commitPlan={commitPlan}
+            startWith={startWith}
           />
         </Animated.View>
       </SafeAreaView>
@@ -424,7 +460,8 @@ function RenderStep({
   update,
   advance,
   finish,
-  complete,
+  commitPlan,
+  startWith,
 }: {
   step: StepId;
   answers: V3Answers;
@@ -432,7 +469,8 @@ function RenderStep({
   update: UpdateFn;
   advance: () => void;
   finish: () => void;
-  complete: () => void;
+  commitPlan: () => void;
+  startWith: (choice: StartChoice) => void;
 }) {
   switch (step) {
     case 'splash':
@@ -463,8 +501,11 @@ function RenderStep({
     case 'result':
       return <Result answers={answers} onNext={advance} />;
     case 'goal':
-      // The plan hand-off: persist her cycle + finish, then land on the dashboard.
-      return <Plan answers={answers} update={update} onDone={complete} />;
+      // The plan hand-off: persist her cycle + mark done, then move to the pick.
+      return <Plan answers={answers} update={update} onDone={commitPlan} />;
+    case 'pick':
+      // "Where do you want to start?" — routes into the chosen pillar.
+      return <Pick onPick={startWith} />;
     case 'compare':
       // Retake only: record the new read, show then vs. now, return to My Soul.
       return <Compare baseline={baseline} answers={answers} onDone={finish} />;
@@ -1612,6 +1653,160 @@ function Plan({
   );
 }
 
+// --- Pick: choose your first experience --------------------------------------
+// The step after the plan. Four image-forward cards in a 2x2 grid; each previews
+// a real pillar and, on tap, routes straight into it while recording the choice
+// so the Grow tab leads with it. Story ships as a teaser ("Soon") until its
+// player screen lands — the other three are live.
+
+type StartKey = 'emotion' | 'workplace' | 'partner' | 'story';
+type StartChoice = { key: StartKey; dest: Href };
+
+type StartCard = {
+  key: StartKey;
+  tag: string; // format label: Game / Quiz / Story
+  title: string;
+  dest: Href;
+  accent: string; // tag colour + fallback tint
+  image?: ImageSourcePropType; // real card art; falls back to a gradient tile
+  icon?: React.ComponentProps<typeof SymbolView>['name']; // symbol on the fallback tile
+  gradient?: readonly [string, string]; // fallback tile field
+  soon?: boolean; // not yet playable — shown dimmed with a "Soon" pill
+};
+
+// Real card art is captured per pillar (drop screenshots in assets/images/
+// onboarding and set `image`). Until one lands, a card falls back to a tinted
+// tile + icon. Story already has its scene art, so it shows the real image even
+// while its player screen is pending.
+const START_CARDS: StartCard[] = [
+  {
+    key: 'emotion',
+    tag: 'Game',
+    title: 'Feel steadier when it spikes',
+    dest: '/train' as Href,
+    accent: 'hsl(220, 55%, 74%)',
+    icon: 'checkmark.square',
+    gradient: ['hsl(218, 40%, 26%)', 'hsl(230, 38%, 18%)'],
+  },
+  {
+    key: 'workplace',
+    tag: 'Game',
+    title: 'Hold your ground at work',
+    dest: '/train?track=workplace' as Href,
+    accent: 'hsl(35, 75%, 66%)',
+    icon: 'rectangle.stack',
+    gradient: ['hsl(32, 42%, 26%)', 'hsl(20, 40%, 18%)'],
+  },
+  {
+    key: 'partner',
+    tag: 'Quiz',
+    title: 'Words for your partner',
+    dest: '/couples-prep' as Href,
+    accent: 'hsl(8, 72%, 70%)',
+    icon: 'heart',
+    gradient: ['hsl(348, 40%, 26%)', 'hsl(332, 40%, 18%)'],
+  },
+  {
+    key: 'story',
+    tag: 'Story',
+    // The reader (`/pms-story`, src/app/pms-story.tsx) is MERGED on main via
+    // PRs #298/#302 but not yet on this branch. Kept `soon` (disabled) so it
+    // can't dead-end here; once this branch picks up main, drop `soon` to go
+    // live — the dest is already correct.
+    title: 'Neha, far from home',
+    dest: '/pms-story' as Href,
+    accent: 'hsl(275, 55%, 76%)',
+    image: require('../../assets/images/stories/story-1/scene-1.png'),
+    soon: true,
+  },
+];
+
+function Pick({ onPick }: { onPick: (choice: StartChoice) => void }) {
+  return (
+    <StepLayout topAlign>
+      <Animated.View entering={FadeInDown.delay(60).duration(500)} style={styles.pickHead}>
+        <Text style={styles.pickTitle}>Knowing your body is halfway to better PMS.</Text>
+        <Text style={styles.pickSub}>Where do you want to start?</Text>
+      </Animated.View>
+      <View style={styles.pickGrid}>
+        {START_CARDS.map((card, i) => (
+          <PickCard key={card.key} card={card} index={i} onPick={onPick} />
+        ))}
+      </View>
+      <Text style={styles.pickFootnote}>Pick one to start. The rest stay in Grow.</Text>
+    </StepLayout>
+  );
+}
+
+function PickCard({
+  card,
+  index,
+  onPick,
+}: {
+  card: StartCard;
+  index: number;
+  onPick: (choice: StartChoice) => void;
+}) {
+  const disabled = card.soon === true;
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(140 + index * 90).duration(500)}
+      style={styles.pickCellWrap}
+    >
+      <Pressable
+        style={[styles.pickCard, disabled && styles.pickCardSoon]}
+        disabled={disabled}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {});
+          onPick({ key: card.key, dest: card.dest });
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        accessibilityLabel={`${card.title}. ${card.tag}${disabled ? '. Coming soon' : ''}.`}
+      >
+        {card.image ? (
+          <Image source={card.image} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+          <>
+            <LinearGradient
+              colors={card.gradient ?? ['#1a1622', '#0e0b14']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            {card.icon ? (
+              <View style={styles.pickIconWrap} pointerEvents="none">
+                <SymbolView
+                  name={card.icon}
+                  tintColor="rgba(255, 255, 255, 0.30)"
+                  size={38}
+                  weight="light"
+                />
+              </View>
+            ) : null}
+          </>
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(0, 0, 0, 0.86)']}
+          style={styles.pickScrim}
+          pointerEvents="none"
+        />
+        <View style={styles.pickLabel}>
+          <Text style={[styles.pickTag, { color: card.accent }]}>{card.tag}</Text>
+          <Text style={styles.pickCardTitle} numberOfLines={2}>
+            {card.title}
+          </Text>
+        </View>
+        {card.soon ? (
+          <View style={styles.soonPill}>
+            <Text style={styles.soonText}>Soon</Text>
+          </View>
+        ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // A section header: the "when" line, the feature title, and a one-line sub.
 function PlanSectionHead({ when, title, sub }: { when: string; title: string; sub: string }) {
   return (
@@ -1855,6 +2050,100 @@ const styles = StyleSheet.create({
   // visually touches the sphere.
   barMoon: {
     marginLeft: -6,
+  },
+
+  // Pick step: the "where do you want to start?" 2x2 grid of image cards.
+  pickHead: { alignSelf: 'stretch', paddingTop: 4, paddingBottom: 18 },
+  pickTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 22,
+    lineHeight: 29,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  pickSub: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    marginTop: 8,
+  },
+  pickGrid: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+  },
+  pickCellWrap: { width: '48%' },
+  pickCard: {
+    width: '100%',
+    aspectRatio: 0.95,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#0e0b14',
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  pickCardSoon: { opacity: 0.6 },
+  pickIconWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '60%',
+  },
+  pickLabel: { paddingHorizontal: 12, paddingBottom: 12, paddingTop: 20 },
+  pickTag: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  pickCardTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 14,
+    lineHeight: 18,
+    letterSpacing: 0.1,
+    color: '#ffffff',
+  },
+  soonPill: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  soonText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: 'rgba(255, 255, 255, 0.82)',
+  },
+  pickFootnote: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 11,
+    lineHeight: 17,
+    color: colors.textTagline,
+    textAlign: 'center',
+    alignSelf: 'stretch',
+    marginTop: 18,
   },
 
   // Type

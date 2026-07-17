@@ -4,10 +4,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // and never asked again. Stays entirely on device: the date and cycle length
 // only feed the local window prediction in lib/pms-window, nothing is ever sent
 // off the phone. When pmsMode is off, the app behaves identically for everyone.
+// Which entry point she picked at the end of onboarding (the "where do you want
+// to start?" grid). Lets the Grow tab lead with that pillar. Null until chosen.
+export type StartedWith = 'emotion' | 'workplace' | 'partner' | 'story';
+
 export type PmsPrefs = {
   pmsMode: boolean;
   lastPeriodStart: string | null; // YYYY-MM-DD, local calendar day; null until set
   cycleLength: number; // days; defaults to 28 when unknown
+  startedWith?: StartedWith | null; // onboarding "start here" pick; null until chosen
 };
 
 const STORAGE_KEY = 'niyora:pms';
@@ -34,7 +39,16 @@ export const DEFAULT_PMS_PREFS: PmsPrefs = {
   pmsMode: false,
   lastPeriodStart: null,
   cycleLength: DEFAULT_CYCLE_LENGTH,
+  startedWith: null,
 };
+
+const STARTED_WITH_VALUES: StartedWith[] = ['emotion', 'workplace', 'partner', 'story'];
+
+function parseStartedWith(value: unknown): StartedWith | null {
+  return typeof value === 'string' && (STARTED_WITH_VALUES as string[]).includes(value)
+    ? (value as StartedWith)
+    : null;
+}
 
 function clampCycle(value: unknown): number {
   const n = typeof value === 'number' ? Math.round(value) : NaN;
@@ -57,6 +71,7 @@ export function parsePmsPrefs(raw: string | null): PmsPrefs {
       pmsMode: parsed.pmsMode === true,
       lastPeriodStart: validDate(parsed.lastPeriodStart),
       cycleLength: clampCycle(parsed.cycleLength),
+      startedWith: parseStartedWith(parsed.startedWith),
     };
   } catch {
     return DEFAULT_PMS_PREFS;
