@@ -8,7 +8,7 @@
 // everything reflective in You.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -99,10 +99,16 @@ import { getTraining, type TrainingState } from '@/store/training-v3';
 const BREATH_IN = 4; // seconds, inhale
 const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
-// Small enough that the whole loop (moon, state line, action, strip, calm
-// button) fits one viewport without scrolling — the moon is the hero, not the
-// whole show.
-const ORB_SIZE = 208;
+// The moon sizes to the screen so the whole loop (moon, state line, action,
+// strip, calm button) fits one viewport without scrolling — the moon is the
+// hero, not the whole show. Its canvas is 1.8x the sphere, so on short phones
+// (SE/mini) a full-size moon would push the action row down under the floating
+// Calm dock; scaling it down keeps the composition clear of the dock at rest.
+function orbSizeFor(screenHeight: number): number {
+  if (screenHeight >= 800) return 208; // 15/16, Pro, Max, Plus
+  if (screenHeight >= 740) return 190; // 13 mini, 12/13 standard shorties
+  return 168; // SE, small legacy
+}
 
 const LAPSE_DAYS = 3;
 
@@ -210,6 +216,13 @@ export default function NowScreen() {
   // both, so the scroll padding has to clear the bar, the button, and its hint.
   const insets = useSafeAreaInsets();
   const barHeight = BAR_CONTENT_HEIGHT + Math.max(insets.bottom, BAR_MIN_BOTTOM_PAD);
+
+  // The moon scales with screen height (see orbSizeFor). heroPullUp lifts the
+  // card into the moon's transparent bottom padding (0.4 * size); subtracting a
+  // fixed 19 keeps the moon-to-card gap steady as the moon shrinks.
+  const { height: screenHeight } = useWindowDimensions();
+  const ORB_SIZE = orbSizeFor(screenHeight);
+  const heroPullUp = Math.round(ORB_SIZE * 0.4) - 19;
 
   // Drive the moon's inhale/exhale on a loop, counting completed breaths so
   // the welcome cue below can hand off (name it, pace it, go quiet) exactly on
@@ -552,7 +565,7 @@ export default function NowScreen() {
           {/* The soul: one big calm moon that carries the whole reward — her
               earned rings, her brightness, her material — and lights up when
               the day's action lands. */}
-          <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
+          <Animated.View entering={FadeInDown.duration(500)} style={[styles.hero, { marginBottom: -heroPullUp }]}>
             <Animated.View style={glowStyle}>
               {/* Dev-only: long-press the moon to preview all materials. */}
               <Pressable
@@ -769,7 +782,8 @@ const styles = StyleSheet.create({
   // The orb's canvas is 1.8x the sphere (halo room), so a chunk of transparent
   // padding sits below the visible moon; a negative margin pulls the card up
   // into that gap so the moon and the ask read as one composition.
-  hero: { alignItems: 'center', marginBottom: -24, marginTop: 4 },
+  // marginBottom is applied inline (heroPullUp) since it scales with the moon.
+  hero: { alignItems: 'center', marginTop: 4 },
   // The cue overlay centers on the orb's oversized canvas so the words sit on
   // the moon regardless of halo padding.
   cueOverlay: {
