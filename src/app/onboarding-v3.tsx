@@ -1441,7 +1441,8 @@ const PREP_DECK: ReadinessCheckId[] = [
   'micronutrient',
   'steady',
   'antiInflammatory',
-  'woundDown',
+  'sleep',
+  'move',
   'calcium',
 ];
 
