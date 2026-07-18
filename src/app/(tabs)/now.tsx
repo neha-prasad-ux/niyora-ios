@@ -8,7 +8,7 @@
 // everything reflective in You.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -37,7 +37,7 @@ import { type RecResult } from '@/models/recommend';
 import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { bandHeadline, derivePhaseBand } from '@/lib/phase-band';
-import { cycleKeyFor, getPrep, prepReadiness, type PrepState } from '@/store/pms-prep';
+import { cycleKeyFor, getPrep, type PrepState } from '@/store/pms-prep';
 import {
   isRingClosed,
   periodButtonState,
@@ -72,7 +72,10 @@ import {
 } from '@/store/period-history';
 import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
-import { getReadiness, todayYmd, type ReadinessState } from '@/store/pms-readiness';
+import { getReadiness, isReadyDone, todayYmd, type ReadinessState } from '@/store/pms-readiness';
+import { preparednessScore, prepBand } from '@/lib/preparedness';
+import { prepItemsFor, type PrepItemKey } from '@/lib/prep-items';
+import { PrepSheet } from '@/components/prep-sheet';
 import { getReminder } from '@/store/reminder-prefs';
 import {
   answeredForCycle,
@@ -100,10 +103,16 @@ import { getTraining, type TrainingState } from '@/store/training-v3';
 const BREATH_IN = 4; // seconds, inhale
 const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
-// Small enough that the whole loop (moon, state line, action, strip, calm
-// button) fits one viewport without scrolling — the moon is the hero, not the
-// whole show.
-const ORB_SIZE = 208;
+// The moon sizes to the screen so the whole loop (moon, state line, action,
+// strip, calm button) fits one viewport without scrolling — the moon is the
+// hero, not the whole show. Its canvas is 1.8x the sphere, so on short phones
+// (SE/mini) a full-size moon would push the action row down under the floating
+// Calm dock; scaling it down keeps the composition clear of the dock at rest.
+function orbSizeFor(screenHeight: number): number {
+  if (screenHeight >= 800) return 208; // 15/16, Pro, Max, Plus
+  if (screenHeight >= 740) return 190; // 13 mini, 12/13 standard shorties
+  return 168; // SE, small legacy
+}
 
 const LAPSE_DAYS = 3;
 
@@ -218,6 +227,13 @@ export default function NowScreen() {
   // both, so the scroll padding has to clear the bar, the button, and its hint.
   const insets = useSafeAreaInsets();
   const barHeight = BAR_CONTENT_HEIGHT + Math.max(insets.bottom, BAR_MIN_BOTTOM_PAD);
+
+  // The moon scales with screen height (see orbSizeFor). heroPullUp lifts the
+  // card into the moon's transparent bottom padding (0.4 * size); subtracting a
+  // fixed 19 keeps the moon-to-card gap steady as the moon shrinks.
+  const { height: screenHeight } = useWindowDimensions();
+  const ORB_SIZE = orbSizeFor(screenHeight);
+  const heroPullUp = Math.round(ORB_SIZE * 0.4) - 19;
 
   // Drive the moon's inhale/exhale on a loop, counting completed breaths so
   // the welcome cue below can hand off (name it, pace it, go quiet) exactly on
@@ -376,7 +392,7 @@ export default function NowScreen() {
         : 'Practice';
   const phaseTitle =
     band != null && band.current === 'period'
-      ? 'Look back'
+      ? 'Reflect'
       : band != null && band.current === 'pms'
         ? 'Cried, fought, or snapped?'
         : buildTitle;
@@ -394,6 +410,38 @@ export default function NowScreen() {
   // It only deadens when there's no cycle and the ask is the empty "done"
   // action — nothing left to open.
   const ctaDisabled = band == null && (action == null || action.kind === 'done');
+
+  // Preparedness: a readiness estimate (never 100), shown on the bar only in the
+  // build phase. Tapping the bar opens the PrepSheet with this phase's items.
+  const prepScore =
+    snapshot != null && band != null && band.current === 'build'
+      ? preparednessScore(snapshot.readiness.checks, snapshot.sessionsToday > 0)
+      : null;
+  const calmDoneToday = (snapshot?.sessionsToday ?? 0) > 0;
+  const checklistDone =
+    snapshot != null &&
+    isReadyDone(snapshot.readiness.checks, calmDoneToday, snapshot.readiness.doneForToday);
+  const prepItems =
+    band == null ? [] : prepItemsFor(band.current, { checklistDone, calmDone: calmDoneToday });
+  const prepPhaseLabel =
+    band == null
+      ? ''
+      : band.current === 'build'
+        ? 'Before PMS'
+        : band.current === 'pms'
+          ? 'Your PMS window'
+          : 'During your period';
+
+  // A prep item hands off to its screen; close the sheet first, never nest.
+  const onPrepSelect = (key: PrepItemKey) => {
+    setPrepSheetOpen(false);
+    Haptics.selectionAsync().catch(() => {});
+    if (key === 'build') router.push('/train' as Href);
+    else if (key === 'checklist') router.push('/pms-readiness' as Href);
+    else if (key === 'calm') setRecommendVisible(true);
+    else if (key === 'steady') router.push('/steady-yourself' as Href);
+    else if (key === 'care') router.push('/periods-care' as Href);
+  };
 
   // Remember what was asked so tomorrow's pick can rotate away from it.
   const lastRecordedId = useRef<string | null>(null);
@@ -454,13 +502,14 @@ export default function NowScreen() {
   // Setup copy nuance: a read left partway resumes, it doesn't restart.
   const actionForCard =
     action != null && action.kind === 'assessment' && snapshot?.setupCard === 'resume'
-      ? { ...action, caption: 'Pick up where you left off' }
+      ? { ...action, caption: 'A fresh start' }
       : action;
 
   // --- Handlers -----------------------------------------------------------
 
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [recommendVisible, setRecommendVisible] = useState(false);
+  const [prepSheetOpen, setPrepSheetOpen] = useState(false);
 
   // PMS -> the checklist (the Prep button's target), Periods -> the calendar
   // sheet (the one write path, reached from the Add periods button).
@@ -495,6 +544,26 @@ export default function NowScreen() {
   const onPeriodConfirm = (date: Date) => {
     if (snapshot == null) return;
     const ymd = todayYmd(date);
+    // A live confirmation closes a cycle when it lands a plausible gap after the
+    // current anchor and is recent — the same guard that lets it mint a moon,
+    // keeping backfilled history and implausible gaps out. Computed off the
+    // snapshot up front (before the anchor advances) so both the mint and the
+    // reflect offer below read the cycle that just ended.
+    const prevAnchor = snapshot.prefs.lastPeriodStart;
+    const cycleDays = prevAnchor == null ? null : daysBetween(prevAnchor, ymd);
+    const recency = daysBetween(ymd, todayYmd(snapshot.now));
+    const closedRealCycle =
+      prevAnchor != null &&
+      cycleDays != null &&
+      cycleDays >= 15 &&
+      cycleDays <= 60 &&
+      recency != null &&
+      recency >= 0 &&
+      recency <= 10;
+    // Whether she has already looked back on the cycle just closed. If she has,
+    // the moon already took its clarity from that answer and we don't re-offer.
+    const alreadyReflected =
+      prevAnchor != null && snapshot.remissionLog.some((e) => e.cycleAnchor === prevAnchor);
     addPeriodStart(ymd)
       .then(async (history) => {
         await setPmsPrefs(prefsAfterPeriodLog(snapshot.prefs, history));
@@ -504,22 +573,8 @@ export default function NowScreen() {
         if (action?.id === 'checkin:period-confirm') {
           await dismissForDay(todayYmd(snapshot.now)).catch(() => {});
         }
-        // A live confirmation closes a cycle: mint it onto the shelf
-        // (moon-reward-spec.md). The guards keep backfilled history and
-        // implausible gaps from minting — only this cycle's real confirmation
-        // becomes a moon.
-        const prevAnchor = snapshot.prefs.lastPeriodStart;
-        const cycleDays = prevAnchor == null ? null : daysBetween(prevAnchor, ymd);
-        const recency = daysBetween(ymd, todayYmd(snapshot.now));
-        if (
-          prevAnchor != null &&
-          cycleDays != null &&
-          cycleDays >= 15 &&
-          cycleDays <= 60 &&
-          recency != null &&
-          recency >= 0 &&
-          recency <= 10
-        ) {
+        // Mint the closed cycle onto the shelf (moon-reward-spec.md).
+        if (closedRealCycle && prevAnchor != null) {
           const clarity =
             snapshot.remissionLog.find((e) => e.cycleAnchor === prevAnchor)?.answer ?? null;
           const ledger = await getLightLedger();
@@ -533,6 +588,18 @@ export default function NowScreen() {
         }
       })
       .then(reload)
+      .then(() => {
+        // A cycle just closed and she hasn't looked back on it yet: close the
+        // calendar and offer the cycle-end reflection, anchored to the cycle
+        // that ended (lastPeriodStart has already advanced to the new start).
+        // This is where we learn whether the month actually eased — the read
+        // that fills her "is it working?" chart. Reflect's own Close is the
+        // escape, so this offers, never gates.
+        if (closedRealCycle && !alreadyReflected && prevAnchor != null) {
+          setPeriodSheetVisible(false);
+          router.push({ pathname: '/reflect', params: { anchor: prevAnchor } });
+        }
+      })
       .catch(() => {});
   };
 
@@ -576,7 +643,7 @@ export default function NowScreen() {
           {/* The soul: one big calm moon that carries the whole reward — her
               earned rings, her brightness, her material — and lights up when
               the day's action lands. */}
-          <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
+          <Animated.View entering={FadeInDown.duration(500)} style={[styles.hero, { marginBottom: -heroPullUp }]}>
             <Animated.View style={glowStyle}>
               {/* Dev-only: long-press the moon to preview all materials. */}
               <Pressable
@@ -664,11 +731,11 @@ export default function NowScreen() {
                     ctaDisabled={ctaDisabled}
                     rose={rose}
                     periodEmphasized={periodButton?.emphasized ?? false}
-                    readiness={
-                      snapshot != null && band != null && band.current === 'build'
-                        ? prepReadiness(snapshot.prep)
-                        : null
-                    }
+                    readiness={prepScore}
+                    onPrepPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      setPrepSheetOpen(true);
+                    }}
                   />
                 </Animated.View>
 
@@ -688,7 +755,7 @@ export default function NowScreen() {
                     style={styles.actionBtn}
                     onPress={openReflect}
                     accessibilityRole="button"
-                    accessibilityLabel="Reflect on your cycle"
+                    accessibilityLabel="How did this PMS go?"
                   >
                     <SymbolView name="book.closed" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
                     <Text style={styles.actionBtnText}>Reflect</Text>
@@ -735,7 +802,7 @@ export default function NowScreen() {
                 setRecommendVisible(true);
               }}
             />
-            <Text style={styles.calmHint}>Feeling worked up? Start here.</Text>
+            <Text style={styles.calmHint}>Enjoy 30+ ways to relax</Text>
           </Animated.View>
         )}
       </SafeAreaView>
@@ -746,6 +813,16 @@ export default function NowScreen() {
         visible={recommendVisible}
         onClose={() => setRecommendVisible(false)}
         onPick={onRecommendPick}
+      />
+
+      {/* Tap the preparedness bar: this phase's prep, as a map of what helps. */}
+      <PrepSheet
+        visible={prepSheetOpen}
+        phaseLabel={prepPhaseLabel}
+        band={prepScore == null ? '' : prepBand(prepScore)}
+        items={prepItems}
+        onClose={() => setPrepSheetOpen(false)}
+        onSelect={onPrepSelect}
       />
 
       {/* The one write path for period dates: the calendar flow built for
@@ -800,7 +877,8 @@ const styles = StyleSheet.create({
   // The orb's canvas is 1.8x the sphere (halo room), so a chunk of transparent
   // padding sits below the visible moon; a negative margin pulls the card up
   // into that gap so the moon and the ask read as one composition.
-  hero: { alignItems: 'center', marginBottom: -24, marginTop: 4 },
+  // marginBottom is applied inline (heroPullUp) since it scales with the moon.
+  hero: { alignItems: 'center', marginTop: 4 },
   // The cue overlay centers on the orb's oversized canvas so the words sit on
   // the moon regardless of halo padding.
   cueOverlay: {

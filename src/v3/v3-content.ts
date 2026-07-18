@@ -136,14 +136,14 @@ export const COPING_ITEMS: {
   label: string;
   mode: 'engagement' | 'disengagement';
 }[] = [
-  { id: 'talk', label: 'Talk it through with someone', mode: 'engagement' },
+  { id: 'talk', label: 'Discuss with someone', mode: 'engagement' },
   { id: 'withdraw', label: 'Keep to yourself', mode: 'disengagement' },
   { id: 'reframe', label: 'Try to see it differently', mode: 'engagement' },
   { id: 'ruminate', label: 'Keep replaying it', mode: 'disengagement' },
   { id: 'distract', label: 'Distract yourself', mode: 'engagement' },
   { id: 'suppress', label: 'Push it down and carry on', mode: 'disengagement' },
   { id: 'engage', label: 'Keep talking it out', mode: 'engagement' },
-  { id: 'vent', label: 'Take it out on someone', mode: 'disengagement' },
+  { id: 'vent', label: 'End up hurting someone', mode: 'disengagement' },
   { id: 'cry', label: 'Cry it out', mode: 'engagement' },
   { id: 'accept', label: 'Let it pass', mode: 'engagement' },
 ];
@@ -273,17 +273,17 @@ export function copingStandingCopy(
     case 'disengaging':
       return {
         line: 'You tend to push feelings down or keep them at a distance',
-        tail: 'Common, and the pattern that keeps them going, also the most trainable',
+        tail: 'It is common but also something we can work on',
       };
     case 'engaging':
       return {
         line: 'You tend to work with the feelings, by talking or reframing',
-        tail: 'That is the pattern that eases things, and we build on it',
+        tail: 'That is good, and let us train to make it stronger',
       };
     case 'mixed':
       return {
         line: 'You do a bit of both, working with feelings and pushing some down',
-        tail: 'The working-with side is the one that helps, and it gets stronger with practice',
+        tail: 'Let us double down on Working with side, it gets stronger with practice',
       };
     default:
       return null;

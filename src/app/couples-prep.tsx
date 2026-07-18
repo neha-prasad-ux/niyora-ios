@@ -86,7 +86,7 @@ export default function CouplesPrepScreen() {
           <View style={styles.body}>
             <View style={styles.center}>
               <Text style={styles.kicker}>Prep well together</Text>
-              <Text style={styles.subtitle}>A few quick questions about your PMS. We&apos;ll turn them into a note to send.</Text>
+              <Text style={styles.subtitle}>Send your partner a note on your PMS plans by answering 5 Yes or no questions</Text>
             </View>
             <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('play'); }} />
           </View>

@@ -35,7 +35,8 @@ const FRESH: ReadinessChecks = {
   micronutrient: false,
   steady: false,
   antiInflammatory: false,
-  woundDown: false,
+  sleep: false,
+  move: false,
 };
 
 function SectionHeader({ title, hint }: { title: string; hint: string }) {

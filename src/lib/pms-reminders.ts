@@ -1,26 +1,47 @@
 import { getPmsPrefs } from '@/store/pms-prefs';
 import { getReminder } from '@/store/reminder-prefs';
-import { nextPmsWindowStartDate } from '@/lib/pms-window';
-import { schedulePmsReminders, cancelPmsReminders } from '@/lib/notifications';
+import { pmsSequenceWindowStartDate, isInPmsNotificationSpan } from '@/lib/pms-window';
+import {
+  schedulePmsReminders,
+  cancelPmsReminders,
+  scheduleDailyReminder,
+  pauseDailyReminder,
+} from '@/lib/notifications';
 
-// Reconcile the on-device PMS heads-up reminders with current prefs. Safe to
-// call on every launch and after any pref change: it cancels and reschedules the
-// next upcoming pair from scratch, so the window rolls forward each cycle on its
-// own without any server or stored schedule.
+// Reconcile the on-device PMS sequence with current prefs. Safe to call on every
+// launch and after any pref change: it cancels and reschedules the sequence for
+// the current-or-next window from scratch, so it rolls forward each cycle on its
+// own without any server or stored schedule. The daily run self-cancels for the
+// cycle the moment she logs her next period.
 //
-// The reminders reuse the daily breath reminder's time (defaulting to 20:00 even
-// when that reminder is disabled) so we never ask her to pick a time twice.
+// The sequence reuses the daily breath reminder's time (defaulting to 20:00 even
+// when that reminder is disabled) so we never ask her to pick a time twice. While
+// today sits inside the PMS notification span, the breath reminder is paused so
+// the two never land at the same minute; it resumes the moment the span passes.
+// Reconciling here means the pause/resume needs no background wakeup.
 export async function syncPmsReminders(): Promise<void> {
   const pms = await getPmsPrefs();
-  if (!pms.pmsMode || !pms.lastPeriodStart) {
-    await cancelPmsReminders();
-    return;
-  }
-  const windowStart = nextPmsWindowStartDate(pms.lastPeriodStart, pms.cycleLength, new Date());
-  if (!windowStart) {
-    await cancelPmsReminders();
-    return;
-  }
   const reminder = await getReminder();
-  await schedulePmsReminders(windowStart, reminder.hour, reminder.minute);
+  const now = new Date();
+
+  let inPmsSpan = false;
+  if (pms.pmsMode && pms.lastPeriodStart) {
+    const windowStart = pmsSequenceWindowStartDate(pms.lastPeriodStart, pms.cycleLength, now);
+    if (windowStart) {
+      await schedulePmsReminders(windowStart, reminder.hour, reminder.minute);
+      inPmsSpan = isInPmsNotificationSpan(pms.lastPeriodStart, pms.cycleLength, now);
+    } else {
+      await cancelPmsReminders();
+    }
+  } else {
+    await cancelPmsReminders();
+  }
+
+  if (reminder.enabled) {
+    if (inPmsSpan) {
+      await pauseDailyReminder();
+    } else {
+      await scheduleDailyReminder(reminder.hour, reminder.minute);
+    }
+  }
 }

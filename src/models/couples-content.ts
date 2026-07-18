@@ -127,7 +127,7 @@ export const COUPLES_TEXTS: readonly TextGroup[] = [
     id: 'desire',
     title: 'About desire',
     items: [
-      { id: 'd-lowbattery', tone: 'Low-battery', text: "My body's in low-battery mode this week, desire included. It's the cycle, not you. Still want you close." },
+      { id: 'd-lowbattery', tone: 'Low-battery', text: "My body's in low-battery mode this week, including the desire. It's the cycle, not you. Still want you close." },
       { id: 'd-raincheck', tone: 'Rain check', text: "Not much in the mood this week, and it's nothing about us. It usually comes back. Cuddles very much still on the table." },
     ],
   },

@@ -34,6 +34,8 @@ import { SOUL_RING_HUES } from '@/models/tiers';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 // Truth reads calm blue (steady/true); Myth reads brand pink (the soul-ring
 // rose family), so the pair is on-brand rather than a warning amber.
 const TRUTH_BLUE = v3.regulated;
@@ -49,6 +51,10 @@ const STRESS_HUES = [8, 275, 330, 8] as const; // coral, violet, pink, coral
 // Level 5 routing-deck gate colours: Small keeps the cool pink of a small read,
 // Big the warm coral of a big one, Basics a soft gold (food/sleep, the pre-step).
 const BASICS_GOLD = 'hsl(42, 68%, 60%)';
+// The situation card is a solid filled violet (the chrome hue), so the bright,
+// solid answer buttons read as the choices against it.
+const DECK_CARD_FILL = 'hsl(266, 42%, 24%)';
+const GATE_FILL: Record<DeckRoute, string> = { basics: BASICS_GOLD, small: SMALL_PINK, big: BIG_CORAL };
 
 // The one place we mark a harmful choice: a muted brick red for "push it down"
 // (suppression), never an alarm neon.
@@ -423,6 +429,8 @@ function L2Backdrop() {
 // spells out how to read the size. Big = coral (hot), Small = pink (cool).
 function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
   const { L1_INTRO, L2_INTRO, L2_CHEAT, L2_SCENES, L2_CONGRATS } = ch;
+  const poles = ch.poles ?? { small: 'Small', big: 'Big' };
+  const cols = ch.cheatCols ?? { small: 'Small', big: 'Big' };
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'play' | 'congrats'>('levelIntro');
   const [i, setI] = useState(0);
   const [guess, setGuess] = useState<Intensity | null>(null);
@@ -433,16 +441,94 @@ function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
   const answered = guess !== null;
   const right = answered && guess === scene.answer;
 
+  // Motion is the lesson: on entry the two sizes GROW to size. Big starts much
+  // smaller and lands a beat later, so the eye watches one become big while the
+  // other stays small. Shared by the intro hero cards and each play scene (only
+  // one is on screen at a time). Press dips each card; the reveal rises in.
+  const [growSmall] = useState(() => new Animated.Value(0));
+  const [growBig] = useState(() => new Animated.Value(0));
+  const [pressSmall] = useState(() => new Animated.Value(0));
+  const [pressBig] = useState(() => new Animated.Value(0));
+  const [popSmall] = useState(() => new Animated.Value(0));
+  const [popBig] = useState(() => new Animated.Value(0));
+  const [rippleSmall] = useState(() => new Animated.Value(0));
+  const [rippleBig] = useState(() => new Animated.Value(0));
+  const [revealIn] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    if (stage !== 'levelIntro' && stage !== 'play') return;
+    growSmall.setValue(0);
+    growBig.setValue(0);
+    popSmall.setValue(0);
+    popBig.setValue(0);
+    rippleSmall.setValue(0);
+    rippleBig.setValue(0);
+    Animated.parallel([
+      Animated.timing(growSmall, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(growBig, { toValue: 1, duration: 460, delay: 90, useNativeDriver: true }),
+    ]).start();
+  }, [stage, i, growSmall, growBig, popSmall, popBig, rippleSmall, rippleBig]);
+
+  useEffect(() => {
+    if (!answered) return;
+    revealIn.setValue(0);
+    Animated.timing(revealIn, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+  }, [answered, revealIn]);
+
+  const dip = (v: Animated.Value, to: number) =>
+    Animated.spring(v, { toValue: to, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
+
+  // Grow-in transform for a card: rises, fades, scales up from `from`. The press
+  // value dips it while held; the pop value bumps it on commit. All composed onto
+  // one scale so it stays on the native driver.
+  const growStyle = (
+    grow: Animated.Value,
+    press: Animated.Value,
+    from: number,
+    rise: number,
+    pop?: Animated.Value,
+  ) => ({
+    opacity: grow,
+    transform: [
+      { translateY: grow.interpolate({ inputRange: [0, 1], outputRange: [rise, 0] }) },
+      {
+        scale: Animated.multiply(
+          Animated.multiply(
+            grow.interpolate({ inputRange: [0, 1], outputRange: [from, 1] }),
+            press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] }),
+          ),
+          pop ? pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) : 1,
+        ),
+      },
+    ],
+  });
+
+  // A ring that radiates out of the tapped moon: sits on its edge, flashes on,
+  // then expands and fades as it travels outward.
+  const rippleStyle = (r: Animated.Value) => ({
+    opacity: r.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.5, 0] }),
+    transform: [{ scale: r.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }],
+  });
+
+  // The tapped moon reacts before it hands off to the answer: it springs up with
+  // an overshoot while a ring ripples out of it (a moon dropped in water), the
+  // celebration bursts at the peak, then the reveal rises in.
   const pick = (g: Intensity) => {
     if (answered) return;
-    if (g === scene.answer) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      setCelebrate(true);
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      setFlawless(false);
-    }
-    setGuess(g);
+    const correct = g === scene.answer;
+    const pop = g === 'lot' ? popBig : popSmall;
+    const ripple = g === 'lot' ? rippleBig : rippleSmall;
+    Haptics.notificationAsync(
+      correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
+    ).catch(() => {});
+    if (correct) setCelebrate(true);
+    else setFlawless(false);
+    ripple.setValue(0);
+    Animated.parallel([
+      Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 14 }),
+      Animated.timing(ripple, { toValue: 1, duration: 520, useNativeDriver: true }),
+    ]).start();
+    setTimeout(() => setGuess(g), 340);
   };
 
   const next = () => {
@@ -505,12 +591,16 @@ function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
               <Text style={styles.l2Title}>{L2_INTRO.title}</Text>
               <Text style={styles.l2Subtitle}>{L2_INTRO.subtitle}</Text>
               <View style={styles.l1CardsHero}>
-                <View style={[styles.l1HeroCard, styles.l2HeroSmall]}>
-                  <Text style={styles.l1HeroCardText}>Small</Text>
-                </View>
-                <View style={[styles.l1HeroCard, styles.l2HeroBig]}>
-                  <Text style={styles.l1HeroCardText}>Big</Text>
-                </View>
+                <Animated.View
+                  style={[styles.l1HeroCard, styles.l2HeroSmall, growStyle(growSmall, pressSmall, 0.85, 8)]}
+                >
+                  <Text style={styles.l2HeroTextSmall}>{poles.small}</Text>
+                </Animated.View>
+                <Animated.View
+                  style={[styles.l1HeroCard, styles.l2HeroBig, growStyle(growBig, pressBig, 0.68, 14)]}
+                >
+                  <Text style={styles.l2HeroTextBig}>{poles.big}</Text>
+                </Animated.View>
               </View>
             </View>
             <BeginButton fullWidth label="Start" onPress={() => { tap(); setStage('cheat'); }} />
@@ -526,8 +616,8 @@ function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
               <View style={styles.l2Table}>
                 <View style={styles.l2TableHead}>
                   <Text style={styles.l2RowLabel} />
-                  <Text style={[styles.l2TableHeadCell, { color: SMALL_PINK }]}>Small</Text>
-                  <Text style={[styles.l2TableHeadCell, { color: BIG_CORAL }]}>Big</Text>
+                  <Text style={[styles.l2TableHeadCell, { color: SMALL_PINK }]}>{cols.small}</Text>
+                  <Text style={[styles.l2TableHeadCell, { color: BIG_CORAL }]}>{cols.big}</Text>
                 </View>
                 {L2_CHEAT.rows.map((r) => (
                   <View key={r.label} style={styles.l2TableRow}>
@@ -549,26 +639,44 @@ function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
             </View>
             <View style={styles.l1Bottom}>
               {!answered ? (
-                <View style={styles.l1Choices}>
-                  <Pressable
-                    style={[styles.l2Choice, styles.l2ChoiceSmall]}
+                <View style={styles.l2Choices}>
+                  <AnimatedPressable
+                    style={[styles.l2Choice, styles.l2ChoiceSmall, growStyle(growSmall, pressSmall, 0.85, 8, popSmall)]}
+                    onPressIn={() => dip(pressSmall, 1)}
+                    onPressOut={() => dip(pressSmall, 0)}
                     onPress={() => pick('little')}
                     accessibilityRole="button"
-                    accessibilityLabel="Small"
+                    accessibilityLabel={poles.small}
                   >
-                    <Text style={styles.l1ChoiceLabel}>Small</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.l2Choice, styles.l2ChoiceBig]}
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[styles.l2Ripple, { borderColor: SMALL_PINK }, rippleStyle(rippleSmall)]}
+                    />
+                    <Text style={styles.l2ChoiceLabelSmall}>{poles.small}</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    style={[styles.l2Choice, styles.l2ChoiceBig, growStyle(growBig, pressBig, 0.68, 14, popBig)]}
+                    onPressIn={() => dip(pressBig, 1)}
+                    onPressOut={() => dip(pressBig, 0)}
                     onPress={() => pick('lot')}
                     accessibilityRole="button"
-                    accessibilityLabel="Big"
+                    accessibilityLabel={poles.big}
                   >
-                    <Text style={styles.l1ChoiceLabel}>Big</Text>
-                  </Pressable>
+                    <Animated.View
+                      pointerEvents="none"
+                      style={[styles.l2Ripple, { borderColor: BIG_CORAL }, rippleStyle(rippleBig)]}
+                    />
+                    <Text style={styles.l2ChoiceLabelBig}>{poles.big}</Text>
+                  </AnimatedPressable>
                 </View>
               ) : (
-                <>
+                <Animated.View
+                  style={{
+                    gap: 12,
+                    opacity: revealIn,
+                    transform: [{ translateY: revealIn.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+                  }}
+                >
                   <View style={[styles.l1Reveal, right ? styles.l1RevealRight : styles.l1RevealWrong]}>
                     <Text
                       style={[
@@ -585,7 +693,7 @@ function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
                     label={right ? (i + 1 >= L2_SCENES.length ? 'Finish' : 'Next') : 'Try again'}
                     onPress={next}
                   />
-                </>
+                </Animated.View>
               )}
             </View>
           </View>
@@ -663,12 +771,17 @@ function L3Backdrop() {
 // 3-tier gentle feedback with soft retry to the best solution.
 function LevelThree({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
   const { L1_INTRO, L3_INTRO, L3_CHEAT, L3_SCENES, L3_CONGRATS } = ch;
+  const cols = ch.cheatCols ?? { small: 'Small', big: 'Big' };
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'play' | 'congrats'>('levelIntro');
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [flawless, setFlawless] = useState(true); // only best-fit first tries -> gold ring
 
+  // L3 is optional (Speaking up drops it). The runner only mounts this component
+  // for a 'preview' level, which implies L3 content, so this guard never trips at
+  // runtime; it narrows the optional L3_* fields for the render below.
+  if (!L3_INTRO || !L3_CHEAT || !L3_SCENES || !L3_CONGRATS) return null;
   const scene = L3_SCENES[i];
   const chosen = picked != null ? scene.options[picked] : null;
   const best = chosen?.tier === 'best';
@@ -777,8 +890,8 @@ function LevelThree({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; o
               <View style={styles.l2Table}>
                 <View style={styles.l2TableHead}>
                   <Text style={styles.l2RowLabel} />
-                  <Text style={[styles.l2TableHeadCell, { color: SMALL_PINK }]}>Small</Text>
-                  <Text style={[styles.l2TableHeadCell, { color: BIG_CORAL }]}>Big</Text>
+                  <Text style={[styles.l2TableHeadCell, { color: SMALL_PINK }]}>{cols.small}</Text>
+                  <Text style={[styles.l2TableHeadCell, { color: BIG_CORAL }]}>{cols.big}</Text>
                 </View>
                 {L3_CHEAT.rows.map((r) => (
                   <View key={r.label} style={[styles.l2TableRow, r.bad && styles.l2TableRowBad]}>
@@ -1155,16 +1268,38 @@ function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => vo
 function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
   const { L1_INTRO, L4_INTRO, L4_CONGRATS, L4_SCRIPT } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'teach' | 'build' | 'congrats'>('levelIntro');
-  const [revealed, setRevealed] = useState(0);
+  const [step, setStep] = useState(0); // which part she is choosing
+  const [wrongIdx, setWrongIdx] = useState<number | null>(null); // decoy she tapped, to show why
 
   if (!L4_SCRIPT) return null; // a 'script' level always carries this
-  const { teach, scenario, lines, sayIt } = L4_SCRIPT;
-  const allRevealed = revealed >= lines.length;
+  const { teach, scenario, steps, sayIt } = L4_SCRIPT;
+  const cur = step < steps.length ? steps[step] : null;
+  const built = step >= steps.length;
+  const fullLine = steps.map((s) => s.correct).join(' ');
+  // Alternate which side the right answer sits on, so she reads, not pattern-matches.
+  const options = cur
+    ? step % 2 === 0
+      ? [{ text: cur.correct, ok: true }, { text: cur.decoy, ok: false }]
+      : [{ text: cur.decoy, ok: false }, { text: cur.correct, ok: true }]
+    : [];
+
+  const choose = (j: number) => {
+    tap();
+    if (options[j].ok) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setWrongIdx(null);
+      setStep(step + 1);
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setWrongIdx(j);
+    }
+  };
 
   const back = () => {
     tap();
     if (stage === 'build') {
-      setRevealed(0);
+      setStep(0);
+      setWrongIdx(null);
       setStage('teach');
     } else if (stage === 'teach') {
       setStage('levelIntro');
@@ -1223,39 +1358,60 @@ function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; 
 
         {stage === 'build' && (
           <View style={styles.l1Body}>
-            <Text style={styles.l5StepLabel}>Your situation</Text>
-            <Text style={styles.l3Prompt}>{scenario}</Text>
-            <ScrollView contentContainerStyle={{ gap: 10, paddingVertical: 8 }} showsVerticalScrollIndicator={false}>
-              {lines.slice(0, revealed).map((ln) => (
-                <View
-                  key={ln.part}
-                  style={{
-                    padding: 14,
-                    borderRadius: 14,
-                    borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: v3.panelBorder,
-                    backgroundColor: v3.panel,
-                  }}
-                >
-                  <Text style={[styles.l1Eyebrow, { textAlign: 'left', marginBottom: 4 }]}>{ln.part}</Text>
-                  <Text style={styles.l1RevealText}>{ln.text}</Text>
+            {!built && cur ? (
+              <>
+                <Text style={styles.l5StepLabel}>{`Part ${step + 1} of ${steps.length}`}</Text>
+                <Text style={styles.l3Prompt}>{scenario}</Text>
+                <View style={{ alignItems: 'center', gap: 2, marginBottom: 16 }}>
+                  <Text style={styles.l1Eyebrow}>{cur.part}</Text>
+                  <Text style={styles.l2Subtitle}>{cur.hint}</Text>
                 </View>
-              ))}
-            </ScrollView>
-            {!allRevealed ? (
-              <BeginButton
-                fullWidth
-                label={revealed === 0 ? 'Start the line' : 'Add the next part'}
-                onPress={() => { tap(); setRevealed(revealed + 1); }}
-              />
+                <View style={{ gap: 10 }}>
+                  {options.map((o, j) => (
+                    <Pressable
+                      key={j}
+                      onPress={() => choose(j)}
+                      accessibilityRole="button"
+                      accessibilityLabel={o.text}
+                      style={[
+                        styles.l3Solution,
+                        wrongIdx === j && {
+                          borderColor: hsla(v3.activated, 0.6),
+                          backgroundColor: hsla(v3.activated, 0.12),
+                        },
+                      ]}
+                    >
+                      <Text style={styles.l3SolutionText}>{o.text}</Text>
+                      {wrongIdx === j && (
+                        <Text
+                          style={{
+                            fontFamily: 'Poppins-Regular',
+                            fontSize: 13,
+                            lineHeight: 18,
+                            color: colors.textSubtitle,
+                            textAlign: 'center',
+                            marginTop: 8,
+                          }}
+                        >
+                          {cur.why}
+                        </Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </>
             ) : (
-              <View style={{ gap: 12 }}>
-                <View style={[styles.l1Reveal, styles.l1RevealRight]}>
-                  <Text style={[styles.l1Verdict, { color: v3.regulated }]}>That is your line</Text>
-                  <Text style={styles.l1RevealText}>{sayIt}</Text>
+              <>
+                <Text style={styles.l5StepLabel}>Your line</Text>
+                <View style={{ flex: 1, justifyContent: 'center', gap: 14 }}>
+                  <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                    <Text style={[styles.l1Verdict, { color: v3.regulated }]}>This is how you would sound</Text>
+                    <Text style={styles.l1RevealText}>{fullLine}</Text>
+                  </View>
+                  <Text style={[styles.l1RevealText, { textAlign: 'center', color: colors.textSubtitle }]}>{sayIt}</Text>
                 </View>
                 <BeginButton fullWidth label="I said it" onPress={() => { tap(); setStage('congrats'); }} />
-              </View>
+              </>
             )}
           </View>
         )}
@@ -1297,11 +1453,11 @@ function L5Backdrop() {
 // a wrong route nudges and lets her re-route, it never scolds; a fully clean run
 // earns gold. The congrats screen hands her the method as a keepsake fork.
 
-// Which way a routed card flies: Small left, Big right, Basics down. The gate
-// buttons sit in the same places, so tap and swipe would agree.
-const ROUTE_DX: Record<DeckRoute, number> = { small: -520, big: 520, basics: 0 };
-const ROUTE_DY: Record<DeckRoute, number> = { small: 0, big: 0, basics: 760 };
-const ROUTE_ROT: Record<DeckRoute, string> = { small: '-16deg', big: '16deg', basics: '0deg' };
+// The gates always sit in this left-to-right order; a card only puts two of the
+// three in play (the right one and a tempting wrong one), so she reads rather
+// than pattern-matches a position. A routed card flies toward the side it was
+// tapped on, so tap and swipe would agree.
+const GATE_ORDER: DeckRoute[] = ['basics', 'small', 'big'];
 const ROUTE_VERDICT: Record<DeckRoute, string> = {
   basics: 'Basics first, yes',
   small: 'Small, keep it light',
@@ -1321,8 +1477,14 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   const [flawless, setFlawless] = useState(true);
   const [fly] = useState(() => new Animated.Value(0)); // 0 at rest, 1 flown out to its gate
   const [enter] = useState(() => new Animated.Value(1)); // 1 at rest, 0 just arrived (below + faded)
+  const [flood] = useState(() => new Animated.Value(0)); // full-page colour fill on a right read
+  const [floodColor, setFloodColor] = useState(BIG_CORAL);
+  const [gatePop] = useState(() => new Animated.Value(0)); // the tapped wrong gate's pop
+  const [poppedRoute, setPoppedRoute] = useState<DeckRoute | null>(null);
 
   const card = cards[cardIdx];
+  // The two gates this card puts in play, in fixed left-to-right order.
+  const shown = GATE_ORDER.filter((r) => r === card.route || r === card.foil);
   const routedRight = routed !== null && routed === card.route;
   const breathAnswered = breathPick !== null;
   const breathRight = breathAnswered && L5_BREATH_Q.options[breathPick].correct;
@@ -1331,12 +1493,29 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   // the gates live so she can re-route (that only costs the clean-run ring).
   const pickGate = (r: DeckRoute) => {
     if (routedRight) return;
-    if (r === card.route) {
+    const correct = r === card.route;
+    if (correct) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setCelebrate(true);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       setFlawless(false);
+    }
+    if (correct) {
+      // A right read fills the whole page with the gate's colour and HOLDS it
+      // (until the next card), so the moment settles into its colour.
+      setFloodColor(GATE_FILL[r]);
+      flood.setValue(0);
+      Animated.timing(flood, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    } else {
+      // A wrong read stays quiet: the tapped gate pops (grows, springs back) and
+      // the reason shows below. No colour, so the page-fill only ever means right.
+      setPoppedRoute(r);
+      gatePop.setValue(0);
+      Animated.sequence([
+        Animated.timing(gatePop, { toValue: 1, duration: 130, useNativeDriver: true }),
+        Animated.spring(gatePop, { toValue: 0, useNativeDriver: true, speed: 12, bounciness: 12 }),
+      ]).start();
     }
     setRouted(r);
   };
@@ -1354,6 +1533,9 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   const nextCard = () => {
     tap();
     setCelebrate(false);
+    // Let the held colour recede as the card flies off, so the next one arrives
+    // on a clean page.
+    Animated.timing(flood, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     Animated.timing(fly, { toValue: 1, duration: 300, useNativeDriver: true }).start(() => {
       const last = cardIdx + 1 >= cards.length;
       fly.setValue(0);
@@ -1416,16 +1598,14 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   // card eases up into place (enter 0→1). Opacity multiplies the two so a card
   // that is both reset (fly=0) and freshly dealt (enter=0) stays invisible — no
   // snap-back flash of the outgoing card at centre.
+  // The card flies off toward the gate it was tapped on: left gate -> left, right
+  // gate -> right (basics/small/big share the same two-slot layout per card).
+  const routedRight2 = routed ? shown.indexOf(routed) === 1 : false;
   const flyStyle = {
     transform: [
-      { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, ROUTE_DX[card.route]] }) },
-      {
-        translateY: Animated.add(
-          fly.interpolate({ inputRange: [0, 1], outputRange: [0, ROUTE_DY[card.route]] }),
-          enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }),
-        ),
-      },
-      { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', ROUTE_ROT[card.route]] }) },
+      { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, routedRight2 ? 520 : -520] }) },
+      { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) },
+      { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', routedRight2 ? '16deg' : '-16deg'] }) },
     ],
     opacity: Animated.multiply(
       fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
@@ -1436,6 +1616,12 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   return (
     <View style={styles.root}>
       <BackgroundGradient />
+      {/* The tapped gate's colour fills the whole page behind the card + buttons,
+          and holds on a right read until the next card. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: floodColor, opacity: flood }]}
+      />
       <SafeAreaView style={styles.l1Safe} edges={['top', 'left', 'right', 'bottom']}>
         {stage !== 'congrats' && (
           <View style={styles.l1TopBar}>
@@ -1488,34 +1674,25 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
                 <>
                   {routed !== null && <Text style={styles.l5Nudge}>{card.nudge}</Text>}
                   <View style={styles.deckGatesRow}>
-                    <Pressable
-                      style={[styles.deckGate, styles.deckGateSmall]}
-                      onPress={() => pickGate('small')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${gates.small.lead}, ${gates.small.move}`}
-                    >
-                      <Text style={styles.deckGateLead}>‹ {gates.small.lead}</Text>
-                      <Text style={styles.deckGateMove}>{gates.small.move}</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.deckGate, styles.deckGateBig]}
-                      onPress={() => pickGate('big')}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${gates.big.lead}, ${gates.big.move}`}
-                    >
-                      <Text style={[styles.deckGateLead, styles.deckGateRight]}>{gates.big.lead} ›</Text>
-                      <Text style={[styles.deckGateMove, styles.deckGateRight]}>{gates.big.move}</Text>
-                    </Pressable>
+                    {shown.map((r) => (
+                      <AnimatedPressable
+                        key={r}
+                        style={[
+                          styles.deckGate,
+                          { backgroundColor: hsla(GATE_FILL[r], 0.92), borderColor: GATE_FILL[r] },
+                          poppedRoute === r && {
+                            transform: [{ scale: gatePop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.1] }) }],
+                          },
+                        ]}
+                        onPress={() => pickGate(r)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${gates[r].lead}, ${gates[r].move}`}
+                      >
+                        <Text style={styles.deckGateLead}>{gates[r].lead}</Text>
+                        <Text style={styles.deckGateMove}>{gates[r].move}</Text>
+                      </AnimatedPressable>
+                    ))}
                   </View>
-                  <Pressable
-                    style={[styles.deckGate, styles.deckGateBasics]}
-                    onPress={() => pickGate('basics')}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${gates.basics.lead}, ${gates.basics.move}`}
-                  >
-                    <Text style={styles.deckGateLead}>{gates.basics.lead}</Text>
-                    <Text style={styles.deckGateMove}>{gates.basics.move}</Text>
-                  </Pressable>
                 </>
               ) : (
                 <>
@@ -1771,8 +1948,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 18,
   },
-  l2HeroSmall: { backgroundColor: hsla(SMALL_PINK, 0.88), transform: [{ rotate: '-8deg' }], marginRight: -18, zIndex: 2 },
-  l2HeroBig: { backgroundColor: hsla(BIG_CORAL, 0.85), transform: [{ rotate: '7deg' }] },
+  // The two hero moons say the level's whole idea by their size: Small is a
+  // small moon, Big a big one. They overlap so it reads as one motif.
+  l2HeroSmall: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: hsla(SMALL_PINK, 0.88),
+    marginRight: -18,
+    zIndex: 2,
+  },
+  l2HeroBig: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: hsla(BIG_CORAL, 0.85),
+  },
+  l2HeroTextSmall: { fontFamily: 'Poppins-Medium', fontSize: 16, color: '#1a1526' },
+  l2HeroTextBig: { fontFamily: 'Poppins-SemiBold', fontSize: 26, color: '#1a1526' },
   l2Scene: {
     fontFamily: 'Poppins-Medium',
     fontSize: 22,
@@ -1820,18 +2013,19 @@ const styles = StyleSheet.create({
   l2RowCell: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
   l2TableRowBad: { backgroundColor: hsla(SUPPRESS_RED, 0.16) },
   l2RowCellBad: { color: SUPPRESS_RED },
+  // The two taps ARE the lesson: two moons, the Small choice a small circle, the
+  // Big choice a big one. Bottom-aligned and centred so the size gap reads clean.
+  l2Choices: { flexDirection: 'row', gap: 22, alignItems: 'flex-end', justifyContent: 'center' },
   l2Choice: {
-    flex: 1,
-    minHeight: 108,
-    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    gap: 4,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  l2ChoiceSmall: { backgroundColor: hsla(SMALL_PINK, 0.9), borderColor: SMALL_PINK },
-  l2ChoiceBig: { backgroundColor: hsla(BIG_CORAL, 0.9), borderColor: BIG_CORAL },
+  l2ChoiceSmall: { width: 108, height: 108, borderRadius: 54, backgroundColor: hsla(SMALL_PINK, 0.9), borderColor: SMALL_PINK },
+  l2ChoiceBig: { width: 156, height: 156, borderRadius: 78, backgroundColor: hsla(BIG_CORAL, 0.9), borderColor: BIG_CORAL },
+  l2ChoiceLabelSmall: { fontFamily: 'Poppins-Medium', fontSize: 18, color: '#1a1526' },
+  l2ChoiceLabelBig: { fontFamily: 'Poppins-SemiBold', fontSize: 27, color: '#1a1526' },
+  l2Ripple: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 999, borderWidth: 2 },
 
   // Level 3 (What helps most) extras.
   l3Prompt: {
@@ -2000,13 +2194,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 20,
     paddingVertical: 22,
-    backgroundColor: hsla(v3.accent, 0.16),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: hsla(v3.accent, 0.55),
+    backgroundColor: DECK_CARD_FILL,
     justifyContent: 'center',
   },
   // The two cards peeking from under the active one, each filling the stack and
-  // fanned by a small rotation for depth.
+  // fanned by a small rotation for depth. Solid darker violets so the filled
+  // stack reads as one object.
   deckPeek: {
     position: 'absolute',
     top: 0,
@@ -2014,16 +2207,13 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 22,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   deckPeek1: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'hsl(266, 40%, 19%)',
     transform: [{ rotate: '3deg' }, { translateY: 8 }],
   },
   deckPeek2: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'hsl(266, 38%, 15%)',
     transform: [{ rotate: '-4deg' }, { translateY: 14 }],
   },
   deckCardMeta: {
@@ -2041,24 +2231,27 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   deckGatesRow: { flexDirection: 'row', gap: 12 },
+  // Solid-filled answer buttons (colour = the gate's read), dark text to read
+  // against the bright fill. The border is the same hue, just a crisp edge.
   deckGate: {
     flex: 1,
+    minHeight: 78,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 14,
     paddingHorizontal: 14,
-  },
-  deckGateSmall: { backgroundColor: hsla(SMALL_PINK, 0.16), borderColor: hsla(SMALL_PINK, 0.55) },
-  deckGateBig: { backgroundColor: hsla(BIG_CORAL, 0.16), borderColor: hsla(BIG_CORAL, 0.55) },
-  deckGateBasics: {
-    flex: 0,
     alignItems: 'center',
-    backgroundColor: hsla(BASICS_GOLD, 0.14),
-    borderColor: hsla(BASICS_GOLD, 0.5),
+    justifyContent: 'center',
   },
-  deckGateLead: { fontFamily: 'Poppins-SemiBold', fontSize: 15, color: colors.textPrimary },
-  deckGateMove: { fontFamily: 'Poppins-Light', fontSize: 13, lineHeight: 18, color: colors.textSubtitle, marginTop: 2 },
-  deckGateRight: { textAlign: 'right' },
+  deckGateLead: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: '#1a1526', textAlign: 'center' },
+  deckGateMove: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(26,21,38,0.72)',
+    marginTop: 2,
+    textAlign: 'center',
+  },
 
   // The keepsake fork on the finale congrats: the method she carries out.
   keepCard: {

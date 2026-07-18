@@ -2,16 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // The daily PMS-readiness check state, for the luteal "get ready" page. Resets
 // every morning (keyed by calendar day) so each day starts fresh, never a
-// streak. Holds the five self-check cards plus the "done for today" flag. The
-// sixth card (a calming activity) is not stored here: it reads as done from the
-// session history (did she practice today), so it can never be falsely ticked.
-// Stays entirely on device.
+// streak. Holds the six self-check cards (fuel, rest, movement) plus the "done
+// for today" flag. The final card (a calming activity) is not stored here: it
+// reads as done from the session history (did she practice today), so it can
+// never be falsely ticked. Stays entirely on device.
 export type ReadinessCheckId =
   | 'calcium'
   | 'micronutrient'
   | 'steady'
   | 'antiInflammatory'
-  | 'woundDown';
+  | 'sleep'
+  | 'move';
 
 export type ReadinessChecks = Record<ReadinessCheckId, boolean>;
 
@@ -20,11 +21,13 @@ export const READINESS_CHECK_IDS: readonly ReadinessCheckId[] = [
   'micronutrient',
   'steady',
   'antiInflammatory',
-  'woundDown',
+  'sleep',
+  'move',
 ];
 
 // Plain names with examples inline, ordered easiest -> hardest so quick wins
-// build momentum. The calming activity (the sixth card) lives in the page.
+// build momentum. The calming activity (the final card) lives in the page. The
+// number in each hint is a gentle example, never a pass/fail target.
 export const READINESS_CHECK_CONTENT: Record<
   ReadinessCheckId,
   { title: string; examples: string }
@@ -36,7 +39,8 @@ export const READINESS_CHECK_CONTENT: Record<
     title: 'I had anti-inflammatory food',
     examples: 'greens, ginger, turmeric, oily fish, berries, olive oil',
   },
-  woundDown: { title: 'I wound down early', examples: 'screens off, dim lights' },
+  sleep: { title: 'I slept well', examples: 'a full night, around 7–8h' },
+  move: { title: 'I moved my body', examples: 'a walk or workout, even 30 min' },
 };
 
 // The "Know why" content that sits below the buttons: one plain-language reason
@@ -75,12 +79,19 @@ export const READINESS_WHY: Record<
     sourceLabel: 'SWAN inflammation study',
     sourceUrl: 'https://pubmed.ncbi.nlm.nih.gov/27135720/',
   },
-  woundDown: {
-    name: 'Winding down early',
+  sleep: {
+    name: 'Sleep',
     teaser: 'More room to cope',
-    why: 'Your sleep clock shifts before your period, and in small studies, helping it back into rhythm eased symptoms. Screens off, dimmer lights, an earlier night gives your system more room.',
+    why: 'Your sleep clock shifts before your period, and in small studies, helping it back into rhythm eased symptoms. A full night, screens off and an earlier wind-down, gives your system more room. Around seven to eight hours is a good aim, not a rule.',
     sourceLabel: 'PMDD and melatonin',
     sourceUrl: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC8664575/',
+  },
+  move: {
+    name: 'Moving your body',
+    teaser: 'Takes the edge off',
+    why: 'Regular movement is one of the more consistent things linked to lighter premenstrual symptoms. It is a link, not a cure, but even a short walk or a gentle workout counts. Aim for something most days, not a hard target.',
+    sourceLabel: 'Exercise & PMS trials',
+    sourceUrl: 'https://pubmed.ncbi.nlm.nih.gov/?term=exercise+premenstrual+syndrome',
   },
 };
 
@@ -98,7 +109,8 @@ function freshChecks(): ReadinessChecks {
     micronutrient: false,
     steady: false,
     antiInflammatory: false,
-    woundDown: false,
+    sleep: false,
+    move: false,
   };
 }
 
@@ -140,7 +152,7 @@ export async function setReadiness(state: ReadinessState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-export const READINESS_TOTAL = 6; // five checks + the calming activity
+export const READINESS_TOTAL = 7; // six self-checks + the calming activity
 
 export function readinessDoneCount(checks: ReadinessChecks, calmDone: boolean): number {
   return READINESS_CHECK_IDS.filter((id) => checks[id]).length + (calmDone ? 1 : 0);

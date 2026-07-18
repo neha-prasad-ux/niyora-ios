@@ -234,8 +234,7 @@ export default function ReflectScreen() {
             </Question>
 
             <View style={styles.sectionGap} />
-            <Text style={styles.eyebrow}>How the cycle landed</Text>
-            <Text style={styles.sectionCaption}>However it actually went.</Text>
+            <Text style={styles.eyebrow}>How was this PMS different?</Text>
 
             {IMPACT_DOMAINS.map((domain) => {
               const isMuted = muted.has(domain);
