@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './storage-lock';
+
 // This cycle's preparedness reward — the isolated per-cycle prep state behind
 // Neha's story (niyora-pms-preparedness-spec.md, "Reward model"). Deliberately
 // SEPARATE from the shipped lifetime moon (src/models/tiers.ts, the light
@@ -91,11 +93,13 @@ export async function setPrep(state: PrepState): Promise<void> {
 // Mark the app opened / story entered this cycle — enough on its own to lift the
 // moon off its half-lit resting state (spec: "opens the app and does anything").
 export async function markEngaged(cycleKey: string): Promise<PrepState> {
-  const state = await getPrep(cycleKey);
-  if (state.engaged) return state;
-  const next = { ...state, engaged: true };
-  await setPrep(next);
-  return next;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const state = await getPrep(cycleKey);
+    if (state.engaged) return state;
+    const next = { ...state, engaged: true };
+    await setPrep(next);
+    return next;
+  });
 }
 
 // Bank a finished chapter and the kit items she chose (correct-only ids). Idempotent
@@ -106,17 +110,19 @@ export async function recordChapterComplete(
   chapterId: string,
   chosenKitIds: readonly string[],
 ): Promise<PrepState> {
-  const state = await getPrep(cycleKey);
-  const chaptersDone = state.chaptersDone.includes(chapterId)
-    ? state.chaptersDone
-    : [...state.chaptersDone, chapterId];
-  const kitChosen = [...state.kitChosen];
-  for (const id of chosenKitIds) {
-    if (!kitChosen.includes(id)) kitChosen.push(id);
-  }
-  const next: PrepState = { cycleKey, chaptersDone, kitChosen, engaged: true };
-  await setPrep(next);
-  return next;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const state = await getPrep(cycleKey);
+    const chaptersDone = state.chaptersDone.includes(chapterId)
+      ? state.chaptersDone
+      : [...state.chaptersDone, chapterId];
+    const kitChosen = [...state.kitChosen];
+    for (const id of chosenKitIds) {
+      if (!kitChosen.includes(id)) kitChosen.push(id);
+    }
+    const next: PrepState = { cycleKey, chaptersDone, kitChosen, engaged: true };
+    await setPrep(next);
+    return next;
+  });
 }
 
 // --- Derivations (pure, unit-tested) ----------------------------------------

@@ -29,6 +29,12 @@ const DAILY_REMINDER_ID = 'niyora-daily-reminder';
 export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
 export const BREAK_OVER_ID = 'niyora-break-over';
 
+// Days of quiet before the comeback nudge fires. It is scheduled when she leaves
+// the app and cancelled when she returns (see _layout's background handler), so
+// it only ever reaches someone who actually drifted — not "24h after a
+// comeback", which never reached a user who left and never came back.
+export const COMEBACK_LAPSE_DAYS = 3;
+
 const REMINDER_TITLE = 'Niyora';
 const REMINDER_BODY = 'A few breaths can settle the whole day.';
 const COMEBACK_NUDGE_BODY = 'When you\'re ready, a breath is here.';
@@ -118,19 +124,32 @@ export async function pauseDailyReminder(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(DAILY_REMINDER_ID).catch(() => {});
 }
 
-// Schedule a one-shot comeback nudge to fire 24 hours from now. Using the
-// fixed identifier means re-calling this replaces any previously scheduled
-// nudge, so focus events never stack up duplicates.
+// Schedule a one-shot comeback nudge to fire COMEBACK_LAPSE_DAYS from now.
+// Called when she leaves the app, so it lands only if she stays away that long;
+// returning cancels it (see _layout). The fixed identifier means re-scheduling
+// on every background just pushes the single nudge forward — never a stack.
 export async function scheduleCombackNudge(): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     identifier: COMEBACK_NUDGE_ID,
     content: { title: REMINDER_TITLE, body: COMEBACK_NUDGE_BODY },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 24 * 60 * 60,
+      seconds: COMEBACK_LAPSE_DAYS * 24 * 60 * 60,
       repeats: false,
     },
   });
+}
+
+// Where a tapped notification should land, so the tap arrives on the feature its
+// copy promised instead of wherever the app last was. The PMS prep beats point
+// at the readiness checklist (kit + partner heads-up live around it); the
+// in-window and break-over beats point at the in-the-moment steady flow. null
+// means no deep link (the comeback/stress nudges route themselves in _layout).
+export function notificationRoute(id: string): '/pms-readiness' | '/steady-yourself' | null {
+  if (id.startsWith('niyora-pms-prep-')) return '/pms-readiness';
+  if (id.startsWith('niyora-pms-day-')) return '/steady-yourself';
+  if (id === BREAK_OVER_ID) return '/steady-yourself';
+  return null;
 }
 
 export async function cancelCombackNudge(): Promise<void> {

@@ -24,6 +24,13 @@ export const colors = {
   beginBorder: 'rgba(150, 110, 187, 0.30)',
   beginGlow: 'rgba(104, 58, 172, 0.45)',
 
+  // The flat solid-purple primary used by the smaller in-card buttons (You,
+  // Reflect) and the switch "on" track. One token so it can't drift from the
+  // copy-pasted `hsl(270,50%,45%)` it replaces.
+  primarySolid: 'hsl(270, 50%, 45%)',
+  // The off state of a Switch track, so the toggles stop hardcoding it.
+  switchTrackOff: '#2a2433',
+
   // Text colors. White at varying opacities per DESIGN.md home anatomy.
   textPrimary: 'rgba(255, 255, 255, 0.95)',
   textWordmark: 'rgba(255, 255, 255, 0.70)',

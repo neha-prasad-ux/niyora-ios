@@ -36,6 +36,8 @@ import { RingCelebration } from '@/components/RingCelebration';
 import { type RecResult } from '@/models/recommend';
 import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import { radius } from '@/theme/spacing';
+import { tileSurface } from '@/theme/controls';
 import { bandHeadline, derivePhaseBand } from '@/lib/phase-band';
 import { cycleKeyFor, getPrep, type PrepState } from '@/store/pms-prep';
 import {
@@ -46,7 +48,6 @@ import {
 } from '@/lib/today-action';
 import { COURSE_TITLE, trainSummary, workSummary } from '@/v3/game-content';
 import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
-import { scheduleCombackNudge } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
 import { daysBetween, engagedDatesFrom, foldLedger } from '@/lib/moon-light';
 import { lightEarned } from '@/lib/light-bus';
@@ -58,7 +59,6 @@ import {
   type PendingCrossing,
 } from '@/store/pending-crossing';
 import { getMoonState, recordCycleMint, type MoonState } from '@/store/moon-state';
-import { getLastCombackNudgeSentAt, setLastCombackNudgeSentAt } from '@/store/comeback-nudge';
 import {
   getOnboardingV3Progress,
   setupCardFor,
@@ -76,14 +76,12 @@ import { getReadiness, isReadyDone, todayYmd, type ReadinessState } from '@/stor
 import { preparednessScore, prepBand } from '@/lib/preparedness';
 import { prepItemsFor, type PrepItemKey } from '@/lib/prep-items';
 import { PrepSheet } from '@/components/prep-sheet';
-import { getReminder } from '@/store/reminder-prefs';
 import {
   answeredForCycle,
   getRemissionLog,
   type RemissionEntry,
 } from '@/store/remission-log';
 import {
-  getLastSession,
   getSessionsToday,
   getStreakInfo,
   type StreakInfo,
@@ -112,27 +110,6 @@ function orbSizeFor(screenHeight: number): number {
   if (screenHeight >= 800) return 208; // 15/16, Pro, Max, Plus
   if (screenHeight >= 740) return 190; // 13 mini, 12/13 standard shorties
   return 168; // SE, small legacy
-}
-
-const LAPSE_DAYS = 3;
-
-// Nudge someone who drifted for a few days, at most once per lapse. Carried
-// over from the retired v2 home — this is the only place it runs now.
-async function checkAndScheduleCombackNudge(): Promise<void> {
-  const pref = await getReminder();
-  if (!pref.enabled) return;
-
-  const last = await getLastSession();
-  if (!last) return;
-
-  const daysSince = (Date.now() - new Date(last.completedAt).getTime()) / (1000 * 60 * 60 * 24);
-  if (daysSince < LAPSE_DAYS) return;
-
-  const lastNudgeIso = await getLastCombackNudgeSentAt();
-  if (lastNudgeIso && new Date(lastNudgeIso) > new Date(last.completedAt)) return;
-
-  await scheduleCombackNudge();
-  await setLastCombackNudgeSentAt(new Date().toISOString());
 }
 
 // Everything the selector and the strip need, loaded in one pass so the screen
@@ -317,7 +294,6 @@ export default function NowScreen() {
   useFocusEffect(
     useCallback(() => {
       reload();
-      checkAndScheduleCombackNudge().catch(() => {});
       // Roll the PMS heads-up reminders forward to the next predicted window.
       syncPmsReminders().catch(() => {});
     }, [reload]),
@@ -940,10 +916,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 13,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: radius.control,
+    ...tileSurface,
   },
   actionBtnText: {
     fontFamily: 'Poppins-Medium',

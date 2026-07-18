@@ -81,6 +81,7 @@ import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
+import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
@@ -1027,7 +1028,7 @@ function ReminderCard({
             onToggle(v);
           }}
           accessibilityLabel="Daily reminder"
-          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          trackColor={{ false: colors.switchTrackOff, true: colors.primarySolid }}
           thumbColor="#fff"
         />
       </View>
@@ -1072,7 +1073,7 @@ function ToggleCard({
             onChange(v);
           }}
           accessibilityLabel={title}
-          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          trackColor={{ false: colors.switchTrackOff, true: colors.primarySolid }}
           thumbColor="#fff"
         />
       </View>
@@ -1165,7 +1166,7 @@ function PmsReadCard({
       {cmp && <Text style={styles.pmsStatus}>{cmp.headline}</Text>}
       <Pressable
         onPress={onRetake}
-        style={styles.primarySmallButton}
+        style={styles.secondarySmallButton}
         accessibilityRole="button"
         accessibilityLabel="Check your PMS level"
       >
@@ -1205,7 +1206,7 @@ function PmsCard({
             onToggle(v);
           }}
           accessibilityLabel="Smart PMS mode"
-          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          trackColor={{ false: colors.switchTrackOff, true: colors.primarySolid }}
           thumbColor="#fff"
         />
       </View>
@@ -1290,7 +1291,7 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
       </Text>
       <Pressable
         onPress={handleLearnMore}
-        style={styles.primarySmallButton}
+        style={styles.secondarySmallButton}
         accessibilityRole="link"
         accessibilityLabel="Get Niyora for Mac"
       >
@@ -1318,7 +1319,7 @@ function MessageCard() {
       </Text>
       <Pressable
         onPress={handleOpen}
-        style={[styles.primarySmallButton]}
+        style={styles.secondarySmallButton}
         accessibilityRole="button"
         accessibilityLabel="Message the founder"
       >
@@ -1610,8 +1611,8 @@ const styles = StyleSheet.create({
   ghostBtn: {
     paddingHorizontal: 24,
     paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: 'hsl(270, 50%, 45%)',
+    borderRadius: radius.pill,
+    ...secondaryButtonSurface,
   },
   ghostBtnLabel: {
     fontSize: 13,
@@ -1671,10 +1672,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 28,
     paddingVertical: 9,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: radius.pill,
+    ...secondaryButtonSurface,
   },
   checkInButtonLabel: {
     fontSize: 13,
@@ -1772,9 +1771,20 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 28,
     paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: 'hsl(270, 50%, 45%)',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySolid,
     marginTop: 12,
+  },
+  // The demoted, secondary version of the small card button: same size, ghost
+  // surface. Every in-card action uses this so the single solid primary (Know
+  // your PMS level) stays the one emphasis on the tab.
+  secondarySmallButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    marginTop: 12,
+    ...secondaryButtonSurface,
   },
   primarySmallButtonLabel: {
     fontSize: 13,

@@ -108,6 +108,35 @@ export function periodConfirmed(prefs: PmsPrefs, now: Date): boolean {
   return diff >= 0 && diff <= 6;
 }
 
+/**
+ * The cycle a cycle-end reflection is *about*, as its impact anchor.
+ *
+ * Normally that is the current cycle (anchored at `lastPeriodStart`). But once
+ * the next period is logged its start becomes `lastPeriodStart`, while the cycle
+ * she is actually reflecting on — the one that just ended — started at the
+ * PREVIOUS logged period. The moon minted for that ended cycle carries
+ * `cycleStart = that previous start` (now.tsx onPeriodConfirm mints with the
+ * prior anchor), and the You chart joins impact reads to moons by exact anchor
+ * (you.tsx `readByAnchor.get(p.cycleStart)`). So when the latest period is
+ * recent (periodConfirmed), step the anchor back one logged start so the read
+ * lands on the moon it describes; otherwise keep the current start — the cycle
+ * in progress, where this read will mint when it ends.
+ *
+ * `history` is newest-first (store/period-history). Without a usable history the
+ * current anchor is returned unchanged, so nothing regresses.
+ */
+export function reflectionAnchor(
+  prefs: PmsPrefs,
+  history: readonly string[],
+  now: Date,
+): string | null {
+  const anchor = prefs.lastPeriodStart ?? null;
+  if (anchor == null || !periodConfirmed(prefs, now)) return anchor;
+  const idx = history.indexOf(anchor);
+  if (idx >= 0 && idx + 1 < history.length) return history[idx + 1];
+  return anchor;
+}
+
 // --- Lever ---------------------------------------------------------------
 
 const LEVER_STRENGTH: Record<Lever, number> = {

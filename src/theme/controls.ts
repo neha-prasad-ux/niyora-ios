@@ -16,6 +16,17 @@ export const secondaryButtonSurface: ViewStyle = {
   backgroundColor: 'rgba(255, 255, 255, 0.10)',
 };
 
+// The quieter tier below the secondary button: the flat "tile" used by utility
+// rows, list cells, and unselected chips (Now's Add-periods/Reflect utilities,
+// the readiness "Know why" cells, checklist rows). One surface so these stop
+// each inventing their own ~0.12–0.18 border over a 0.05 fill; a selected state
+// still overrides the border + fill with its own accent.
+export const tileSurface: ViewStyle = {
+  borderWidth: 1,
+  borderColor: 'rgba(255, 255, 255, 0.14)',
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+};
+
 // Soft-clay chip: a matte, pillowy pill — rounder, a faint rim, and a low soft
 // drop shadow for a gentle raised feel. No gloss. Callers add padding + text;
 // the selected state fills the same clay in with its own colour.

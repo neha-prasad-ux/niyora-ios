@@ -19,6 +19,8 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
 import { clayChipSurface } from '@/theme/controls';
 import { getPmsPrefs } from '@/store/pms-prefs';
+import { getPeriodHistory } from '@/store/period-history';
+import { reflectionAnchor } from '@/lib/today-action';
 import {
   IMPACT_DOMAINS,
   IMPACT_DOMAIN_LABEL,
@@ -93,12 +95,15 @@ export default function ReflectScreen() {
     useCallback(() => {
       let alive = true;
       (async () => {
-        const prefs = await getPmsPrefs().catch(() => null);
-        const a = prefs?.lastPeriodStart ?? null;
-        const [mutedList, impacts] = await Promise.all([
+        const [prefs, history, mutedList, impacts] = await Promise.all([
+          getPmsPrefs().catch(() => null),
+          getPeriodHistory().catch(() => [] as string[]),
           getMutedDomains().catch(() => [] as ImpactDomain[]),
           getCycleImpacts().catch(() => []),
         ]);
+        // Anchor to the cycle being closed, not the freshly-logged one, so the
+        // read joins the moon minted for it (see reflectionAnchor).
+        const a = prefs == null ? null : reflectionAnchor(prefs, history, new Date());
         if (!alive) return;
         setAnchor(a);
         setMuted(new Set(mutedList));
@@ -566,7 +571,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 15,
     borderRadius: 20,
-    backgroundColor: 'hsl(270, 50%, 45%)',
+    backgroundColor: colors.primarySolid,
     alignItems: 'center',
   },
   saveBtnText: { fontFamily: 'Poppins-Medium', fontSize: 15, color: '#ffffff', letterSpacing: 0.3 },
@@ -582,7 +587,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingVertical: 12,
     borderRadius: 20,
-    backgroundColor: 'hsl(270, 50%, 45%)',
+    backgroundColor: colors.primarySolid,
   },
   primaryBtnText: { fontFamily: 'Poppins-Medium', fontSize: 14, color: '#ffffff' },
 });

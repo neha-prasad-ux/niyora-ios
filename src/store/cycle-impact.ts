@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './storage-lock';
+
 // Per-cycle impact reads — the other axis of the You tab's effort-vs-impact
 // chart. At each period boundary the Now tab asks, per life domain, how the
 // cycle that just ended actually landed (rough / okay / fine). Effort (light,
@@ -30,7 +32,10 @@ export const IMPACT_DOMAIN_LABEL: Record<ImpactDomain, string> = {
 export type CycleImpactEntry = {
   cycleAnchor: string; // the cycle's start (YYYY-MM-DD) this read belongs to
   reads: Partial<Record<ImpactDomain, ImpactLevel>>;
-  at: string; // local YYYY-MM-DD the read was given
+  // ISO-8601 timestamp the read was given. Sorted/compared lexicographically
+  // (latestReadsByAnchor, lastImpactReads), so every writer must use the same
+  // ISO format — the Reflect flow writes new Date().toISOString().
+  at: string;
 };
 
 const STORAGE_KEY = 'niyora:cycle-impact';
@@ -92,10 +97,12 @@ export async function appendCycleImpact(
 ): Promise<CycleImpactEntry[]> {
   const clean = parseReads(reads);
   if (!YMD.test(cycleAnchor) || Object.keys(clean).length === 0) return getCycleImpacts();
-  const log = await getCycleImpacts();
-  log.push({ cycleAnchor, reads: clean, at });
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
-  return log;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const log = await getCycleImpacts();
+    log.push({ cycleAnchor, reads: clean, at });
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+    return log;
+  });
 }
 
 /**
@@ -147,10 +154,12 @@ export async function getMutedDomains(): Promise<ImpactDomain[]> {
 }
 
 export async function setDomainMuted(domain: ImpactDomain, muted: boolean): Promise<ImpactDomain[]> {
-  const current = new Set(await getMutedDomains());
-  if (muted) current.add(domain);
-  else current.delete(domain);
-  const next = IMPACT_DOMAINS.filter((d) => current.has(d));
-  await AsyncStorage.setItem(MUTED_KEY, JSON.stringify(next));
-  return next;
+  return withStoreLock(MUTED_KEY, async () => {
+    const current = new Set(await getMutedDomains());
+    if (muted) current.add(domain);
+    else current.delete(domain);
+    const next = IMPACT_DOMAINS.filter((d) => current.has(d));
+    await AsyncStorage.setItem(MUTED_KEY, JSON.stringify(next));
+    return next;
+  });
 }

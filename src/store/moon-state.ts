@@ -15,6 +15,7 @@ import {
   type MoonState,
 } from '@/lib/moon-light';
 import type { RemissionAnswer } from '@/store/remission-log';
+import { withStoreLock } from '@/store/storage-lock';
 
 // The cached fold of the moon reward system (moon-reward-spec.md): current
 // brightness (bright by default, dimmed only by fading lessons), lifetime
@@ -105,9 +106,11 @@ export async function advanceMoonOnEarn(
   totals: LedgerTotals,
   brightness: number,
 ): Promise<MoonState> {
-  const state = await getMoonState();
-  const next = withMaterial(withBrightness(state, brightness), totals);
-  return next === state ? state : save(next);
+  return withStoreLock(STORAGE_KEY, async () => {
+    const state = await getMoonState();
+    const next = withMaterial(withBrightness(state, brightness), totals);
+    return next === state ? state : save(next);
+  });
 }
 
 /**
@@ -123,18 +126,20 @@ export async function recordCycleMint(input: {
   engagedDates: ReadonlySet<string>;
   totals: LedgerTotals;
 }): Promise<MoonState> {
-  const state = await getMoonState();
-  if (state.shelf.some((m) => m.cycleEnd === input.cycleEnd)) return state;
-  const minted = mintCycleMoon({
-    cycleStartYmd: input.cycleStart,
-    cycleEndYmd: input.cycleEnd,
-    engagedDates: input.engagedDates,
-    clarity: input.clarity,
-    material: state.material,
+  return withStoreLock(STORAGE_KEY, async () => {
+    const state = await getMoonState();
+    if (state.shelf.some((m) => m.cycleEnd === input.cycleEnd)) return state;
+    const minted = mintCycleMoon({
+      cycleStartYmd: input.cycleStart,
+      cycleEndYmd: input.cycleEnd,
+      engagedDates: input.engagedDates,
+      clarity: input.clarity,
+      material: state.material,
+    });
+    if (minted == null) return state;
+    const next = withMaterial(applyMint(state, minted), input.totals);
+    return next === state ? state : save(next);
   });
-  if (minted == null) return state;
-  const next = withMaterial(applyMint(state, minted), input.totals);
-  return next === state ? state : save(next);
 }
 
 export { cyclesKept };

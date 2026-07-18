@@ -1903,17 +1903,12 @@ function PlanCoupleCard({ item }: { item: CoupleItem }) {
           style={styles.coupleHeartBL}
         />
       </View>
+      {/* No chevron: this is a preview card in the plan montage, not a button. */}
       <View style={styles.coupleGradRow}>
         <View style={styles.planItemText}>
           <Text style={styles.coupleGradTitle}>{item.title}</Text>
           <Text style={styles.coupleGradSub}>{item.sub}</Text>
         </View>
-        <SymbolView
-          name="chevron.right"
-          tintColor="rgba(255, 255, 255, 0.7)"
-          size={14}
-          weight="semibold"
-        />
       </View>
     </View>
   );
