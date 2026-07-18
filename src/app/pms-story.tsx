@@ -456,7 +456,14 @@ function Kit({ kit, onDone }: { kit: readonly KitItem[]; onDone: (ids: string[])
         })}
       </ScrollView>
       <View style={styles.footer}>
-        <BeginButton label="Add to my prep list" onPress={() => onDone([...chosen])} fullWidth />
+        {/* Require at least one pick, so tapping through never mints an empty
+            (0-ring) reward moon — the payoff should always feel earned. */}
+        <BeginButton
+          label="Add to my prep list"
+          onPress={() => onDone([...chosen])}
+          disabled={chosen.size === 0}
+          fullWidth
+        />
       </View>
     </Animated.View>
   );

@@ -10,7 +10,7 @@
 // the log, never a prefilled edit of the last.
 
 import { useCallback, useRef, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -145,7 +145,6 @@ export default function ReflectScreen() {
       router.back();
       return;
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const at = new Date().toISOString();
     // One appended impact entry holding every non-muted domain she rated.
     const reads: Partial<Record<ImpactDomain, ImpactLevel>> = {};
@@ -153,17 +152,26 @@ export default function ReflectScreen() {
       const level = impact[domain];
       if (!muted.has(domain) && level != null) reads[domain] = level;
     }
-    await appendCycleImpact(anchor, reads, at).catch(() => {});
-    if (remission != null) {
-      await appendRemission({ cycleAnchor: anchor, answer: remission, at }).catch(() => {});
+    // Surface a save failure instead of swallowing it: a dropped write would lose
+    // the whole look-back silently. On error we stay on the screen so Save retries.
+    try {
+      await appendCycleImpact(anchor, reads, at);
+      if (remission != null) {
+        await appendRemission({ cycleAnchor: anchor, answer: remission, at });
+      }
+      await recordReflect({
+        cycleAnchor: anchor,
+        noticedChange: noticed ?? false,
+        rightSized: rightSized ?? false,
+        manageBetter: [...levers],
+        at,
+      });
+    } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      Alert.alert("Couldn't save", 'Something went wrong saving your reflection. Please try again.');
+      return;
     }
-    await recordReflect({
-      cycleAnchor: anchor,
-      noticedChange: noticed ?? false,
-      rightSized: rightSized ?? false,
-      manageBetter: [...levers],
-      at,
-    }).catch(() => {});
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     router.back();
   };
 

@@ -777,7 +777,7 @@ function EffortChart({
         return (
           <G key={lvl}>
             <Line x1={padL} y1={y} x2={w - padR} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-            <SvgText x={w - padR + 5} y={y + 3} fill="rgba(244,242,248,0.3)" fontSize={8.5}>
+            <SvgText x={w - padR + 5} y={y + 3} fill="rgba(244,242,248,0.3)" fontSize={8.5} fontFamily="Poppins-Regular">
               {label}
             </SvgText>
           </G>
@@ -814,7 +814,7 @@ function EffortChart({
         ) : null,
       )}
       {series.map((p, i) => (
-        <SvgText key={`lbl-${p.cycleEnd}`} x={xAt(i)} y={CHART_H - 8} fill="rgba(244,242,248,0.4)" fontSize={10} textAnchor="middle">
+        <SvgText key={`lbl-${p.cycleEnd}`} x={xAt(i)} y={CHART_H - 8} fill="rgba(244,242,248,0.4)" fontSize={10} textAnchor="middle" fontFamily="Poppins-Regular">
           {p.label}
         </SvgText>
       ))}

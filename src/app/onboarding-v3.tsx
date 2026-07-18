@@ -97,6 +97,36 @@ import {
 
 type UpdateFn = (patch: (a: V3Answers) => Partial<V3Answers>) => void;
 
+// The cycle starts logged so far, tolerant of the older single-date shape.
+function cycleStarts(cycle: V3Answers['cycle']): string[] {
+  return cycle.starts ?? (cycle.lastPeriod ? [cycle.lastPeriod] : []);
+}
+
+// Add / remove a period start on the answers. Shared by the two period sheets
+// (the Hormones step and the Plan step) so their logic can never drift.
+function addPeriodStartToAnswers(update: UpdateFn, date: Date): void {
+  const ymd = toYmd(date);
+  update((a) => {
+    const next = Array.from(new Set([ymd, ...cycleStarts(a.cycle)]));
+    return {
+      cycle: {
+        ...a.cycle,
+        starts: next,
+        lastPeriod: latestStart(next),
+        length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
+        unsure: false,
+      },
+    };
+  });
+}
+
+function removePeriodStartFromAnswers(update: UpdateFn, startYmd: string): void {
+  update((a) => {
+    const next = cycleStarts(a.cycle).filter((s) => s !== startYmd);
+    return { cycle: { ...a.cycle, starts: next, lastPeriod: latestStart(next) } };
+  });
+}
+
 type StepId =
   | 'splash'
   | 'privacy' // "You are safe" reassurance, reused from the old onboarding
@@ -298,7 +328,7 @@ export default function OnboardingV3Screen() {
     if (committed.current) return;
     committed.current = true;
     const c = answers.cycle;
-    const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
+    const starts = cycleStarts(c);
     const hasDate = !c.unsure && starts.length > 0;
     // Persist every logged period into the additive history, and the most recent
     // one into pms-prefs (which the prediction reads).
@@ -805,7 +835,7 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
   const [sheetOpen, setSheetOpen] = useState(false);
   const periodLength = c.periodLength ?? DEFAULT_PERIOD_LENGTH;
   const cycleLength = c.length ?? DEFAULT_CYCLE_LENGTH;
-  const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
+  const starts = cycleStarts(c);
   const hasAny = starts.length > 0;
 
   const openSheet = () => {
@@ -814,30 +844,8 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
   };
 
   // Add a start (keeps the sheet open for more). lastPeriod tracks the newest.
-  const addPeriod = (date: Date) => {
-    const ymd = toYmd(date);
-    update((a) => {
-      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
-      const next = Array.from(new Set([ymd, ...prev]));
-      return {
-        cycle: {
-          ...a.cycle,
-          starts: next,
-          lastPeriod: latestStart(next),
-          length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
-          unsure: false,
-        },
-      };
-    });
-  };
-
-  const removePeriod = (startYmd: string) => {
-    update((a) => {
-      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
-      const next = prev.filter((s) => s !== startYmd);
-      return { cycle: { ...a.cycle, starts: next, lastPeriod: latestStart(next) } };
-    });
-  };
+  const addPeriod = (date: Date) => addPeriodStartToAnswers(update, date);
+  const removePeriod = (startYmd: string) => removePeriodStartFromAnswers(update, startYmd);
 
   const skip = () => {
     update((a) => ({ cycle: { ...a.cycle, starts: [], lastPeriod: null, unsure: true } }));
@@ -1207,7 +1215,7 @@ function Loading({ onDone }: { onDone: () => void }) {
         </View>
       </Animated.View>
       <Animated.Text entering={FadeInDown.delay(350).duration(500)} style={styles.congratsTitle}>
-        Thank you for being honest with your body
+        Thanks for answering honestly
       </Animated.Text>
       <Animated.Text entering={FadeInDown.delay(650).duration(500)} style={styles.body}>
         Putting your read together
@@ -1484,7 +1492,7 @@ function Plan({
   onDone: () => void;
 }) {
   const c = answers.cycle;
-  const starts = c.starts ?? (c.lastPeriod ? [c.lastPeriod] : []);
+  const starts = cycleStarts(c);
   const hasDate = !c.unsure && starts.length > 0;
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -1492,30 +1500,8 @@ function Plan({
 
   // Add a past period (keeps the sheet open for more); flips the plan to the
   // date-aware variant. lastPeriod tracks the newest logged start.
-  const addPeriod = (date: Date) => {
-    const ymd = toYmd(date);
-    update((a) => {
-      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
-      const next = Array.from(new Set([ymd, ...prev]));
-      return {
-        cycle: {
-          ...a.cycle,
-          starts: next,
-          lastPeriod: latestStart(next),
-          length: a.cycle.length ?? DEFAULT_CYCLE_LENGTH,
-          unsure: false,
-        },
-      };
-    });
-  };
-
-  const removePeriod = (startYmd: string) => {
-    update((a) => {
-      const prev = a.cycle.starts ?? (a.cycle.lastPeriod ? [a.cycle.lastPeriod] : []);
-      const next = prev.filter((s) => s !== startYmd);
-      return { cycle: { ...a.cycle, starts: next, lastPeriod: latestStart(next) } };
-    });
-  };
+  const addPeriod = (date: Date) => addPeriodStartToAnswers(update, date);
+  const removePeriod = (startYmd: string) => removePeriodStartFromAnswers(update, startYmd);
 
   return (
     <StepLayout
