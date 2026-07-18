@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState, type ReactNode } from 'react';
-import { BlurView } from 'expo-blur';
+import { GlassSurface } from '@/components/glass-surface';
 import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
 import { BackgroundGradient } from '@/components/background-gradient';
@@ -696,7 +696,7 @@ function GhostPreview({
       >
         {renderPreview(width || 300)}
       </View>
-      <BlurView intensity={16} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <GlassSurface intensity={16} />
       <View style={styles.ghostScrim} pointerEvents="none" />
       <View style={styles.ghostOverlay}>
         <Text style={styles.ghostLine}>{line}</Text>
