@@ -67,7 +67,7 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
     title: 'Know the water',
     kind: 'swipe',
     intro:
-      "Real quick, let's clear up a few things about getting irritable. Swipe right if it is true, left if it is a myth.",
+      "Real quick, let us clear up a few things about getting irritable. Tap Truth if it is true, Myth if it is not.",
   },
   {
     id: 'irr-l2',
@@ -83,7 +83,7 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
     title: 'Match the move',
     kind: 'preview',
     intro:
-      'You can read it now. So pick what actually helps. Not sure? Hold a card to see how it plays out before you commit.',
+      'You can read the size now. So pick what actually helps her.',
   },
   {
     id: 'irr-l4',
@@ -104,7 +104,7 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
 ];
 
 // L1 cards, Truth / Myth. Each statement is a clean positive claim so the choice
-// is crisp. The hunger/sleep card stays general (no PMS-specific number) per the
+// is crisp. The hangry card stays general (no PMS-specific number) per the
 // content gate; the prevalence card cites the verified figure among PMS sufferers
 // (StatPearls / NIH: irritability ~95%, the most-reported PMS symptom), NOT 95%
 // of all women.
@@ -114,32 +114,32 @@ export const L1_CARDS: L1Card[] = [
     statement: 'Irritability is the number one PMS symptom, ahead of the mood dips and the anxiety.',
     isTrue: true,
     reveal:
-      'About 95 percent of people who get PMS feel it, more than any other symptom. If your fuse is short this week, you are in very good company, and it is the most normal thing in the world.',
+      'About 95 percent of people who get PMS feel it, more than any other symptom. Short fuse this week just means you are normal.',
   },
   {
     id: 'l1-vent',
-    statement: 'Letting the anger out, snapping or venting it, usually leaves you more wound up, not calmer.',
-    isTrue: true,
+    statement: 'Letting the anger out by venting it helps you calm down.',
+    isTrue: false,
     reveal:
       'Venting feels like release, but it mostly rehearses the anger and keeps your body switched on. The calm comes from letting the heat drop, not from firing it off.',
   },
   {
     id: 'l1-suppress',
-    statement: 'The grown-up move is to swallow it, keep smiling, and wait for it to blow over.',
+    statement: 'It is usually better to not react, keep smiling, and wait for the right time.',
     isTrue: false,
     reveal:
-      'Clamped down, it does not clear, it leaks out later as a sharp tone or a bigger blowup. Naming it and giving it room is a different thing from bottling it, and it is what actually works.',
+      'Clamped down it does not clear, it leaks out later as a sharp tone or a bigger blowup. Naming it is what actually works.',
   },
   {
     id: 'l1-hungry',
-    statement: 'Skipping meals or running short on sleep makes you quicker to snap.',
+    statement: 'Hangry, being hungry and angry at once, is a real thing.',
     isTrue: true,
     reveal:
-      'A dip in blood sugar or a rough night shortens anyone\'s fuse. Before you read too much into the mood, check whether she has eaten and slept.',
+      'A dip in blood sugar shortens anyone\'s fuse. Before you read too much into a mood, check whether you have eaten.',
   },
   {
     id: 'l1-hormones',
-    statement: 'If your period turns you into someone who snaps, your hormones must be off.',
+    statement: 'If you snap during PMS, your hormones must be off.',
     isTrue: false,
     reveal:
       'Your hormones are doing exactly what they should. Your brain is just reading them louder this week. Nothing about you is broken.',
@@ -161,9 +161,6 @@ export const L1_CONGRATS = {
   subtitle: 'You passed Level 1',
   body: 'That is the groundwork laid. Ready to see how you handle Level 2?',
 };
-
-export const L1_CLOSE =
-  'So before you help anyone, check the basics. Is she hungry? Wiped out? That is step one.';
 
 // Level 2 intro + the "cheat code" teaching page + the sublabels on the two
 // buttons. Warm Californian voice; the science of reading intensity in plain
@@ -208,24 +205,21 @@ export const L2_SCENES: L2Scene[] = [
     id: 'l2-d',
     scene: `${FRIEND_NAME} is running for her flight when the desk says her passport is expired. Her hands are shaking and the words will not come.`,
     answer: 'lot',
-    why: 'About as big as it gets. You cannot reason through a flood, so she takes ten minutes first, then sorts it out.',
+    why: 'About as big as it gets. You cannot reason a person through a flood like this.',
   },
   {
     id: 'l2-e',
     scene: `${FRIEND_NAME}'s boss picks apart her work in front of the whole team. She goes quiet and her jaw is tight.`,
     answer: 'lot',
-    why: 'Quiet is not the same as calm. The tight jaw and the silence say she is flooded. Ten minutes before she says a word.',
+    why: 'Quiet is not the same as calm. The tight jaw and the silence say she is flooded.',
   },
 ];
 
 export const L2_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 2',
-  body: 'You can read the size now. That is the read the whole game turns on.',
+  body: 'You can read the size now. That is the read everything else turns on.',
 };
-
-export const L2_CLOSE =
-  'That is the whole skill. Read the size first. Nail that and the rest is easy.';
 
 // Level 3 intro + the cheat code (the solution flips with the size) + four
 // scenes reusing the Level 2 situations, so reading the size now drives the
@@ -266,7 +260,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'Think "He is probably slammed at work"',
         tier: 'best',
-        future: 'A fairer read, and it lands because she can still think. The annoyance eases.',
+        future: 'She can still think straight, so a kinder read lands and it stops feeling like a big deal.',
       },
       {
         label: 'Take 20 and get some space',
@@ -283,7 +277,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'Take 20 and let her body settle',
         tier: 'best',
-        future: 'She is flooded. The gap lets the wave drop, then she can think.',
+        future: 'She is flooded, so the gap lets the wave drop. Twenty minutes later the problem feels smaller, and she can think again.',
       },
       {
         label: 'Get straight back to work like nothing happened',
@@ -310,7 +304,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'Step away for 20 and breathe',
         tier: 'best',
-        future: 'Flooded and shaking. First her body settles, then she sorts the passport.',
+        future: 'She steps back, the shaking settles, and her head clears. Then she sorts out the passport calm.',
       },
       {
         label: 'Force a calm face and swallow it',
@@ -327,7 +321,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'It is a rough day talking, not everyone turning on her',
         tier: 'best',
-        future: 'Loud but still reachable, so a fairer read lands and the heat drops.',
+        future: 'She is loud but still reachable, so a kinder read lands and the heat drops.',
       },
       {
         label: 'Tell her she is being dramatic and needs to calm down',
@@ -346,14 +340,11 @@ export const L3_SCENES: L3Scene[] = [
 export const L3_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 3',
-  body: 'You can pick the solution that fits the size now. That is the move the whole game builds to.',
+  body: 'You can pick the solution that fits the size now. Next comes the power move the whole game builds to.',
 };
 
-export const L3_PAYLOAD =
-  'Same three solutions every time. All that changed was the size, and that flipped what helped. That is the whole game.';
-
 // Level 4 · The power move. We have not taught a breath yet, so this level
-// establishes it from scratch: the long exhale, why it works, then five slow
+// establishes it from scratch: the long exhale, why it works, then three slow
 // rounds done together. No right or wrong, so the reward is doing it.
 export const L4_INTRO = {
   level: 'Level 4',
@@ -375,7 +366,7 @@ export const L4_TEACH = {
 export const L4_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 4',
-  body: 'That long exhale is your power move now. Five slow rounds, any time you need to come back to steady.',
+  body: 'That long exhale is your power move now. Three slow rounds, any time you need to come back to steady.',
 };
 
 // Level 5 · The last test. A capstone: one real moment run end to end. She reads
@@ -384,7 +375,7 @@ export const L4_CONGRATS = {
 export const L5_INTRO = {
   level: 'Level 5',
   title: 'The last test',
-  subtitle: 'One real moment, start to finish. Read it, handle it, breathe.',
+  subtitle: 'A few real moments. Read each one, handle it, breathe.',
 };
 
 export interface L5Capstone {
@@ -498,7 +489,7 @@ export const L5_DECK: Deck = {
 
 export const L5_CONGRATS = {
   title: 'Congratulations',
-  body: 'You have crossed every level in mastering irritability. Try to apply them in real life, and share your thoughts with me. I would love to know.',
+  body: 'That is the whole method, and it is yours now. Next rough day, you know how to read it and stay strong.',
 };
 
 // --- The Chapter bundle ------------------------------------------------------

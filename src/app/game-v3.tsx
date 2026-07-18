@@ -981,7 +981,6 @@ const POWER_PHASES: BreathPhase[] = [
   { type: 'inhale', label: 'breathe in', duration: 4 },
   { type: 'exhale', label: 'breathe out', duration: 8 },
 ];
-const POWER_ROUNDS = 5;
 const POWER_BREATH_RANGE = { min: 0.7, max: 1.4 };
 
 function cap(s: string): string {
@@ -990,13 +989,14 @@ function cap(s: string): string {
 
 function PowerBreath({
   onFinish,
-  rounds = POWER_ROUNDS,
+  rounds = 3,
   finishLabel = 'Finish',
 }: {
   onFinish: () => void;
   rounds?: number;
   finishLabel?: string;
 }) {
+  // rounds defaults to 3; every call site passes it explicitly.
   const cycle = useBreathCycle(POWER_PHASES, rounds, false);
   return (
     <View style={styles.l1Body}>
