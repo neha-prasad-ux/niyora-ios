@@ -254,73 +254,50 @@ already crying. It was time to go. They hugged for a long time.
 
 ### Story 2 · The callback
 
-**1.** A few months into a new country, Neha crushed the first interview for a job
-she really wanted. They called her back for round two. "What if they don't like me
-this time," she thought.
+**1.** A few months in, Neha was finding her feet. She'd crushed the first
+interview for a job she really wanted, and they called her back for round two. She
+was pumped.
 
-**2.** The interview was morning, and of course she couldn't sleep. What if the
-first one was a fluke. She knew this spiral. Alright, drama queen. I got the
-callback. And that thesis a classmate called the best thing he saw all year. Yeah,
-I'm kind of great. She drifted off in the good memories.
+**2.** The interview was in the morning, and of course she couldn't sleep. Her
+brain went straight to the worst. What if I choke. What if the first one was a
+fluke. She knew this spiral by now. Alright, drama queen, she thought, and pulled
+up the receipts. I got the callback. They liked me enough to want a second look.
+I've walked into harder rooms than this. She still didn't feel great, but she got a
+few hours.
 
-**3.** Morning of, still shaky. So she gave herself twenty minutes. Yogurt, a
-handful of nuts, and long humming. Her mom always swore it helps. Annoyingly, it
-did. Then something new. She wrote down three things she'd actually pulled off. The
-project she shipped. The team she led. The interview she nailed. Reading it back,
-she landed. Right. I'm good at this.
+**3.** Morning of, all that prep and she still felt shaky. So she gave herself
+twenty minutes. Coffee, a handful of nuts, a few slow breaths. Then she did
+something new. She opened her notes and wrote down three things she'd actually
+pulled off. The project she shipped. The team she led. The first interview she just
+nailed. Reading it back, she felt herself land. Right. I'm good at this.
 
-**4.** The interview didn't go great. She walked home sad. Her husband took one
-look at her. "Hey. You'll get the next call." "That's a lot of pressure right now.
-I would never do that to you." It came out sharp. "You did, though," he said. "Four
-years back, when I wanted to leave for the startup. You said I could only go if I
-lined up another job first." And there it went. Every unspoken thing from the years
-between, out on the table. They went at it a while. Then her phone buzzed. An email.
-Subject line: we'd love to have you. To be continued.
+**4.** The room was cold. Not the temperature, the people. They weren't giving her
+much, and she could feel herself working twice as hard for half the warmth. She
+kept going anyway. Near the end, one of them tilted their head. "You don't seem as
+confident as last time. Why's that?" It stung. She took a second. "Honestly, it's a
+different room today, and I don't feel quite as at home in it yet. But I'm the same
+person you called back."
+
+**5.** She replayed that question the whole way home. When she walked in, her
+husband could see it on her. "Hey. You'll get the next call," he said. And somehow
+that was the thing that broke her. "That's a lot of pressure to put on me right
+now. I would never do that to you." It came out sharp. He looked a little stung.
+She went quiet and walked to the other room. A few minutes later she texted him
+from ten feet away. "I'm sorry. That wasn't about you. I'm just fried and I need a
+little space to reset. It's not you. I love you." She sat with herself for a while.
+And somewhere in there, her phone buzzed. An email. Subject line: we'd love to have
+you.
 
 **Reflect (2 questions)**
-
-*1. Neha did a few things to steady herself. Which ones actually work?* (tap each to
-reveal the why; all three help, no wrong answer)
-- **Yogurt and nuts for breakfast** — "Calcium and magnesium take the edge off and
-  steady your mood."
-  Sources: calcium — Thys-Jacobs et al., *Am J Obstet Gynecol* 1998, a 466-woman RCT
-  where 1,200 mg/day cut luteal-phase symptoms
-  (https://www.ajog.org/article/S0002-9378(98)70377-1/abstract) · magnesium —
-  Facchinetti et al., *Obstet Gynecol* 1991, magnesium eased premenstrual negative
-  affect (https://pubmed.ncbi.nlm.nih.gov/2067759/).
-- **Humming** — "Humming lengthens your exhale and tells your body it's safe to calm
-  down."
-  Source: Zaccaro et al., *Front Hum Neurosci* 2018 — slow breathing and a longer
-  exhale shift the nervous system toward parasympathetic (vagal) calm
-  (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137615/).
-- **Writing down her strengths** — "Reading back real wins is a self-affirmation
-  trick that quiets the stress response."
-  Source: Creswell et al., *Psychological Science* 2005 — a values/strengths
-  affirmation lowered cortisol under a lab stressor
-  (https://pubmed.ncbi.nlm.nih.gov/16262767/).
-
-> Sources attached (same fact-checked bar as the Understand cards). The claims land on
-> *calm / stress*, not a PMS cure: calcium and magnesium have direct PMS-symptom
-> trials; humming and self-affirmation are stress-regulation findings applied to the
-> emotional load.
-
-*2. "She's always overthinking. She should just be quiet and let it go." Fair?* —
-this is the only place PMS is named.
-- Yeah, she needs to quiet down · soft redirect: "telling yourself to just stop
-  rarely works. Some days the volume's turned all the way up."
-- **The days before her period crank the volume on everything. The move isn't to
-  silence it, it's to notice it and let it pass. ✓**
-- She should keep it in so she doesn't snap · soft redirect: "bottling tends to come
-  out sideways."
-
-**Build your own better-PMS kit** (one wrong answer)
-- Give yourself twenty. Yogurt, a handful of nuts, a little humming, and a breath in
-  Niyora.
-- Write down a few real things you've pulled off, and read them back.
-- When everything feels ten times bigger, notice it instead of bottling it.
-- Give the people you love a heads-up that the hard days are coming.
-- ~~Just go quiet and push through~~ (the wrong one; soft redirect: "going quiet just
-  delays it, and it tends to come back louder")
+- *The morning of, Neha felt her confidence sliding. What pulled her back?* — told
+  herself to just calm down · **wrote down three real things she'd actually
+  accomplished ✓** · read the job description again.
+- *Neha snapped at her husband when he was only trying to help, then felt terrible.
+  Those extra-raw days often line up with the PMS window, the stretch before your
+  period when everything hits harder. It doesn't make you difficult, it just helps
+  to know it's coming. What did Neha do that helped?* — insisted he'd upset her ·
+  **took space, then owned it and told him it wasn't about him ✓** · pretended
+  everything was fine.
 
 ### Image recipe (faceless painterly scenes)
 
@@ -361,28 +338,14 @@ Story 2 scenes:
    corner, a laptop open on a desk, a mug beside it, the moon in the window.
 2. A bed in a new apartment at night, sheets rumpled, a phone face-down on the
    nightstand, city lights and a large moon out the window.
-3. A desk by a window in soft early light, an open notebook and a pen, a cup of
-   yogurt and a small bowl of nuts, the pale moon fading into morning.
+3. A desk by a window in soft early light, an open notebook and a pen, a coffee and
+   a small bowl of nuts, the pale moon fading into morning.
 4. A quiet modern meeting room at dusk, one empty chair on the near side of a long
    table, a single glass of water, cool blue light, the moon in the floor-to-ceiling
    window. (The empty chair reads as the cold room without a face.)
 5. (closing) A cozy couch corner late at night, a mug of tea, a soft lamp glow, a
    phone on the cushion lit with a message, warm light with the moon just visible in
    the window. Quiet and hopeful.
-
-Beat → scene map (Story 2 is now 4 beats): beat 1 → scene 1, beat 2 → scene 2,
-beat 3 → scene 3, beat 4 → scenes 4 (the cold interview room) then 5 (home, the
-buzz of the email). The close reads warm-but-unresolved: the phone glow is the job
-email, and the fight is still open ("to be continued").
-
-**Asset slots** (generate from the prompts above; drop each file in and swap the
-prompt text for its path):
-- Story 1: all 5 placed and vetted on-theme
-  (`assets/images/stories/story-1/scene-1.png` … `scene-5.png`). Source files were
-  numbered out of beat order (airport = beat 3, airplane = beat 5); remapped by content
-  on placement.
-- Story 2: all 5 placed and vetted on-theme
-  (`assets/images/stories/story-2/scene-1.png` … `scene-5.png`).
 
 ## Reward model (resolved 2026-07-15)
 
@@ -580,14 +543,4 @@ rings are **different signals**:
 
 ## Still open
 
-- Neha's season arc (life-events → skills) as the monthly content pipeline. Story 2
-  ends on "to be continued" — the husband repair is the open thread the next chapter
-  picks up.
-- **Relationship ch.2–4** (the During-PMS, in-the-moment chapters) — content to write.
-- **Build → which pillar** — training/regulation courses feed Aware (knowledge) or
-  should share Calm (regulation skills)? Decide when wiring the score.
-- **PrepSheet scope** — current-phase peek (recommended) vs the full four-phase path in
-  the sheet. Confirm before building the sheet.
-
-_Both stories fully locked: copy · reflect · kit · sourced science · all images placed
-(story-1 and story-2, 5 scenes each)._
+- Neha's season arc (life-events → skills) as the monthly content pipeline.
