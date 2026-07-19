@@ -254,10 +254,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(10, 8, 16, 0.75)',
+    // More transparent so the bar reads as glass, not a slab. With expo-blur in
+    // the build this sits over a real frost; the dark bottom of the night sky
+    // means even the no-blur fallback stays legible while showing content through.
+    backgroundColor: 'rgba(10, 8, 16, 0.5)',
   },
   washSolid: {
-    backgroundColor: 'rgba(10, 8, 16, 0.92)',
+    // The no-blur fallback: still see-through, just a touch denser so the icons
+    // keep a backing when content scrolls under a bar without a real blur.
+    backgroundColor: 'rgba(10, 8, 16, 0.58)',
   },
   washOverGlass: {
     backgroundColor: 'rgba(10, 8, 16, 0.18)',

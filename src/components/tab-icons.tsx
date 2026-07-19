@@ -22,11 +22,14 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-// The moonlit "selected" colour and the dimmed resting tint. Kept local so the
-// icons read the same whether or not the bar passes a colour (TabMoon ignores it
-// too — the selection state, not the tint, is what these animate on).
-const ACTIVE = '#E7E9F2';
-const INACTIVE = 'rgba(255, 255, 255, 0.42)';
+// Each icon carries its own hue, so the bar reads as a small constellation of
+// colour rather than three greys: Train a soft sprout-green, Soul a warm rose
+// (siblings to the Now moon's cool white). `off` is the muted resting outline,
+// `on` the vivid filled state the tab blooms into on focus. Kept local so the
+// icons own their colour whether or not the bar passes a tint (TabMoon ignores
+// it too — the selection state, not the tint, is what these animate on).
+const GROW = { on: '#7ED9A8', off: 'rgba(126, 217, 168, 0.6)' };
+const SOUL = { on: '#EBA6C6', off: 'rgba(235, 166, 198, 0.6)' };
 const STROKE = 1.9;
 
 type TabIconProps = { focused: boolean; size?: number };
@@ -101,8 +104,8 @@ export function GrowIcon({ focused, size = 24 }: TabIconProps) {
     <CrossfadeIcon
       focused={focused}
       size={size}
-      outline={<SproutSvg color={INACTIVE} fill={false} />}
-      filled={<SproutSvg color={ACTIVE} fill />}
+      outline={<SproutSvg color={GROW.off} fill={false} />}
+      filled={<SproutSvg color={GROW.on} fill />}
     />
   );
 }
@@ -148,8 +151,8 @@ export function YouIcon({ focused, size = 24 }: TabIconProps) {
     <CrossfadeIcon
       focused={focused}
       size={size}
-      outline={<SoulSvg color={INACTIVE} fill={false} />}
-      filled={<SoulSvg color={ACTIVE} fill />}
+      outline={<SoulSvg color={SOUL.off} fill={false} />}
+      filled={<SoulSvg color={SOUL.on} fill />}
     />
   );
 }
