@@ -599,7 +599,7 @@ function Reveal({
             style={styles.trendRow}
           >
             <Text style={styles.trendDomain}>{IMPACT_DOMAIN_LABEL[domain]}</Text>
-            <TrendSpark width={w} ghosts={ghosts} today={today} color={DOMAIN_COLOR[domain]} />
+            <TrendSpark width={Math.max(1, w - 32)} ghosts={ghosts} today={today} color={DOMAIN_COLOR[domain]} />
             <Text style={styles.trendCaption}>{trendCaption(today, ghosts)}</Text>
           </Animated.View>
         );

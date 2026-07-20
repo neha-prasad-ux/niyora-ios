@@ -326,7 +326,9 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 40,
     paddingHorizontal: 22,
-    maxHeight: '82%',
+    // A fixed height (not maxHeight) so UnderstandReadView's flex:1 body has room
+    // to fill; otherwise the sheet collapses to a sliver.
+    height: '68%',
     overflow: 'hidden',
   },
   pickerSheet: {
