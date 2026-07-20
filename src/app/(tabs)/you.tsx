@@ -243,14 +243,16 @@ export default function MySoulScreen() {
       await persistPms({ ...pmsPrefs, pmsMode: false });
       return;
     }
-    // Turning it on needs a date to predict from. Keep an existing one, else
-    // seed today so the feature has something to work with; she can adjust it
-    // right below.
-    const lastPeriodStart = pmsPrefs.lastPeriodStart ?? toYmdLocal(new Date());
     // The heads-up reminders are the feature's only notification, so ask for
     // permission now. PMS framing still works in-app if she declines.
     await ensureNotificationPermission().catch(() => false);
-    await persistPms({ ...pmsPrefs, pmsMode: true, lastPeriodStart });
+    await persistPms({ ...pmsPrefs, pmsMode: true });
+    // Don't fabricate a period: if none is logged yet, open the calendar so she
+    // logs her real last period. Predictions stay quiet until she does (every
+    // consumer guards a null start), and the "Your periods" row shows "Add".
+    if (pmsPrefs.lastPeriodStart == null) {
+      setPeriodSheetVisible(true);
+    }
   }
 
   // Logging a period from the calendar: append it to the additive history (the
