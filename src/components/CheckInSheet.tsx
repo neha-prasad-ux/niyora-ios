@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -24,15 +24,25 @@ export function CheckInSheet({ onDone }: Props) {
   const [phase, setPhase] = useState<'picking' | 'done'>('picking');
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(16);
+  // Track pending timers so a fast unmount (parent hides the sheet mid-animation)
+  // cannot fire onDone after teardown.
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });
     translateY.value = withTiming(0, { duration: 400 });
   }, [opacity, translateY]);
 
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      pending.forEach(clearTimeout);
+    };
+  }, []);
+
   function dismiss(recorded: boolean) {
     opacity.value = withTiming(0, { duration: 320 });
-    setTimeout(() => onDone(recorded), 320);
+    timers.current.push(setTimeout(() => onDone(recorded), 320));
   }
 
   async function handleLevel(level: CheckInLevel) {
@@ -40,7 +50,7 @@ export function CheckInSheet({ onDone }: Props) {
     Haptics.selectionAsync();
     setPhase('done');
     appendCheckIn(level).catch(() => {});
-    setTimeout(() => dismiss(true), 900);
+    timers.current.push(setTimeout(() => dismiss(true), 900));
   }
 
   function handleBackdrop() {
