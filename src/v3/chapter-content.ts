@@ -166,11 +166,117 @@ const STORY1: Chapter = {
   ],
 };
 
+// --- Story 2 · The callback -------------------------------------------------
+// Spec content from niyora-pms-preparedness-spec.md ("Story 2 · The callback").
+// Beats are the locked spec prose, converted to first person to match STORY1's
+// shipped voice. Reflect is the spec's two questions. The spec did NOT define a
+// build-your-kit for Story 2, so the kit below is derived from the story's own
+// coping moves in the DESIGN.md voice (four correct + one wrong, one live door)
+// and is the one part open to a copy pass. Scenes wire the five painterly
+// assets in assets/images/stories/story-2/ via chapter-scenes.ts.
+
+const STORY2: Chapter = {
+  id: 'story-2',
+  title: 'The callback',
+  intro: 'A story about a second shot at something she wanted.',
+  beats: [
+    {
+      text: `A few months in, I was finding my feet. I'd crushed the first interview for a job I really wanted, and they called me back for round two. I was pumped.`,
+      scene: {
+        image: 's2-boxes',
+        moon: true,
+        alt: 'A small new apartment at night, a couple of moving boxes still stacked in a corner, a laptop open on a desk, a mug beside it, the moon in the window.',
+      },
+    },
+    {
+      text: `The interview was in the morning, and of course I couldn't sleep. My brain went straight to the worst. What if I choke. What if the first one was a fluke. I knew this spiral by now. Alright, drama queen, I thought, and pulled up the receipts. I got the callback. They liked me enough to want a second look. I've walked into harder rooms than this. I still didn't feel great, but I got a few hours.`,
+      scene: {
+        image: 's2-bed',
+        moon: true,
+        alt: 'A bed in a new apartment at night, sheets rumpled, a phone face-down on the nightstand, city lights and a large moon out the window.',
+      },
+    },
+    {
+      text: `Morning of, all that prep and I still felt shaky. So I gave myself twenty minutes. Coffee, a handful of nuts, a few slow breaths. Then I did something new. I opened my notes and wrote down three things I'd actually pulled off. The project I shipped. The team I led. The first interview I just nailed. Reading it back, I felt myself land. Right. I'm good at this.`,
+      scene: {
+        image: 's2-desk',
+        moon: true,
+        alt: 'A desk by a window in soft early light, an open notebook and a pen, a coffee and a small bowl of nuts, the pale moon fading into morning.',
+      },
+    },
+    {
+      text: `The room was cold. Not the temperature, the people. They weren't giving me much, and I could feel myself working twice as hard for half the warmth. I kept going anyway. Near the end, one of them tilted their head. "You don't seem as confident as last time. Why's that?" It stung. I took a second. "Honestly, it's a different room today, and I don't feel quite as at home in it yet. But I'm the same person you called back."`,
+      scene: {
+        image: 's2-room',
+        moon: true,
+        alt: 'A quiet modern meeting room at dusk, one empty chair on the near side of a long table, a single glass of water, cool blue light, the moon in the floor-to-ceiling window.',
+      },
+    },
+    {
+      text: `I replayed that question the whole way home. When I walked in, my husband could see it on me. "Hey. You'll get the next call," he said. And somehow that was the thing that broke me. "That's a lot of pressure to put on me right now. I would never do that to you." It came out sharp. He looked a little stung. I went quiet and walked to the other room. A few minutes later I texted him from ten feet away. "I'm sorry. That wasn't about you. I'm just fried and I need a little space to reset. It's not you. I love you." I sat with myself for a while. And somewhere in there, my phone buzzed. An email. Subject line: we'd love to have you.`,
+      scene: {
+        image: 's2-couch',
+        moon: true,
+        warm: true,
+        alt: 'A cozy couch corner late at night, a mug of tea, a soft lamp glow, a phone on the cushion lit with a message, warm light with the moon just visible in the window.',
+      },
+    },
+  ],
+  reflect: [
+    {
+      prompt: 'The morning of, Neha felt her confidence sliding. What pulled her back?',
+      options: [
+        { label: 'Told herself to just calm down', correct: false },
+        { label: "Wrote down three real things she'd actually accomplished", correct: true },
+        { label: 'Read the job description again', correct: false },
+      ],
+      takeaway:
+        'Anchoring to real, concrete wins steadies a sliding confidence faster than forcing calm.',
+    },
+    {
+      prompt:
+        'Neha snapped at her husband when he was only trying to help, then felt terrible. Those extra-raw days often line up with the PMS window, the stretch before your period when everything hits harder. What did she do that helped?',
+      options: [
+        { label: 'Insisted he had upset her', correct: false },
+        { label: "Took space, then owned it and told him it wasn't about him", correct: true },
+        { label: 'Pretended everything was fine', correct: false },
+      ],
+      takeaway:
+        "Taking space and then owning it repairs faster than blaming or pretending. The raw days are real PMS, not you being difficult.",
+    },
+  ],
+  kit: [
+    {
+      id: 'anchor',
+      label: "Write down three real things you've actually pulled off, and read them back.",
+      correct: true,
+    },
+    {
+      id: 'breath',
+      label: 'Feel the nerves climbing and give yourself twenty minutes to breathe in Niyora.',
+      correct: true,
+      live: 'steady',
+    },
+    { id: 'food', label: 'Eat something and get a coffee before the big thing', correct: true },
+    {
+      id: 'own-it',
+      label: "When it comes out sharp, take a little space, then own it, it's not them",
+      correct: true,
+    },
+    {
+      id: 'push-through',
+      label: 'Just tell yourself to be more confident and push the nerves down',
+      correct: false,
+      redirect: 'Pushing nerves down tends to leak out sideways. Naming them and anchoring to real wins holds better.',
+    },
+  ],
+};
+
 // --- The serial -------------------------------------------------------------
 
 // Ordered chapters. Story 1 ships now (the install AHA moment); Story 2+ append
 // here as data, no engine changes. The reader defaults to the first chapter.
-export const CHAPTERS: readonly Chapter[] = [STORY1];
+export const CHAPTERS: readonly Chapter[] = [STORY1, STORY2];
 
 export const FIRST_CHAPTER_ID = CHAPTERS[0].id;
 

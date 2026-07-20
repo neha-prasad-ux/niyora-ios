@@ -33,6 +33,7 @@ import { PeriodSheet } from '@/components/period-sheet';
 import { PhaseActionCard } from '@/components/phase-action-card';
 import { RecommendSheet } from '@/components/RecommendSheet';
 import { RingCelebration } from '@/components/RingCelebration';
+import { ShootingStar } from '@/components/ShootingStar';
 import { type RecResult } from '@/models/recommend';
 import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
 import { colors } from '@/theme/colors';
@@ -611,6 +612,9 @@ export default function NowScreen() {
   return (
     <View style={styles.root}>
       <BackgroundGradient />
+      {/* The ambient light-line: a shooting star arcing across the home sky
+          every so often, carried over from V2. Purely decorative, pointer-safe. */}
+      <ShootingStar />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + 106 }]}
