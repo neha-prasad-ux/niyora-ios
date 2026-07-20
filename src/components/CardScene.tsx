@@ -63,6 +63,8 @@ type SceneKey =
   | 'dim';
 
 export function sceneKeyFor(card: RecCard): SceneKey {
+  // The "why this happens" reframe is a read, so it gets the read scene.
+  if (card.source === 'understand') return 'read';
   if (card.activityId) {
     const a = getActivity(card.activityId);
     switch (a?.id) {

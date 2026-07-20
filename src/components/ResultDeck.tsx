@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
 import { getActivity, type Modality } from '@/models/activities';
+import { getUnderstandCard } from '@/models/understand';
 import { getTechnique } from '@/models/techniques';
 import { CardScene } from '@/components/CardScene';
 import type { RecCard } from '@/models/recommend';
@@ -81,6 +82,9 @@ function GridCard({ card, onPress }: { card: RecCard; onPress: () => void }) {
 // --- card -> display helpers ---
 
 function cardBenefit(card: RecCard): string {
+  if (card.source === 'understand') {
+    return card.understandId ? (getUnderstandCard(card.understandId)?.title ?? '') : '';
+  }
   if (card.activityId) return getActivity(card.activityId)?.benefit ?? '';
   if (card.techniqueId) return getTechnique(card.techniqueId)?.subtitle ?? '';
   return '';
@@ -100,6 +104,7 @@ const MODALITY_TAG: Record<Modality, string> = {
 };
 
 function cardTag(card: RecCard): string {
+  if (card.source === 'understand') return 'understand';
   if (card.activityId) {
     const a = getActivity(card.activityId);
     return a ? MODALITY_TAG[a.modality] : 'activity';

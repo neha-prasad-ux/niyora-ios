@@ -4,7 +4,7 @@
 // what the user reads to decide. The grid fades straight in (no loading beat).
 // Fully on-device.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +26,19 @@ import {
   type RecCard,
 } from '@/models/recommend';
 import { getTechnique, isBreathing } from '@/models/techniques';
+import { UnderstandReadView } from '@/components/activity/UnderstandReadView';
+import {
+  understandForFeeling,
+  getUnderstandCard,
+  type UnderstandCard,
+} from '@/models/understand';
+import { resolveUnderstandContext } from '@/lib/understand-context';
+import { type PmsFeeling } from '@/models/activities';
+
+// Where the "why this happens" reframe sits in the deck: high, but never the
+// hero (the first thing she sees should be something to do). It rides just below
+// as an invitation to understand, not a task.
+const REFRAME_SLOT = 3;
 
 // The header leads with where she's headed (the need), never the feeling she's
 // leaving. A gentle "Let's..." invitation toward feeling better.
@@ -51,7 +64,50 @@ export default function ResultScreen() {
 
   // No time budget: show every option at its authored length.
   const result = useMemo(() => recommend(feelings, needs), [feelings, needs]);
-  const cards = useMemo(() => (result ? [result.hero, ...result.list] : []), [result]);
+
+  // The "why this happens" reframe for the feeling she came in with, resolved in
+  // her current context (general vs a PMS window). Slotted into the deck below.
+  const [reframe, setReframe] = useState<UnderstandCard | null>(null);
+  const [openReframe, setOpenReframe] = useState<UnderstandCard | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const primary = feelings[0];
+    if (!primary) {
+      setReframe(null);
+      return;
+    }
+    resolveUnderstandContext()
+      .then((context) => {
+        if (!alive) return;
+        const cardsForFeeling = understandForFeeling(primary as PmsFeeling, context);
+        setReframe(cardsForFeeling[0] ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [feelings]);
+
+  const cards = useMemo<RecCard[]>(() => {
+    if (!result) return [];
+    const base = [result.hero, ...result.list];
+    if (reframe == null) return base;
+    // A read, not a do: synthesised here (never ranked), so the recommend model
+    // and its filters never see it.
+    const reframeCard: RecCard = {
+      id: `understand:${reframe.id}`,
+      source: 'understand',
+      title: 'Why this happens',
+      feelings: [],
+      needs: [],
+      timeSeconds: 0,
+      fast: false,
+      score: 0,
+      understandId: reframe.id,
+    };
+    const slot = Math.min(REFRAME_SLOT, base.length);
+    return [...base.slice(0, slot), reframeCard, ...base.slice(slot)];
+  }, [result, reframe]);
 
   const header = needs[0] ? NEED_HEADER[needs[0]] : "Let's find what helps";
 
@@ -84,6 +140,12 @@ export default function ResultScreen() {
   }, [feelings]);
 
   const onBegin = useCallback((card: RecCard) => {
+    // The reframe card is a read: open the "why this happens" sheet in place.
+    if (card.source === 'understand') {
+      const c = card.understandId ? getUnderstandCard(card.understandId) : undefined;
+      if (c) setOpenReframe(c);
+      return;
+    }
     const t = card.techniqueId ? getTechnique(card.techniqueId) : undefined;
     if (t && isBreathing(t)) {
       setPending(card);
@@ -131,6 +193,34 @@ export default function ResultScreen() {
         onPick={onPickLength}
         onClose={() => setPending(null)}
       />
+
+      <Modal
+        visible={openReframe != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpenReframe(null)}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.pickerBackdrop}
+          onPress={() => setOpenReframe(null)}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Pressable style={styles.reframeSheet} onPress={() => {}}>
+            <LinearGradient
+              colors={['#1b1430', '#0e0b14', colors.backgroundBottom]}
+              locations={[0, 0.55, 1]}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            {openReframe != null && (
+              <UnderstandReadView card={openReframe} onDone={() => setOpenReframe(null)} />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -226,6 +316,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.70)',
     justifyContent: 'flex-end',
+  },
+  reframeSheet: {
+    backgroundColor: colors.backgroundBottom,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    paddingTop: 24,
+    paddingBottom: 40,
+    paddingHorizontal: 22,
+    maxHeight: '82%',
+    overflow: 'hidden',
   },
   pickerSheet: {
     backgroundColor: colors.backgroundBottom,

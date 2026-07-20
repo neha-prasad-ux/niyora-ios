@@ -153,7 +153,10 @@ const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
 // breathing path); activity cards carry activityId.
 export type RecCard = {
   id: string;
-  source: 'technique' | 'activity';
+  // 'understand' cards are a "why this happens" reframe slotted into the deck by
+  // the result view (never ranked): a read, not a do. Tapping opens the reframe
+  // sheet rather than navigating. Carries the Understand card id to resolve it.
+  source: 'technique' | 'activity' | 'understand';
   title: string;
   feelings: readonly PmsFeeling[]; // feelings it serves
   needs: readonly Need[]; // needs it serves
@@ -163,6 +166,7 @@ export type RecCard = {
   techniqueId?: string;
   rounds?: number; // breathing: scaled to the chosen time
   activityId?: string;
+  understandId?: string; // 'understand' cards: the Understand passage to open
   feelingId?: string; // primary feeling carried for session loop-closing
 };
 
