@@ -1,7 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { withStoreLock } from './storage-lock';
-
 // Per-cycle impact reads — the other axis of the You tab's effort-vs-impact
 // chart. At each period boundary the Now tab asks, per life domain, how the
 // cycle that just ended actually landed (rough / okay / fine). Effort (light,
@@ -16,10 +14,43 @@ import { withStoreLock } from './storage-lock';
 
 export type ImpactDomain = 'work' | 'partner' | 'yourself';
 
-// rough (1) < okay (2) < fine (3): a small absolute read each cycle, shown to
-// her as the comparison. Absolute (not a raw delta) so the chart has a stable
-// line and the first cycle still plots.
+// How the cycle landed per domain, as a continuous read on a Rough → Fine
+// track: an integer 0–100 (0 = roughest, 100 = fine). Absolute (not a raw
+// delta) so the chart has a stable line and the first cycle still plots.
+// Continuous, because "a little better" is exactly the signal that keeps her
+// logging — a 3-step scale can't show it.
+export type ImpactValue = number; // 0–100, clamped
+
+// The coarse rough/okay/fine bucket, derived from a value where any code still
+// wants three bands (e.g. a caption). Kept as a type alias for readability.
 export type ImpactLevel = 1 | 2 | 3;
+
+// Legacy entries (before the continuous scale) stored ImpactLevel 1|2|3. They
+// are reinterpreted onto the 0–100 track at parse time, at the middle of each
+// band, so old history plots sensibly beside new reads. The store is
+// append-only, so we never rewrite old entries — only reinterpret on read.
+const LEGACY_VALUE: Record<1 | 2 | 3, ImpactValue> = { 1: 15, 2: 50, 3: 85 };
+
+function clampValue(n: number): ImpactValue {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/**
+ * Reinterpret a stored number onto the 0–100 scale. Exactly 1, 2, or 3 is
+ * treated as a legacy level and mapped to its band's midpoint; every other
+ * number is a continuous read, clamped and rounded. New writes never emit
+ * 1|2|3 (see reflect.tsx), so this collision is only ever legacy data.
+ */
+function readValue(n: number): ImpactValue {
+  if (n === 1 || n === 2 || n === 3) return LEGACY_VALUE[n];
+  return clampValue(n);
+}
+
+/** The rough/okay/fine band a continuous value falls in. */
+export function levelOf(v: number): ImpactLevel {
+  const c = clampValue(v);
+  return c < 100 / 3 ? 1 : c < 200 / 3 ? 2 : 3;
+}
 
 export const IMPACT_DOMAINS: readonly ImpactDomain[] = ['work', 'partner', 'yourself'];
 
@@ -31,26 +62,22 @@ export const IMPACT_DOMAIN_LABEL: Record<ImpactDomain, string> = {
 
 export type CycleImpactEntry = {
   cycleAnchor: string; // the cycle's start (YYYY-MM-DD) this read belongs to
-  reads: Partial<Record<ImpactDomain, ImpactLevel>>;
-  // ISO-8601 timestamp the read was given. Sorted/compared lexicographically
-  // (latestReadsByAnchor, lastImpactReads), so every writer must use the same
-  // ISO format — the Reflect flow writes new Date().toISOString().
-  at: string;
+  reads: Partial<Record<ImpactDomain, ImpactValue>>;
+  at: string; // local YYYY-MM-DD the read was given
 };
 
 const STORAGE_KEY = 'niyora:cycle-impact';
 const MUTED_KEY = 'niyora:cycle-impact-muted';
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const LEVELS: readonly ImpactLevel[] = [1, 2, 3];
 
-function parseReads(v: unknown): Partial<Record<ImpactDomain, ImpactLevel>> {
+function parseReads(v: unknown): Partial<Record<ImpactDomain, ImpactValue>> {
   if (v == null || typeof v !== 'object') return {};
-  const out: Partial<Record<ImpactDomain, ImpactLevel>> = {};
+  const out: Partial<Record<ImpactDomain, ImpactValue>> = {};
   for (const d of IMPACT_DOMAINS) {
-    const lvl = (v as Record<string, unknown>)[d];
-    if (typeof lvl === 'number' && LEVELS.includes(lvl as ImpactLevel)) {
-      out[d] = lvl as ImpactLevel;
+    const raw = (v as Record<string, unknown>)[d];
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      out[d] = readValue(raw);
     }
   }
   return out;
@@ -92,17 +119,15 @@ export async function getCycleImpacts(): Promise<CycleImpactEntry[]> {
  */
 export async function appendCycleImpact(
   cycleAnchor: string,
-  reads: Partial<Record<ImpactDomain, ImpactLevel>>,
+  reads: Partial<Record<ImpactDomain, ImpactValue>>,
   at: string,
 ): Promise<CycleImpactEntry[]> {
   const clean = parseReads(reads);
   if (!YMD.test(cycleAnchor) || Object.keys(clean).length === 0) return getCycleImpacts();
-  return withStoreLock(STORAGE_KEY, async () => {
-    const log = await getCycleImpacts();
-    log.push({ cycleAnchor, reads: clean, at });
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
-    return log;
-  });
+  const log = await getCycleImpacts();
+  log.push({ cycleAnchor, reads: clean, at });
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+  return log;
 }
 
 /**
@@ -112,13 +137,36 @@ export async function appendCycleImpact(
  */
 export function latestReadsByAnchor(
   log: readonly CycleImpactEntry[],
-): Map<string, Partial<Record<ImpactDomain, ImpactLevel>>> {
+): Map<string, Partial<Record<ImpactDomain, ImpactValue>>> {
   const sorted = [...log].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
-  const map = new Map<string, Partial<Record<ImpactDomain, ImpactLevel>>>();
+  const map = new Map<string, Partial<Record<ImpactDomain, ImpactValue>>>();
   for (const e of sorted) {
     map.set(e.cycleAnchor, { ...(map.get(e.cycleAnchor) ?? {}), ...e.reads });
   }
   return map;
+}
+
+/**
+ * For one domain, the prior cycles' reads ordered oldest → newest, up to `max`
+ * of the most recent. "Prior" means a cycle whose anchor is strictly before
+ * `currentAnchor`, so a fresh reflection on the current cycle isn't compared
+ * against itself. Feeds Reflect's ghost dots ("last cycle", "2 cycles ago")
+ * and the closing reveal.
+ */
+export function priorDomainReads(
+  log: readonly CycleImpactEntry[],
+  currentAnchor: string,
+  domain: ImpactDomain,
+  max = 2,
+): { cycleAnchor: string; value: ImpactValue }[] {
+  const byAnchor = latestReadsByAnchor(log);
+  const out: { cycleAnchor: string; value: ImpactValue }[] = [];
+  for (const [cycleAnchor, reads] of byAnchor) {
+    const value = reads[domain];
+    if (cycleAnchor < currentAnchor && value != null) out.push({ cycleAnchor, value });
+  }
+  out.sort((a, b) => (a.cycleAnchor < b.cycleAnchor ? -1 : a.cycleAnchor > b.cycleAnchor ? 1 : 0));
+  return out.slice(-max);
 }
 
 /**
@@ -127,7 +175,7 @@ export function latestReadsByAnchor(
  */
 export function lastImpactReads(
   log: readonly CycleImpactEntry[],
-): Partial<Record<ImpactDomain, ImpactLevel>> | null {
+): Partial<Record<ImpactDomain, ImpactValue>> | null {
   let latest: CycleImpactEntry | null = null;
   for (const e of log) {
     if (latest == null || e.at > latest.at) latest = e;
@@ -154,12 +202,10 @@ export async function getMutedDomains(): Promise<ImpactDomain[]> {
 }
 
 export async function setDomainMuted(domain: ImpactDomain, muted: boolean): Promise<ImpactDomain[]> {
-  return withStoreLock(MUTED_KEY, async () => {
-    const current = new Set(await getMutedDomains());
-    if (muted) current.add(domain);
-    else current.delete(domain);
-    const next = IMPACT_DOMAINS.filter((d) => current.has(d));
-    await AsyncStorage.setItem(MUTED_KEY, JSON.stringify(next));
-    return next;
-  });
+  const current = new Set(await getMutedDomains());
+  if (muted) current.add(domain);
+  else current.delete(domain);
+  const next = IMPACT_DOMAINS.filter((d) => current.has(d));
+  await AsyncStorage.setItem(MUTED_KEY, JSON.stringify(next));
+  return next;
 }
