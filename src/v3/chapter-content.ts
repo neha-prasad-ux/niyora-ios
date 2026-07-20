@@ -177,14 +177,11 @@ const STORY1: Chapter = {
 };
 
 // --- Story 2 · The callback -------------------------------------------------
-// The refined Story 2 (Neha's own copy, verbatim bar tiny typo/grammar fixes).
-// Written in third person with first-person thoughts, so it reads in a different
-// voice from Story 1's first person: flagged for a consistency pass. Four beats,
-// ending on a cliffhanger ("To be continued"). Beat 3's yogurt / humming /
-// writing-strengths are exactly the moves Reflect Q1 teaches. The kit below
-// still assumes the older "took space and repaired" ending, so it needs
-// realigning to this version. Scenes wire assets/images/stories/story-2 (the
-// cold meeting-room scene, s2-room, is now unused).
+// The refined Story 2 (Neha's copy), in first person to match Story 1. Four
+// beats, ending on a cliffhanger ("To be continued"). Beat 3's yogurt / humming
+// / writing-strengths are exactly the moves Reflect Q1 teaches, and the kit is
+// built from those same takeaways. Scenes wire assets/images/stories/story-2
+// (the cold meeting-room scene, s2-room, is now unused).
 
 const STORY2: Chapter = {
   id: 'story-2',
@@ -192,7 +189,7 @@ const STORY2: Chapter = {
   intro: 'A story about a second shot at something she wanted.',
   beats: [
     {
-      text: `A few months into a new country, Neha crushed the first interview for a job she really wanted. They called her back for round two. "What if they don't like me this time," she thought.`,
+      text: `A few months into a new country, I crushed the first interview for a job I really wanted. They called me back for round two. What if they don't like me this time.`,
       scene: {
         image: 's2-boxes',
         moon: true,
@@ -200,7 +197,7 @@ const STORY2: Chapter = {
       },
     },
     {
-      text: `The interview was in the morning, and of course she couldn't sleep. What if the first one was a fluke. She knew this spiral. Alright, drama queen. I got the callback. And that thesis a classmate called the best thing he saw all year. Yeah, I'm kind of great. She drifted off in the good memories.`,
+      text: `The interview was in the morning, and of course I couldn't sleep. What if the first one was a fluke. I knew this spiral. Alright, drama queen. I got the callback. And that thesis a classmate called the best thing he saw all year. Yeah, I'm kind of great. I drifted off in the good memories.`,
       scene: {
         image: 's2-bed',
         moon: true,
@@ -208,7 +205,7 @@ const STORY2: Chapter = {
       },
     },
     {
-      text: `Morning of, still shaky. So she gave herself twenty minutes. Yogurt, a handful of nuts, and long humming. Her mom always swore it helps. Annoyingly, it did. Then something new. She wrote down three things she'd actually pulled off. The project she shipped. The team she led. The interview she nailed. Reading it back, she landed. Right. I'm good at this.`,
+      text: `Morning of, still shaky. So I gave myself twenty minutes. Yogurt, a handful of nuts, and long humming. My mom always swore it helps. Annoyingly, it did. Then something new. I wrote down three things I'd actually pulled off. The project I shipped. The team I led. The interview I nailed. Reading it back, I landed. Right. I'm good at this.`,
       scene: {
         image: 's2-desk',
         moon: true,
@@ -216,7 +213,7 @@ const STORY2: Chapter = {
       },
     },
     {
-      text: `The interview didn't go great. She walked home sad, and her husband took one look at her. "Hey. You'll get the next call." "That's a lot of pressure right now. I would never do that to you." It came out sharp. "You did, though," he said. "Four years back, when I wanted to leave for the startup. You said I could only go if I lined up another job first." And there it went. Every unspoken thing from the years between, out on the table. They went at it a while. Then her phone buzzed. An email. Subject line: we'd love to have you. To be continued.`,
+      text: `The interview didn't go great. I walked home sad, and my husband took one look at me. "Hey. You'll get the next call." "That's a lot of pressure right now. I would never do that to you." It came out sharp. "You did, though," he said. "Four years back, when I wanted to leave for the startup. You said I could only go if I lined up another job first." And there it went. Every unspoken thing from the years between, out on the table. We went at it a while. Then my phone buzzed. An email. Subject line: we'd love to have you. To be continued.`,
       scene: {
         image: 's2-couch',
         moon: true,
@@ -277,27 +274,31 @@ const STORY2: Chapter = {
   ],
   kit: [
     {
-      id: 'anchor',
-      label: "Write down three real things you've actually pulled off, and read them back.",
+      id: 'strengths',
+      label: "Write down three real things you've pulled off, and read them back.",
       correct: true,
     },
     {
-      id: 'breath',
-      label: 'Feel the nerves climbing and give yourself twenty minutes to breathe in Niyora.',
+      id: 'hum',
+      label: "Hum, or breathe out long and slow, to tell your body it's safe.",
       correct: true,
       live: 'steady',
     },
-    { id: 'food', label: 'Eat something and get a coffee before the big thing', correct: true },
     {
-      id: 'own-it',
-      label: "When it comes out sharp, take a little space, then own it, it's not them",
+      id: 'eat',
+      label: 'Eat something with calcium and magnesium, like yogurt and nuts.',
       correct: true,
     },
     {
-      id: 'push-through',
-      label: 'Just tell yourself to be more confident and push the nerves down',
+      id: 'recall',
+      label: 'When the spiral starts, pull up a real win to land on.',
+      correct: true,
+    },
+    {
+      id: 'push-down',
+      label: 'Tell yourself to stop overthinking and push it down.',
       correct: false,
-      redirect: 'Pushing nerves down tends to leak out sideways. Naming them and anchoring to real wins holds better.',
+      redirect: 'Telling yourself to stop rarely works, and pushing it down tends to come out sideways.',
     },
   ],
 };

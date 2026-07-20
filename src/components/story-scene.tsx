@@ -45,16 +45,26 @@ export function StoryScene({ scene }: { scene: Scene }) {
         pointerEvents="none"
       >
         <Image source={art} resizeMode="cover" style={{ width, height }} accessible={false} />
-        <Svg width={width} height={height} style={{ position: 'absolute', top: 0, left: 0 }}>
-          <Defs>
-            <RadialGradient id="artScrim" cx={width * 0.5} cy={height * 1.02} r={height * 0.62} gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor="#000000" stopOpacity="0.88" />
-              <Stop offset="0.7" stopColor="#000000" stopOpacity="0.5" />
-              <Stop offset="1" stopColor="#000000" stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
-          <Rect x={0} y={0} width={width} height={height} fill="url(#artScrim)" />
-        </Svg>
+        {/* A base dim over the whole painting so beat copy reads even where it
+            runs up over the brighter upper art (long beats fill most of the
+            screen), then a bottom-weighted gradient where the copy sits. */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(8, 6, 14, 0.34)',
+          }}
+        />
+        <LinearGradient
+          colors={['rgba(8, 6, 14, 0)', 'rgba(8, 6, 14, 0.55)', 'rgba(8, 6, 14, 0.92)']}
+          locations={[0, 0.52, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
       </View>
     );
   }
