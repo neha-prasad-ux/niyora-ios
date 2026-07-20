@@ -458,14 +458,14 @@ export default function MySoulScreen() {
               <Pressable
                 onPress={() => {
                   Haptics.selectionAsync();
-                  resetOnboarding().finally(() => router.replace('/onboarding'));
+                  resetOnboarding().finally(() => router.replace('/onboarding-v3'));
                 }}
                 hitSlop={12}
                 style={styles.replayIntro}
                 accessibilityRole="button"
-                accessibilityLabel="Watch the intro again"
+                accessibilityLabel="Redo onboarding"
               >
-                <Text style={styles.replayIntroText}>Watch the intro again</Text>
+                <Text style={styles.replayIntroText}>Redo onboarding</Text>
               </Pressable>
 
               <Pressable

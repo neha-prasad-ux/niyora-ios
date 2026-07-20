@@ -33,7 +33,7 @@ export default function LaunchGate() {
     );
   }
 
-  return <Redirect href={onboarded ? '/now' : '/onboarding'} />;
+  return <Redirect href={onboarded ? '/now' : '/onboarding-v3'} />;
 }
 
 const styles = StyleSheet.create({

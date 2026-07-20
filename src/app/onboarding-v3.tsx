@@ -54,6 +54,10 @@ import {
 } from '@/store/onboarding-v3-progress';
 import { setPeriodHistory, latestStart } from '@/store/period-history';
 import { addPmsRead, getPmsReads } from '@/store/pms-reads';
+import { setOnboardingComplete } from '@/store/onboarding-complete';
+import { ensureNotificationPermission, scheduleDailyReminder } from '@/lib/notifications';
+import { setReminder } from '@/store/reminder-prefs';
+import { syncPmsReminders } from '@/lib/pms-reminders';
 import { READINESS_CHECK_CONTENT, type ReadinessCheckId } from '@/store/pms-readiness';
 import { ChapterCard } from '@/components/chapter-card';
 import { CHAPTERS } from '@/v3/game-content';
@@ -143,6 +147,7 @@ type StepId =
   | 'loading'
   | 'result'
   | 'goal'
+  | 'reminder' // after the plan: opt into one gentle daily nudge (first-run only)
   | 'pick' // after the plan: choose the first experience (Grow leads with it)
   | 'compare'; // retake mode only: her level then vs. now
 
@@ -161,6 +166,7 @@ const SEQUENCE: StepId[] = [
   'loading',
   'result',
   'goal', // pick-up: her goal + how Niyora will help
+  'reminder', // opt into one gentle daily nudge, folded in from the old onboarding
   'pick', // "where do you want to start?" — routes into the chosen pillar
 ];
 
@@ -355,6 +361,10 @@ export default function OnboardingV3Screen() {
     // this should downgrade it.
     persistMode.current = 'off';
     await setOnboardingV3Progress({ stepIndex, answers, done: true }).catch(() => {});
+    // V3 is now the first-run flow, so committing the plan is what finishes
+    // onboarding: mark it complete so the launch gate stops sending her back here
+    // (even if she leaves before the reminder/pick steps).
+    await setOnboardingComplete().catch(() => {});
     // Record the finished read as her baseline, so My Soul can show where she
     // stands and a later retake has something to compare against.
     await addPmsRead({ at: toYmd(new Date()), answers }).catch(() => {});
@@ -390,6 +400,7 @@ export default function OnboardingV3Screen() {
     step !== 'privacy' &&
     step !== 'result' &&
     step !== 'goal' &&
+    step !== 'reminder' &&
     step !== 'pick' &&
     step !== 'compare' &&
     !step.startsWith('fact_');
@@ -524,7 +535,9 @@ function RenderStep({
     case 'privacy':
       return <Privacy onNext={advance} />;
     case 'fact_spectrum':
-      return <FactSpectrum onNext={advance} onSkip={finish} />;
+      // Skip advances past the fact rather than exiting: as the first-run flow,
+      // "exit" would only bounce back here via the launch gate.
+      return <FactSpectrum onNext={advance} onSkip={advance} />;
     case 'symptoms':
       return <Symptoms answers={answers} update={update} onNext={advance} />;
     case 'fact_hormones':
@@ -549,6 +562,8 @@ function RenderStep({
     case 'goal':
       // The plan hand-off: persist her cycle + mark done, then move to the pick.
       return <Plan answers={answers} update={update} onDone={commitPlan} />;
+    case 'reminder':
+      return <ReminderStep onDone={advance} />;
     case 'pick':
       // "Where do you want to start?" — routes into the chosen pillar.
       return <Pick onPick={startWith} />;
@@ -1720,6 +1735,76 @@ const START_CARDS: StartCard[] = [
   },
 ];
 
+// One-tap reminder time presets, so onboarding stays a tap, not a full picker.
+// Ported from the old onboarding's daily-nudge step.
+const REMINDER_PRESETS: readonly { label: string; hour: number }[] = [
+  { label: '9pm', hour: 21 },
+  { label: '10pm', hour: 22 },
+  { label: '11pm', hour: 23 },
+];
+
+// The gentle daily nudge, folded in from the old onboarding so nothing is lost
+// now that V3 is the only first-run flow. Opt-in: turning it on asks permission
+// and schedules the chosen time; "Not now" simply moves on. Either way advances.
+function ReminderStep({ onDone }: { onDone: () => void }) {
+  const [presetIndex, setPresetIndex] = useState(1); // default 10pm
+
+  const enable = useCallback(async () => {
+    const hour = REMINDER_PRESETS[presetIndex].hour;
+    const granted = await ensureNotificationPermission().catch(() => false);
+    if (granted) {
+      await setReminder({ enabled: true, hour, minute: 0 }).catch(() => {});
+      await scheduleDailyReminder(hour, 0).catch(() => {});
+      await syncPmsReminders().catch(() => {});
+    }
+    onDone();
+  }, [presetIndex, onDone]);
+
+  return (
+    <StepLayout
+      title="A gentle daily nudge"
+      subtitle="One quiet reminder to take a moment for yourself"
+      footer={
+        <View style={styles.reminderFooter}>
+          <BeginButton fullWidth label="Turn on reminders" onPress={enable} />
+          <Pressable
+            onPress={onDone}
+            style={styles.reminderSkip}
+            accessibilityRole="button"
+            accessibilityLabel="Not now"
+          >
+            <Text style={styles.reminderSkipText}>Not now</Text>
+          </Pressable>
+        </View>
+      }
+    >
+      <Orb size={140} still />
+      <View style={styles.reminderChips}>
+        {REMINDER_PRESETS.map((p, i) => {
+          const on = i === presetIndex;
+          return (
+            <Pressable
+              key={p.label}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setPresetIndex(i);
+              }}
+              style={[styles.reminderChip, on && styles.reminderChipOn]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={p.label}
+            >
+              <Text style={[styles.reminderChipText, on && styles.reminderChipTextOn]}>
+                {p.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </StepLayout>
+  );
+}
+
 function Pick({ onPick }: { onPick: (choice: StartChoice) => void }) {
   return (
     <StepLayout topAlign>
@@ -2297,6 +2382,47 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Light',
     fontSize: 16,
     color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  reminderChips: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 28,
+  },
+  reminderChip: {
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+  },
+  reminderChipOn: {
+    borderColor: v3.accent,
+    backgroundColor: 'rgba(150, 110, 205, 0.22)',
+  },
+  reminderChipText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 15,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  reminderChipTextOn: {
+    color: colors.textPrimary,
+  },
+  reminderFooter: {
+    width: '100%',
+    gap: 8,
+  },
+  reminderSkip: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  reminderSkipText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: colors.textSubtitle,
     letterSpacing: 0.2,
   },
   hint: {
