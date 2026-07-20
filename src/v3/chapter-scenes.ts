@@ -5,16 +5,19 @@ import type { ImageSourcePropType } from 'react-native';
 // present here, and falls back to the painterly stub (components/story-scene)
 // otherwise — so the flow always works, art or not.
 //
-// Both stories' art lives under assets/images/stories/story-N/scene-M.png (the
-// onboarding preview card reads the same files), so there is one copy, not two.
+// To wire Story 1's scenes: drop the five files into
+// assets/stories/story-1/ with these exact names, then uncomment the requires:
+//   s1-suitcase.png  — beat 1, bedroom + suitcase + moon
+//   s1-bed.png       — beat 2, dark window, sheer curtain, moon
+//   s1-gate.png      — beat 3, airport gate, seats, suitcase, moon
+//   s1-cafe.png      — beat 4, cafe table, coffee steam, book, moon
+//   s1-plane.png     — beat 5, airplane window, moon over clouds
 export const SCENE_IMAGES: Record<string, ImageSourcePropType> = {
-  //   scene-1 bedroom + suitcase · scene-2 dark window · scene-3 airport gate
-  //   scene-4 cafe table · scene-5 airplane window over clouds
-  's1-suitcase': require('../../assets/images/stories/story-1/scene-1.png'),
-  's1-bed': require('../../assets/images/stories/story-1/scene-2.png'),
-  's1-gate': require('../../assets/images/stories/story-1/scene-3.png'),
-  's1-cafe': require('../../assets/images/stories/story-1/scene-4.png'),
-  's1-plane': require('../../assets/images/stories/story-1/scene-5.png'),
+  's1-suitcase': require('../../assets/stories/story-1/s1-suitcase.png'),
+  's1-bed': require('../../assets/stories/story-1/s1-bed.png'),
+  's1-gate': require('../../assets/stories/story-1/s1-gate.png'),
+  's1-cafe': require('../../assets/stories/story-1/s1-cafe.png'),
+  's1-plane': require('../../assets/stories/story-1/s1-plane.png'),
   // Story 2 · The callback (beats 1-5).
   //   s2-boxes  — beat 1, new apartment, moving boxes, laptop, moon
   //   s2-bed    — beat 2, new-apartment bed, phone face-down, city lights + moon
