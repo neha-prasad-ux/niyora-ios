@@ -13,7 +13,7 @@ import { Tabs } from 'expo-router';
 import { LightMotes } from '@/components/light-motes';
 import { NightTabBar } from '@/components/night-tab-bar';
 import { TabMoon } from '@/components/tab-moon';
-import { GrowIcon, YouIcon } from '@/components/tab-icons';
+import { SunIcon, StarIcon } from '@/components/tab-icons';
 
 export default function TabsLayout() {
   return (
@@ -36,18 +36,17 @@ export default function TabsLayout() {
           name="grow"
           options={{
             title: 'Train',
-            // Niyora's own celestial sprout, not an SF Symbol dumbbell — Grow is
-            // where skills grow between cycles. Fills + brightens on focus.
-            tabBarIcon: ({ focused }) => <GrowIcon focused={focused} size={24} />,
+            // The sun — the bright, high-drive middle of the phase. Grey at rest,
+            // warms to full colour on focus.
+            tabBarIcon: ({ focused }) => <SunIcon focused={focused} size={24} />,
           }}
         />
         <Tabs.Screen
           name="you"
           options={{
             title: 'Soul',
-            // The soul figure under a soft halo — the self the app is tending,
-            // a sibling to the Now moon rather than a generic person glyph.
-            tabBarIcon: ({ focused }) => <YouIcon focused={focused} size={24} />,
+            // A star — your own point of light. Grey at rest, gold on focus.
+            tabBarIcon: ({ focused }) => <StarIcon focused={focused} size={24} />,
           }}
         />
       </Tabs>

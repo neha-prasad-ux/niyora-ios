@@ -15,14 +15,14 @@ import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
 import { clayChipSurface, secondaryButtonSurface, tileSurface } from '@/theme/controls';
 import { GlassSurface } from '@/components/glass-surface';
-import { GrowIcon, YouIcon } from '@/components/tab-icons';
+import { SunIcon, StarIcon } from '@/components/tab-icons';
 import { TabMoon } from '@/components/tab-moon';
 
 // The three tab icons, each rendered resting then selected.
 const TAB_ICON_SAMPLES: { label: string; render: (focused: boolean) => React.ReactNode }[] = [
   { label: 'Now', render: (f) => <TabMoon focused={f} /> },
-  { label: 'Train', render: (f) => <GrowIcon focused={f} size={24} /> },
-  { label: 'Soul', render: (f) => <YouIcon focused={f} size={24} /> },
+  { label: 'Train', render: (f) => <SunIcon focused={f} size={24} /> },
+  { label: 'Soul', render: (f) => <StarIcon focused={f} size={24} /> },
 ];
 
 const TYPE_SAMPLES = [

@@ -26,6 +26,7 @@ import type { LightEvent } from '@/lib/moon-light';
 import {
   BAR_CONTENT_HEIGHT,
   BAR_MIN_BOTTOM_PAD,
+  BAR_SIDE_INSET,
   MOON_CENTER_FROM_BAR_TOP,
 } from '@/components/night-tab-bar';
 
@@ -117,7 +118,9 @@ function Mote({ mote, onDone }: { mote: ActiveMote; onDone: (id: number) => void
   const sx = width / 2 + mote.jx;
   const sy = height * 0.42 + mote.jy;
   const barTop = height - (BAR_CONTENT_HEIGHT + Math.max(insets.bottom, BAR_MIN_BOTTOM_PAD));
-  const ex = width / 6; // center of the first of three equal tabs
+  // The bar is inset from both edges now, so the tab row is narrower than the
+  // screen: center of the first of three equal tabs within that inset row.
+  const ex = BAR_SIDE_INSET + (width - 2 * BAR_SIDE_INSET) / 6;
   const ey = barTop + MOON_CENTER_FROM_BAR_TOP;
   const cx = sx + (ex - sx) * 0.25;
   const cy = sy - 64;
