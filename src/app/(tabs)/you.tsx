@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -92,6 +93,7 @@ import { radius, spacing } from '@/theme/spacing';
 import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
+import { CRISIS_COPY } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
 import { compareReads, deriveLevel, levelActivation } from '@/v3/v3-content';
 import { waveTint } from '@/v3/v3-graphics';
@@ -101,6 +103,14 @@ function effectiveSoul(
   macSoulState: MacSoulState | null,
 ): MacSoulState | null {
   return isPaired ? freshSoul(macSoulState) : null;
+}
+
+// The three crisis lines' actions, matched to CRISIS_COPY.lines by order:
+// 988 lifeline, the Crisis Text Line, and the by-country directory.
+const CRISIS_URLS = ['tel:988', 'sms:741741', 'https://findahelpline.com'];
+function openCrisisLine(index: number): void {
+  const url = CRISIS_URLS[index];
+  if (url) Linking.openURL(url).catch(() => {});
 }
 
 export default function MySoulScreen() {
@@ -120,6 +130,7 @@ export default function MySoulScreen() {
   const [pmsReads, setPmsReads] = useState<PmsRead[]>([]);
   const [periodHistory, setPeriodHistoryState] = useState<string[]>([]);
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
+  const [crisisOpen, setCrisisOpen] = useState(false);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
   const {
     isPaired,
@@ -457,6 +468,20 @@ export default function MySoulScreen() {
                 <Text style={styles.replayIntroText}>Watch the intro again</Text>
               </Pressable>
 
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setCrisisOpen(true);
+                }}
+                hitSlop={8}
+                style={styles.crisisRow}
+                accessibilityRole="button"
+                accessibilityLabel="Urgent support"
+              >
+                <SymbolView name="lifepreserver" tintColor={colors.textSubtitle} size={15} weight="regular" />
+                <Text style={styles.crisisRowText}>In a crisis? Get urgent support</Text>
+              </Pressable>
+
               <Text style={styles.footer}>
                 Niyora does not collect any data
               </Text>
@@ -469,6 +494,50 @@ export default function MySoulScreen() {
       {SHOW_CHECKIN && showCheckIn && (
         <CheckInSheet onDone={handleCheckInDone} />
       )}
+
+      <Modal
+        visible={crisisOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCrisisOpen(false)}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.crisisBackdrop}
+          onPress={() => setCrisisOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Pressable style={styles.crisisSheet} onPress={() => {}}>
+            <Text style={styles.crisisTitle}>If you need a person</Text>
+            <Text style={styles.crisisBody}>
+              Some moments are bigger than an app can hold. These lines are free, and there any
+              time.
+            </Text>
+            {CRISIS_COPY.lines.map((line, i) => (
+              <Pressable
+                key={line.label}
+                style={styles.crisisLine}
+                onPress={() => openCrisisLine(i)}
+                accessibilityRole="button"
+                accessibilityLabel={`${line.label}. ${line.detail}`}
+              >
+                <Text style={styles.crisisLineLabel}>{line.label}</Text>
+                <Text style={styles.crisisLineDetail}>{line.detail}</Text>
+              </Pressable>
+            ))}
+            <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
+            <Pressable
+              onPress={() => setCrisisOpen(false)}
+              style={styles.crisisClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text style={styles.crisisCloseText}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* The full period calendar: add multiple past periods, tap a logged one
           to remove it. Same sheet onboarding and Now use, over period-history. */}
@@ -1841,5 +1910,86 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.3)',
     textAlign: 'center',
+  },
+  crisisRow: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 14,
+    paddingVertical: 8,
+  },
+  crisisRowText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  crisisBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  crisisSheet: {
+    backgroundColor: colors.backgroundBottom,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingTop: 26,
+    paddingBottom: 40,
+    paddingHorizontal: 22,
+  },
+  crisisTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 19,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  crisisBody: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  crisisLine: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    marginBottom: 10,
+  },
+  crisisLineLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  crisisLineDetail: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  crisisEmergency: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textTertiary,
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  crisisClose: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+  },
+  crisisCloseText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textSubtitle,
   },
 });
