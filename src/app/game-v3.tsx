@@ -974,14 +974,13 @@ function L4Backdrop() {
   );
 }
 
-// The guided breath itself: five slow rounds of a 4s inhale / 8s exhale, driving
+// The guided breath itself: three slow rounds of a 4s inhale / 8s exhale, driving
 // the same growing orb as Quick Calm (breathRange) via useBreathCycle. Mounted
 // only once she taps in, so each run starts fresh from round 1. No skipping.
 const POWER_PHASES: BreathPhase[] = [
   { type: 'inhale', label: 'breathe in', duration: 4 },
   { type: 'exhale', label: 'breathe out', duration: 8 },
 ];
-const POWER_ROUNDS = 5;
 const POWER_BREATH_RANGE = { min: 0.7, max: 1.4 };
 
 function cap(s: string): string {
@@ -990,13 +989,14 @@ function cap(s: string): string {
 
 function PowerBreath({
   onFinish,
-  rounds = POWER_ROUNDS,
+  rounds = 3,
   finishLabel = 'Finish',
 }: {
   onFinish: () => void;
   rounds?: number;
   finishLabel?: string;
 }) {
+  // rounds defaults to 3; every call site passes it explicitly.
   const cycle = useBreathCycle(POWER_PHASES, rounds, false);
   return (
     <View style={styles.l1Body}>
@@ -1023,7 +1023,7 @@ function PowerBreath({
 
 // --- Level 4 · The power move (teach the long exhale, then breathe) ----
 // We have not covered breathing yet, so this level introduces it: what the move
-// is, why the long exhale calms you, then five rounds done together. No skip.
+// is, why the long exhale calms you, then three rounds done together. No skip.
 function LevelFour({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onExit: () => void }) {
   const { L1_INTRO, L4_INTRO, L4_TEACH, L4_CONGRATS } = ch;
   const [stage, setStage] = useState<'levelIntro' | 'cheat' | 'breathe' | 'congrats'>('levelIntro');
@@ -1194,6 +1194,9 @@ function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => vo
                   </View>
                 ))}
               </View>
+              {teach.foot && (
+                <Text style={[styles.l2Subtitle, { marginTop: 16 }]}>{teach.foot}</Text>
+              )}
             </View>
             <BeginButton fullWidth label="Let's do it" onPress={() => { tap(); setStage('practice'); }} />
           </View>
