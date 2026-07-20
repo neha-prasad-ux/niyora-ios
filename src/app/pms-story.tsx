@@ -329,17 +329,34 @@ function Reflect({
   total: number;
   onNext: () => void;
 }) {
+  // tap-each: explore every option (all valid), each teaching its own line, and
+  // move on once all are seen. pick-one: choose the one right answer.
+  const tapEach = question.mode === 'tap-each';
   const [picked, setPicked] = useState<number | null>(null);
-  const answered = picked != null;
+  const [revealed, setRevealed] = useState<readonly number[]>([]);
+  const answered = tapEach ? revealed.length === question.options.length : picked != null;
 
   const choose = (i: number) => {
-    if (answered) return;
+    if (tapEach) {
+      if (revealed.includes(i)) return;
+      Haptics.selectionAsync().catch(() => {});
+      setRevealed((prev) => [...prev, i]);
+      return;
+    }
+    if (picked != null) return;
     const correct = question.options[i].correct;
     Haptics.notificationAsync(
       correct ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning,
     ).catch(() => {});
     setPicked(i);
   };
+
+  // The single line shown under a pick-one answer: the picked option's own line
+  // (detail when right, redirect when wrong), falling back to the shared takeaway.
+  const pickedOpt = picked != null ? question.options[picked] : null;
+  const pickOneLine = pickedOpt
+    ? ((pickedOpt.correct ? pickedOpt.detail : pickedOpt.redirect) ?? question.takeaway)
+    : undefined;
 
   return (
     <Animated.View
@@ -353,39 +370,47 @@ function Reflect({
           <Text style={styles.reflectPrompt}>{question.prompt}</Text>
           <View style={styles.reflectOptions}>
             {question.options.map((o, i) => {
-              const isPicked = picked === i;
-              const revealCorrect = answered && o.correct;
+              const isPicked = !tapEach && picked === i;
+              const revealCorrect = !tapEach && picked != null && o.correct;
+              const isRevealed = tapEach && revealed.includes(i);
               return (
-                <Pressable
-                  key={i}
-                  onPress={() => choose(i)}
-                  disabled={answered}
-                  accessibilityRole="button"
-                  accessibilityLabel={o.label}
-                  style={[
-                    styles.optionChip,
-                    revealCorrect && styles.optionCorrect,
-                    isPicked && !o.correct && styles.optionWrong,
-                  ]}
-                >
-                  <Text
+                <View key={i}>
+                  <Pressable
+                    onPress={() => choose(i)}
+                    disabled={tapEach ? isRevealed : picked != null}
+                    accessibilityRole="button"
+                    accessibilityLabel={o.label}
+                    accessibilityState={{ selected: isPicked || isRevealed }}
                     style={[
-                      styles.optionText,
-                      revealCorrect && styles.optionTextStrong,
-                      answered && !o.correct && !isPicked && styles.optionTextDim,
+                      styles.optionChip,
+                      (revealCorrect || isRevealed) && styles.optionCorrect,
+                      isPicked && !o.correct && styles.optionWrong,
                     ]}
                   >
-                    {o.label}
-                  </Text>
-                </Pressable>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        (revealCorrect || isRevealed) && styles.optionTextStrong,
+                        !tapEach && picked != null && !o.correct && !isPicked && styles.optionTextDim,
+                      ]}
+                    >
+                      {o.label}
+                    </Text>
+                  </Pressable>
+                  {isRevealed && o.detail ? (
+                    <Animated.Text entering={FadeIn.duration(360)} style={styles.optionDetail}>
+                      {o.detail}
+                    </Animated.Text>
+                  ) : null}
+                </View>
               );
             })}
           </View>
-          {answered && (
+          {!tapEach && picked != null && pickOneLine ? (
             <Animated.Text entering={FadeIn.duration(400)} style={styles.reflectTakeaway}>
-              {question.takeaway}
+              {pickOneLine}
             </Animated.Text>
-          )}
+          ) : null}
         </View>
       </ScrollView>
       {answered && (
@@ -687,6 +712,17 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     letterSpacing: 0.2,
     marginTop: 20,
+  },
+  // The per-option line revealed under a tapped tap-each option.
+  optionDetail: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 6,
   },
 
   // Kit.

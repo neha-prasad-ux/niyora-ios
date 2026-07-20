@@ -16,7 +16,11 @@ function allCopy(c: Chapter): string[] {
     c.title,
     c.intro,
     ...c.beats.flatMap((b) => [b.text, b.scene.alt]),
-    ...c.reflect.flatMap((q) => [q.prompt, q.takeaway, ...q.options.map((o) => o.label)]),
+    ...c.reflect.flatMap((q) => [
+      q.prompt,
+      q.takeaway ?? '',
+      ...q.options.flatMap((o) => [o.label, o.detail ?? '', o.redirect ?? '']),
+    ]),
     ...c.kit.flatMap((k) => [k.label, k.redirect ?? '']),
   ];
 }
@@ -52,12 +56,24 @@ describe('chapter serial', () => {
 });
 
 describe.each(CHAPTERS.map((c) => [c.id, c] as const))('chapter %s', (_id, chapter) => {
-  it('gives every reflect question exactly one correct answer', () => {
+  it('validates each reflect question by its mode', () => {
     expect(chapter.reflect.length).toBeGreaterThanOrEqual(1);
     for (const q of chapter.reflect) {
       expect(q.options.length).toBeGreaterThanOrEqual(2);
-      expect(q.options.filter((o) => o.correct)).toHaveLength(1);
-      expect(q.takeaway.length).toBeGreaterThan(0);
+      if (q.mode === 'tap-each') {
+        // No wrong answer; every option teaches its own line.
+        expect(q.options.every((o) => o.correct)).toBe(true);
+        for (const o of q.options) expect((o.detail ?? '').length).toBeGreaterThan(0);
+      } else {
+        // pick-one: exactly one correct, and some teaching exists (a shared
+        // takeaway, the correct option's line, or a redirect on every wrong one).
+        expect(q.options.filter((o) => o.correct)).toHaveLength(1);
+        const hasTeaching =
+          (q.takeaway?.length ?? 0) > 0 ||
+          q.options.some((o) => o.correct && (o.detail?.length ?? 0) > 0) ||
+          q.options.filter((o) => !o.correct).every((o) => (o.redirect?.length ?? 0) > 0);
+        expect(hasTeaching).toBe(true);
+      }
     }
   });
 

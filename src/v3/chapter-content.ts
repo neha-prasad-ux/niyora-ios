@@ -29,20 +29,30 @@ export interface Beat {
   scene: Scene;
 }
 
-// A reflect option. Exactly one option per question is `correct`. Nothing here
-// can fail her — a wrong tap shows the warm redirect and reveals the true answer,
-// it never blocks or scolds.
+// A reflect option. Nothing here can fail her.
+//   pick-one: exactly one option is `correct`; a wrong tap shows its `redirect`
+//     (or the shared takeaway) and reveals the true answer.
+//   tap-each: every option is `correct` (all valid), and each teaches its own
+//     `detail` line when tapped.
 export interface ReflectOption {
   label: string;
   correct: boolean;
+  // The one-line learning shown when this option is tapped. Required on tap-each
+  // options; optional on a pick-one correct option (it can stand in for takeaway).
+  detail?: string;
+  // A softer line for a wrong pick-one option, revealed with the true answer.
+  redirect?: string;
 }
 
 export interface ReflectQuestion {
   prompt: string;
   options: readonly ReflectOption[];
-  // The one-line learning revealed after she answers (right or wrong). The
-  // question stays short; this is where the richness lives. Never a scold.
-  takeaway: string;
+  // 'pick-one' (default): choose the right answer, a wrong tap is met warmly.
+  // 'tap-each': explore every option, all valid, each teaching its own line.
+  mode?: 'pick-one' | 'tap-each';
+  // The shared one-line learning for pick-one questions whose options do not each
+  // carry a line (Story 1). Optional now that options can carry their own detail.
+  takeaway?: string;
 }
 
 // A build-your-kit item. Correct items become her checklist and tick the prep
@@ -224,25 +234,53 @@ const STORY2: Chapter = {
   ],
   reflect: [
     {
-      prompt: 'The morning of, Neha felt her confidence sliding. What pulled her back?',
+      // tap-each: all three helped, each teaches its own line. No wrong answer.
+      // NOTE: options name yogurt + humming, which the beats above do not yet
+      // mention (they say coffee/nuts + slow breaths) — reconcile before ship.
+      // Each detail still needs a source link, same bar as the Understand cards.
+      prompt: 'Neha did a few things to steady herself. Which ones actually work?',
+      mode: 'tap-each',
       options: [
-        { label: 'Told herself to just calm down', correct: false },
-        { label: "Wrote down three real things she'd actually accomplished", correct: true },
-        { label: 'Read the job description again', correct: false },
+        {
+          label: 'Yogurt and nuts for breakfast',
+          correct: true,
+          detail: 'Calcium and magnesium take the edge off and steady your mood.',
+        },
+        {
+          label: 'Humming',
+          correct: true,
+          detail: "Humming lengthens your exhale and tells your body it's safe to calm down.",
+        },
+        {
+          label: 'Writing down her strengths',
+          correct: true,
+          detail:
+            'Reading back real wins is a self-affirmation trick that quiets the stress response.',
+        },
       ],
-      takeaway:
-        'Anchoring to real, concrete wins steadies a sliding confidence faster than forcing calm.',
     },
     {
+      // pick-one myth-bust. The premise is the myth; only the reframe is right.
       prompt:
-        'Neha snapped at her husband when he was only trying to help, then felt terrible. Those extra-raw days often line up with the PMS window, the stretch before your period when everything hits harder. What did she do that helped?',
+        '"She\'s always overthinking. She should just be quiet and let it go." Fair?',
       options: [
-        { label: 'Insisted he had upset her', correct: false },
-        { label: "Took space, then owned it and told him it wasn't about him", correct: true },
-        { label: 'Pretended everything was fine', correct: false },
+        {
+          label: 'Yeah, she needs to quiet down',
+          correct: false,
+          redirect:
+            "Telling yourself to just stop rarely works. Some days the volume's turned all the way up.",
+        },
+        {
+          label:
+            "The days before her period crank the volume on everything. The move isn't to silence it, it's to notice it and let it pass.",
+          correct: true,
+        },
+        {
+          label: "She should keep it in so she doesn't snap",
+          correct: false,
+          redirect: 'Bottling tends to come out sideways.',
+        },
       ],
-      takeaway:
-        "Taking space and then owning it repairs faster than blaming or pretending. The raw days are real PMS, not you being difficult.",
     },
   ],
   kit: [
