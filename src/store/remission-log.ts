@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './storage-lock';
+
 // One remission answer per cycle: after her period starts, the Now tab asks
 // whether symptoms eased. Onboarding asked this once; logging it every cycle
 // turns a single self-report into a pattern the You tab can show. Each entry
@@ -44,9 +46,11 @@ export async function getRemissionLog(): Promise<RemissionEntry[]> {
 }
 
 export async function appendRemission(entry: RemissionEntry): Promise<void> {
-  const log = await getRemissionLog();
-  log.push(entry);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+  await withStoreLock(STORAGE_KEY, async () => {
+    const log = await getRemissionLog();
+    log.push(entry);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+  });
 }
 
 export function answeredForCycle(log: RemissionEntry[], cycleAnchor: string | null): boolean {

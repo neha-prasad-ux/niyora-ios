@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './storage-lock';
+
 // The awareness half of the cycle-end reflection (the Now tab's Reflect flow).
 // Where cycle-impact records *how the cycle landed* per life domain and
 // remission-log records *whether symptoms eased*, this records the metacognition
@@ -70,10 +72,12 @@ export async function getReflectLog(): Promise<ReflectEntry[]> {
  */
 export async function recordReflect(entry: ReflectEntry): Promise<ReflectEntry[]> {
   if (!YMD.test(entry.cycleAnchor)) return getReflectLog();
-  const log = await getReflectLog();
-  log.push(entry);
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
-  return log;
+  return withStoreLock(STORAGE_KEY, async () => {
+    const log = await getReflectLog();
+    log.push(entry);
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(log));
+    return log;
+  });
 }
 
 /** Whether this cycle has ever been reflected on (at least one entry). */

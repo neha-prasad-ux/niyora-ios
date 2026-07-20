@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCallback, useState, type ReactNode } from 'react';
-import { BlurView } from 'expo-blur';
+import { GlassSurface } from '@/components/glass-surface';
 import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
 import { BackgroundGradient } from '@/components/background-gradient';
@@ -39,6 +40,7 @@ import {
   getCycleImpacts,
   getMutedDomains,
   latestReadsByAnchor,
+  levelOf,
   IMPACT_DOMAINS,
   IMPACT_DOMAIN_LABEL,
   type CycleImpactEntry,
@@ -64,8 +66,7 @@ import {
   getPmsPrefs,
   setPmsPrefs,
   DEFAULT_PMS_PREFS,
-  MIN_CYCLE_LENGTH,
-  MAX_CYCLE_LENGTH,
+  DEFAULT_PERIOD_LENGTH,
   type PmsPrefs,
 } from '@/store/pms-prefs';
 import { isInPmsWindow, daysUntilPmsWindow } from '@/lib/pms-window';
@@ -76,13 +77,23 @@ import {
   cancelDailyReminder,
 } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
+import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
+import {
+  getPeriodHistory,
+  setPeriodHistory,
+  addPeriodStart,
+  latestStart,
+} from '@/store/period-history';
+import { PeriodSheet } from '@/components/period-sheet';
 import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
+import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
+import { CRISIS_COPY } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
 import { compareReads, deriveLevel, levelActivation } from '@/v3/v3-content';
 import { waveTint } from '@/v3/v3-graphics';
@@ -92,6 +103,14 @@ function effectiveSoul(
   macSoulState: MacSoulState | null,
 ): MacSoulState | null {
   return isPaired ? freshSoul(macSoulState) : null;
+}
+
+// The three crisis lines' actions, matched to CRISIS_COPY.lines by order:
+// 988 lifeline, the Crisis Text Line, and the by-country directory.
+const CRISIS_URLS = ['tel:988', 'sms:741741', 'https://findahelpline.com'];
+function openCrisisLine(index: number): void {
+  const url = CRISIS_URLS[index];
+  if (url) Linking.openURL(url).catch(() => {});
 }
 
 export default function MySoulScreen() {
@@ -109,6 +128,9 @@ export default function MySoulScreen() {
   const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
   const [pmsPrefs, setPmsPrefsState] = useState<PmsPrefs>(DEFAULT_PMS_PREFS);
   const [pmsReads, setPmsReads] = useState<PmsRead[]>([]);
+  const [periodHistory, setPeriodHistoryState] = useState<string[]>([]);
+  const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
+  const [crisisOpen, setCrisisOpen] = useState(false);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
   const {
     isPaired,
@@ -154,6 +176,9 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getPmsPrefs().then((p) => {
         if (active) setPmsPrefsState(p);
+      }).catch(() => {});
+      getPeriodHistory().then((h) => {
+        if (active) setPeriodHistoryState(h);
       }).catch(() => {});
       // Her PMS reads, oldest first. Anyone who finished onboarding before the
       // reads history existed gets a baseline synthesized from the saved
@@ -230,23 +255,48 @@ export default function MySoulScreen() {
       await persistPms({ ...pmsPrefs, pmsMode: false });
       return;
     }
-    // Turning it on needs a date to predict from. Keep an existing one, else
-    // seed today so the feature has something to work with; she can adjust it
-    // right below.
-    const lastPeriodStart = pmsPrefs.lastPeriodStart ?? toYmdLocal(new Date());
     // The heads-up reminders are the feature's only notification, so ask for
     // permission now. PMS framing still works in-app if she declines.
     await ensureNotificationPermission().catch(() => false);
-    await persistPms({ ...pmsPrefs, pmsMode: true, lastPeriodStart });
+    await persistPms({ ...pmsPrefs, pmsMode: true });
+    // Don't fabricate a period: if none is logged yet, open the calendar so she
+    // logs her real last period. Predictions stay quiet until she does (every
+    // consumer guards a null start), and the "Your periods" row shows "Add".
+    if (pmsPrefs.lastPeriodStart == null) {
+      setPeriodSheetVisible(true);
+    }
   }
 
-  async function handlePmsDateChange(dt: Date) {
-    await persistPms({ ...pmsPrefs, lastPeriodStart: toYmdLocal(dt) });
+  // Logging a period from the calendar: append it to the additive history (the
+  // same store onboarding and Now write to) and re-anchor the prediction to the
+  // newest start. This is the edit surface, so it stays light — no moon minting
+  // or reflection offers (those belong to the Now honesty loop).
+  async function handlePeriodConfirm(dt: Date) {
+    const history = await addPeriodStart(toYmdLocal(dt)).catch(() => null);
+    if (history == null) return;
+    setPeriodHistoryState(history);
+    await persistPms(prefsAfterPeriodLog(pmsPrefs, history));
   }
 
-  async function handlePmsCycleLengthChange(delta: number) {
-    const next = Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, pmsPrefs.cycleLength + delta));
-    await persistPms({ ...pmsPrefs, cycleLength: next });
+  // Removing a logged period: drop it from the history, and if it was the
+  // current anchor, fall back to the next most recent start.
+  async function handlePeriodRemove(startYmd: string) {
+    const remaining = periodHistory.filter((s) => s !== startYmd);
+    setPeriodHistoryState(remaining);
+    await setPeriodHistory(remaining).catch(() => {});
+    if (pmsPrefs.lastPeriodStart === startYmd) {
+      await persistPms({ ...pmsPrefs, lastPeriodStart: latestStart(remaining) });
+    }
+  }
+
+  // Cycle and period length now come from the calendar sheet, which already
+  // clamps to the allowed range, so these persist the value as given.
+  async function handleCycleLengthChange(length: number) {
+    await persistPms({ ...pmsPrefs, cycleLength: length });
+  }
+
+  async function handlePeriodLengthChange(length: number) {
+    await persistPms({ ...pmsPrefs, periodLength: length });
   }
 
   const pmsStatus = pmsStatusLine(pmsPrefs);
@@ -375,8 +425,10 @@ export default function MySoulScreen() {
                 prefs={pmsPrefs}
                 status={pmsStatus}
                 onToggle={handlePmsToggle}
-                onDateChange={handlePmsDateChange}
-                onCycleLengthChange={handlePmsCycleLengthChange}
+                onEditPeriods={() => {
+                  Haptics.selectionAsync();
+                  setPeriodSheetVisible(true);
+                }}
               />
 
               {!isPaired && (
@@ -406,14 +458,28 @@ export default function MySoulScreen() {
               <Pressable
                 onPress={() => {
                   Haptics.selectionAsync();
-                  resetOnboarding().finally(() => router.replace('/onboarding'));
+                  resetOnboarding().finally(() => router.replace('/onboarding-v3'));
                 }}
                 hitSlop={12}
                 style={styles.replayIntro}
                 accessibilityRole="button"
-                accessibilityLabel="Watch the intro again"
+                accessibilityLabel="Redo onboarding"
               >
-                <Text style={styles.replayIntroText}>Watch the intro again</Text>
+                <Text style={styles.replayIntroText}>Redo onboarding</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setCrisisOpen(true);
+                }}
+                hitSlop={8}
+                style={styles.crisisRow}
+                accessibilityRole="button"
+                accessibilityLabel="Urgent support"
+              >
+                <SymbolView name="lifepreserver" tintColor={colors.textSubtitle} size={15} weight="regular" />
+                <Text style={styles.crisisRowText}>In a crisis? Get urgent support</Text>
               </Pressable>
 
               <Text style={styles.footer}>
@@ -428,6 +494,64 @@ export default function MySoulScreen() {
       {SHOW_CHECKIN && showCheckIn && (
         <CheckInSheet onDone={handleCheckInDone} />
       )}
+
+      <Modal
+        visible={crisisOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCrisisOpen(false)}
+        statusBarTranslucent
+      >
+        <Pressable
+          style={styles.crisisBackdrop}
+          onPress={() => setCrisisOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
+          <Pressable style={styles.crisisSheet} onPress={() => {}}>
+            <Text style={styles.crisisTitle}>If you need a person</Text>
+            <Text style={styles.crisisBody}>
+              Some moments are bigger than an app can hold. These lines are free, and there any
+              time.
+            </Text>
+            {CRISIS_COPY.lines.map((line, i) => (
+              <Pressable
+                key={line.label}
+                style={styles.crisisLine}
+                onPress={() => openCrisisLine(i)}
+                accessibilityRole="button"
+                accessibilityLabel={`${line.label}. ${line.detail}`}
+              >
+                <Text style={styles.crisisLineLabel}>{line.label}</Text>
+                <Text style={styles.crisisLineDetail}>{line.detail}</Text>
+              </Pressable>
+            ))}
+            <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
+            <Pressable
+              onPress={() => setCrisisOpen(false)}
+              style={styles.crisisClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text style={styles.crisisCloseText}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* The full period calendar: add multiple past periods, tap a logged one
+          to remove it. Same sheet onboarding and Now use, over period-history. */}
+      <PeriodSheet
+        visible={periodSheetVisible}
+        onClose={() => setPeriodSheetVisible(false)}
+        onConfirm={handlePeriodConfirm}
+        onRemove={handlePeriodRemove}
+        onCycleLengthChange={handleCycleLengthChange}
+        onPeriodLengthChange={handlePeriodLengthChange}
+        markedDates={periodHistory}
+        cycleLength={pmsPrefs.cycleLength}
+        periodLength={pmsPrefs.periodLength ?? DEFAULT_PERIOD_LENGTH}
+      />
     </View>
   );
 }
@@ -695,7 +819,7 @@ function GhostPreview({
       >
         {renderPreview(width || 300)}
       </View>
-      <BlurView intensity={16} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
+      <GlassSurface intensity={16} />
       <View style={styles.ghostScrim} pointerEvents="none" />
       <View style={styles.ghostOverlay}>
         <Text style={styles.ghostLine}>{line}</Text>
@@ -722,7 +846,7 @@ const GHOST_SERIES: CyclePoint[] = [
   { cycleStart: '2026-06-01', cycleEnd: '2026-07-01', label: 'Jun', engagedDays: 9, span: 30 },
   { cycleStart: '2026-07-01', cycleEnd: '2026-08-01', label: 'Jul', engagedDays: 12, span: 31 },
 ];
-const GHOST_LEVELS: (1 | 2 | 3)[] = [1, 2, 2, 3];
+const GHOST_LEVELS: (number | null)[] = [18, 44, 52, 82];
 const GHOST_SHELF: MintedMoon[] = [
   { cycleStart: '2026-04-01', cycleEnd: '2026-05-01', fullness: 0.4, clarity: null, material: 'moonstone', kept: false },
   { cycleStart: '2026-05-01', cycleEnd: '2026-06-01', fullness: 0.62, clarity: null, material: 'moonstone', kept: true },
@@ -732,7 +856,8 @@ const GHOST_SHELF: MintedMoon[] = [
 const CHART_H = 156;
 
 // The chart drawing, split out so the live card and the blurred preview render
-// the same shape. `levels` is one impact reading per cycle (null = not rated).
+// the same shape. `levels` is one impact reading per cycle on the 0–100 scale
+// (null = not rated), so the line lands at any height and shows a real slope.
 function EffortChart({
   series,
   levels,
@@ -741,7 +866,7 @@ function EffortChart({
   showLine,
 }: {
   series: CyclePoint[];
-  levels: (1 | 2 | 3 | null)[];
+  levels: (number | null)[];
   color: string;
   width: number;
   showLine: boolean;
@@ -755,11 +880,11 @@ function EffortChart({
   const plotH = CHART_H - padT - padB;
   const n = series.length;
   const xAt = (i: number) => (n === 1 ? padL + plotW / 2 : padL + (i * plotW) / (n - 1));
-  const yForLevel = (lvl: number) => padT + ((3 - lvl) / 2) * plotH;
+  const yForValue = (v: number) => padT + ((100 - v) / 100) * plotH;
   const maxEngaged = Math.max(1, ...series.map((p) => p.engagedDays));
   const barW = Math.min(26, (plotW / n) * 0.5);
   const linePts = series
-    .map((p, i) => (levels[i] != null ? `${xAt(i)},${yForLevel(levels[i] as number)}` : null))
+    .map((p, i) => (levels[i] != null ? `${xAt(i)},${yForValue(levels[i] as number)}` : null))
     .filter((s): s is string => s != null)
     .join(' ');
 
@@ -770,13 +895,16 @@ function EffortChart({
       accessibilityElementsHidden={true}
       importantForAccessibility="no-hide-descendants"
     >
-      {[3, 2, 1].map((lvl) => {
-        const y = yForLevel(lvl);
-        const label = lvl === 3 ? 'fine' : lvl === 2 ? 'okay' : 'rough';
+      {[
+        { v: 100, label: 'fine' },
+        { v: 50, label: 'okay' },
+        { v: 0, label: 'rough' },
+      ].map(({ v, label }) => {
+        const y = yForValue(v);
         return (
-          <G key={lvl}>
+          <G key={label}>
             <Line x1={padL} y1={y} x2={w - padR} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-            <SvgText x={w - padR + 5} y={y + 3} fill="rgba(244,242,248,0.3)" fontSize={8.5}>
+            <SvgText x={w - padR + 5} y={y + 3} fill="rgba(244,242,248,0.3)" fontSize={8.5} fontFamily="Poppins-Regular">
               {label}
             </SvgText>
           </G>
@@ -804,7 +932,7 @@ function EffortChart({
           <Circle
             key={`pt-${p.cycleEnd}`}
             cx={xAt(i)}
-            cy={yForLevel(levels[i] as number)}
+            cy={yForValue(levels[i] as number)}
             r={i === n - 1 ? 5 : 4}
             fill={color}
             stroke="#14101c"
@@ -813,7 +941,7 @@ function EffortChart({
         ) : null,
       )}
       {series.map((p, i) => (
-        <SvgText key={`lbl-${p.cycleEnd}`} x={xAt(i)} y={CHART_H - 8} fill="rgba(244,242,248,0.4)" fontSize={10} textAnchor="middle">
+        <SvgText key={`lbl-${p.cycleEnd}`} x={xAt(i)} y={CHART_H - 8} fill="rgba(244,242,248,0.4)" fontSize={10} textAnchor="middle" fontFamily="Poppins-Regular">
           {p.label}
         </SvgText>
       ))}
@@ -856,14 +984,16 @@ function EffortImpactCard({
   const levels = series.map((p) => readByAnchor.get(p.cycleStart)?.[domain] ?? null);
   const haveReads = levels.some((l) => l != null);
 
-  const present = levels.filter((l): l is 1 | 2 | 3 => l != null);
+  const present = levels.filter((l): l is number => l != null);
   let caption: string;
   if (!haveReads) {
     caption = 'Is your PMS getting any better?';
   } else if (present.length < 2) {
     caption = "We have just one cycle to see now, let's see next month";
   } else {
-    const delta = present[present.length - 1] - present[present.length - 2];
+    // A small wobble on the continuous scale isn't a real move — only credit a
+    // change once it crosses a band, so the copy doesn't flip on noise.
+    const delta = levelOf(present[present.length - 1]) - levelOf(present[present.length - 2]);
     caption = IMPACT_CAPS[domain][delta > 0 ? 'up' : delta === 0 ? 'flat' : 'down'];
   }
 
@@ -1027,7 +1157,7 @@ function ReminderCard({
             onToggle(v);
           }}
           accessibilityLabel="Daily reminder"
-          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          trackColor={{ false: colors.switchTrackOff, true: colors.primarySolid }}
           thumbColor="#fff"
         />
       </View>
@@ -1072,7 +1202,7 @@ function ToggleCard({
             onChange(v);
           }}
           accessibilityLabel={title}
-          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          trackColor={{ false: colors.switchTrackOff, true: colors.primarySolid }}
           thumbColor="#fff"
         />
       </View>
@@ -1165,7 +1295,7 @@ function PmsReadCard({
       {cmp && <Text style={styles.pmsStatus}>{cmp.headline}</Text>}
       <Pressable
         onPress={onRetake}
-        style={styles.primarySmallButton}
+        style={styles.secondarySmallButton}
         accessibilityRole="button"
         accessibilityLabel="Check your PMS level"
       >
@@ -1179,16 +1309,13 @@ function PmsCard({
   prefs,
   status,
   onToggle,
-  onDateChange,
-  onCycleLengthChange,
+  onEditPeriods,
 }: {
   prefs: PmsPrefs;
   status: string | null;
   onToggle: (on: boolean) => void;
-  onDateChange: (d: Date) => void;
-  onCycleLengthChange: (delta: number) => void;
+  onEditPeriods: () => void;
 }) {
-  const dateSelection = prefs.lastPeriodStart ? fromYmdLocal(prefs.lastPeriodStart) : new Date();
   return (
     <View style={styles.card}>
       <View style={styles.toggleRow}>
@@ -1205,47 +1332,27 @@ function PmsCard({
             onToggle(v);
           }}
           accessibilityLabel="Smart PMS mode"
-          trackColor={{ false: '#2a2433', true: 'hsl(270, 50%, 45%)' }}
+          trackColor={{ false: colors.switchTrackOff, true: colors.primarySolid }}
           thumbColor="#fff"
         />
       </View>
       {prefs.pmsMode && (
         <>
           {status && <Text style={styles.pmsStatus}>{status}</Text>}
-          <View style={styles.pmsEditRow}>
-            <Text style={styles.cardCopy}>Last period started</Text>
-            <Host matchContents>
-              <DatePicker
-                selection={dateSelection}
-                displayedComponents={['date']}
-                onDateChange={(d) => onDateChange(d)}
-              />
-            </Host>
-          </View>
-          <View style={styles.pmsEditRow}>
-            <Text style={styles.cardCopy}>Cycle length</Text>
-            <View style={styles.pmsStepperRow}>
-              <Pressable
-                onPress={() => onCycleLengthChange(-1)}
-                hitSlop={8}
-                style={styles.pmsStepperBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Shorter cycle"
-              >
-                <SymbolView name="minus" tintColor={colors.textPrimary} size={14} weight="medium" />
-              </Pressable>
-              <Text style={styles.pmsStepperValue}>{prefs.cycleLength} days</Text>
-              <Pressable
-                onPress={() => onCycleLengthChange(1)}
-                hitSlop={8}
-                style={styles.pmsStepperBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Longer cycle"
-              >
-                <SymbolView name="plus" tintColor={colors.textPrimary} size={14} weight="medium" />
-              </Pressable>
+          <Pressable
+            style={styles.pmsEditRow}
+            onPress={onEditPeriods}
+            accessibilityRole="button"
+            accessibilityLabel="Edit your periods on the calendar"
+          >
+            <Text style={styles.cardCopy}>Your periods</Text>
+            <View style={styles.pmsDateValue}>
+              <Text style={styles.pmsDateText}>
+                {prefs.lastPeriodStart ? `Last ${formatReadDate(prefs.lastPeriodStart)}` : 'Add'}
+              </Text>
+              <SymbolView name="chevron.right" tintColor={colors.textTertiary} size={13} weight="semibold" />
             </View>
-          </View>
+          </Pressable>
         </>
       )}
     </View>
@@ -1290,7 +1397,7 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
       </Text>
       <Pressable
         onPress={handleLearnMore}
-        style={styles.primarySmallButton}
+        style={styles.secondarySmallButton}
         accessibilityRole="link"
         accessibilityLabel="Get Niyora for Mac"
       >
@@ -1318,7 +1425,7 @@ function MessageCard() {
       </Text>
       <Pressable
         onPress={handleOpen}
-        style={[styles.primarySmallButton]}
+        style={styles.secondarySmallButton}
         accessibilityRole="button"
         accessibilityLabel="Message the founder"
       >
@@ -1610,8 +1717,8 @@ const styles = StyleSheet.create({
   ghostBtn: {
     paddingHorizontal: 24,
     paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: 'hsl(270, 50%, 45%)',
+    borderRadius: radius.pill,
+    ...secondaryButtonSurface,
   },
   ghostBtnLabel: {
     fontSize: 13,
@@ -1671,10 +1778,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 28,
     paddingVertical: 9,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: radius.pill,
+    ...secondaryButtonSurface,
   },
   checkInButtonLabel: {
     fontSize: 13,
@@ -1745,36 +1850,35 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.07)',
   },
-  pmsStepperRow: {
+  pmsDateValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 6,
   },
-  pmsStepperBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pmsStepperValue: {
+  pmsDateText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
     color: colors.textPrimary,
-    minWidth: 64,
-    textAlign: 'center',
     letterSpacing: 0.2,
   },
   primarySmallButton: {
     alignSelf: 'center',
     paddingHorizontal: 28,
     paddingVertical: 9,
-    borderRadius: 18,
-    backgroundColor: 'hsl(270, 50%, 45%)',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySolid,
     marginTop: 12,
+  },
+  // The demoted, secondary version of the small card button: same size, ghost
+  // surface. Every in-card action uses this so the single solid primary (Know
+  // your PMS level) stays the one emphasis on the tab.
+  secondarySmallButton: {
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    marginTop: 12,
+    ...secondaryButtonSurface,
   },
   primarySmallButtonLabel: {
     fontSize: 13,
@@ -1806,5 +1910,86 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.3)',
     textAlign: 'center',
+  },
+  crisisRow: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 14,
+    paddingVertical: 8,
+  },
+  crisisRowText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
+  crisisBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  crisisSheet: {
+    backgroundColor: colors.backgroundBottom,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    paddingTop: 26,
+    paddingBottom: 40,
+    paddingHorizontal: 22,
+  },
+  crisisTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 19,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  crisisBody: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  crisisLine: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    marginBottom: 10,
+  },
+  crisisLineLabel: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  crisisLineDetail: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  crisisEmergency: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textTertiary,
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  crisisClose: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 28,
+  },
+  crisisCloseText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 15,
+    color: colors.textSubtitle,
   },
 });

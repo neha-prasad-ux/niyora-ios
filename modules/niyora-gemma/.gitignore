@@ -1,0 +1,6 @@
+# The Gemma weights (~3GB) are NEVER committed. They are fetched at build time
+# by scripts/fetch-model.mjs and copied into the app bundle by CocoaPods.
+ios/model/
+*.task
+*.tflite
+*.bin

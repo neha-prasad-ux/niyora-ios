@@ -43,6 +43,7 @@ const FEELING_HUE: Record<string, number> = {
   low: 275,
   foggy: 178,
   overwhelmed: 285,
+  good: 45,
 };
 const NEED_HUE: Record<Need, number> = {
   calm: 220,

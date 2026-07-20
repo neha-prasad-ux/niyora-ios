@@ -347,7 +347,7 @@ export function compareReads(beforeA: V3Answers, afterA: V3Answers): ReadCompari
     dir < 0
       ? `${levelWord(before)} → ${after}. It is easing.`
       : dir > 0
-        ? `${levelWord(before)} → ${after}. A rougher stretch — the details below show what changed.`
+        ? `${levelWord(before)} → ${after}. A rougher stretch. The details below show what changed.`
         : `Still ${after}. Levels move slowly; the details below move first.`;
 
   const moved: string[] = [];

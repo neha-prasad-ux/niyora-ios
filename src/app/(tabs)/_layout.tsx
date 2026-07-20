@@ -9,11 +9,11 @@
 
 import { View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 
 import { LightMotes } from '@/components/light-motes';
 import { NightTabBar } from '@/components/night-tab-bar';
 import { TabMoon } from '@/components/tab-moon';
+import { SunIcon, StarIcon } from '@/components/tab-icons';
 
 export default function TabsLayout() {
   return (
@@ -36,30 +36,17 @@ export default function TabsLayout() {
           name="grow"
           options={{
             title: 'Train',
-            // Training weights: Grow is where she trains, and the grid read
-            // as a settings sheet rather than a place to work out the mind.
-            tabBarIcon: ({ color, focused }) => (
-              <SymbolView
-                name={focused ? 'dumbbell.fill' : 'dumbbell'}
-                tintColor={color}
-                size={22}
-                weight="regular"
-              />
-            ),
+            // The sun — the bright, high-drive middle of the phase. Grey at rest,
+            // warms to full colour on focus.
+            tabBarIcon: ({ focused }) => <SunIcon focused={focused} size={24} />,
           }}
         />
         <Tabs.Screen
           name="you"
           options={{
             title: 'Soul',
-            tabBarIcon: ({ color, focused }) => (
-              <SymbolView
-                name={focused ? 'person.fill' : 'person'}
-                tintColor={color}
-                size={22}
-                weight="regular"
-              />
-            ),
+            // A star — your own point of light. Grey at rest, gold on focus.
+            tabBarIcon: ({ focused }) => <StarIcon focused={focused} size={24} />,
           }}
         />
       </Tabs>

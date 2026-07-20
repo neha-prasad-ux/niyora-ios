@@ -9,6 +9,7 @@ import {
   isRingClosed,
   periodButtonState,
   pickTodayAction,
+  reflectionAnchor,
   todayRingProgress,
   weakestLever,
   type TodayActionInput,
@@ -347,5 +348,32 @@ describe('periodButtonState', () => {
     const s = periodButtonState(PREFS, morning(2026, 2, 3)); // offset +5
     expect(s.label).toBe('Running late? Log it when it arrives');
     expect(s.emphasized).toBe(true);
+  });
+});
+
+describe('reflectionAnchor', () => {
+  const HISTORY = ['2026-01-29', '2026-01-01', '2025-12-04']; // newest-first
+
+  it('keeps the current anchor mid-cycle (nothing new logged)', () => {
+    // Jan 1 start, reflecting on Jan 20: not periodConfirmed, so the read stays
+    // on the cycle in progress — which is exactly where it will mint at cycle end.
+    expect(reflectionAnchor(PREFS, HISTORY, morning(2026, 1, 20))).toBe('2026-01-01');
+  });
+
+  it('steps back to the just-ended cycle once the next period is logged', () => {
+    // She logged Jan 29 (a fresh period) and reflects on Jan 30. The cycle she is
+    // looking back on ended at Jan 29 and started at Jan 1 — the anchor the moon
+    // for that cycle was minted with — so the read must attach there.
+    const confirmed = { ...PREFS, lastPeriodStart: '2026-01-29' };
+    expect(reflectionAnchor(confirmed, HISTORY, morning(2026, 1, 30))).toBe('2026-01-01');
+  });
+
+  it('does not step back when there is no prior logged start', () => {
+    const confirmed = { ...PREFS, lastPeriodStart: '2026-01-29' };
+    expect(reflectionAnchor(confirmed, ['2026-01-29'], morning(2026, 1, 30))).toBe('2026-01-29');
+  });
+
+  it('returns null when no period is anchored', () => {
+    expect(reflectionAnchor({ ...PREFS, lastPeriodStart: null }, HISTORY, morning(2026, 1, 30))).toBeNull();
   });
 });

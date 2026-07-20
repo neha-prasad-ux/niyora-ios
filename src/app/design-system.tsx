@@ -13,7 +13,17 @@ import { SymbolView } from 'expo-symbols';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
 import { radius, spacing } from '@/theme/spacing';
-import { clayChipSurface, secondaryButtonSurface } from '@/theme/controls';
+import { clayChipSurface, secondaryButtonSurface, tileSurface } from '@/theme/controls';
+import { GlassSurface } from '@/components/glass-surface';
+import { SunIcon, StarIcon } from '@/components/tab-icons';
+import { TabMoon } from '@/components/tab-moon';
+
+// The three tab icons, each rendered resting then selected.
+const TAB_ICON_SAMPLES: { label: string; render: (focused: boolean) => React.ReactNode }[] = [
+  { label: 'Now', render: (f) => <TabMoon focused={f} /> },
+  { label: 'Train', render: (f) => <SunIcon focused={f} size={24} /> },
+  { label: 'Soul', render: (f) => <StarIcon focused={f} size={24} /> },
+];
 
 const TYPE_SAMPLES = [
   { family: 'Poppins-SemiBold', size: 28, label: 'SemiBold 28 · page title' },
@@ -104,6 +114,36 @@ export default function DesignSystemScreen() {
             <Text style={styles.tokenLabel}>clayChipSurface · rest + selected</Text>
           </Section>
 
+          <Section title="Tile surface">
+            <View style={[styles.tileDemo, tileSurface]}>
+              <Text style={styles.secondaryBtnText}>Utility tile</Text>
+            </View>
+            <Text style={styles.tokenLabel}>tileSurface · the quiet tier below secondary</Text>
+          </Section>
+
+          <Section title="Tab icons">
+            <View style={styles.iconRow}>
+              {TAB_ICON_SAMPLES.map((s) => (
+                <View key={s.label} style={styles.iconCell}>
+                  <View style={styles.iconStates}>
+                    <View style={styles.iconStateBox}>{s.render(false)}</View>
+                    <View style={styles.iconStateBox}>{s.render(true)}</View>
+                  </View>
+                  <Text style={styles.tokenLabel}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.tokenLabel}>resting · selected (fills + brightens on focus)</Text>
+          </Section>
+
+          <Section title="Glass">
+            <View style={styles.glassDemo}>
+              <Text style={styles.glassUnder}>Content behind the glass</Text>
+              <GlassSurface intensity={20} />
+            </View>
+            <Text style={styles.tokenLabel}>GlassSurface · liquid glass → blur → wash</Text>
+          </Section>
+
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
@@ -181,4 +221,35 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: '#ffffff', borderColor: '#ffffff' },
   chipText: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textPrimary, letterSpacing: 0.2 },
   chipTextOn: { fontFamily: 'Poppins-Medium', color: '#7C40B0' },
+
+  tileDemo: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: radius.control,
+  },
+
+  // Tab icons: each in its two states, on a night tile so the moonlit fill reads.
+  iconRow: { flexDirection: 'row', gap: 18 },
+  iconCell: { alignItems: 'center' },
+  iconStates: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 12,
+    borderRadius: radius.control,
+    backgroundColor: 'rgba(10, 8, 16, 0.6)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  iconStateBox: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+
+  glassDemo: {
+    height: 72,
+    borderRadius: radius.card,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(143,168,232,0.25)',
+  },
+  glassUnder: { fontFamily: 'Poppins-Medium', fontSize: 13, color: colors.textPrimary },
 });

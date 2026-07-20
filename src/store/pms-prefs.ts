@@ -12,6 +12,10 @@ export type PmsPrefs = {
   pmsMode: boolean;
   lastPeriodStart: string | null; // YYYY-MM-DD, local calendar day; null until set
   cycleLength: number; // days; defaults to 28 when unknown
+  // How many days a period lasts. Only shapes the calendar range she sees, never
+  // the window math. Optional so older saved prefs (and onboarding's own writes)
+  // still parse; reads fall back to DEFAULT_PERIOD_LENGTH.
+  periodLength?: number;
   startedWith?: StartedWith | null; // onboarding "start here" pick; null until chosen
 };
 
@@ -39,6 +43,7 @@ export const DEFAULT_PMS_PREFS: PmsPrefs = {
   pmsMode: false,
   lastPeriodStart: null,
   cycleLength: DEFAULT_CYCLE_LENGTH,
+  periodLength: DEFAULT_PERIOD_LENGTH,
   startedWith: null,
 };
 
@@ -71,6 +76,7 @@ export function parsePmsPrefs(raw: string | null): PmsPrefs {
       pmsMode: parsed.pmsMode === true,
       lastPeriodStart: validDate(parsed.lastPeriodStart),
       cycleLength: clampCycle(parsed.cycleLength),
+      periodLength: clampPeriodLength(parsed.periodLength),
       startedWith: parseStartedWith(parsed.startedWith),
     };
   } catch {

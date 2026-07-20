@@ -18,6 +18,17 @@ export const SCENE_IMAGES: Record<string, ImageSourcePropType> = {
   's1-gate': require('../../assets/stories/story-1/s1-gate.png'),
   's1-cafe': require('../../assets/stories/story-1/s1-cafe.png'),
   's1-plane': require('../../assets/stories/story-1/s1-plane.png'),
+  // Story 2 · The callback (beats 1-5).
+  //   s2-boxes  — beat 1, new apartment, moving boxes, laptop, moon
+  //   s2-bed    — beat 2, new-apartment bed, phone face-down, city lights + moon
+  //   s2-desk   — beat 3, desk by a window, notebook + coffee, moon fading to morning
+  //   s2-room   — beat 4, cold meeting room, one empty chair, cool blue, moon
+  //   s2-couch  — beat 5, couch corner, tea, lamp glow, phone lit with a message (warm)
+  's2-boxes': require('../../assets/images/stories/story-2/scene-1.png'),
+  's2-bed': require('../../assets/images/stories/story-2/scene-2.png'),
+  's2-desk': require('../../assets/images/stories/story-2/scene-3.png'),
+  's2-room': require('../../assets/images/stories/story-2/scene-4.png'),
+  's2-couch': require('../../assets/images/stories/story-2/scene-5.png'),
 };
 
 export function sceneImage(key: string): ImageSourcePropType | undefined {

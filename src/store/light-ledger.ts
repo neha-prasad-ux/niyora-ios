@@ -26,6 +26,7 @@ import {
 } from '@/store/pending-crossing';
 import { getSessionCount } from '@/store/session-history';
 import { getTodayActionMemory } from '@/store/today-action';
+import { withStoreLock } from '@/store/storage-lock';
 
 // Append-only ledger of every light-earning act (moon-reward-spec.md). Amounts
 // are computed once at append time — caps, diminishing repeats, and the
@@ -92,6 +93,16 @@ const NOTHING: RecordLightResult = { event: null, ringEarned: null };
 export async function recordLight(
   kind: LightKind,
   opts: { refId?: string; now?: Date } = {},
+): Promise<RecordLightResult> {
+  // Serialize the whole price → append → wax cycle: light lands from many flows
+  // (a visit, a finished session, a trained level) and two overlapping
+  // read-modify-writes on the ledger would drop an event and mis-price the moon.
+  return withStoreLock(STORAGE_KEY, () => recordLightLocked(kind, opts));
+}
+
+async function recordLightLocked(
+  kind: LightKind,
+  opts: { refId?: string; now?: Date },
 ): Promise<RecordLightResult> {
   const now = opts.now ?? new Date();
   const today = localYmd(now);

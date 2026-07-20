@@ -18,7 +18,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, G, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, G, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { moteArrived } from '@/lib/light-bus';
 import { FULLNESS_MAX, type MoonMaterial } from '@/lib/moon-light';
@@ -182,15 +182,49 @@ export function TabMoon({ focused }: { focused: boolean }) {
               <Stop offset="0.75" stopColor={look.flash} stopOpacity="0.2" />
               <Stop offset="1" stopColor={look.flash} stopOpacity="0" />
             </RadialGradient>
+            {/* The ring's own pale-to-deep sweep, in the moon's live material so
+                it warms and shifts with the reward state. */}
+            <LinearGradient
+              id="tabMoonRing"
+              x1={C - 17}
+              y1={C}
+              x2={C + 17}
+              y2={C}
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0" stopColor={look.edge} />
+              <Stop offset="0.5" stopColor={look.hi} />
+              <Stop offset="1" stopColor={look.edge} />
+            </LinearGradient>
           </Defs>
 
           {/* The flash halo lives under the moon and only exists mid-pulse. */}
           <AnimatedCircle cx={C} cy={C} r={C} fill="url(#tabMoonFlash)" animatedProps={flashProps} />
 
           <G opacity={focused ? 1 : 0.72}>
+            {/* The ring's far arc, behind the body (its middle is hidden by the moon). */}
+            <G rotation={-20} origin={`${C}, ${C}`}>
+              <Path
+                d={`M ${C - 17} ${C} A 17 5.5 0 1 1 ${C + 17} ${C} A 17 5.5 0 1 1 ${C - 17} ${C} Z`}
+                fill="none"
+                stroke="url(#tabMoonRing)"
+                strokeWidth={2.4}
+                opacity={0.85}
+              />
+            </G>
             {/* The dark side: barely-there disc so a sliver still reads as a moon. */}
             <Circle cx={C} cy={C} r={R} fill="rgba(255, 255, 255, 0.07)" />
             <Path d={phasePath(C, R, moon.fullness)} fill="url(#tabMoonBody)" />
+            {/* The ring's near arc, crossing in front of the body at the bottom. */}
+            <G rotation={-20} origin={`${C}, ${C}`}>
+              <Path
+                d={`M ${C - 17} ${C} A 17 5.5 0 0 0 ${C + 17} ${C}`}
+                fill="none"
+                stroke="url(#tabMoonRing)"
+                strokeWidth={2.4}
+                strokeLinecap="round"
+              />
+            </G>
           </G>
         </Svg>
       </Animated.View>

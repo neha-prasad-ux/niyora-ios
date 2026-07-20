@@ -21,7 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
-import { NiyoraFm } from 'niyora-fm';
+import { ReflectModel, reflectDebug } from '@/lib/reflect-model';
 import { REFLECT_AI } from '@/config/features';
 import { recordLight } from '@/store/light-ledger';
 import { getPmsReads } from '@/store/pms-reads';
@@ -62,6 +62,9 @@ export default function RoughMoment() {
   const [dot, setDot] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [pill, setPill] = useState<DayPill | null>(null);
   const [keep, setKeep] = useState<KeepCard | null>(null);
+  // Dev-only overlay: which provider answered and how slow. Gated on __DEV__ at
+  // render, so it never ships. Set after prewarm and after every model turn.
+  const [dbg, setDbg] = useState<string | null>(null);
 
   // The flow's working memory lives in refs: the async model steps read and
   // mutate it directly, so there is no stale-closure risk across awaits.
@@ -85,7 +88,12 @@ export default function RoughMoment() {
     });
     // Warm the model so the first turn doesn't pay cold-start latency — only
     // when the AI path is on. v1 (scripted) never touches the model.
-    if (REFLECT_AI) NiyoraFm.prewarm().catch(() => {});
+    if (REFLECT_AI)
+      ReflectModel.prewarm()
+        .then(() => {
+          if (__DEV__) setDbg(`${reflectDebug().provider} · warmed`);
+        })
+        .catch(() => {});
     return () => {
       alive = false;
     };
@@ -123,7 +131,12 @@ export default function RoughMoment() {
       if (!REFLECT_AI) return { prose: null, chips: null };
       const req = buildTurnRequest(step, compact.current);
       if (!req) return { prose: null, chips: null };
-      const r = await NiyoraFm.generate(req.instructions, req.prompt, req.wantChips, MODEL_TIMEOUT_MS);
+      const r = await ReflectModel.generate(req.instructions, req.prompt, req.wantChips, MODEL_TIMEOUT_MS);
+      if (__DEV__) {
+        const d = reflectDebug();
+        const tail = r.ok ? `${r.latencyMs}ms` : `scripted · ${r.failure} · ${r.latencyMs}ms`;
+        setDbg(`${d.provider} · ${tail}`);
+      }
       if (r.ok && r.prose.trim()) {
         return { prose: r.prose.trim(), chips: r.chips?.slice(0, 3) ?? null };
       }
@@ -316,6 +329,11 @@ export default function RoughMoment() {
           )}
         </View>
       </SafeAreaView>
+      {__DEV__ && REFLECT_AI && dbg && (
+        <View style={styles.debugBar} pointerEvents="none">
+          <Text style={styles.debugText}>{dbg}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -323,6 +341,16 @@ export default function RoughMoment() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
+  debugBar: {
+    position: 'absolute',
+    left: 12,
+    bottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  debugText: { fontFamily: 'Poppins-Light', fontSize: 10, color: 'rgba(255,255,255,0.85)' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

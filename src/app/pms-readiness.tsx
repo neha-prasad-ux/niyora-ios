@@ -20,6 +20,8 @@ import { WhySheet } from '@/components/why-sheet';
 import { RelationshipCard } from '@/components/relationship-card';
 import { LifeStyleCard } from '@/components/lifestyle-card';
 import { colors } from '@/theme/colors';
+import { radius } from '@/theme/spacing';
+import { tileSurface } from '@/theme/controls';
 import {
   getReadiness,
   setReadiness,
@@ -198,11 +200,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: radius.control,
     borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    ...tileSurface,
   },
   whyName: {
     fontFamily: 'Poppins-Medium',

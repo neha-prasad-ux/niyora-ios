@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { withStoreLock } from './storage-lock';
+
 // A stored history of logged period start dates (YYYY-MM-DD), newest first.
 //
 // This is ADDITIVE to pms-prefs: pms-prefs keeps only the single most-recent
@@ -37,9 +39,11 @@ export async function setPeriodHistory(starts: string[]): Promise<void> {
 
 /** Add one start to the stored history and return the new list (newest first). */
 export async function addPeriodStart(start: string): Promise<string[]> {
-  const next = normalize([start, ...(await getPeriodHistory())]);
-  await setPeriodHistory(next);
-  return next;
+  return withStoreLock(KEY, async () => {
+    const next = normalize([start, ...(await getPeriodHistory())]);
+    await setPeriodHistory(next);
+    return next;
+  });
 }
 
 /** The most recent logged start, or null. */
