@@ -449,6 +449,7 @@ export default function OnboardingV3Screen() {
             finish={finish}
             commitPlan={commitPlan}
             startWith={startWith}
+            onBack={onBack}
           />
         </Animated.View>
       </SafeAreaView>
@@ -519,6 +520,7 @@ function RenderStep({
   finish,
   commitPlan,
   startWith,
+  onBack,
 }: {
   step: StepId;
   answers: V3Answers;
@@ -528,6 +530,7 @@ function RenderStep({
   finish: () => void;
   commitPlan: () => void;
   startWith: (choice: StartChoice) => void;
+  onBack: () => void;
 }) {
   switch (step) {
     case 'splash':
@@ -566,7 +569,7 @@ function RenderStep({
       return <ReminderStep onDone={advance} />;
     case 'pick':
       // "Where do you want to start?" — routes into the chosen pillar.
-      return <Pick onPick={startWith} />;
+      return <Pick onPick={startWith} onBack={onBack} />;
     case 'compare':
       // Retake only: record the new read, show then vs. now, return to My Soul.
       return <Compare baseline={baseline} answers={answers} onDone={finish} />;
@@ -1802,19 +1805,66 @@ function ReminderStep({ onDone }: { onDone: () => void }) {
   );
 }
 
-function Pick({ onPick }: { onPick: (choice: StartChoice) => void }) {
+function Pick({
+  onPick,
+  onBack,
+}: {
+  onPick: (choice: StartChoice) => void;
+  onBack: () => void;
+}) {
+  // Preselect the first card so there is always a clear default to play.
+  const [selected, setSelected] = useState(0);
+
+  const skip = useCallback(() => {
+    // The plan is already committed by now, so skipping just lands on the
+    // dashboard.
+    Haptics.selectionAsync().catch(() => {});
+    router.replace('/now');
+  }, []);
+
+  const play = useCallback(() => {
+    const card = START_CARDS[selected];
+    Haptics.selectionAsync().catch(() => {});
+    onPick({ key: card.key, dest: card.dest });
+  }, [selected, onPick]);
+
   return (
-    <StepLayout topAlign>
+    <StepLayout
+      topAlign
+      footer={
+        <View style={styles.pickFooter}>
+          <BeginButton fullWidth label="Let's play a short one" onPress={play} />
+          <Pressable
+            onPress={skip}
+            style={styles.pickSkip}
+            accessibilityRole="button"
+            accessibilityLabel="Skip for now"
+          >
+            <Text style={styles.pickSkipText}>Skip for now</Text>
+          </Pressable>
+        </View>
+      }
+    >
+      <View style={styles.pickTopRow}>
+        <Pressable onPress={onBack} hitSlop={14} accessibilityRole="button" accessibilityLabel="Back">
+          <Text style={styles.pickBack}>‹</Text>
+        </Pressable>
+      </View>
       <Animated.View entering={FadeInDown.delay(60).duration(500)} style={styles.pickHead}>
         <Text style={styles.pickTitle}>Knowing your body is halfway to better PMS.</Text>
-        <Text style={styles.pickSub}>Where do you want to start?</Text>
+        <Text style={styles.pickSub}>Pick one to try now. The rest stay in Grow.</Text>
       </Animated.View>
       <View style={styles.pickGrid}>
         {START_CARDS.map((card, i) => (
-          <PickCard key={card.key} card={card} index={i} onPick={onPick} />
+          <PickCard
+            key={card.key}
+            card={card}
+            index={i}
+            selected={i === selected}
+            onSelect={() => setSelected(i)}
+          />
         ))}
       </View>
-      <Text style={styles.pickFootnote}>Pick one to start. The rest stay in Grow.</Text>
     </StepLayout>
   );
 }
@@ -1822,11 +1872,13 @@ function Pick({ onPick }: { onPick: (choice: StartChoice) => void }) {
 function PickCard({
   card,
   index,
-  onPick,
+  selected,
+  onSelect,
 }: {
   card: StartCard;
   index: number;
-  onPick: (choice: StartChoice) => void;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const disabled = card.soon === true;
   return (
@@ -1835,14 +1887,18 @@ function PickCard({
       style={styles.pickCellWrap}
     >
       <Pressable
-        style={[styles.pickCard, disabled && styles.pickCardSoon]}
+        style={[
+          styles.pickCard,
+          selected && styles.pickCardSelected,
+          disabled && styles.pickCardSoon,
+        ]}
         disabled={disabled}
         onPress={() => {
           Haptics.selectionAsync().catch(() => {});
-          onPick({ key: card.key, dest: card.dest });
+          onSelect();
         }}
         accessibilityRole="button"
-        accessibilityState={{ disabled }}
+        accessibilityState={{ selected, disabled }}
         accessibilityLabel={`${card.title}. ${card.tag}${disabled ? '. Coming soon' : ''}.`}
       >
         {card.image ? (
@@ -2207,6 +2263,37 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickCardSoon: { opacity: 0.6 },
+  pickCardSelected: {
+    borderWidth: 2,
+    borderColor: v3.accent,
+  },
+  pickTopRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 32,
+  },
+  pickBack: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 30,
+    lineHeight: 32,
+    color: colors.textSubtitle,
+  },
+  pickFooter: {
+    width: '100%',
+    gap: 6,
+  },
+  pickSkip: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  pickSkipText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    color: colors.textSubtitle,
+    letterSpacing: 0.2,
+  },
   // Card mini-render previews (CardPreview): faithful rebuilds of each screen.
   pvFill: {
     position: 'absolute',
