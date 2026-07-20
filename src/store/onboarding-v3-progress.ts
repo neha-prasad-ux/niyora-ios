@@ -27,8 +27,16 @@ export const EMPTY_V3_PROGRESS: OnboardingV3Progress = {
 // never started). 'resume' when there is a saved step to return to, 'start'
 // when nothing is saved yet, null only once the read is done.
 export type SetupCard = 'start' | 'resume';
-export function setupCardFor(p: OnboardingV3Progress | null): SetupCard | null {
-  if (p?.done) return null;
+export function setupCardFor(
+  p: OnboardingV3Progress | null,
+  hasCompletedRead = false,
+): SetupCard | null {
+  // A recorded PMS read is proof onboarding was finished at least once, so it
+  // wins over the `done` flag: the flag can desync (e.g. a step-change autosave
+  // firing after commit), but a read only exists once she has genuinely
+  // completed. Trusting it here also self-heals any install left with a stale
+  // done:false after such a desync.
+  if (hasCompletedRead || p?.done) return null;
   return p && p.stepIndex > 0 ? 'resume' : 'start';
 }
 

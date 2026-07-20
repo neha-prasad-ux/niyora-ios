@@ -71,6 +71,7 @@ import { colors } from '@/theme/colors';
 import { v3 } from '@/v3/v3-theme';
 import {
   COPING_ITEMS,
+  DEFAULT_ANSWERS,
   EMPTY_ANSWERS,
   FACTOR_SCIENCE,
   IMPAIRMENT_ITEMS,
@@ -227,7 +228,11 @@ export default function OnboardingV3Screen() {
   const loadingIndex = sequence.indexOf('loading');
 
   const [stepIndex, setStepIndex] = useState(0);
-  const [answers, setAnswers] = useState<V3Answers>(EMPTY_ANSWERS);
+  // First-time onboarding opens with the common answers pre-selected (fewer
+  // forced decisions -> fewer drop-offs). A retake must NOT inherit these generic
+  // defaults: it starts empty and is then seeded from her last read below, so the
+  // then-vs-now compare stays honest.
+  const [answers, setAnswers] = useState<V3Answers>(retake ? EMPTY_ANSWERS : DEFAULT_ANSWERS);
   const advancing = useRef(false);
   const step = sequence[stepIndex];
 
@@ -254,7 +259,11 @@ export default function OnboardingV3Screen() {
         return p?.done ? p.answers : null;
       })
       .then((a) => {
-        if (alive && a) setBaseline(a);
+        if (!alive || !a) return;
+        setBaseline(a);
+        // Pre-fill the retake from her last read so she adjusts from where she was
+        // rather than starting blank. Compare-safe: baseline is captured separately.
+        setAnswers(a);
       })
       .catch(() => {});
     return () => {
@@ -337,7 +346,14 @@ export default function OnboardingV3Screen() {
       pmsMode: true,
       lastPeriodStart: hasDate ? latestStart(starts) : null,
       cycleLength: c.length ?? DEFAULT_CYCLE_LENGTH,
+      periodLength: c.periodLength ?? DEFAULT_PERIOD_LENGTH,
     }).catch(() => {});
+    // Close the per-step autosave gate BEFORE writing the done flag: advancing to
+    // the pick step next is a step change the autosave effect reacts to, and it
+    // would otherwise overwrite done:true back to done:false and resurrect the
+    // home "finish setting up" card. The plan is committed now; nothing after
+    // this should downgrade it.
+    persistMode.current = 'off';
     await setOnboardingV3Progress({ stepIndex, answers, done: true }).catch(() => {});
     // Record the finished read as her baseline, so My Soul can show where she
     // stands and a later retake has something to compare against.
@@ -2453,7 +2469,9 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 12,
+    minHeight: 44, // one-handed: comfortable right-thumb tap target
+    justifyContent: 'center',
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.20)',

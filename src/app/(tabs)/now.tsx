@@ -176,7 +176,7 @@ async function loadSnapshot(): Promise<Snapshot> {
     streak,
     periodHistory,
     remissionLog,
-    setupCard: progress == null ? null : setupCardFor(progress),
+    setupCard: progress == null ? null : setupCardFor(progress, reads.length > 0),
     moonState,
     lifetimeLight: foldLedger(ledger).lifetimeLight,
     prep,

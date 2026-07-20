@@ -64,8 +64,7 @@ import {
   getPmsPrefs,
   setPmsPrefs,
   DEFAULT_PMS_PREFS,
-  MIN_CYCLE_LENGTH,
-  MAX_CYCLE_LENGTH,
+  DEFAULT_PERIOD_LENGTH,
   type PmsPrefs,
 } from '@/store/pms-prefs';
 import { isInPmsWindow, daysUntilPmsWindow } from '@/lib/pms-window';
@@ -76,6 +75,14 @@ import {
   cancelDailyReminder,
 } from '@/lib/notifications';
 import { syncPmsReminders } from '@/lib/pms-reminders';
+import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
+import {
+  getPeriodHistory,
+  setPeriodHistory,
+  addPeriodStart,
+  latestStart,
+} from '@/store/period-history';
+import { PeriodSheet } from '@/components/period-sheet';
 import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
@@ -110,6 +117,8 @@ export default function MySoulScreen() {
   const [reminder, setReminderState] = useState<ReminderPrefs>(DEFAULT_REMINDER);
   const [pmsPrefs, setPmsPrefsState] = useState<PmsPrefs>(DEFAULT_PMS_PREFS);
   const [pmsReads, setPmsReads] = useState<PmsRead[]>([]);
+  const [periodHistory, setPeriodHistoryState] = useState<string[]>([]);
+  const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
   const {
     isPaired,
@@ -155,6 +164,9 @@ export default function MySoulScreen() {
       }).catch(() => {});
       getPmsPrefs().then((p) => {
         if (active) setPmsPrefsState(p);
+      }).catch(() => {});
+      getPeriodHistory().then((h) => {
+        if (active) setPeriodHistoryState(h);
       }).catch(() => {});
       // Her PMS reads, oldest first. Anyone who finished onboarding before the
       // reads history existed gets a baseline synthesized from the saved
@@ -241,13 +253,36 @@ export default function MySoulScreen() {
     await persistPms({ ...pmsPrefs, pmsMode: true, lastPeriodStart });
   }
 
-  async function handlePmsDateChange(dt: Date) {
-    await persistPms({ ...pmsPrefs, lastPeriodStart: toYmdLocal(dt) });
+  // Logging a period from the calendar: append it to the additive history (the
+  // same store onboarding and Now write to) and re-anchor the prediction to the
+  // newest start. This is the edit surface, so it stays light — no moon minting
+  // or reflection offers (those belong to the Now honesty loop).
+  async function handlePeriodConfirm(dt: Date) {
+    const history = await addPeriodStart(toYmdLocal(dt)).catch(() => null);
+    if (history == null) return;
+    setPeriodHistoryState(history);
+    await persistPms(prefsAfterPeriodLog(pmsPrefs, history));
   }
 
-  async function handlePmsCycleLengthChange(delta: number) {
-    const next = Math.min(MAX_CYCLE_LENGTH, Math.max(MIN_CYCLE_LENGTH, pmsPrefs.cycleLength + delta));
-    await persistPms({ ...pmsPrefs, cycleLength: next });
+  // Removing a logged period: drop it from the history, and if it was the
+  // current anchor, fall back to the next most recent start.
+  async function handlePeriodRemove(startYmd: string) {
+    const remaining = periodHistory.filter((s) => s !== startYmd);
+    setPeriodHistoryState(remaining);
+    await setPeriodHistory(remaining).catch(() => {});
+    if (pmsPrefs.lastPeriodStart === startYmd) {
+      await persistPms({ ...pmsPrefs, lastPeriodStart: latestStart(remaining) });
+    }
+  }
+
+  // Cycle and period length now come from the calendar sheet, which already
+  // clamps to the allowed range, so these persist the value as given.
+  async function handleCycleLengthChange(length: number) {
+    await persistPms({ ...pmsPrefs, cycleLength: length });
+  }
+
+  async function handlePeriodLengthChange(length: number) {
+    await persistPms({ ...pmsPrefs, periodLength: length });
   }
 
   const pmsStatus = pmsStatusLine(pmsPrefs);
@@ -376,8 +411,10 @@ export default function MySoulScreen() {
                 prefs={pmsPrefs}
                 status={pmsStatus}
                 onToggle={handlePmsToggle}
-                onDateChange={handlePmsDateChange}
-                onCycleLengthChange={handlePmsCycleLengthChange}
+                onEditPeriods={() => {
+                  Haptics.selectionAsync();
+                  setPeriodSheetVisible(true);
+                }}
               />
 
               {!isPaired && (
@@ -429,6 +466,20 @@ export default function MySoulScreen() {
       {SHOW_CHECKIN && showCheckIn && (
         <CheckInSheet onDone={handleCheckInDone} />
       )}
+
+      {/* The full period calendar: add multiple past periods, tap a logged one
+          to remove it. Same sheet onboarding and Now use, over period-history. */}
+      <PeriodSheet
+        visible={periodSheetVisible}
+        onClose={() => setPeriodSheetVisible(false)}
+        onConfirm={handlePeriodConfirm}
+        onRemove={handlePeriodRemove}
+        onCycleLengthChange={handleCycleLengthChange}
+        onPeriodLengthChange={handlePeriodLengthChange}
+        markedDates={periodHistory}
+        cycleLength={pmsPrefs.cycleLength}
+        periodLength={pmsPrefs.periodLength ?? DEFAULT_PERIOD_LENGTH}
+      />
     </View>
   );
 }
@@ -1180,16 +1231,13 @@ function PmsCard({
   prefs,
   status,
   onToggle,
-  onDateChange,
-  onCycleLengthChange,
+  onEditPeriods,
 }: {
   prefs: PmsPrefs;
   status: string | null;
   onToggle: (on: boolean) => void;
-  onDateChange: (d: Date) => void;
-  onCycleLengthChange: (delta: number) => void;
+  onEditPeriods: () => void;
 }) {
-  const dateSelection = prefs.lastPeriodStart ? fromYmdLocal(prefs.lastPeriodStart) : new Date();
   return (
     <View style={styles.card}>
       <View style={styles.toggleRow}>
@@ -1213,40 +1261,20 @@ function PmsCard({
       {prefs.pmsMode && (
         <>
           {status && <Text style={styles.pmsStatus}>{status}</Text>}
-          <View style={styles.pmsEditRow}>
-            <Text style={styles.cardCopy}>Last period started</Text>
-            <Host matchContents>
-              <DatePicker
-                selection={dateSelection}
-                displayedComponents={['date']}
-                onDateChange={(d) => onDateChange(d)}
-              />
-            </Host>
-          </View>
-          <View style={styles.pmsEditRow}>
-            <Text style={styles.cardCopy}>Cycle length</Text>
-            <View style={styles.pmsStepperRow}>
-              <Pressable
-                onPress={() => onCycleLengthChange(-1)}
-                hitSlop={8}
-                style={styles.pmsStepperBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Shorter cycle"
-              >
-                <SymbolView name="minus" tintColor={colors.textPrimary} size={14} weight="medium" />
-              </Pressable>
-              <Text style={styles.pmsStepperValue}>{prefs.cycleLength} days</Text>
-              <Pressable
-                onPress={() => onCycleLengthChange(1)}
-                hitSlop={8}
-                style={styles.pmsStepperBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Longer cycle"
-              >
-                <SymbolView name="plus" tintColor={colors.textPrimary} size={14} weight="medium" />
-              </Pressable>
+          <Pressable
+            style={styles.pmsEditRow}
+            onPress={onEditPeriods}
+            accessibilityRole="button"
+            accessibilityLabel="Edit your periods on the calendar"
+          >
+            <Text style={styles.cardCopy}>Your periods</Text>
+            <View style={styles.pmsDateValue}>
+              <Text style={styles.pmsDateText}>
+                {prefs.lastPeriodStart ? `Last ${formatReadDate(prefs.lastPeriodStart)}` : 'Add'}
+              </Text>
+              <SymbolView name="chevron.right" tintColor={colors.textTertiary} size={13} weight="semibold" />
             </View>
-          </View>
+          </Pressable>
         </>
       )}
     </View>
@@ -1744,27 +1772,15 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.07)',
   },
-  pmsStepperRow: {
+  pmsDateValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 6,
   },
-  pmsStepperBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pmsStepperValue: {
+  pmsDateText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15,
     color: colors.textPrimary,
-    minWidth: 64,
-    textAlign: 'center',
     letterSpacing: 0.2,
   },
   primarySmallButton: {
