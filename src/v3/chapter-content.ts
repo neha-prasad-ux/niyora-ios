@@ -177,13 +177,14 @@ const STORY1: Chapter = {
 };
 
 // --- Story 2 · The callback -------------------------------------------------
-// Spec content from niyora-pms-preparedness-spec.md ("Story 2 · The callback").
-// Beats are the locked spec prose, converted to first person to match STORY1's
-// shipped voice. Reflect is the spec's two questions. The spec did NOT define a
-// build-your-kit for Story 2, so the kit below is derived from the story's own
-// coping moves in the DESIGN.md voice (four correct + one wrong, one live door)
-// and is the one part open to a copy pass. Scenes wire the five painterly
-// assets in assets/images/stories/story-2/ via chapter-scenes.ts.
+// The refined Story 2 (Neha's own copy, verbatim bar tiny typo/grammar fixes).
+// Written in third person with first-person thoughts, so it reads in a different
+// voice from Story 1's first person: flagged for a consistency pass. Four beats,
+// ending on a cliffhanger ("To be continued"). Beat 3's yogurt / humming /
+// writing-strengths are exactly the moves Reflect Q1 teaches. The kit below
+// still assumes the older "took space and repaired" ending, so it needs
+// realigning to this version. Scenes wire assets/images/stories/story-2 (the
+// cold meeting-room scene, s2-room, is now unused).
 
 const STORY2: Chapter = {
   id: 'story-2',
@@ -191,7 +192,7 @@ const STORY2: Chapter = {
   intro: 'A story about a second shot at something she wanted.',
   beats: [
     {
-      text: `A few months in, I was finding my feet. I'd crushed the first interview for a job I really wanted, and they called me back for round two. I was pumped.`,
+      text: `A few months into a new country, Neha crushed the first interview for a job she really wanted. They called her back for round two. "What if they don't like me this time," she thought.`,
       scene: {
         image: 's2-boxes',
         moon: true,
@@ -199,7 +200,7 @@ const STORY2: Chapter = {
       },
     },
     {
-      text: `The interview was in the morning, and of course I couldn't sleep. My brain went straight to the worst. What if I choke. What if the first one was a fluke. I knew this spiral by now. Alright, drama queen, I thought, and pulled up the receipts. I got the callback. They liked me enough to want a second look. I've walked into harder rooms than this. I still didn't feel great, but I got a few hours.`,
+      text: `The interview was in the morning, and of course she couldn't sleep. What if the first one was a fluke. She knew this spiral. Alright, drama queen. I got the callback. And that thesis a classmate called the best thing he saw all year. Yeah, I'm kind of great. She drifted off in the good memories.`,
       scene: {
         image: 's2-bed',
         moon: true,
@@ -207,23 +208,15 @@ const STORY2: Chapter = {
       },
     },
     {
-      text: `Morning of, all that prep and I still felt shaky. So I gave myself twenty minutes. Coffee, a handful of nuts, a few slow breaths. Then I did something new. I opened my notes and wrote down three things I'd actually pulled off. The project I shipped. The team I led. The first interview I just nailed. Reading it back, I felt myself land. Right. I'm good at this.`,
+      text: `Morning of, still shaky. So she gave herself twenty minutes. Yogurt, a handful of nuts, and long humming. Her mom always swore it helps. Annoyingly, it did. Then something new. She wrote down three things she'd actually pulled off. The project she shipped. The team she led. The interview she nailed. Reading it back, she landed. Right. I'm good at this.`,
       scene: {
         image: 's2-desk',
         moon: true,
-        alt: 'A desk by a window in soft early light, an open notebook and a pen, a coffee and a small bowl of nuts, the pale moon fading into morning.',
+        alt: 'A desk by a window in soft early light, an open notebook and a pen, yogurt and a small bowl of nuts, the pale moon fading into morning.',
       },
     },
     {
-      text: `The room was cold. Not the temperature, the people. They weren't giving me much, and I could feel myself working twice as hard for half the warmth. I kept going anyway. Near the end, one of them tilted their head. "You don't seem as confident as last time. Why's that?" It stung. I took a second. "Honestly, it's a different room today, and I don't feel quite as at home in it yet. But I'm the same person you called back."`,
-      scene: {
-        image: 's2-room',
-        moon: true,
-        alt: 'A quiet modern meeting room at dusk, one empty chair on the near side of a long table, a single glass of water, cool blue light, the moon in the floor-to-ceiling window.',
-      },
-    },
-    {
-      text: `I replayed that question the whole way home. When I walked in, my husband could see it on me. "Hey. You'll get the next call," he said. And somehow that was the thing that broke me. "That's a lot of pressure to put on me right now. I would never do that to you." It came out sharp. He looked a little stung. I went quiet and walked to the other room. A few minutes later I texted him from ten feet away. "I'm sorry. That wasn't about you. I'm just fried and I need a little space to reset. It's not you. I love you." I sat with myself for a while. And somewhere in there, my phone buzzed. An email. Subject line: we'd love to have you.`,
+      text: `The interview didn't go great. She walked home sad, and her husband took one look at her. "Hey. You'll get the next call." "That's a lot of pressure right now. I would never do that to you." It came out sharp. "You did, though," he said. "Four years back, when I wanted to leave for the startup. You said I could only go if I lined up another job first." And there it went. Every unspoken thing from the years between, out on the table. They went at it a while. Then her phone buzzed. An email. Subject line: we'd love to have you. To be continued.`,
       scene: {
         image: 's2-couch',
         moon: true,
@@ -235,9 +228,8 @@ const STORY2: Chapter = {
   reflect: [
     {
       // tap-each: all three helped, each teaches its own line. No wrong answer.
-      // NOTE: options name yogurt + humming, which the beats above do not yet
-      // mention (they say coffee/nuts + slow breaths) — reconcile before ship.
-      // Each detail still needs a source link, same bar as the Understand cards.
+      // These three moves (yogurt, humming, writing strengths) are what beat 3
+      // shows. Each detail still needs a source link, same bar as Understand.
       prompt: 'Neha did a few things to steady herself. Which ones actually work?',
       mode: 'tap-each',
       options: [
