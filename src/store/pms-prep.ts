@@ -145,5 +145,10 @@ export function prepFullness(state: PrepState): number {
 // never reads as "you're failing", climbing to 1 as she builds her kit.
 export function prepReadiness(state: PrepState): number {
   const rings = prepRingCount(state);
-  return (READINESS_BASELINE + rings) / (READINESS_BASELINE + PREP_RINGS_TOTAL);
+  // Finishing the story is itself preparedness (spec: rings are earned by
+  // completing Neha's story), so a read chapter guarantees at least the first
+  // ring's worth even when no kit landed. This is what makes the Prepped score
+  // visibly move the moment she reads a chapter. A full kit still tops out at 1.
+  const credited = state.chaptersDone.length > 0 ? Math.max(1, rings) : rings;
+  return (READINESS_BASELINE + credited) / (READINESS_BASELINE + PREP_RINGS_TOTAL);
 }

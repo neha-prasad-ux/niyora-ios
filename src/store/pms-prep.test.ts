@@ -95,5 +95,9 @@ describe('derivations', () => {
     expect(prepReadiness(freshPrep('c1'))).toBeLessThan(1);
     const full = { ...freshPrep('c1'), kitChosen: ['a', 'b', 'c', 'd'] };
     expect(prepReadiness(full)).toBe(1);
+    // Reading a chapter moves the score even with no kit banked (2/5 = 0.4).
+    const readOnly = { ...freshPrep('c1'), chaptersDone: ['story-1'] };
+    expect(prepReadiness(readOnly)).toBeCloseTo(0.4, 5);
+    expect(prepReadiness(readOnly)).toBeGreaterThan(prepReadiness(freshPrep('c1')));
   });
 });
