@@ -1723,15 +1723,12 @@ const START_CARDS: StartCard[] = [
   {
     key: 'story',
     tag: 'Story',
-    // The reader (`/pms-story`, src/app/pms-story.tsx) is MERGED on main via
-    // PRs #298/#302 but not yet on this branch. Kept `soon` (disabled) so it
-    // can't dead-end here; once this branch picks up main, drop `soon` to go
-    // live — the dest is already correct.
+    // The reader (`/pms-story`) now lives on this branch, so the story is live:
+    // this card opens Story 1, "Neha moves across the world".
     title: 'Neha, far from home',
-    dest: '/pms-story' as Href,
+    dest: '/pms-story?chapter=story-1' as Href,
     accent: 'hsl(275, 55%, 76%)',
     image: require('../../assets/images/stories/story-1/scene-1.png'),
-    soon: true,
   },
 ];
 
