@@ -67,26 +67,31 @@ export default function ResultScreen() {
 
   // The "why this happens" reframe for the feeling she came in with, resolved in
   // her current context (general vs a PMS window). Slotted into the deck below.
-  const [reframe, setReframe] = useState<UnderstandCard | null>(null);
+  // The resolved card carries the feeling it was resolved for, so the render
+  // below can tell a fresh answer from a stale one without a second setState.
+  const primary = feelings[0];
+  const [resolved, setResolved] = useState<{
+    feeling: string;
+    card: UnderstandCard | null;
+  } | null>(null);
   const [openReframe, setOpenReframe] = useState<UnderstandCard | null>(null);
   useEffect(() => {
+    if (!primary) return;
     let alive = true;
-    const primary = feelings[0];
-    if (!primary) {
-      setReframe(null);
-      return;
-    }
     resolveUnderstandContext()
       .then((context) => {
         if (!alive) return;
         const cardsForFeeling = understandForFeeling(primary as PmsFeeling, context);
-        setReframe(cardsForFeeling[0] ?? null);
+        setResolved({ feeling: primary, card: cardsForFeeling[0] ?? null });
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [feelings]);
+  }, [primary]);
+
+  // No feeling, or an answer for a feeling she has since moved off: no reframe.
+  const reframe = primary && resolved?.feeling === primary ? resolved.card : null;
 
   const cards = useMemo<RecCard[]>(() => {
     if (!result) return [];
