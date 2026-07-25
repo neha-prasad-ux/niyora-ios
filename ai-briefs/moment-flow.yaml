@@ -67,6 +67,38 @@ entry:
 
 # ── NAMING BEAT ──────────────────────────────────────────────────────
 naming:
+  # ── INTENSITY, MEASURED TWICE ────────────────────────────────────────
+  # (Neha, 2026-07-25.) Two taps, a number in and a number out. The DELTA is the
+  # measure, not either number alone.
+  #
+  # 🔴 PHRASING IS NOT COSMETIC. Ask "how BIG is this right now" / "and now?" —
+  # never "how much BETTER do you feel?". The second presupposes improvement and
+  # will inflate the result. That matters because self-report is exactly the
+  # measure the evidence distrusts: people reported feeling better after talking
+  # an upset through while showing NO recovery at 3 days, 7 days or 2 months.
+  # Collect it, but treat "did you actually do it?" at 24h as the truer number.
+  - id: intensity_in
+    kind: ui
+    actor: moon
+    text: "how big does it feel right now?"
+    detail: |
+      0-10, one tap. Fires immediately after she types, BEFORE `acknowledge` —
+      acknowledge is one of the things we're measuring, so it can't be inside the
+      baseline. Cost: a slightly cool first beat. Accepted deliberately.
+      Never blocks: if she skips it, the flow continues and the record stores null.
+    next: clarify
+  - id: intensity_out
+    kind: ui
+    actor: moon
+    text: "and now?"
+    detail: |
+      0-10, one tap, at the close (after `we_good` resolves yes). Same scale,
+      neutral wording, no reference to improvement.
+      NOT the same thing as the mid-flow "any better?" — that one is a ROUTING
+      question (does she need more regulation), asked while she is still working.
+      This one is measurement, asked when the work is done.
+    next: human_nudge
+
   - id: clarify           # ADDED (Neha-approved): vague/feeling-only entry
     kind: ai-reflect
     actor: moon
@@ -664,7 +696,7 @@ close_phase:
     kind: branch
     actor: moon
     text: "we good?"
-    branches: [{when: yes, next: human_nudge}, {when: no, next: we_good_more}]
+    branches: [{when: yes, next: intensity_out}, {when: no, next: we_good_more}]
 
   # ── THE HUMAN NUDGE ──────────────────────────────────────────────────
   # CONDITIONAL: fires on the FREQUENCY signal only (several sessions in a day,
