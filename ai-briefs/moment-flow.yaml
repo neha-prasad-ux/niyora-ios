@@ -300,13 +300,35 @@ body:
   - id: body_check
     kind: ui
     actor: moon
-    detail: "hungry / tired / moved? checkboxes"
-    scripted_text: "quick gut check before we go on. have you eaten, slept, and moved lately?"
+    detail: "tired / moved? checkboxes"   # "hungry" CUT 2026-07-25 (Neha)
+    scripted_text: "quick gut check before we go on. have you slept, and moved lately?"
+    # "eaten" CUT 2026-07-25 (Neha) — see the removal note below. The question
+    # itself must stop asking about food, not just the follow-up.
     branches: [{when: any_no, next: body_ask_soon}, {when: all_yes, next: make_safe}]
+  # 🔴 REMOVED 2026-07-25 (Neha): "lets skip asking can you eat?"
+  # THE HUNGER BRANCH IS CUT. Do not restore it.
+  # Three separate problems, all closed by removing the question:
+  #   1. NO EVIDENCE. The body-check finding covers sleep, stress and fatigue and
+  #      NEVER hunger (`flow-evidence-findings.md:109-113`). Hunger was the one
+  #      leg of this beat with nothing under it.
+  #   2. NO SAFE CLAIM. The only on-topic study is Bushman 2014 (glucose and
+  #      partner aggression), which is (a) not in our research bank and sits
+  #      beside a literature that failed to replicate, and (b) unusable anyway,
+  #      because "blood sugar affects mood" is a PHYSIOLOGY claim under rule 13.
+  #   3. A SAFETY FLAG WE NEVER CLEARED. `flow-evidence-findings.md:114` records
+  #      the body check as an UNSCREENED FOOD PROMPT, with binge eating elevated
+  #      through the luteal phase. Asking a woman mid-distress about eating is not
+  #      a neutral question, and no copy fix closes that.
+  # WHAT SURVIVES: tired (sleep/fatigue IS the evidenced part) and movement.
+  # If anyone proposes bringing hunger back, it needs the study verified in the
+  # bank AND the binge-eating screen designed. Not one or the other.
   - id: body_ask_soon
     kind: branch
     actor: moon
-    text: "can you eat something now?"   # or drink / step outside, matched to the gap
+    text: "can you step outside for a minute?"   # matched to the gap. NEVER food.
+    # 🔴 WAS "can you eat something now?" — CUT 2026-07-25 (Neha). This node keeps
+    # its shape (do-it-now beats writing a Today action) but may never ask about
+    # eating. If the only gap is food, SKIP this node entirely and go to make_safe.
     detail: |
       NOT a note-to-self. Ask whether she can do it NOW, and branch:
         yes  -> tell her to go do it, this is the most useful thing available
@@ -322,7 +344,7 @@ body:
   - id: body_do_now
     kind: scripted
     actor: moon
-    detail: "go eat/drink/move now. warm, brief, no lecture. she comes back after."
+    detail: "go drink/move/step outside now. warm, brief, no lecture. she comes back after. NEVER food."
     next: body_reward
 
   # TIRED gets its own move, because you can't nap on demand. It doesn't add a
@@ -361,7 +383,7 @@ body:
       WIRED 2026-07-25 (Neha): this is where the tired branch attaches.
       `body_tired` existed with no inbound edge — `body_check` branches only
       `any_no` and `all_yes`, so the beat was unreachable. Neha's call: handle
-      the general gap first (can you eat, can you do it now), THEN name the
+      the general gap first (can you do it now), THEN name the
       tired cost on the way out. The branch sits here rather than on
       `body_ask_soon` because both of that node's branches run through the
       reward, and routing tired directly off it would skip the reward for
