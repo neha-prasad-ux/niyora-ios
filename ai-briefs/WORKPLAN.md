@@ -92,6 +92,35 @@ ownership** so agents don't collide. Read `NEXT.md` and `JOURNEY.md` first.
 **Also resolve:** the app is configured for **untuned** `gemma-3n-E2B-it-int4.task`
 while we trained the 1B and never shipped it. That inconsistency is live.
 
+## STREAM D2 — TARGETED TUNING for grounding (do this BEFORE settling Stream E)
+**Owns:** `scratchpad/finetune/` corpus generation. Runs with D.
+
+**Correction to an earlier claim: "34% grounding is a capacity ceiling, not
+fixable with more data" was an OVERSTATEMENT.** What we actually established is
+that *general* data reached 34%. We never trained against the specific failure.
+The corpus is 5,304 examples of GOOD outputs — all positive, all clean inputs,
+nothing teaching the distinction the model keeps getting wrong.
+
+Four things to add before declaring any ceiling:
+
+1. **Contrastive pairs.** Same input, right vs wrong output, differing ONLY in who
+   did what. We never showed the model a wrong answer beside a right one.
+     her: "my partner made a comment about my cooking"
+     ✅ "he made a comment about your cooking"   ❌ "you made a comment"
+2. **Hard cases on purpose.** The corpus was generated to be good — clean inputs,
+   unambiguous actors. Failures happen on messy ones: multiple people, ambiguous
+   pronouns, nested clauses ("my sister told my mom the thing i asked her not to"
+   — three actors, two pronouns). We have almost none.
+3. **Reweight the beat that matters.** `acknowledge` is 877 of 5,304 (~17%) despite
+   being the beat that decides whether she trusts the app. Try 40%.
+4. **Actor-swap augmentation.** Generate a reversed-actor variant of every existing
+   example. Doubles the actor-relevant signal for free.
+
+**Then re-measure `ground.no_invention` on the held-out set.** If it reaches ~90%,
+the model version likely wins on quality AND accuracy. If it plateaus near 60%,
+the template floor is right. **Either way the decision comes from the number, not
+from an assertion.**
+
 ## STREAM E — the echo-vs-model experiment
 **Owns:** `scratchpad/finetune/eval*`. Read-only elsewhere. ~20 minutes.
 
@@ -121,6 +150,7 @@ B (options + safety) ──┬───► needs A's content file; BLOCKS the us
 F (act modules) ───────┘
 C (measurement) ───────────► independent; needed BEFORE the user test
 D (Gemma 4) ───────────────► fully independent, runs alongside everything
+D2 (targeted tuning) ──────► runs with D; MUST finish before E is decided
 E (echo experiment) ───────► independent, 20 min, informs A step 4
 ```
 
@@ -129,8 +159,9 @@ Prediction to confirm or kill: *chat wins "felt understood"; structure wins
 "didn't send it" and 24h rumination.*
 
 ## Still Neha's call
-- Whether the **echo becomes the floor** or stays a fallback (Stream E gives the
-  number). NOTE: Stream E is specced against the 1B — **re-run it once Gemma 4 E2B
+- Whether the **echo becomes the floor** or stays a fallback. **Do not settle this
+  until D2 (targeted tuning) has run** — the 34% figure came from general data, not
+  from data aimed at the failure. NOTE: Stream E is specced against the 1B — **re-run it once Gemma 4 E2B
   is in**, because the answer may flip. A 2B-class model already grounded well on
   our prompts untuned. Likely landing: template floor for `acknowledge` (the one
   beat whose whole job is "i read what you said"), bigger model for the
