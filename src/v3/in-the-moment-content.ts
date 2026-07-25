@@ -360,6 +360,30 @@ export const MOMENT_SCRIPT = {
   // ideation 55 times). It implies an ongoing relationship with the app.
   // Close on HER capability and the real world, never on the moon's availability.
   close: 'you handled that. go be in your evening.',
+
+  // THE HUMAN NUDGE. Fires on the FREQUENCY signal (several sessions in a day,
+  // or every day this week) — never every session, or it becomes wallpaper.
+  // Why it exists: MIT/OpenAI found usage VOLUME predicts loneliness and
+  // dependence, and NNEDV warns a chatbot's comfort "might also delay you from
+  // reaching out to a real person." The correct response to high usage is to
+  // send her away, not to engage her more.
+  // Three things it must keep:
+  //  - "not the person this is about" — "tell someone" can otherwise route her
+  //    straight back to whoever hurt her, which is dangerous in a DV situation
+  //  - "help you think rather than just agree" — talking through an upset gave
+  //    NO recovery at 3d/7d/2mo; it only worked when the listener prompted
+  //    actual thinking (Nils & Rimé)
+  //  - "not only for emergencies" — "i have nobody" is loneliness, NOT a crisis.
+  //    Routing it to a suicide line is a category error, it reads as alarming,
+  //    and it teaches her to stop admitting isolation. findahelpline lists
+  //    ordinary support too.
+  // NO pep talk ("you are strong") — it bounces off exactly when she feels worst.
+  humanNudge: [
+    'one thing before you go.',
+    "i'm not a substitute for a person, and i shouldn't be the only one who knows about this.",
+    'is there someone you could tell? not the person this is about, someone outside it, who\'ll help you think rather than just agree with you.',
+    "and if there's nobody right now, findahelpline.com has people you can talk to, and not only for emergencies.",
+  ],
   closeMore: "tell me what's still sitting wrong, and we'll try something you haven't yet.",
 } as const;
 
