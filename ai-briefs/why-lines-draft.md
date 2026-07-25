@@ -163,6 +163,18 @@ the only reason to wait.
 > _your draft:_
 
 ## 16. the if-then — she fills both slots
+
+> ### ✅ APPROVED (Neha, 2026-07-25):
+> ### *"it is important to be prepared for the same situation.*
+> ### *if ___ happens, then i ___."*
+>
+> Two slots, not one. Her first draft — *"fill in your take away here. if this
+> happens again i would ___"* — collapsed it to a single slot with a generic
+> trigger, and **trigger specificity is the part the d=0.53 effect depends on**.
+> "Take away" also framed it as a reflection; the evidence is for plans.
+> The first blank is **seeded from her own opening sentence**, tense-shifted,
+> light-editable, never presented as the answer. See `moment-flow.yaml` →
+> `today_action` for the full seeding rule.
 **Where:** the biggest lever in the flow. `if ___ then i ___`
 **Teach:** deciding the words now means she doesn't have to find them while upset.
 **Move:** ⚠️ SHE writes both halves, not the model. Self-written plans work better,
