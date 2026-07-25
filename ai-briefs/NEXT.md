@@ -3,6 +3,18 @@
 Handoff written 2026-07-25 at the end of a long session. **The spec is far ahead
 of the code** — that gap is what everything below closes.
 
+> ## ✅ 2026-07-25: the on-device gate PASSED
+> The bundled **untuned** `gemma-3n-E2B-it-int4.task` generated a token on Neha's
+> iPhone 15 (A16): `availability()` = `available`, `prewarm()` true (17518ms cold,
+> 696ms warm), smoke prompt answered in 3421ms and 3693ms across two runs, 3030MB
+> still available to the process with the engine resident. MediaPipe confirmed
+> genuinely linked, not the `#if canImport` stub.
+> **Narrow claim only.** Untuned model, trivial non-clinical prompt, nothing
+> measured about quality or grounding, memory read in a probe screen rather than a
+> real session, latency on ~10 output tokens. **Gemma 4 E2B (`.litertlm`) still has
+> not run in Niyora**, and nothing tuned has ever been on a phone.
+> Detail: `WORKPLAN.md` → STREAM D → STEP 0.
+
 ---
 
 ## DECIDED but NOT YET IN CODE
@@ -70,7 +82,9 @@ Proposal: split acknowledge into two jobs.
 
 Not a fallback (catch failures after the fact) but a **floor** (never give the model
 the job it fails). Rationale: fine-tuning fixed tone completely (brevity 1.7→100%,
-no-advice 83→100%) but comprehension hit a capacity ceiling.
+no-advice 83→100%) but comprehension stalled at 34% **on general data** — *NOT a proven capacity ceiling;
+   that phrasing was retracted. We never trained against the specific failure. See
+   WORKPLAN Stream D2*.
 **Next step: run echo vs model on the held-out set, compare grounding AND how it
 reads.** ~20 minutes, produces a number.
 
@@ -100,7 +114,8 @@ reads.** ~20 minutes, produces a number.
    a today/wait chip.
 
 ### Phase 3 — measurement
-8. Intensity 0–10 at entry / post-regulation / close + a **24h "did you do it?"**.
+8. Intensity 0–10 at entry **and close — twice, not three times** (the mid-flow
+   "any better?" is routing, not measurement) + a **24h "did you do it?"**.
    Collect self-report, but **trust the behavioural measure** — people reported
    feeling better after venting while showing zero actual recovery.
 
@@ -109,22 +124,48 @@ reads.** ~20 minutes, produces a number.
    *chat wins "felt understood"; structure wins "didn't send it" and 24h rumination.*
 
 ### Running separately
+- **The on-device runtime gate is CLOSED (passed 2026-07-25)**, so the model track
+  is unblocked. What was proven is only that the untuned `.task` model loads and
+  generates on the A16 inside Niyora. See the box at the top of this file.
 - **Gemma 4 E2B** — ungated, trains locally (~4GB peak), 607MB on iOS, prebuilt
   `.litertlm`. The path to fixing comprehension rather than working around it.
+  **It has still never run inside Niyora**: the 2026-07-25 pass was the MediaPipe
+  `.task` model, a different file and a different loader, so proving stock Gemma 4
+  in our app is still a step of its own.
   Gotcha: Gemma 4 shares KV across layers 15–34, and mlx-lm skips missing keys
   **silently** — use `[q_proj, o_proj, gate_proj, down_proj]`, and `fuse --dequantize`.
 - Echo-vs-model experiment (above).
 
 ---
 
+## DECIDED 2026-07-25 (was open, now closed — don't re-litigate)
+
+- **On-device inference is no longer an open question.** The gate passed on the
+  phone (box at the top of this file). The narrow version of the claim is the only
+  one to repeat: untuned `.task` model, smoke prompt, runtime only.
+- **Anthropomorphism: a warm voice, not "someone."** The deliberate middle of the
+  three options. The testable line: **the voice may REACT to what she just said;
+  it may not have standing feelings, needs, or a bond that persists after she
+  closes the app.** Full rule + ✅/❌ table at the top of `voice-bible.md`.
+  Load-bearing mitigations that keep this safe: the flow ends, nothing persists,
+  no attachment language, never claims to be human or licensed. If any of those
+  four go, reopen this.
+- **The ending is settled.** Both branches (picked-an-act / none-feel-possible)
+  converge on: something concrete → an if-then → `we good?` → intensity out →
+  frequency-gated human nudge → close. Traced against the spec, not assumed.
+  Full shape in `WORKPLAN.md` → "The ending, settled".
+- **The tired question moved** from `body_tired` to `time_it` — at the body check
+  she hasn't chosen an act yet, so "now or tomorrow?" was timing an action that
+  didn't exist. Stream A owns the move.
+- **Crisis scan runs on EVERY message**, not just the entry, and never relaxes by
+  cycle phase. Menstruation is not a safe window.
+- **WHY-LINES are required at every choice point** — Neha: *"the text to connect
+  buttons (actions) to why is missing throughout."* `activity_context` was the
+  only one we had. See `moment-flow.yaml` → `meta.why_lines` (16-item inventory)
+  and **WORKPLAN STREAM G**.
+
 ## STILL OPEN — Neha's calls, not mine
 - **Which crisis services to name.** (Drafted: 988 + findahelpline.com.)
-- **The anthropomorphism question.** APA (Nov 2025) recommends *reducing*
-  anthropomorphic features and *limiting* AI memory; the Character.AI consumer-
-  protection claim survived on **anthropomorphic design alone**, with no allegation
-  anyone believed the bot was licensed. The moon is the product's soul and our
-  mitigations are right (the flow ends, no attachment language, never claims to be
-  human or licensed) — but this should be a decision made on purpose.
 - **DESC**: keep the act (assertiveness is our best-evidenced act, unguided ES≈1.00)
   but never write a science line claiming DESC itself is evidenced — it has zero
   trials and comes from a 1976 trade book.

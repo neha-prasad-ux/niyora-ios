@@ -12,7 +12,7 @@ I repeated these several times as justification. They were wrong.
 
 | I said | actually |
 |---|---|
-| implementation intentions **d = 0.91** | **d ≈ 0.65** — still our biggest lever, but I inflated it |
+| implementation intentions **d = 0.91** | **d = 0.53** (k=29, N=1,208, vs goal intentions) — still our biggest lever, but I inflated it. *This cell said 0.65 until 2026-07-25; that number had no citation.* |
 | **95%** abuse history in severe-PMS treatment-seekers | that's **n=42**; defensible range **~40–60%** |
 | the controllability fork is evidence-backed | it rests on **one cross-sectional study of 170 people measuring an ability, not an intervention.** A sound design principle. NOT an evidence base. I presented it as one. |
 
@@ -111,6 +111,8 @@ that people say yes more than she expects — nothing about how she'll feel) and
 
 ### Four claims to pull or fix in copy
 1. the DESC science line
-2. `d=0.91` → **0.65**
+2. `d=0.91` → **0.53** *(corrected again 2026-07-25: this doc said 0.65 with no
+   citation. The sourced figure is d+ = 0.53, k=29, N=1,208, vs goal intentions
+   — see `act-evidence-review.md`. Use 0.53 everywhere.)*
 3. the 95% abuse figure → **~40–60%**
 4. the lonely module's implied "reaching out works"

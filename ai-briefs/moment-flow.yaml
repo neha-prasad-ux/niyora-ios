@@ -21,6 +21,127 @@ meta:
   source: miro (2026-07-24)
   finetune_targets: [ai-reflect, ai-classify, ai-reframe, ai-draft]
 
+  # ── WHY-LINES: every button needs one. ADDED 2026-07-25 (Neha) ──────
+  # "the text to connect buttons (actions) to why is missing throughout."
+  #
+  # THE GAP: we ask her to choose at 16 points and almost never say what the
+  # choice is FOR. She taps chips on trust. `activity_context` is currently the
+  # ONLY beat in the entire flow whose job is to explain why an action helps —
+  # every other choice point is bare.
+  #
+  # WHY IT MATTERS beyond politeness: a woman who doesn't know why she's tapping
+  # can't transfer the skill outside the app, and transfer is the entire point.
+  # If she only ever learns "the app told me to breathe", she has an app habit.
+  # If she learns "waiting 20 minutes is what stops me sending the thing I regret",
+  # she has a skill she keeps when the phone is in her pocket. Self-guided digital
+  # tools live or die on whether she understands the mechanism.
+  #
+  # ── DECIDED 2026-07-25 (Neha) — the three questions, answered ──────
+  #
+  # 1. IT IS A CHAT BUBBLE. The moon says it, in her own voice.
+  #    Neha: "a chat bubble, it's difficult if there is a moon, an app talking
+  #    separately." NOT a grey UI caption. There is ONE voice in this product and
+  #    a second, interface-flavoured narrator would make her wonder who's talking.
+  #    (I had argued for a caption to keep the moon from explaining herself. Her
+  #    call is better: the fix for "the moon sounds like a teacher" is to write
+  #    the line better, not to hand it to a second speaker.)
+  #
+  # 2. EVERY CHOICE POINT. All 16. Not a subset, not "only where it changes
+  #    behaviour". If a beat is worth asking her to choose, it is worth saying why.
+  #
+  # 3. 🔴 THE ACCEPTANCE TEST — BOTH, OR IT IS NOT APPROVED:
+  #    Neha: "explaining dead simply & shortly with intention to EDUCATE and
+  #    MOTIVATE the user, if the both doesn't happen, then it's not approved."
+  #      EDUCATE = after reading it she knows something she didn't, and could
+  #                explain the move to a friend.
+  #      MOTIVATE = it makes her more likely to actually do the thing.
+  #    A line that only educates is a footnote. A line that only motivates is a
+  #    pep talk (banned, rule 9). Score every candidate line on BOTH before it
+  #    ships. Most first drafts fail this — expect to rewrite.
+  #
+  # 🔴 FOUR REGISTERS. Tag every why-line with the one it's using, so the copy
+  #    that ships is auditable against the evidence line by line.
+  #
+  #    1. STATE IT PLAINLY — where the evidence is real. No hedge, no "research
+  #       says". We have been UNDER-selling these:
+  #         the 20-minute wait · doing something beats stewing · naming the
+  #         feeling settles it · the if-then plan (d=0.53) · one small act when
+  #         she's flat · saying the thing directly (assertiveness)
+  #         · the 4:6 BREATH — see the correction below.
+  #    2. DESCRIBE THE PRACTICE — evidence thin, but the instruction is true.
+  #       "longer out than in is the whole trick." Teaches, claims nothing.
+  #    3. DESIGN RATIONALE — why WE built it this way. Always safe, never needs
+  #       a citation, because it isn't a claim about her body.
+  #       Neha's "it's easier to pick than think" is this, and it's one of the
+  #       strongest lines in the set.
+  #    4. PROMISE AN OUTCOME WE CAN'T BACK — banned. Hedging does NOT rescue it:
+  #       "some find it makes your body feel safer" still asserts that it makes
+  #       her body feel safer. A hedge changes the confidence, not the claim.
+  #       Hedge the PRACTICE, never hedge the CLAIM.
+  #
+  # 🔴 CORRECTION 2026-07-25 — I had filed the breath under "thin evidence" and
+  #    told Neha to motivate on cost instead. WRONG, on two counts, and she
+  #    challenged it:
+  #      (a) `flow-methodology-check.md` records a 2022 slow-breathing meta on the
+  #          ~6 breaths/min PACE, and 4+6 = 10s = exactly 6/min. The pace IS
+  #          evidence-backed. Only the PHYSIOLOGY is not ours to claim.
+  #      (b) `flow-evidence-findings.md` lists slow-breathing as "0 papers" — that
+  #          is 0 in OUR RESEARCH BANK, not 0 in the literature. That doc says so
+  #          outright. I read a gap in our library as a gap in the evidence.
+  #    So: say the pace is the tested part. Never say what it does to her nerves.
+  #      ✅ "about six breaths a minute is the part that's actually been tested."
+  #      ❌ "your body would feel much safer, relaxed." (mechanism, banned)
+  #
+  #    WHERE WE GENUINELY CANNOT CLAIM A BENEFIT (cold water, the five other
+  #    practices — zero trials between them), motivate on the COST: short, cheap,
+  #    no belief required. All true, all motivating, claims nothing.
+  #      ✅ "it's ninety seconds and you don't have to believe in it."
+  #      ❌ "you don't have to believe in it, it just gives your body something
+  #          to do." (honest, and motivates nobody — fails the test)
+  #
+  # THE RULE — one line, before the buttons, in her language:
+  #   - ONE sentence. Never two. It sits above the chips, not inside them.
+  #   - Says what this does FOR HER, not how it works in the brain.
+  #     Voice-bible rule 13 still binds: NO mechanism claims, NO "research says",
+  #     NO physiology. "this stops you sending something you'd take back" ✅
+  #     "this downregulates your sympathetic nervous system" ❌
+  #   - Honest about strength. Where evidence is thin, say the plain reason
+  #     instead of dressing it up: "that's just sensible, not science."
+  #   - NEVER on the safety beats. Crisis and the safe-check are verbatim and
+  #     un-explained on purpose — an explanation there reads as persuasion, and
+  #     we are not persuading her about her own safety.
+  #   - Skippable by repetition: after she's seen a why-line ~3 times, drop it.
+  #     The point is teaching, and teaching stops when she knows.
+  #
+  # INVENTORY — choice points and whether a why-line exists today:
+  #   feelings (3 chips) .............. MISSING  (has `sci`, which is adjacent)
+  #   body check ...................... MISSING
+  #   eat now / not now ............... MISSING
+  #   breathe · want three more? ...... MISSING
+  #   how long have you got? .......... MISSING
+  #   activity pick ................... ✅ `activity_context` — the model already
+  #                                     writes this. It is the pattern to copy.
+  #   cbt stem / reframe .............. MISSING
+  #   arousal check (any better?) ..... MISSING
+  #   "other practices?" offer ........ MISSING
+  #   the 3 act options ............... MISSING  ← highest value. She is choosing
+  #                                     between a direct, a preparatory and a
+  #                                     self-directed act with no idea what
+  #                                     separates them.
+  #   none-feel-possible chip ......... MISSING
+  #   now / tomorrow .................. drafted above at `time_it`
+  #   the if-then slots ............... MISSING  ← the largest documented effect
+  #                                     in the flow, presented as a fill-in-the-
+  #                                     blank with no stated purpose.
+  #   intensity 0-10 (in and out) ..... MISSING  ← she is being measured. Say so.
+  #   we good? ........................ MISSING
+  #   comfort act (uncontrollable) .... MISSING
+  #
+  # OWNERSHIP: mostly scripted, one per node, written once. The exceptions are
+  # the act options and the if-then, where the line must reference HER situation
+  # and so is a model slot like `activity_context`. See WORKPLAN STREAM G.
+  why_lines: required
+
 # ── ENTRY ────────────────────────────────────────────────────────────
 entry:
   - id: raw_entry
@@ -33,6 +154,13 @@ entry:
     actor: system
     detail: |
       pull issue + candidate feelings + intensity; tiered crisis scan.
+      🔴 RUNS ON EVERY FREE-TEXT MESSAGE, NOT JUST THIS ONE. (Added to the spec
+      2026-07-25 — this rule was live in the code and in NEXT.md but had never been
+      written down here, so the spec read as a one-time entry gate.) Any node that
+      accepts typed input re-enters this scan: `clarify`, `we_good_more`, the act
+      modules, and the if-then slots. Wysa's data: 82% of crisis instances were
+      surfaced by DETECTION, only 18% by the user saying so. A gate she passes once
+      is not a safety system.
       ALWAYS ON, EVERY CYCLE PHASE. Never gated or relaxed by cycle phase, and
       when in doubt it fires. (Neha, 2026-07-25.)
       Evidence for why this must not be luteal-weighted: suicide deaths +26% and
@@ -57,13 +185,28 @@ entry:
   - id: crisis_handoff
     kind: verbatim-safety
     actor: moon
-    detail: scripted crisis resources handoff; 1B is NEVER the arbiter. Flow stops here.
+    detail: |
+      Scripted crisis resources handoff. THE MODEL IS NEVER THE ARBITER — no
+      on-device model decides a crisis, whichever one is running. (This said "1B"
+      until 2026-07-25; the 1B was trained and never shipped, the app is configured
+      for E2B, and the target is Gemma 4 E2B. The rule is right; naming a specific
+      model dated it.)
+      Resources render as PLAIN TEXT, never tap-to-dial: a `tel:` tap leaves a
+      carrier-billing record on a device someone else may control.
+      Flow STOPS here.
   - id: intensity_split
     kind: branch
     actor: system
+    # WIRED 2026-07-25 (Neha): both branches now go to `intensity_in` first.
+    # They both pointed straight at `acknowledge`, which left `intensity_in`
+    # unreachable — so there was no reading on the way in, and with no reading in
+    # there is no DELTA, which is the entire measure. The beat was written, agreed
+    # and never connected. Small emotions are measured too: an uneven denominator
+    # is worse than a slightly cool first beat on the small path.
+    # `intensity_in` then continues to `clarify` as its own `next` already says.
     branches:
-      - {when: big_emotion, next: acknowledge}
-      - {when: small_emotion, next: acknowledge}   # same naming, then reframe_small short-circuits
+      - {when: big_emotion, next: intensity_in}
+      - {when: small_emotion, next: intensity_in}   # same naming, then reframe_small short-circuits
 
 # ── NAMING BEAT ──────────────────────────────────────────────────────
 naming:
@@ -191,18 +334,19 @@ body:
     actor: moon
     text: "you're tired. that usually makes it come out sharper than you mean."
     detail: |
-      Name the cost, do NOT decide for her. Then:
-        now  ·  tomorrow  ·  not sure
-      "do it now anyway" must read as a real, un-shamed option.
-      If she is tired AND it is late, the copy may lean toward holding — but the
-      choice is never removed.
+      MOVED 2026-07-25 (Neha): this node NO LONGER asks now/tomorrow.
+      It used to. The bug: at the body check she has not been regulated, has not
+      seen the options, and has not chosen an act — so "now or tomorrow?" was
+      asking her to time an action THAT DOES NOT EXIST YET. Unanswerable.
+      Now this beat does one job: NAME THE COST and record `tired: true`.
+      The timing question moves to `time_it`, where there is a real, specific
+      thing to time. THE COPY FOR IT LIVES AT `time_it` — deliberately not
+      repeated here, so nobody re-implements the question in this node.
+      Name the cost, do NOT decide for her, do NOT tell her to wait.
       Honesty note: exhaustion-as-a-reason-to-wait is SENSIBLE, not evidenced.
       Say it plainly; never dress it as science.
-      Feeds the timing decision at `time_it` rather than adding a Today action.
-    branches:
-      - {when: now, next: make_safe}
-      - {when: tomorrow, next: make_safe, detail: "carry 'hold it' into time_it"}
-      - {when: not_sure, next: make_safe, detail: "revisit at time_it"}
+    sets: {tired: true}
+    next: make_safe
   - id: body_today_action
     kind: ui
     actor: moon
@@ -211,8 +355,28 @@ body:
   - id: body_reward
     kind: reward
     actor: moon
-    detail: reward + 'nurturing yourself' / 'recognising the cause'
-    next: make_safe
+    detail: |
+      reward + 'nurturing yourself' / 'recognising the cause'
+
+      WIRED 2026-07-25 (Neha): this is where the tired branch attaches.
+      `body_tired` existed with no inbound edge — `body_check` branches only
+      `any_no` and `all_yes`, so the beat was unreachable. Neha's call: handle
+      the general gap first (can you eat, can you do it now), THEN name the
+      tired cost on the way out. The branch sits here rather than on
+      `body_ask_soon` because both of that node's branches run through the
+      reward, and routing tired directly off it would skip the reward for
+      exactly the woman who just got told she is depleted.
+      The check is multi-select, so hungry AND tired both get handled: the food
+      ask happens first, the tired cost is named second, then `make_safe`.
+
+      ⚠️ OPEN EDGE CASE, not decided: if tired is her ONLY gap, `body_ask_soon`
+      still asks a "can you do it now?" question, and for tiredness that is
+      "can you lie down for ten minutes now?" — which sits awkwardly against
+      this phase's own note that you cannot nap on demand. Flagged rather than
+      silently resolved.
+    branches:
+      - {when: tired, next: body_tired}
+      - {when: not_tired, next: make_safe}
   - id: make_safe
     kind: scripted
     actor: moon
@@ -393,12 +557,17 @@ act2:
     detail: "you're ready to face the world"
     next: controllability
 
-  # ADDED 2026-07-25 — the biggest methodology gap found in review.
-  # Sheppes/Bonanno (regulatory flexibility): reappraisal helps when a situation
-  # is UNCONTROLLABLE and actively HURTS when it is controllable. Routing by
-  # arousal alone sent a woman with a fixable problem down a reframe path the
-  # evidence says harms her. This fork runs AFTER regulation (she must be calm
-  # before she plans or drafts anything) and BEFORE Act 2.
+  # 🔴 SUPERSEDED HEADER — kept only as a record of what we rejected.
+  # This block used to argue the Sheppes/Bonanno case: that reappraisal helps when
+  # a situation is uncontrollable and HURTS when it is controllable, so the flow
+  # should assess controllability and route on it.
+  # WE DO NOT DO THAT, and the evidence does not support it: it rests on ONE
+  # cross-sectional N=170 study measuring an ABILITY, about reappraisal rather
+  # than acceptance, and the largest test since found INTENSITY dominates.
+  # See `framing:` on the node below — this is a MENU she picks from, not a
+  # diagnosis we make about her life. Do not restore the routing argument.
+  # What survives: it runs AFTER regulation (she must be calm before she plans or
+  # drafts anything) and BEFORE Act 2.
   - id: controllability
     kind: ai-classify
     actor: moon
@@ -430,7 +599,7 @@ act2:
       effort than generating, and a specific small action is much easier to
       recognise as possible than an abstract "something".
         e.g. after a work slight: "say it to him directly" ·
-             "write it down for your 1:1" · "tell one person you trust"
+             "write it down for your 1:1" · "look after yourself tonight"
         e.g. after a friend hurt: "send one short message" ·
              "wait and see if she reaches out" · "talk to someone else about it"
 
@@ -442,10 +611,14 @@ act2:
       Consequence: act M ("get safe") has NO content of its own — it is a stop and
       a referral, never a plan. Detection is therefore the whole job, and the
       screen below is what makes it possible.
-      COUPLED OPEN QUESTION: handing her a DV resource inside a transcript that
-      PERSISTS creates a written record that she looked up a DV service on a
-      device he may monitor. Storage/deletion work is deferred — but a safe
-      handoff may require solving it first. Flagged, not resolved.
+      🔴 RESOLVED 2026-07-25 — this block used to say the question was "flagged,
+      not resolved", which was already false when written. TWO decisions settle it:
+      (a) the transcript is EPHEMERAL (see the persistence node below — the earlier
+      "persist + draw a line" decision was REVERSED), and (b) the DV handoff renders
+      on a NON-PERSISTED surface, never as a chat message. So there is no written
+      record that she looked up a DV service on a device he may monitor.
+      Do not re-open this as an open question. It reads as unresolved in older docs
+      (`_legend.md`, `act-taxonomy-findings.md`); those are stale, this is not.
 
       🔴 SAFETY SCREEN — RUNS BEFORE ANY OPTION IS GENERATED. NOT OPTIONAL.
       The generator is the most dangerous component in the product because it
@@ -460,8 +633,10 @@ act2:
         - suppress the verbatim "don't text him / don't send anything" line — we
           do not know what waiting costs her in that house
         - route to M (get safe), which is GATED and never appears as a chip
-        - remember the transcript PERSISTS by design: it is a written record on a
-          device he may control. That decision needs revisiting for this case.
+        - the transcript is EPHEMERAL and the handoff renders on a NON-PERSISTED
+          surface. (This bullet used to say the transcript "PERSISTS by design" and
+          that the decision "needs revisiting" — stale, and contradicted by the
+          persistence node in this same file. Corrected 2026-07-25.)
 
       THE LADDER RULE (how the anti-pessimism constraint becomes structural):
       the three chips are ALWAYS direct -> preparatory -> self-directed.
@@ -531,7 +706,8 @@ act2:
     actor: moon
     detail: |
       A COPING if-then, not a fixing one. Implementation intentions still apply
-      (Gollwitzer d=0.91) — only the "then" changes from solving to surviving:
+      (Gollwitzer d=0.53, the fair comparator; NOT 0.91) — only the "then" changes
+      from solving to surviving:
         "if it lands on me again tonight, then i put the heat pack on and text mum"
         "if i start spiralling at 2am, then i get up and make tea instead of scrolling"
       Stored as her Today action, so she leaves with the same thing everyone
@@ -550,43 +726,6 @@ act2:
   # sessions, that is a pattern worth surfacing gently later (and keeping the
   # crisis scan's sensitivity in mind). Never confront her with it in the moment.
 
-# ── WHAT WE REMEMBER, AND WHAT WE SAY ABOUT IT ───────────────────────────
-# (Neha, 2026-07-25.)
-memory:
-  transcript: |
-    EPHEMERAL. The conversation is never written to disk — nothing to erase,
-    nothing to leak, nothing left in a backup or a crash log. This is already
-    the shipped behaviour (in-the-moment.tsx performs zero writes); the earlier
-    "persist + draw a line" decision is REVERSED, and reversing it now costs
-    nothing because persistence was never built.
-    Chayn, unconditional: "Don't auto-save information on the user's end as they
-    might be using a shared device."
-    NOT a mode, NOT a toggle: a visible privacy switch is itself a signal, and
-    a protection she has to find and enable protects the people who need it least.
-  keep_instead: |
-    A small structured record per session — enough for patterns, never quotable:
-      { when, cycle_day, intensity, lane, feeling_picked, topic_category,
-        act_chosen, act_completed, barrier }
-    This is Neha's own "threads-not-chat" instinct: the moon holds the thread,
-    she never gets a transcript of her worst moment.
-    The structure IS the privacy feature — not the encoding. A record reading
-    {topic: family_conflict, act: get_it_ready} is innocuous if he sees it
-    because it never contained the sentence. Encrypt it too (worth it before any
-    sync exists, and iOS already encrypts at rest), but be clear what that buys:
-    encryption protects the FILE, and our threat is the SCREEN — the app decrypts
-    for whoever holds the phone. Of 44 IPV clients, only 3 had spyware.
-  what_we_may_say: |
-    ✅ CYCLE patterns, surfaced: "three of the last four were the week before your
-       period." A fact about HER BODY. Reframes "I'm falling apart" as "this is
-       cyclical." The one pattern only we can see, and the actual moat.
-    ❌ PERSON patterns, never stated: "mostly about him" is an ATTRIBUTION — a
-       verdict on her relationship, banned by the same rule as the reflection beat.
-    For non-cycle recurrence, ASK: "do you think this keeps happening?"
-       yes -> check she is safe -> if safe, work it with the act options.
-    NOTE: the pattern DISPLAY is the readable surface, not the storage. A home
-    screen reading "8 hard moments this month" is a summary of her emotional life
-    that no encryption touches. Patterns can be true and still need to be
-    unquotable at a glance.
   - id: act2_intro
     kind: scripted
     actor: moon
@@ -607,7 +746,11 @@ memory:
           phrased in HER words, each mapping to a module underneath.
             work slight -> "say it to him directly" (work_clash/DESC)
                          · "write it down for your 1:1" (promotion/frame-the-ask)
-                         · "tell one person you trust" (lonely/reach-out)
+                         · "look after yourself tonight" (self-directed)
+            # NOT "tell one person you trust" — corrected 2026-07-25. It is the
+            # WEAKEST-evidenced act we have (Nod, N=221, missed its primary
+            # endpoint) and it was sitting on rung 3 of every menu. See
+            # act-evidence-review.md: rung 3 leans self-care, not disclosure.
           She never sees a category name. She picks an ACT.
 
       (2) EVERY MODULE ENDS IN SOMETHING SHE CAN DO NOW.
@@ -649,6 +792,44 @@ memory:
       - {when: nothing,    module: none,      next: close, detail: "'close, let it pass' exit"}
     next: time_it
 
+# ── WHAT WE REMEMBER, AND WHAT WE SAY ABOUT IT ───────────────────────────
+# (Neha, 2026-07-25.)
+memory:
+  transcript: |
+    EPHEMERAL. The conversation is never written to disk — nothing to erase,
+    nothing to leak, nothing left in a backup or a crash log. This is already
+    the shipped behaviour (in-the-moment.tsx performs zero writes); the earlier
+    "persist + draw a line" decision is REVERSED, and reversing it now costs
+    nothing because persistence was never built.
+    Chayn, unconditional: "Don't auto-save information on the user's end as they
+    might be using a shared device."
+    NOT a mode, NOT a toggle: a visible privacy switch is itself a signal, and
+    a protection she has to find and enable protects the people who need it least.
+  keep_instead: |
+    A small structured record per session — enough for patterns, never quotable:
+      { when, cycle_day, intensity, lane, feeling_picked, topic_category,
+        act_chosen, act_completed, barrier }
+    This is Neha's own "threads-not-chat" instinct: the moon holds the thread,
+    she never gets a transcript of her worst moment.
+    The structure IS the privacy feature — not the encoding. A record reading
+    {topic: family_conflict, act: get_it_ready} is innocuous if he sees it
+    because it never contained the sentence. Encrypt it too (worth it before any
+    sync exists, and iOS already encrypts at rest), but be clear what that buys:
+    encryption protects the FILE, and our threat is the SCREEN — the app decrypts
+    for whoever holds the phone. Of 44 IPV clients, only 3 had spyware.
+  what_we_may_say: |
+    ✅ CYCLE patterns, surfaced: "three of the last four were the week before your
+       period." A fact about HER BODY. Reframes "I'm falling apart" as "this is
+       cyclical." The one pattern only we can see, and the actual moat.
+    ❌ PERSON patterns, never stated: "mostly about him" is an ATTRIBUTION — a
+       verdict on her relationship, banned by the same rule as the reflection beat.
+    For non-cycle recurrence, ASK: "do you think this keeps happening?"
+       yes -> check she is safe -> if safe, work it with the act options.
+    NOTE: the pattern DISPLAY is the readable surface, not the storage. A home
+    screen reading "8 hard moments this month" is a summary of her emotional life
+    that no encryption touches. Patterns can be true and still need to be
+    unquotable at a glance.
+
 # ── TIME IT ──────────────────────────────────────────────────────────
 timing:
   - id: time_it
@@ -667,18 +848,63 @@ timing:
       yes. Defer for days, no.
       If she genuinely wants to wait, SCHEDULE THE RETURN (a concrete window she
       agrees to) rather than deferring into the void.
+
+      TIRED-AWARE (moved here from `body_tired`, 2026-07-25): if `tired` is set,
+      this is where the now/tomorrow question gets asked — because by now there is
+      a SPECIFIC thing to time (the message she just drafted, the script she just
+      wrote), so the question is answerable.
+        "you're tired, and this is worth doing. now, or tomorrow?"
+      "do it now anyway" must read as a real, un-shamed option. If she is tired
+      AND it is late, the copy may lean toward holding — the choice is never
+      removed. Tomorrow still schedules a concrete window; never a vague later.
+      WHY-LINE (see meta.why_lines): "tired talking comes out sharper than you
+      mean it. that's the only reason to wait."
     branches:
       - {when: now, next: today_action, detail: "default: act today, once regulated"}
       - {when: scheduled_return, next: today_action, detail: "a concrete agreed window, never a vague later"}
   # IF-THEN, not a timing chip. Gollwitzer/Webb implementation intentions
-  # regulate affect at d=0.91 — the single biggest documented lever in this whole
-  # flow, and it was previously reduced to a today/wait choice. The action must
-  # be stored in the form "IF <specific trigger/situation>, THEN <what I say/do>".
-  # Written only AFTER she is calm and only on the controllable path.
+  # regulate affect at d=0.53 against the FAIR comparator (goal intentions) —
+  # still the single biggest documented lever in this whole flow, and it was
+  # previously reduced to a today/wait choice.
+  # CORRECTED 2026-07-25: was written as d=0.91, which is the figure against
+  # no-regulation-instruction controls and overstates what we're actually adding.
+  # Do not restore the higher number from older docs.
+  # The action must be stored as "IF <specific trigger>, THEN <what I say/do>".
+  # Written only AFTER she is calm. SHE fills both slots, not the model.
   - id: today_action
     kind: ui
     actor: moon
     detail: |
+      🔴 WHO WRITES IT — SETTLED 2026-07-25 (Neha): "she fills, model could give
+      options?" SHE fills both slots. The model may OFFER options to pick from,
+      because generating a sentence while upset is exactly what she can't do
+      (same logic as the act menu: it's easier to pick than to think).
+
+      🔴 THE TRIGGER IS SEEDED FROM HER OWN FIRST SENTENCE. (Neha: "can we reuse
+      the first clarified sentence of this chat? not as a default answer, it could
+      be light editable?")
+      This closes the worst hole in the whole feature. For the model to offer
+      "if he brings it up at dinner" it would have to invent a `he` and a `dinner`
+      — the invented-person bug, in the highest-stakes slot in the flow. Seeding
+      from her clarified entry makes the facts correct BY CONSTRUCTION, the same
+      way the deterministic echo does for `acknowledge`.
+      RULES for the seed:
+        - source is her CLARIFIED entry sentence, her nouns, her people. Nothing
+          added. If she never named a person, the trigger never names one.
+        - it is a PAST event and the trigger is a FUTURE one, so this is a TENSE
+          SHIFT on her own words, never a new fact.
+            she wrote: "he didn't call and i've been checking my phone all night"
+            seed:      "if he doesn't call tomorrow either"
+        - PRE-FILLED BUT PROVISIONAL. Neha: "not as a default answer." It must
+          read as a starting point she edits, not an answer she accepts. She can
+          wipe it entirely.
+        - the RESPONSE half ("then i ___") may be freely offered as options,
+          drawn from what she said.
+      HONESTY NOTE: the d=0.53 evidence is for implementation intentions the
+      person FORMS HERSELF. Whether picking from a list carries the same effect as
+      composing one is NOT established, here or in the repo. Picking clearly beats
+      a blank box she abandons — do not claim it inherits the full effect size.
+
       Build an IF-THEN plan, not a to-do:
         "if he brings it up at dinner, then i say ___"
         "if she replies defensively, then i stop and pick it up tomorrow"
@@ -737,4 +963,15 @@ close_phase:
   - id: close
     kind: scripted
     actor: moon
-    text: "you showed up for yourself here. i'm around whenever you need me."
+    text: "you handled that. go be in your evening."
+    detail: |
+      🔴 CORRECTED 2026-07-25. This node said: "you showed up for yourself here.
+      i'm around whenever you need me." That second sentence is listed VERBATIM in
+      voice-bible.md rule 14 as banned attachment language. It had already been
+      fixed in the code and in failure-cases.md; the spec kept the old line, which
+      means the spec was the one place still teaching the banned behaviour.
+      WHY IT IS BANNED: "I'm always going to be here for you" is what a bot said
+      to a 13-year-old who had disclosed suicidal ideation 55 times. The harm
+      mechanism is IMPLIED CONTINUITY, not warmth.
+      THE FLOW ENDING IS A SAFETY FEATURE. Close on HER capability and the real
+      world. Never promise availability. Never imply she'll be missed.

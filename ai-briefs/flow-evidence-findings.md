@@ -127,4 +127,4 @@ stance:
 - `activity_context` (342 examples) — may assert physiological claims
   (vagus/adrenaline) the bank doesn't support.
 
-Slot-tagged corpus = surgical regeneration; we do not rebuild all 5,367.
+Slot-tagged corpus = surgical regeneration; we do not rebuild all **5,304** (5,367 was generated; 63 were dropped by the invented-person gate).

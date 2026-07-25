@@ -44,7 +44,7 @@ Measured on 100 held-out prompts:
 | composite | 71.7% | **88.2%** |
 
 But the 1B still **swaps who did what** — "you made a comment" when her partner
-did. That is a capacity ceiling, not a data problem. Which led to the ELIZA
+did. That looked like a capacity ceiling. **RETRACTED 2026-07-25:** we only ever showed that GENERAL data reached 34%. We never built contrastive pairs, hard multi-actor cases, or reweighted the beat that matters. "Not a data problem" was an assertion, not a finding. See WORKPLAN Stream D2. Which led to the ELIZA
 insight: reflection needs *rearrangement*, not intelligence.
 
 ### 3. Structure beats open chat — and we measured it
@@ -119,6 +119,7 @@ the direction of more support than existed.**
 4. **Self-compassion "has self-guided evidence"** — it halves against active controls and app trials are near-null
 5. **Comparing our SPEC to competitors' measured reality** — our table scored us 100% on a string that doesn't exist in the codebase
 6. **Inventing a "sister"** in a hand-written gold-standard walkthrough — while building guards against exactly that. It led to the `invented_person` gate, which then found **63 invented people already in the training corpus** (mom ×13, kids ×13, manager ×8…)
+7. **"Gemma 4 E2B is already verified running on the test phone"**: it ran in Google's AI Edge Gallery, not in Niyora, on a different loader. Corrected 2026-07-25. The same day we tested what we actually had, and the answer went the other way: the bundled untuned `.task` model **did** generate a token in Niyora on the A16. Both halves of that are the point: don't claim the untested thing, and do go and test it.
 
 ---
 
@@ -146,14 +147,29 @@ The only thing that closes it: **8–12 women, within-subject, pre-registered.**
 
 ## Model state (read this before touching the fine-tune)
 
+- **✅ 2026-07-25: a model generated a token on the phone, inside Niyora.** The
+  bundled untuned `gemma-3n-E2B-it-int4.task`, on Neha's iPhone 15 (A16, iOS
+  26.5.2): `availability()` = `available`, `prewarm()` true (17518ms cold, 696ms
+  warm), the smoke prompt answered in 3421ms and 3693ms across two runs, and 3030MB
+  still available to the process with the engine resident (3638MB before prewarm,
+  so ~608MB spent against a 2991MB file, which says the weights are memory-mapped).
+  MediaPipe was confirmed genuinely linked, not the `#if canImport` stub. This is
+  runtime only: untuned model, trivial non-clinical prompt, nothing measured about
+  quality, grounding, voice or safety, memory read in a probe screen rather than a
+  real session, latency on ~10 output tokens.
 - **We trained the 1B** (`gemma-3-1b-it-4bit`), fused into bf16, verified.
 - **The fused model never shipped.** `modules/niyora-gemma` is configured for
   `gemma-3n-E2B-it-int4.task` — **untuned E2B**.
 - **So the app currently runs an untuned model, and our tuned model isn't on the
-  phone.** That inconsistency is unresolved.
+  phone.** That inconsistency is unresolved, and the 2026-07-25 pass did not
+  resolve it: the thing that ran was the untuned model.
 - **Recommended target: Gemma 4 E2B** — ungated, trains locally (~4GB peak), 607MB
-  on iOS, prebuilt `.litertlm` at 2.588GB, and already verified running on the
-  test phone. Gotcha: Gemma 4 shares KV across layers 15–34 and mlx-lm skips
+  on iOS, prebuilt `.litertlm` at 2.588GB. **It has NOT been verified in Niyora.**
+  It was seen running on the A16 in **Google's AI Edge Gallery**, a different app,
+  and it is a different file and a different loader (LiteRT-LM, not MediaPipe), so
+  running it in our app is still an unproven step. (This bullet previously said
+  "already verified running on the test phone", which was an overstatement.)
+  Gotcha: Gemma 4 shares KV across layers 15–34 and mlx-lm skips
   missing keys **silently** — use `[q_proj, o_proj, gate_proj, down_proj]`, and
   `fuse --dequantize` (bf16 is 10.24GB, won't fit).
 - **Never fuse into a 4-bit base** — it silently discards the entire adapter, with

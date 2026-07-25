@@ -7,7 +7,8 @@ verified. Everything below is measured, not estimated.
 
 | stage | result |
 |---|---|
-| corpus | **885 full-flow traversals → 5,367 training pairs** (target was 1,000) |
+| corpus | **885 full-flow traversals → 5,367 generated, 5,304 after gating** (target was 1,000) |
+| | *The 63-pair gap is the `invented_person` hard gate. 5,304 is the trained number and the one to use for any reweighting arithmetic; 5,304 = 4,678 train + 313 valid + 313 test, verified by line count 2026-07-25.* |
 | slots covered | all 14 AI slots; 34% PMS; high/low/mixed lanes |
 | split | 4,735 train / 316 valid / 316 test (stratified by slot) |
 | base model | `mlx-community/gemma-3-1b-it-4bit` (ungated, no HF token needed) |
@@ -56,15 +57,26 @@ Voice transfer succeeded completely. Comprehension did not.
 | anchor | "**you've been short** for two days" | *he* was short with her |
 | feel_heard | "he said the same thing about your name and now **you're** acting like it's nothing" | actor flipped |
 
-It picks the right content words and attaches them to the wrong person. This is a
-**capacity ceiling, not a style problem** — more of the same training data will
-not fix it. In a reflection tool this is serious: telling a woman "you made a
-comment" when her partner did breaks trust instantly.
+It picks the right content words and attaches them to the wrong person. In a
+reflection tool this is serious: telling a woman "you made a comment" when her
+partner did breaks trust instantly.
+
+**RETRACTED 2026-07-25:** this paragraph used to call it a **"capacity ceiling,
+not a style problem"** and say more training data would not fix it. That was an
+assertion, not a finding. All we showed is that *general* data reached 34%. We
+never built contrastive pairs, hard multi-actor cases, or reweighted the beat that
+matters. See WORKPLAN Stream D2. The same retraction is in `JOURNEY.md` and
+`NEXT.md`.
 
 **Options, in order of my confidence:**
 1. **Bigger model.** Neha's AI Edge Gallery screenshot shows **Gemma-4-E2B (2.59 GB)
-   running on her A16 via LiteRT-LM**. Our "only 1B fits" belief came from
-   MediaPipe `.task` limits, not hardware. Worth testing before accepting the 1B.
+   running on her A16 via LiteRT-LM**, in Google's app, not in Niyora. Our "only
+   1B fits" belief came from MediaPipe `.task` limits, not hardware.
+   **Confirmed on device 2026-07-25:** the ~3GB `gemma-3n-E2B-it-int4.task` loaded
+   and generated a token inside Niyora on that A16, with 3030MB still available to
+   the process. So the size objection to a bigger model is gone. What is still
+   untested is whether a bigger model actually fixes grounding, and Gemma 4 E2B
+   itself has still never run in our app.
 2. **Template-assisted acknowledge** — pronoun-flip her own sentence
    deterministically ("i" → "you", "my" → "your") instead of asking the model to
    restate. Cannot get the actor wrong by construction.

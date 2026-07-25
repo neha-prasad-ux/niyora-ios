@@ -146,8 +146,24 @@ event to fill the gap.
 - `cbt_stem` — offer 2-3 candidate stuck-thoughts as a multiple choice
 - `cbt_reframe` — warm the one she picked into a smaller, truer read
 - `check_read` — mixed lane: reflect her specific rejection-thought back
-- `deweight` — mixed lane: de-weight the swing without denying the feeling
+- ~~`deweight`~~ — **REMOVED 2026-07-25.** Do not generate this slot. It told her
+  "this is the sensitivity talking", which dismisses the feeling as hormonal noise
+  — the exact thing rule 10 bans. `check_read` and `honor_real` cover the lane.
+  There are ~124 examples of this dead slot in the corpus; Stream D2 must drop them.
 - `honor_real` — mixed lane: it's a real signal, don't dismiss
 - `anchor` — one steady line to hold while it passes
-- `act2_module` — the situation-specific handling (10 modules; drafts may plan)
+- `act2_module` — the situation-specific handling (drafts may plan)
+  ⚠️ **COUNT UNRECONCILED:** this file said 10 modules, `act-taxonomy-findings.md`
+  defines 12 acts + 1 gated, and the spec's module map lists 10. Nobody has
+  reconciled the act set with the module set. **Stream F must do that first** and
+  write the answer here — do not build from either number until it is settled.
 - `we_good_more` — ask what's still heavy, offer something untried
+- `why_line` — ONE sentence above a set of chips saying what the choice is FOR.
+  Added 2026-07-25 (Neha): *"the text to connect buttons to why is missing
+  throughout."* Says what it does for HER, never how it works in the brain —
+  **rule 13 binds hardest here**, because "explain why" is exactly the prompt that
+  tempts a mechanism claim. ✅ "this is what stops you sending the thing you'd
+  take back." ❌ "this lowers your physiological arousal." Honest when thin:
+  "that's just sensible, not science." NEVER on safety beats. Mostly scripted;
+  a model slot only for the act options and the if-then, where it must name her
+  actual situation.
