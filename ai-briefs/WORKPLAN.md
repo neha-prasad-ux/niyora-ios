@@ -45,6 +45,16 @@ ownership** so agents don't collide. Read `NEXT.md` and `JOURNEY.md` first.
   know" — so detection only ever suppresses advice (safe to do badly) rather than
   gating help (not safe to do badly).
 - **The handoff must render on a non-persisted surface, never as a chat message.**
+- **THE IF-THEN TODAY ACTION** — B owns the path all the way through: she picks an
+  act → the module produces the actual thing → **that becomes an if-then plan**,
+  stored as her Today action. `"if he brings it up at dinner, then i say ___"`,
+  two fill slots (trigger, response), and **she fills them, not the model** —
+  self-generated intentions work better AND the model can't invent a person that
+  way. This is the **largest documented effect in the flow (d=0.53 against the
+  fair comparator)** and it is currently reduced to a today/wait chip.
+  Also: the uncontrollable path gets a **COPING** if-then instead — *"if it lands
+  on me again tonight, then i ___"* — so she leaves with the same shape as
+  everyone else.
 
 ## STREAM C — measurement
 **Owns:** a NEW store file. No overlap with A or B.
