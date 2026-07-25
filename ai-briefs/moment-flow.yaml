@@ -99,6 +99,16 @@ meta:
   #      ❌ "you don't have to believe in it, it just gives your body something
   #          to do." (honest, and motivates nobody — fails the test)
   #
+  # 🔴 THE STOPPING RULE (Neha, 2026-07-25): "if there is no wrong science, fake,
+  #    wrongful info we should chill. I will test more and get back, change if
+  #    needed."
+  #    The bar for shipping a why-line is NOT "is this the best possible
+  #    sentence". It is "is anything in it FALSE, UNSUPPORTED, or MISLEADING?"
+  #    If nothing is, it ships and we learn from real testing instead.
+  #    AGENTS: do not re-open approved copy to improve its style. Reopen it only
+  #    if you can name a claim in it that is wrong. All approved why-lines and
+  #    the reasoning behind each are in `why-lines-draft.md`.
+  #
   # THE RULE — one line, before the buttons, in her language:
   #   - ONE sentence. Never two. It sits above the chips, not inside them.
   #   - Says what this does FOR HER, not how it works in the brain.

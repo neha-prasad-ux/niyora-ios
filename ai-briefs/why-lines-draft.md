@@ -235,3 +235,62 @@ better-evidenced move anyway.
 inflates it. Same number going out as went in is real information, not a failure.
 
 > _your draft:_
+
+
+---
+
+# ✅ APPROVED COPY — the remaining lines (2026-07-25)
+
+**Governing principle (Neha):** *"if there is no wrong science, fake, wrongful
+info we should chill. I will test more and get back, change if needed."*
+So the bar for shipping a why-line is **not** "is this the best possible
+sentence" — it is **"is anything in it false, unsupported, or misleading?"**
+If nothing is, it ships and we learn from testing. **Agents: do not re-open
+approved copy to improve its style.** Only reopen it if you find a claim that is
+wrong.
+
+## #5 breathe — DECIDED, keep it
+> *"in for four, out for six. about six breaths a minute is the part that's
+> actually been tested."*
+
+Three people have now flagged this beat, most recently me, on the worry that
+"actually been tested" is an appeal to research banned by rule 13. **Call: it
+ships.** Rule 13 bans "research says" in front of a claim we DON'T hold. We hold
+this one — the ~6/min pace is the evidenced part and 4+6 = 10s is exactly 6/min.
+The mechanism stays unspoken, which is what the rule actually protects.
+
+## #1 intensity in — why pointed at her, not us
+> *"how big is this issue? we'll ask again at the end so you can see if it moved."*
+
+Her draft's *"helps us understand the next steps better"* was untrue of this node
+(the 0-10 tap routes nothing) and pointed the benefit at us.
+
+## #3 body check — one clause cut
+> *"is any of the following true? being short on sleep moves your mood more than
+> people think."*
+
+Cut *"quickly make you feel better too"* (outcome promise). Note this now names
+**sleep only**: the body-check evidence is a sleep/stress/fatigue association,
+and the movement claim is an **8-week** effect, "not an in-the-moment claim"
+(`flow-evidence-findings.md:103-104`). The question may still ask about movement;
+the why-line may not claim it.
+
+## #6 want three more — a why in front
+> *"wanna continue for 3 more times? stopping is just as fine as carrying on."*
+
+Her draft restated the button, so it educated nothing. Register 3.
+
+## #10 cbt reframe — right test, no interface language
+> *"we're not deleting the thought, just checking if a smaller version fits.
+> does that land?"*
+
+*"Does this line make you feel better?"* used the wrong criterion (a reframe has
+to FIT, not feel nice), invited the self-report inflation the spec distrusts, and
+said "this line", which is the moon narrating its own output.
+
+## #11 any better — routing, and stop echoing #19
+> *"are you feeling better than before? this just decides what comes next, it's
+> not a grade."*
+
+#11 is ROUTING mid-work; #19 is MEASUREMENT at the end. Identical phrasing made
+#19 read as a repeat.
