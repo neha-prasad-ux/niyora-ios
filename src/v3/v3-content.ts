@@ -174,6 +174,26 @@ export const EMPTY_ANSWERS: V3Answers = {
   coping: [],
 };
 
+/**
+ * First-run onboarding seed (retake starts EMPTY instead, then seeds from her
+ * last read so the then-vs-now compare stays honest).
+ *
+ * DECISION (2026-07-24): first-run stays BLANK. Pre-selecting "common" answers
+ * to cut drop-off was considered and rejected — pre-checking symptoms,
+ * impairment, or levers would inflate her derived level and her plan, which is
+ * not a trade worth making. Do NOT add pre-selections here. Kept as its own
+ * const (not a reference to EMPTY_ANSWERS) to preserve the first-run vs retake
+ * seam and avoid shared-mutation surprises.
+ */
+export const DEFAULT_ANSWERS: V3Answers = {
+  presence: [],
+  impairment: {},
+  cycle: { lastPeriod: null, starts: [], length: null, unsure: false },
+  remission: null,
+  levers: {},
+  coping: [],
+};
+
 // --- Level banding (decision 2) ---------------------------------------
 
 export type Level = 'mild' | 'moderate' | 'severe';
