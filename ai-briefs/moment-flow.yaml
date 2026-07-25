@@ -651,7 +651,11 @@ timing:
         "if he brings it up at dinner, then i say ___"
         "if she replies defensively, then i stop and pick it up tomorrow"
       Two fill slots (trigger, response). Store it as her Today action.
-      Plus, where the situation was a rupture, the checklist for after.
+      Plus the AFTER-THE-FIGHT CHECKLIST, but ONLY where the act she chose has an
+      "after" — say-it-to-them, own-my-part, a-real-hurt, work-clash. Nobody needs
+      an after-checklist for "have a shower". Content: reconnect, look after
+      yourself, what to watch for. It pairs with the 24h follow-up — the checklist
+      tells her what to expect, the follow-up asks how it went.
     next: we_good
 
 # ── WE GOOD ──────────────────────────────────────────────────────────
@@ -660,7 +664,38 @@ close_phase:
     kind: branch
     actor: moon
     text: "we good?"
-    branches: [{when: yes, next: close}, {when: no, next: we_good_more}]
+    branches: [{when: yes, next: human_nudge}, {when: no, next: we_good_more}]
+
+  # ── THE HUMAN NUDGE ──────────────────────────────────────────────────
+  # CONDITIONAL: fires on the FREQUENCY signal only (several sessions in a day,
+  # or every day this week), NEVER every session — it becomes wallpaper and she
+  # stops reading it. Sits between `we_good` and `close`: "one thing before you
+  # go" is the second-to-last thing she reads, not the last.
+  # The frequency signal comes free from the `when` field of the structured
+  # session record. No new data, no privacy cost.
+  - id: human_nudge
+    kind: scripted
+    actor: moon
+    detail: |
+      Copy is LOCKED in MOMENT_SCRIPT.humanNudge. Why it exists: MIT/OpenAI found
+      usage VOLUME predicts loneliness and dependence, and NNEDV warns a chatbot's
+      comfort "might also delay you from reaching out to a real person." The correct
+      response to high usage is to send her AWAY, not to engage her more.
+      Three guards inside the copy, all load-bearing:
+        - "not the person this is about" — otherwise "tell someone" can route her
+          straight back to whoever hurt her, which is dangerous in a DV situation
+        - "who'll help you think rather than just agree with you" — talking through
+          an upset gave NO recovery at 3d/7d/2mo; it only worked when the listener
+          prompted actual thinking (Nils & Rimé)
+        - "not only for emergencies" — "i have nobody" is LONELINESS, not a crisis.
+          Routing it to a suicide line is a category error, reads as alarming, and
+          teaches her to stop admitting isolation.
+      NO pep talk ("you are strong") — it bounces off exactly when she feels worst.
+      If she says she has nobody, record it: repeated isolation across sessions is
+      worth responding to gently over time. Never confront her with it in the moment.
+    branches:
+      - {when: frequency_signal, next: close}
+      - {when: otherwise, next: close, detail: "skipped entirely — most sessions"}
   - id: we_good_more
     kind: ai-reflect
     actor: moon
