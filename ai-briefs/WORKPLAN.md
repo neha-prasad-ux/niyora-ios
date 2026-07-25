@@ -129,7 +129,16 @@ Prediction to confirm or kill: *chat wins "felt understood"; structure wins
 "didn't send it" and 24h rumination.*
 
 ## Still Neha's call
-- The **anthropomorphism** question — APA says reduce anthropomorphic features and
-  limit memory; we kept a named persona. Mitigations are right; the decision should
-  be deliberate.
-- Whether the **echo becomes the floor** or stays a fallback (Stream E gives the number).
+- Whether the **echo becomes the floor** or stays a fallback (Stream E gives the
+  number). NOTE: Stream E is specced against the 1B — **re-run it once Gemma 4 E2B
+  is in**, because the answer may flip. A 2B-class model already grounded well on
+  our prompts untuned. Likely landing: template floor for `acknowledge` (the one
+  beat whose whole job is "i read what you said"), bigger model for the
+  generative beats where inventing framing IS the job.
+
+## DECIDED
+- **Anthropomorphism (2026-07-25): a warm voice, not "someone."** The voice may
+  react to what she just said; it may not have standing feelings, needs, or a bond
+  that persists after she closes the app. Full rule + the ✅/❌ table at the top of
+  `voice-bible.md`. Load-bearing mitigations that keep this safe: the flow ends,
+  nothing persists, no attachment language, never claims to be human or licensed.
