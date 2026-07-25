@@ -2,8 +2,10 @@
 // only to this file; it does not know or care which on-device model answered.
 //
 // Provider order:
-//   1. Gemma (niyora-gemma / LiteRT-LM) — runs on the GPU with no Apple
-//      Intelligence and no A17, so it works on the A16 test phone. First choice.
+//   1. Gemma (niyora-gemma / LiteRT-LM) — needs no Apple Intelligence and no
+//      A17, so it works on the A16 test phone. First choice.
+//      (This said "runs on the GPU" until 2026-07-25. It does not: the .task
+//      path is CPU by default and the backend is selectable, not automatic.)
 //   2. Apple Foundation Models (niyora-fm) — only on iOS 26 + eligible silicon.
 //   3. none — neither is available; every turn returns `unavailable` and the
 //      screen renders its scripted line. The session still reads complete.

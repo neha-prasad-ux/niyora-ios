@@ -235,6 +235,12 @@ export default function RootLayout() {
               options={{ animation: 'fade', animationDuration: 420, gestureEnabled: true }}
             />
           )}
+          {/* The on-device Gemma gate. Deliberately NOT behind FM_EXPERIMENT:
+              its whole job is to answer "does the model run on this phone",
+              and gating it behind a flag that might be off is how you end up
+              concluding the model is broken when the screen was simply never
+              registered. Reached at niyora://gemma-probe. */}
+          {__DEV__ && <Stack.Screen name="gemma-probe" />}
           {/* Dev-only material preview, reached by long-pressing the Now moon. */}
           {__DEV__ && (
             <Stack.Screen
