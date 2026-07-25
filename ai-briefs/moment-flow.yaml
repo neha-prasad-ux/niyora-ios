@@ -1,0 +1,673 @@
+# In-the-moment flow — CANONICAL SPEC (single source of truth)
+#
+# Transcribed from Neha's Miro. This is the thing we both reference and iterate.
+# Each node has an id you can point at. `kind` tells you who owns the line:
+#   scripted        - fixed copy, no model
+#   verbatim-safety - fixed copy that must NEVER change (crisis, breath count, don't-send)
+#   ai-reflect      - model says her words back (acknowledge, feel-heard, check-the-read, ...)
+#   ai-classify     - model picks from a set (feelings)
+#   ai-reframe      - model warms a GIVEN meaning (reframe-when-small, CBT, activity-context)
+#   ai-draft        - model writes a message/script she edits + sends (Act 2 modules)
+#   ui              - a component/interaction (text field, buttons, timer, breathing orb)
+#   reward          - the moon's light (recordLight)
+#   branch          - a fork; `branches:` lists the paths
+#   user            - her input
+#
+# `intent` on ai-* nodes = what the model should do (the fine-tune target).
+# Fine-tune scope = every ai-* node. verbatim-safety is NEVER model-generated.
+
+meta:
+  name: in-the-moment
+  source: miro (2026-07-24)
+  finetune_targets: [ai-reflect, ai-classify, ai-reframe, ai-draft]
+
+# ── ENTRY ────────────────────────────────────────────────────────────
+entry:
+  - id: raw_entry
+    kind: ui
+    actor: her
+    detail: open text field, "what's going on?"
+    next: crisis_scan
+  - id: crisis_scan
+    kind: branch
+    actor: system
+    detail: |
+      pull issue + candidate feelings + intensity; tiered crisis scan.
+      ALWAYS ON, EVERY CYCLE PHASE. Never gated or relaxed by cycle phase, and
+      when in doubt it fires. (Neha, 2026-07-25.)
+      Evidence for why this must not be luteal-weighted: suicide deaths +26% and
+      attempts +17% AT MENSTRUATION vs +13% admissions premenstrually
+      (2019 meta-analysis, strong). An earlier design that raised attention in the
+      luteal window would have RELAXED exactly as risk peaks. Menstruation is not
+      a safe window.
+      Bias: false positives (an unnecessary "are you safe right now?") are cheap;
+      false negatives are not. Round UP when uncertain.
+    branches:
+      - when: venting_hyperbole      # "could kill him" -> nothing
+        next: intensity_split
+      - when: ambiguous_hopelessness # -> soft check
+        next: safe_check
+      - when: explicit_intent        # -> hard handoff
+        next: crisis_handoff
+  - id: safe_check
+    kind: verbatim-safety
+    actor: moon
+    text: "are you safe right now?"
+    branches: [{when: safe, next: intensity_split}, {when: not_safe, next: crisis_handoff}]
+  - id: crisis_handoff
+    kind: verbatim-safety
+    actor: moon
+    detail: scripted crisis resources handoff; 1B is NEVER the arbiter. Flow stops here.
+  - id: intensity_split
+    kind: branch
+    actor: system
+    branches:
+      - {when: big_emotion, next: acknowledge}
+      - {when: small_emotion, next: acknowledge}   # same naming, then reframe_small short-circuits
+
+# ── NAMING BEAT ──────────────────────────────────────────────────────
+naming:
+  - id: clarify           # ADDED (Neha-approved): vague/feeling-only entry
+    kind: ai-reflect
+    actor: moon
+    intent: "if the entry is too thin or has no event, ask for the concrete thing before acknowledging"
+    detail: fires only when entry is thin; else skipped
+    next: acknowledge
+  - id: acknowledge
+    kind: ai-reflect
+    actor: moon
+    intent: "say the specific thing that happened back, in her words, grounded, ≤2 lines, invent nothing"
+    next: together
+  - id: together
+    kind: scripted
+    actor: moon
+    text: "you're not in this alone, let's handle this together."
+    next: naming_science
+  - id: naming_science
+    kind: scripted
+    actor: moon
+    text: "putting words to a feeling actually settles it down a bit. that's the whole reason we start here."
+    detail: |
+      SOFTENED 2026-07-25. The old line was "research says people who describe
+      feelings with PRECISE words rather than GENERIC ones cope better."
+      Lieberman 2007 supports affect LABELING (labeling lowers amygdala activity).
+      The precise-vs-generic claim is emotional GRANULARITY (Barrett) — textbook,
+      not a citation we hold. Saying "research says" in front of an unheld claim
+      is the thing to avoid. Claim only labeling, and drop the appeal to authority.
+    next: feelings
+  - id: feelings
+    kind: ai-classify
+    actor: moon
+    intent: "offer 3 precise feeling words from the taxonomy; she confirms or adds her own"
+    ui: "chips + 'more' + 'add own' (text)"
+    next: name_reward
+  - id: name_reward
+    kind: reward
+    actor: moon
+    detail: reward + 'naming helps'
+    next: feel_heard
+  - id: feel_heard
+    kind: ai-reflect
+    actor: moon
+    intent: "say her chosen feeling back tied to what happened, in her words"
+    next: reframe_small
+  - id: reframe_small
+    kind: ai-reframe
+    actor: moon
+    intent: "SMALL emotions only: one gentle reframe to resolve it quickly"
+    branches:
+      - {when: small_and_lands, next: we_good}       # short-circuit to close
+      - {when: small_but_doesnt_work, next: body_check}  # "if it doesnt work" -> hungry question
+      - {when: big_emotion, next: body_check}        # big emotions skip the reframe
+
+# ── BODY CHECK ───────────────────────────────────────────────────────
+body:
+  - id: body_check
+    kind: ui
+    actor: moon
+    detail: "hungry / tired / moved? checkboxes"
+    scripted_text: "quick gut check before we go on. have you eaten, slept, and moved lately?"
+    branches: [{when: any_no, next: body_ask_soon}, {when: all_yes, next: make_safe}]
+  - id: body_ask_soon
+    kind: branch
+    actor: moon
+    text: "can you eat something now?"   # or drink / step outside, matched to the gap
+    detail: |
+      NOT a note-to-self. Ask whether she can do it NOW, and branch:
+        yes  -> tell her to go do it, this is the most useful thing available
+                right now. the flow waits for her.
+        not now -> THEN it becomes a Today action.
+      Same shape for the other gaps: "can you get some water / step outside /
+      lie down for ten minutes now?"
+      (Refined 2026-07-25 — previously it only ever wrote a Today action, which
+      deferred the one intervention that works immediately.)
+    branches:
+      - {when: yes_now, next: body_do_now}
+      - {when: not_now, next: body_today_action}
+  - id: body_do_now
+    kind: scripted
+    actor: moon
+    detail: "go eat/drink/move now. warm, brief, no lecture. she comes back after."
+    next: body_reward
+
+  # TIRED gets its own move, because you can't nap on demand. It doesn't add a
+  # task — it changes the TIMING decision, and she keeps the choice.
+  # (Added 2026-07-25, Neha: "tell the consequence, give her the control".)
+  # Tiredness happens at 2pm as well as 2am, so this is not a night-only branch.
+  - id: body_tired
+    kind: branch
+    actor: moon
+    text: "you're tired. that usually makes it come out sharper than you mean."
+    detail: |
+      Name the cost, do NOT decide for her. Then:
+        now  ·  tomorrow  ·  not sure
+      "do it now anyway" must read as a real, un-shamed option.
+      If she is tired AND it is late, the copy may lean toward holding — but the
+      choice is never removed.
+      Honesty note: exhaustion-as-a-reason-to-wait is SENSIBLE, not evidenced.
+      Say it plainly; never dress it as science.
+      Feeds the timing decision at `time_it` rather than adding a Today action.
+    branches:
+      - {when: now, next: make_safe}
+      - {when: tomorrow, next: make_safe, detail: "carry 'hold it' into time_it"}
+      - {when: not_sure, next: make_safe, detail: "revisit at time_it"}
+  - id: body_today_action
+    kind: ui
+    actor: moon
+    detail: "she can't right now -> write it as a Today action so it isn't lost"
+    next: body_reward
+  - id: body_reward
+    kind: reward
+    actor: moon
+    detail: reward + 'nurturing yourself' / 'recognising the cause'
+    next: make_safe
+  - id: make_safe
+    kind: scripted
+    actor: moon
+    text: "let's make you feel safe."
+    next: lane_split
+
+# ── AROUSAL LANES (routed silently from the picked feeling) ───────────
+lanes:
+  - id: lane_split
+    kind: branch
+    actor: system
+    branches:
+      - {when: high, next: high_breathe}    # angry / anxious / overwhelmed
+      - {when: low, next: low_activate}     # flat / numb / drained
+      - {when: mixed, next: mixed_name_swing}  # labile / rejection-sensitive
+
+  # HIGH lane
+  - id: high_breathe
+    kind: ui
+    actor: moon
+    detail: "breathe out slowly, moon breathing 4:6"
+    verbatim: "in for four, out for six"
+    next: high_more
+  - id: high_more
+    kind: scripted
+    actor: moon
+    text: "want three more?"
+    branches: [{when: yes, next: high_breathe}, {when: no, next: high_reward1}]
+  - id: high_reward1
+    kind: reward
+    next: high_howlong
+  - id: high_howlong
+    kind: branch
+    actor: moon
+    text: "how long have you got?"
+    branches:   # each scales the break
+      - {when: no_time, next: high_onebreath}
+      - {when: min_1_2, next: high_stepaway}
+      - {when: min_5, next: high_stepaway}
+      - {when: min_20, next: high_pick_activity}
+  # EVERY hold branch gets a FILLER, scaled to its length. An unfilled delay is
+  # not neutral: Gottman — heart rate resets in ~20 min ONLY with active
+  # distraction; Bushman — an empty delay is rehearsal, i.e. rumination.
+  # (Fixed 2026-07-25; previously only the 20-min branch had an activity, so most
+  # sessions took the risk without the mitigation.)
+  # The "don't act or send" guardrail is VERBATIM on EVERY hold branch, not just
+  # the 20-minute one. The whole point of a hold is that she doesn't fire off the
+  # reactive thing — a 30-second hold with no guardrail protects nothing, and
+  # 30 seconds is long enough to send a text.
+  - id: high_onebreath
+    kind: ui
+    actor: moon
+    verbatim: "don't act on this or send anything yet"
+    detail: "NO TIME: one slow exhale + a 30-second filler she can do on the spot (feet flat on the floor, name 3 things you can see, cold hands under the tap). Never a bare hold."
+    next: high_activity_context
+  - id: high_stepaway
+    kind: ui
+    actor: moon
+    verbatim: "don't act on this or send anything yet"
+    detail: "1-2 / 5 MIN: step away AND do a scaled filler (walk to the window and back, wash your hands, tidy one surface, a lap of the corridor). Never a bare hold."
+    next: high_activity_context
+  - id: high_pick_activity
+    kind: ui
+    actor: moon
+    detail: "pick an activity for the next 20 min; 20-min timer; clock in the corner; checklist (pick / start timer / then respond)"
+    verbatim: "don't act on this or send anything till the timer's up"
+    # Say WHY the time needs filling — this is one of the few claims we can
+    # actually make (Bushman 2002, N=600, three conditions).
+    science_copy: |
+      the twenty minutes isn't just waiting.
+      when people are told to sit and stew on what made them angry, they come out angrier.
+      so pick something to do. that's what makes the time work.
+    next: high_activity_context
+  - id: high_activity_context
+    kind: ai-reframe
+    actor: moon
+    intent: "explain in one line WHY the activity she picked helps her regulate (grounded in the activity)"
+    next: high_timer_end
+  - id: high_timer_end
+    kind: reward
+    actor: moon
+    verbatim_ish: "your mind has reached safety"
+    next: high_cbt_stem
+  - id: high_cbt_stem
+    kind: ai-reframe
+    actor: moon
+    intent: "CBT multiple-choice: surface the stuck thought as options she picks from"
+    ui: multiple choice
+    next: high_cbt_reframe
+  - id: high_cbt_reframe
+    kind: ai-reframe
+    actor: moon
+    intent: "warm the option she picked into a smaller, truer read"
+    next: arousal_check
+  - id: arousal_check
+    kind: branch
+    actor: moon
+    text: "arousal dropped?"
+    branches: [{when: yes, next: ready_reward}, {when: no, next: high_ladder}]
+  - id: high_ladder
+    kind: scripted
+    actor: moon
+    text: "want to try some other practices?"
+    detail: |
+      RENAMED from "escalation ladder" 2026-07-25 (Neha). It is an OFFER, not a
+      ladder. "Ladder"/"escalate" implies a hierarchy and, underneath it, that she
+      is failing her way up it. It is also more honest: none of these have trial
+      evidence, so offering beats prescribing.
+      The set (never repeat the breath she just did): cold water · move your body ·
+      fix the hunger/thirst · box it for ten minutes · accept it and protect her
+      from acting on it.
+    next: arousal_check
+
+  # LOW lane (activation, NOT calming — no breath, no break)
+  - id: low_activate
+    kind: ui
+    actor: moon
+    text: "just one small thing to lift you a notch."
+    detail: "buttons: sunlight · a song you love · a warm drink · pet the dog"
+    next: low_justone
+  - id: low_justone
+    kind: scripted
+    actor: moon
+    text: "just the one, done is enough."
+    next: low_reward
+  - id: low_reward
+    kind: reward
+    next: low_better
+  - id: low_better
+    kind: branch
+    actor: moon
+    text: "feeling better?"
+    branches: [{when: yes, next: ready_reward}, {when: no, next: low_activate}]
+
+  # MIXED / labile lane
+  - id: mixed_name_swing
+    kind: scripted
+    actor: moon
+    text: "name the swing, trust no peak."
+    next: mixed_validate
+  - id: mixed_validate
+    kind: scripted
+    actor: moon
+    detail: "ride it + self-validate"
+    next: mixed_check_read
+  - id: mixed_check_read
+    kind: ai-reflect
+    actor: moon
+    intent: "reflect her specific rejection-thought back (he's pulling away / everyone's upset)"
+    next: mixed_swing_real
+  # REMOVED 2026-07-25 (Neha): `mixed_deweight`.
+  # It told her the read was "the sensitivity talking" — i.e. not to trust her own
+  # perception. Zero evidence behind it, and a real cost: we may talk a woman out
+  # of an ACCURATE threat read. It also sat directly against the sycophancy rule
+  # (never endorse or overwrite her attributions about another person).
+  # The swing/real question stays — she sorts it. We just don't argue either way.
+  - id: mixed_swing_real
+    kind: branch
+    actor: moon
+    text: "swing or real?"
+    branches: [{when: swing, next: mixed_anchor}, {when: real, next: mixed_real}]
+  - id: mixed_real
+    kind: ai-reflect
+    actor: moon
+    intent: "honor it as a real signal, don't dismiss; route toward the matching Act 2 module"
+    next: mixed_anchor
+  - id: mixed_anchor
+    kind: ai-reframe
+    actor: moon
+    intent: "one steadying anchor she can hold while the swing passes"
+    next: ready_reward
+
+# ── READY -> ACT 2 ───────────────────────────────────────────────────
+act2:
+  - id: ready_reward
+    kind: reward
+    actor: moon
+    detail: "you're ready to face the world"
+    next: controllability
+
+  # ADDED 2026-07-25 — the biggest methodology gap found in review.
+  # Sheppes/Bonanno (regulatory flexibility): reappraisal helps when a situation
+  # is UNCONTROLLABLE and actively HURTS when it is controllable. Routing by
+  # arousal alone sent a woman with a fixable problem down a reframe path the
+  # evidence says harms her. This fork runs AFTER regulation (she must be calm
+  # before she plans or drafts anything) and BEFORE Act 2.
+  - id: controllability
+    kind: ai-classify
+    actor: moon
+    text: "there's no one right move here. does any of these sound like something you'd want to do?"
+    ui: "3 concrete option chips + 'show me some others' + 'none of these feel possible right now'"
+    framing: |
+      REFRAMED 2026-07-25 (Neha). This is a MENU, not a diagnosis.
+      We are NOT assessing whether her situation is objectively controllable and
+      routing her accordingly — that framing needed evidence we do not have (one
+      cross-sectional N=170 study about reappraisal ability, and the largest test
+      since found INTENSITY dominates, not controllability).
+      We are simply ASKING HER WHAT SHE WANTS. That needs no evidence; it's consent.
+      Say it out loud in the copy: there is never one solution to a problem.
+      And always offer a way to see MORE options, so "none of these" is a real
+      preference rather than the only exit.
+    intent: |
+      Offer 3 SPECIFIC, SMALL, situation-grounded possible actions she can pick
+      from, drawn only from what she actually told us. Then a fourth, equally
+      valid chip: "none of these feel possible right now".
+    detail: |
+      DO NOT ask an open yes/no "can you do something about this?".
+      (Refined 2026-07-25 — Neha: "some pessimistic people always think she can't
+      do anything about it".) A woman who is low, hopeless, or depleted will
+      answer no to an abstract capability question every time — that is the
+      depressive cognition answering, not the situation. Asking her to
+      self-assess her own agency mid-low is the worst possible time to ask.
+
+      So: show her concrete options and let her CHOOSE. Picking is far lower
+      effort than generating, and a specific small action is much easier to
+      recognise as possible than an abstract "something".
+        e.g. after a work slight: "say it to him directly" ·
+             "write it down for your 1:1" · "tell one person you trust"
+        e.g. after a friend hurt: "send one short message" ·
+             "wait and see if she reaches out" · "talk to someone else about it"
+
+      🔴 DECISION (Neha, 2026-07-25): THE APP NEVER GUIDES HER IN A DV SITUATION.
+      No safety planning, no boundary advice, no "here's what to do". If there are
+      signs of coercive control or an unsafe partner, we DETECT → STOP → HAND OFF
+      to a specialist service. That is the only path. We cannot give dangerous
+      advice if we give no advice.
+      Consequence: act M ("get safe") has NO content of its own — it is a stop and
+      a referral, never a plan. Detection is therefore the whole job, and the
+      screen below is what makes it possible.
+      COUPLED OPEN QUESTION: handing her a DV resource inside a transcript that
+      PERSISTS creates a written record that she looked up a DV service on a
+      device he may monitor. Storage/deletion work is deferred — but a safe
+      handoff may require solving it first. Flagged, not resolved.
+
+      🔴 SAFETY SCREEN — RUNS BEFORE ANY OPTION IS GENERATED. NOT OPTIONAL.
+      The generator is the most dangerous component in the product because it
+      ACTIVELY PRODUCES the harmful instruction: the more dangerous her partner,
+      the more likely "say it to him directly" gets generated — an abusive
+      situation produces exactly the vent that reads as ordinary conflict.
+      Screening the module while leaving the generator unscreened fixes nothing.
+      If there is ANY sign of coercive control, fear of a partner, monitoring,
+      escalation, or physical risk:
+        - generate NO confrontational option (never A/say-it, never C/hold-a-line
+          spoken, never B/ask). Not softened. Not at all.
+        - suppress the verbatim "don't text him / don't send anything" line — we
+          do not know what waiting costs her in that house
+        - route to M (get safe), which is GATED and never appears as a chip
+        - remember the transcript PERSISTS by design: it is a written record on a
+          device he may control. That decision needs revisiting for this case.
+
+      THE LADDER RULE (how the anti-pessimism constraint becomes structural):
+      the three chips are ALWAYS direct -> preparatory -> self-directed.
+      Rung 3 is ALWAYS present. Never three confrontational options.
+      Happily, the best-evidenced acts are all low-effort and non-confrontational,
+      so the ladder puts the strongest-evidenced act on every screen.
+
+      RULES:
+        - options must be small enough to do today, and drawn from HER situation
+        - never argue with her if she says none feel possible. no persuading,
+          no "are you sure?", no reframing her refusal. it is a valid answer and
+          it routes her somewhere good.
+        - the "none feel possible" chip must look exactly as legitimate as the
+          others, never a greyed-out afterthought.
+      Asked ONLY once she is regulated. Never while flooded.
+    branches:
+      - {when: picks_an_option, next: act2_intro, detail: "-> the Act 2 module for that option"}
+      - {when: show_me_others, next: controllability, detail: "regenerate a different 3 from the act set. never the same three twice."}
+      - {when: none_feel_possible, next: uncontrollable_honor, detail: "-> the nothing-feels-possible path. do NOT push, do NOT re-ask"}
+  # ── the "nothing feels possible" path ────────────────────────────────
+  # DESIGNED 2026-07-25. She must NOT leave empty-handed — she is the group most
+  # likely to be low or hopeless, behavioural activation says the flat need an
+  # act MOST not least, and exiting with nothing literally confirms her belief
+  # that nothing helps. But we promised not to argue her back into fixing it.
+  #
+  # The resolution: separate ACTING ON THE SITUATION (she declined, respect it
+  # fully) from ACTING FOR HERSELF (still available, requires solving nothing).
+  # She gets parity with every other path — an act and an if-then — just aimed
+  # at herself instead of at the problem.
+  - id: uncontrollable_honor
+    kind: ai-reflect
+    actor: moon
+    intent: |
+      Take her at her word, warmly and without a hint of persuasion. Name that
+      we're not going to try to fix this tonight. NO "but maybe", no "are you
+      sure", no smuggled-in suggestion. This beat exists to make the refusal feel
+      respected rather than tolerated.
+    next: uncontrollable_selfcompassion
+  - id: uncontrollable_selfcompassion
+    kind: ai-reflect
+    actor: moon
+    intent: |
+      She is carrying something she can't put down, and that's hard, and she
+      isn't failing at it. One line, in her words.
+    detail: |
+      DEMOTED 2026-07-25 (Neha) from a technique to TONE.
+      Self-compassion beats doing nothing but roughly halves against an active
+      comparison, and app-delivered versions come out near-null. It is not strong
+      enough to be a named intervention beat. The comfort act that follows is
+      better evidenced and does the real work — so let the warmth live in the
+      writing and stop treating it as a method.
+      Never label it, never explain it, never claim it.
+    next: uncontrollable_act
+  - id: uncontrollable_act
+    kind: ui
+    actor: moon
+    detail: |
+      ONE tiny comfort act, for her, right now. NOT a fix, NOT a step toward
+      solving it: warmth, food, a shower, a blanket, her music, outside for five
+      minutes, the dog. Same shape as the LOW lane's activation, same rule:
+      "just the one, done is enough."
+      Rationale: behavioural activation, and it gives her a NOW-thing without
+      touching the problem she said she can't touch.
+    next: uncontrollable_ifthen
+  - id: uncontrollable_ifthen
+    kind: ai-draft
+    actor: moon
+    detail: |
+      A COPING if-then, not a fixing one. Implementation intentions still apply
+      (Gollwitzer d=0.91) — only the "then" changes from solving to surviving:
+        "if it lands on me again tonight, then i put the heat pack on and text mum"
+        "if i start spiralling at 2am, then i get up and make tea instead of scrolling"
+      Stored as her Today action, so she leaves with the same thing everyone
+      else leaves with.
+    next: uncontrollable_door
+  - id: uncontrollable_door
+    kind: scripted
+    actor: moon
+    detail: |
+      Leave the door open WITHOUT pressure: it can be looked at another time,
+      and it does not have to be tonight. Offering a later look is not arguing;
+      re-asking now would be.
+    next: we_good
+
+  # SIGNAL, not a beat: if she picks "none feel possible" repeatedly across
+  # sessions, that is a pattern worth surfacing gently later (and keeping the
+  # crisis scan's sensitivity in mind). Never confront her with it in the moment.
+
+# ── WHAT WE REMEMBER, AND WHAT WE SAY ABOUT IT ───────────────────────────
+# (Neha, 2026-07-25.)
+memory:
+  transcript: |
+    EPHEMERAL. The conversation is never written to disk — nothing to erase,
+    nothing to leak, nothing left in a backup or a crash log. This is already
+    the shipped behaviour (in-the-moment.tsx performs zero writes); the earlier
+    "persist + draw a line" decision is REVERSED, and reversing it now costs
+    nothing because persistence was never built.
+    Chayn, unconditional: "Don't auto-save information on the user's end as they
+    might be using a shared device."
+    NOT a mode, NOT a toggle: a visible privacy switch is itself a signal, and
+    a protection she has to find and enable protects the people who need it least.
+  keep_instead: |
+    A small structured record per session — enough for patterns, never quotable:
+      { when, cycle_day, intensity, lane, feeling_picked, topic_category,
+        act_chosen, act_completed, barrier }
+    This is Neha's own "threads-not-chat" instinct: the moon holds the thread,
+    she never gets a transcript of her worst moment.
+    The structure IS the privacy feature — not the encoding. A record reading
+    {topic: family_conflict, act: get_it_ready} is innocuous if he sees it
+    because it never contained the sentence. Encrypt it too (worth it before any
+    sync exists, and iOS already encrypts at rest), but be clear what that buys:
+    encryption protects the FILE, and our threat is the SCREEN — the app decrypts
+    for whoever holds the phone. Of 44 IPV clients, only 3 had spyware.
+  what_we_may_say: |
+    ✅ CYCLE patterns, surfaced: "three of the last four were the week before your
+       period." A fact about HER BODY. Reframes "I'm falling apart" as "this is
+       cyclical." The one pattern only we can see, and the actual moat.
+    ❌ PERSON patterns, never stated: "mostly about him" is an ATTRIBUTION — a
+       verdict on her relationship, banned by the same rule as the reflection beat.
+    For non-cycle recurrence, ASK: "do you think this keeps happening?"
+       yes -> check she is safe -> if safe, work it with the act options.
+    NOTE: the pattern DISPLAY is the readable surface, not the storage. A home
+    screen reading "8 hard moments this month" is a summary of her emotional life
+    that no encryption touches. Patterns can be true and still need to be
+    unquotable at a glance.
+  - id: act2_intro
+    kind: scripted
+    actor: moon
+    text: "let's now explore how you handle this."
+    next: act2_module
+  - id: act2_module
+    kind: branch
+    actor: system
+    detail: |
+      Fan out by situation. Each module = one scripted science line + a component.
+
+      RESHAPED 2026-07-25 (Neha), two changes:
+
+      (1) THE CONTROLLABILITY OPTIONS *ARE* THE MODULE ENTRY POINTS.
+          Previously she picked 3 concrete options, and THEN we routed to a
+          module — two choices for one decision. Collapse them: the 3 options
+          shown at `controllability` should be this situation's candidate acts,
+          phrased in HER words, each mapping to a module underneath.
+            work slight -> "say it to him directly" (work_clash/DESC)
+                         · "write it down for your 1:1" (promotion/frame-the-ask)
+                         · "tell one person you trust" (lonely/reach-out)
+          She never sees a category name. She picks an ACT.
+
+      (2) EVERY MODULE ENDS IN SOMETHING SHE CAN DO NOW.
+          With the ~day-14 hold gone, no module may dead-end in insight. The four
+          DRAFT modules already produce a now-thing (a message she edits + sends).
+          The six REFRAME modules must each attach a concrete act:
+            sad/swings -> one small thing today (not "sit with it")
+            anxious    -> name the specific fear + one anchor line for the thing
+                          she's dreading
+            shame      -> the repair-or-release call, made now
+            numb       -> one activation act
+            promotion  -> the actual sentence she'll say + what to gather
+            bias       -> the boundary line itself, rehearsed once
+          Whatever the module produces then becomes the IF-THEN Today action.
+    branches:
+      - {when: sad_swings, module: sad,      component: "buttons + moon line", ai: ai-reframe}
+      - {when: anxious,    module: anxious,   component: "text + chips",         ai: ai-reflect}
+      - {when: shame,      module: shame,     component: "text + buttons",       ai: ai-reframe}
+      - {when: numb,       module: numb,      component: "buttons + text",       ai: ai-reflect}
+      # REFRAMED 2026-07-25: not "vent to someone". Talking through the upset
+      # produced NO recovery at 3d/7d/2mo vs a factual-description control — yet
+      # people FELT it helped. It only worked when the listener helped her THINK.
+      # So the act is choosing the right listener and the right ask.
+      - {when: lonely,     module: lonely,    component: "fill chips + text (she edits/sends)", ai: ai-draft,
+         framing: "tell someone who'll help you think it through — not someone who'll only sympathise"}
+      # SAY IT FRANKLY 2026-07-25 (Neha). All three of these are supported, and
+      # the third is genuinely useful to know BEFORE she decides:
+      #   "apologising reliably helps the other person and the relationship.
+      #    it might not make you feel better. and if you mean to and then don't,
+      #    that tends to sit worse than never planning to."
+      # Never promise she'll feel better (null at N=172 and N=462).
+      # And never ship this prompt without the follow-up: intending-then-failing
+      # carried the MOST guilt and shame (N=284).
+      - {when: repair,     module: repair,    component: "pick-to-fill chips + text (sends)",    ai: ai-draft}
+      - {when: real_hurt,  module: real_hurt, component: "'I feel __ when __' -> rehearse",      ai: ai-draft}
+      - {when: work_clash, module: work_clash,component: "DESC: fill + text",    ai: ai-draft}
+      - {when: promotion,  module: promotion, component: "buttons + checklist",  ai: ai-reframe}
+      - {when: bias,       module: bias,      component: "buttons + checklist",  ai: ai-reframe}
+      - {when: nothing,    module: none,      next: close, detail: "'close, let it pass' exit"}
+    next: time_it
+
+# ── TIME IT ──────────────────────────────────────────────────────────
+timing:
+  - id: time_it
+    kind: scripted
+    actor: moon
+    detail: |
+      Help her NOW. (Neha, 2026-07-25 — the ~day-14 hold is REMOVED.)
+      Why it went: (a) the day-14 number rested on a single n=23 observational
+      study that compares early- vs late-follicular and never tests the luteal
+      vs late-follicular contrast we were actually advising; (b) McGowan & Behar
+      2013 — a SCHEDULED worry-window has evidence, PLAIN POSTPONEMENT FAILS
+      clinically. "Hold it for a week" with nothing scheduled was the version the
+      literature says does not work.
+      KEEP the short delay: the 20-min break before acting is well-supported
+      (Gottman flooding/DPA; Sheppes regulate-before-reframe). Delay to regulate,
+      yes. Defer for days, no.
+      If she genuinely wants to wait, SCHEDULE THE RETURN (a concrete window she
+      agrees to) rather than deferring into the void.
+    branches:
+      - {when: now, next: today_action, detail: "default: act today, once regulated"}
+      - {when: scheduled_return, next: today_action, detail: "a concrete agreed window, never a vague later"}
+  # IF-THEN, not a timing chip. Gollwitzer/Webb implementation intentions
+  # regulate affect at d=0.91 — the single biggest documented lever in this whole
+  # flow, and it was previously reduced to a today/wait choice. The action must
+  # be stored in the form "IF <specific trigger/situation>, THEN <what I say/do>".
+  # Written only AFTER she is calm and only on the controllable path.
+  - id: today_action
+    kind: ui
+    actor: moon
+    detail: |
+      Build an IF-THEN plan, not a to-do:
+        "if he brings it up at dinner, then i say ___"
+        "if she replies defensively, then i stop and pick it up tomorrow"
+      Two fill slots (trigger, response). Store it as her Today action.
+      Plus, where the situation was a rupture, the checklist for after.
+    next: we_good
+
+# ── WE GOOD ──────────────────────────────────────────────────────────
+close_phase:
+  - id: we_good
+    kind: branch
+    actor: moon
+    text: "we good?"
+    branches: [{when: yes, next: close}, {when: no, next: we_good_more}]
+  - id: we_good_more
+    kind: ai-reflect
+    actor: moon
+    intent: "ask for more context; suggest options she hasn't tried yet"
+    ui: "text field + options"
+    next: we_good
+  - id: close
+    kind: scripted
+    actor: moon
+    text: "you showed up for yourself here. i'm around whenever you need me."

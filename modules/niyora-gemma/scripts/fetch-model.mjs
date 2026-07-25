@@ -3,11 +3,12 @@
 // app at build time. Run this BEFORE `pod install` / an EAS build. The file is
 // large (~3GB) and is never committed to git (see .gitignore).
 //
-// Gemma is a gated model: you must accept Google's license and supply a source
-// URL + token yourself. Set these env vars, then run `node scripts/fetch-model.mjs`:
+// E2B is a gated model: accept Google's Gemma license and supply a source URL
+// + token yourself (the same source used before the 1B experiment). Set these
+// env vars, then run `node scripts/fetch-model.mjs`:
 //
 //   GEMMA_MODEL_URL   direct download URL to the gemma-3n-E2B int4 .task file
-//                     (e.g. a Hugging Face resolve URL, or your own storage)
+//                     (a Hugging Face resolve URL, or your own storage)
 //   GEMMA_MODEL_TOKEN optional bearer token (Hugging Face access token) sent as
 //                     `Authorization: Bearer <token>` for gated downloads
 //

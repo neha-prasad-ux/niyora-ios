@@ -13,7 +13,8 @@ import { Tabs } from 'expo-router';
 import { LightMotes } from '@/components/light-motes';
 import { NightTabBar } from '@/components/night-tab-bar';
 import { TabMoon } from '@/components/tab-moon';
-import { SunIcon, StarIcon } from '@/components/tab-icons';
+import { SunIcon, StarIcon, CometIcon } from '@/components/tab-icons';
+import { FM_EXPERIMENT } from '@/config/features';
 
 export default function TabsLayout() {
   return (
@@ -47,6 +48,17 @@ export default function TabsLayout() {
             title: 'Soul',
             // A star — your own point of light. Grey at rest, gold on focus.
             tabBarIcon: ({ focused }) => <StarIcon focused={focused} size={24} />,
+          }}
+        />
+        <Tabs.Screen
+          name="moment"
+          options={{
+            title: 'Moment',
+            // A comet — the moon reaching toward her in the moment. Dev/experiment
+            // only: href null in store builds removes it from the bar entirely,
+            // matching the in-the-moment flow's own FM_EXPERIMENT gate.
+            href: FM_EXPERIMENT ? undefined : null,
+            tabBarIcon: ({ focused }) => <CometIcon focused={focused} size={24} />,
           }}
         />
       </Tabs>

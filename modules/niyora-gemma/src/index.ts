@@ -13,6 +13,12 @@ import { requireNativeModule } from 'expo-modules-core';
 // phone. The model file (~3GB, gemma-3n-E2B int4) is bundled into the app at
 // build time (see modules/niyora-gemma/scripts/fetch-model.mjs); nothing is
 // downloaded on the user's device and nothing leaves it.
+//
+// Size note: E2B (~3GB) previously jetsam-OOMed the A16 under the default per-app
+// memory cap, which is why we briefly shipped the 1B. We now declare the
+// increased-memory-limit entitlement (app.json → ios.entitlements) so a 6GB
+// device can hold it, and are retrying E2B for real reflection quality. If it
+// still OOMs on the A16, fall back to a converted Gemma 2 2B int4 (~1.3GB).
 
 /** The bundled model file. The fetch script writes this name; the Swift side
  *  looks it up in the app bundle. Change both together. */

@@ -123,3 +123,40 @@ export function StarIcon({ focused, size = 24 }: TabIconProps) {
     />
   );
 }
+
+// --- Moment: a comet ----------------------------------------------------------
+// A head with a streaking tail — the moon reaching toward her in the moment,
+// echoing the home-sky ShootingStar. Lit, it warms to the moon's blue.
+// PLACEHOLDER icon for the AI/in-the-moment tab; swap for the final glyph.
+const COMET_TAIL = 'M12.4 11.6 Q 8.4 15.6 4.8 19.2 Q 9 16.6 13.2 12.4 Z';
+
+function CometColour({ fill }: { fill: string }) {
+  const isColour = fill === 'colour';
+  return (
+    <Svg width={CANVAS} height={CANVAS} viewBox="0 0 24 24">
+      <Defs>
+        <RadialGradient id="cometHead" cx={14.6} cy={8.8} r={5} fx={14.6} fy={8.8} gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#f2f6ff" />
+          <Stop offset="1" stopColor="#7fa8f5" />
+        </RadialGradient>
+        <LinearGradient id="cometTail" x1={14} y1={10} x2={5} y2={19} gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#9cc0ff" />
+          <Stop offset="1" stopColor="#9cc0ff" stopOpacity={0.15} />
+        </LinearGradient>
+      </Defs>
+      <Path d={COMET_TAIL} fill={isColour ? 'url(#cometTail)' : fill} />
+      <Circle cx={15} cy={9} r={3.7} fill={isColour ? 'url(#cometHead)' : fill} />
+    </Svg>
+  );
+}
+
+export function CometIcon({ focused, size = 24 }: TabIconProps) {
+  return (
+    <Crossfade
+      focused={focused}
+      size={size}
+      grey={<CometColour fill={GRAY} />}
+      colour={<CometColour fill="colour" />}
+    />
+  );
+}

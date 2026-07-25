@@ -227,6 +227,14 @@ export default function RootLayout() {
           />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
           {FM_EXPERIMENT && <Stack.Screen name="fm-probe" />}
+          {/* The model-backed "In the moment" chat flow (dev slice). Same calm
+              fade as the other in-the-moment sessions. */}
+          {FM_EXPERIMENT && (
+            <Stack.Screen
+              name="in-the-moment"
+              options={{ animation: 'fade', animationDuration: 420, gestureEnabled: true }}
+            />
+          )}
           {/* Dev-only material preview, reached by long-pressing the Now moon. */}
           {__DEV__ && (
             <Stack.Screen
