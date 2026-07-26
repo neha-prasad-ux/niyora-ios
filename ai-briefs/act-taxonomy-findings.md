@@ -154,3 +154,78 @@ that people say yes more than she expects — nothing about how she'll feel) and
    — see `act-evidence-review.md`. Use 0.53 everywhere.)*
 3. the 95% abuse figure → **~40–60%**
 4. the lonely module's implied "reaching out works"
+
+
+---
+
+# 🔴 ACTS ARE THE UNIT, TOPICS ARE CONTEXT (Neha, 2026-07-25)
+
+Two lists described "what happens next" with no rule joining them: **13 acts**
+(what she *does*) and **10 modules** (what *happened*). Undefined handoffs get
+guessed — the training script had already invented one, repointing the deleted
+`deweight` slot at `uncontrollable_selfcompassion`.
+
+**The act set CLOSES; topics don't.** An act aims at one of five targets. A new
+situation needs new *copy*, never a new act. Modules-primary never finishes: a
+landlord, a sister-in-law, a diagnosis would each need their own module.
+
+**The 10 modules were a shortcut that hard-coded act+topic pairs.** `work-clash`
+is "say it to them, at work". `repair` is "own my part, with a partner".
+
+**STREAM F BUILDS 13 ACT TEMPLATES PLUS THE MATRIX BELOW — not 10 modules.**
+One generator, three inputs: the **act** (shape of output), the **topic** (words,
+stakes), **her own text** (facts, never invented).
+Honest cost: hand-written modules produce better copy than a runtime template,
+and 13 × 10 = 130 cells is why the shortcut existed. Untested how big that is.
+
+## 🔴 WE OFFER, SHE CHOOSES
+
+Neha: *"we should tell her the consequence, the outcome, she can choose to do it
+or not, its upto her. giving options is our role, chosing is hers."*
+
+This deleted a column I had drafted. I marked `shame → own my part` and
+`lonely → tell one person` as **never offer**, because the evidence says both are
+weak *for her*. **That was deciding on her behalf.** The fix is not to hide the
+option — it is to state the honest outcome beside it.
+
+**Approved outcome lines:**
+- `shame → own my part`: *"this usually lands well with the person you hurt.
+  it's less reliable at making you feel better, at least not straight away."*
+  (true to the evidence: strong for the recipient, weak-to-null for her)
+- `lonely → tell one person`: *"this helps most when they actually think it
+  through with you. if they just agree with you, you'll feel better without much
+  changing."* (Nils & Rimé: recovery happened exclusively when the listener
+  stimulated cognitive work)
+
+**Only two reasons to withhold survive, and neither is paternalism:**
+1. **SUPPRESSED FOR SAFETY.** When the DV screen fires we don't offer
+   confrontational acts *and don't explain why* — not because we know better,
+   but because we **cannot see her situation**, and a consequence line there
+   would be us guessing at a risk we can't assess.
+2. **DOESN'T APPLY.** "Say it to them" for a flat mood invents an antagonist.
+   `bias → own my part` is the sharp case: bias is not a two-sided conflict, so
+   "her part" in it is **factually wrong**, not merely risky.
+
+**The column is "suppressed / doesn't apply" — never "I decided against it."**
+
+## The matrix — DRAFT, Neha to correct
+
+| topic | offer (high · middle · low) | suppressed / doesn't apply |
+|---|---|---|
+| lonely | B ask for the thing · G tell one person *(+outcome line)* · L look after myself | A, C, D — no conflict to face |
+| repair | A say it to them · D own my part · F get it ready | C hold a line — wrong direction |
+| real-hurt | A say it to them · C hold a line · L look after myself. **D is offerable with its outcome line** | A/B/C suppressed if the screen fires |
+| work-clash | A say it to them · H get someone whose job it is · F get it ready | — |
+| sad | G tell one person · K let it be · L look after myself | A, B, C — a mood has no target |
+| anxious | E find out · F get it ready · L look after myself | — |
+| shame | D own my part *(+outcome line)* · G tell one person · K let it be | — |
+| numb | J take something off my plate · L look after myself · K let it be | A — high-effort while flat |
+| promotion | B ask for the thing · I work out what I want · F get it ready | — |
+| bias | H get someone whose job it is · C hold a line · F get it ready (document) | **D own my part — DOESN'T APPLY** (see above) |
+
+Cutting across every row: **M get safe** is gated and never a chip. When the
+safety screen fires, **A/B/C are not generated at all** — which leaves `sad` and
+`numb` untouched and cuts `real-hurt` to its low-effort option.
+**Our best-evidenced act is the one we withhold from the women in most danger.**
+That is correct, and it will show up in the user test as the flow helping least
+exactly where you'd most want it to help.
