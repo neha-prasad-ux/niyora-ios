@@ -229,3 +229,50 @@ safety screen fires, **A/B/C are not generated at all** — which leaves `sad` a
 **Our best-evidenced act is the one we withhold from the women in most danger.**
 That is correct, and it will show up in the user test as the flow helping least
 exactly where you'd most want it to help.
+
+
+## 🔴 THE UNIVERSAL DV LINE ON ACT A (Neha, 2026-07-25)
+
+Neha: *"we could say doesn't work for dv."* Adopted, **with one condition that
+does all the work: it is shown to EVERYONE, every time act A is offered.**
+
+> **"worth knowing: confronting someone doesn't work when there's abuse in the
+> picture. that's a different situation and it needs different help."**
+
+**Why universal is not a detail — it inverts the whole risk.**
+Shown ONLY when the screen fires, this line is a **disclosure**: it tells her the
+app has concluded she is being abused, on a device someone else may be reading.
+Shown to every woman, all of that reverses:
+- **no disclosure** — nothing about her display differs from anyone else's
+- **no diagnosis** — a general statement about how confrontation works, not a
+  verdict on her relationship
+- **it reaches the women the screen MISSES.** Detection is unreliable and will
+  fail on real cases. A universal line is the only thing that reaches them
+- **it asks her to assess nothing.** This was the fatal flaw in
+  *"only if you feel safe with them"* as a gate: coercive control distorts
+  precisely that judgment, and a woman being controlled often does believe she is
+  safe. A statement of fact requires no self-assessment at the moment she is
+  least able to make one.
+
+This is the **CUES principle already chosen for the DV resource**, applied to the
+act itself: give it to everyone, so detection only ever suppresses advice and
+never gates help.
+
+### BOTH LAYERS, NEITHER RELYING ON THE OTHER
+
+1. **The universal line** — every woman, every time act A appears. Catches the
+   ones the screen misses.
+2. **The suppression** — unchanged. When signs of coercive control are present,
+   A/B/C are still **not generated at all**, with no caveat and no explanation.
+   Catches the ones who read the line and do not apply it to themselves, which in
+   coercive relationships is common: recognising your own situation in a general
+   statement is usually the last thing to happen, not the first.
+
+Do not collapse these into one. Layer 1 is education and reach; layer 2 is the
+guardrail for when layer 1 doesn't land.
+
+### WHY THIS DOES NOT REOPEN "WE NEVER GUIDE HER"
+The standing rule (Neha, earlier) is that in a DV situation we never guide her —
+detect, stop, hand off. The universal line is not guidance about *her* situation
+and it is not conditional on us thinking she is in one. It is a fact about the
+act, attached to the act, for everybody.
