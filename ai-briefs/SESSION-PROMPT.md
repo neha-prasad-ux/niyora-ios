@@ -144,6 +144,51 @@ Note some why-line work has since been committed, so check `git log` and
 | **F** · act modules | the 12 acts, evidence attached honestly |
 | **G** · why-lines | the 16 choice points that don't say what they're for. **LAST** |
 
+## 📍 STATE AT HANDOVER (end of 2026-07-25) — read before you touch the device
+
+**What Neha wants next: to test Gemma 4 on her phone.** That is blocked on two
+things, and the second one is not about Gemma.
+
+**1. Gemma 4 does not terminate.** Last trustworthy data point (run 9):
+`prewarm → true in 4398ms`, then generation never returned. Earlier, with a bare
+prompt, it answered correctly and then emitted turn tokens for 92s until the
+512-token cap. Real decode speed is still UNKNOWN because every timing so far
+was a runaway.
+
+**2. ⚠️ The probe loop went unreliable and you must fix this first.** Runs 10
+and 11 launched the app process successfully but produced **no JS output at
+all** — not even the first line — and Metro's last log is still run 9's. So the
+process starts and the bundle never runs. Suspected: the dev client stops
+reconnecting to Metro after a plain `niyora://gemma-probe` launch, and needs the
+full `niyora://expo-development-client/?url=http%3A%2F%2F<host>%3A8081` deep
+link first, then the route. **Do not interpret probe silence as a model result.**
+That ambiguity is exactly what the sink was built to remove, and right now it is
+back. Fix the harness before you trust another measurement.
+
+**Live services on the dev Mac** (all may be dead by the time you read this):
+- Metro, pinned: `EXPO_ROUTER_APP_ROOT="$(pwd)/src/app" npx expo start --dev-client --clear`
+- Log sink on **8099** — the probe POSTs every line here; the script is
+  throwaway and lives in the session scratchpad, so rewrite it if it's gone.
+  It is ~30 lines: accept POST, append to a file.
+- LAN model server on **8100**, serving `~/code/product/niyora-models/`
+
+**Model files, moved somewhere durable:** `~/code/product/niyora-models/`
+contains `gemma-4-E2B-it.litertlm` (2.4G) and `gemma-4-E2B-it-web.task` (1.9G).
+Both are ALSO already installed on the phone in Application Support, so a re-run
+needs no download. Re-fetch from
+`litert-community/gemma-4-E2B-it-litert-lm` if needed — ungated, no token.
+
+**The phone:** iPhone 15, UDID `00008120-001A11262201A01E`, devicectl id
+`D60EA350-8D6E-51C0-9F40-CBEE487AE01B`. Ask Neha to set **Auto-Lock → Never**
+before doing anything. Lock retries cost more time than any technical problem
+on 2026-07-25.
+
+**Cheapest path to "Neha can test Gemma 4 today"**, if the C API work is too
+big for one sitting: cap `maxTokens` low (64) and trim client-side at the stop
+markers. That bounds the runaway and yields a usable answer plus the first real
+tokens/sec number. It is a workaround, not a fix. The matrix to do exactly this
+is already written into `gemma-probe.tsx` and has **never successfully run**.
+
 ## 🔴 START HERE: the model track, as of end of 2026-07-25
 
 Read `ai-briefs/export-decisions.md` **including its new correction banner**
