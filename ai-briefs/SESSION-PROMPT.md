@@ -17,10 +17,16 @@ perfectly (brevity 1.7%→100%) but only grounds facts correctly **34%** of the
 time and swaps who-did-what; it was **never put on a phone**. **The app** has a
 basic working version on device; most of the design isn't built yet.
 
-**✅ 2026-07-25: on-device inference is PROVEN.** The bundled *untuned*
-`gemma-3n-E2B-it-int4.task` generated a token on Neha's iPhone 15 (A16), twice in
-two runs. Runtime only: trivial smoke prompt, nothing tuned, nothing measured about
-quality. Full result in `WORKPLAN.md` → STREAM D → STEP 0.
+**✅ 2026-07-25: on-device inference is PROVEN.** The *untuned*
+`gemma-3n-E2B-it-int4.task` generated a token on Neha's iPhone 15 (A16), across
+four runs. Runtime only: trivial smoke prompt, nothing tuned, nothing measured
+about quality. Full result in `WORKPLAN.md` → STREAM D → STEP 0.
+
+**Also 2026-07-25, later:** Stream 0 landed, the spec is now parseable and
+CI-guarded, on-demand model download is built and working, and Gemma 4 E2B
+`.litertlm` was shown to LOAD in MediaPipe (but not to terminate). Three claims
+in `export-decisions.md` were measured false. **Read "START HERE: the model
+track" below before planning any model work.**
 
 Three things that will bite you if nobody says them out loud:
 
@@ -92,22 +98,40 @@ screen.
 - **The web target is broken.** Don't use it to "verify" anything.
 - Don't thrash Metro — restart it deliberately, not reflexively.
 
-### IN PARALLEL: Stream 0 — doc reconciliation, via agents.
+### ✅ Stream 0 — doc reconciliation. LANDED 2026-07-25.
 
-The build blocks on her; the docs don't. Dispatch Stream 0 while you wait.
-**Nothing else starts until Stream 0 lands.**
+Don't re-dispatch it. Four agents ran, split by file ownership:
 
-A sweep found ~70 contradictions across the briefs. The critical ones in the four
-authoritative files are already fixed, but **the eight step briefs (`00-entry.md`
-… `08-we-good.md`) still describe the pre-correction flow** — they carry the
-removed day-14 hold, the removed `deweight` beat, the "escalation ladder", the
-banned vagus-nerve line, and attachment-language closes. They are the most-read
-docs and the most wrong. Rewrite them against the spec or delete them; deleting
-is a legitimate answer, since they add nothing `moment-flow.yaml` doesn't have.
+- **The eight step briefs (`00`–`08`) were REWRITTEN**, not deleted. The agent
+  argued against deleting: they carry per-beat tone, the scripted fallback, and
+  reward placement, none of which exist in `moment-flow.yaml`. **If Neha does
+  want them gone, the correct order is to fold `tone` / `fallback` / `reward`
+  into the spec as node fields FIRST, then delete all nine together.**
+- `_legend.md` persistence reversal and the stale ~1B runtime claim: fixed.
+- `flow-methodology-check.md`: GAP 1 recorded as rejected, GAPs 2-4 closed with
+  the spec node that closes each (GAP 2 with two honest caveats, not papered).
+- Seed files: ~40 voice violations fixed, 11 new generator gates added.
 
-Then dispatch the rest to **parallel agents**, split by file ownership so they
-don't collide. A/B/C/D/D2/E/F can overlap. **G runs last** — it touches every
-content file. Full detail per stream is in `WORKPLAN.md`; this is the shape:
+**🔴 The single most important thing Stream 0 found: `moment-flow.yaml` did not
+parse.** A `memory:` block had been inserted mid-sequence, orphaning every node
+from `act2_intro` down. It had been unreadable as data for some time and nobody
+noticed, because it was only ever read by eye. Fixed, and now guarded in CI by
+`src/__tests__/moment-flow-spec.test.ts`, which asserts it parses, has the
+expected sections, has unique ids, has no dangling `next:` target, and leaves no
+node unreachable. **That test is the thing standing between you and the same
+class of silent breakage. Do not weaken it to make an edit pass.**
+
+It also caught two nodes that were written, agreed, and unreachable in the
+graph: `intensity_in` and `body_tired`. Both are now wired (Neha's calls:
+`intensity_split → intensity_in` on both branches; `body_tired` off
+`body_reward` so the general gap is handled first). One edge case is flagged
+in the spec and NOT decided: if tired is her only gap, `body_ask_soon` still
+asks whether she can lie down now.
+
+Streams A/B/C/D/D2/E/F can now overlap, split by file ownership. **G runs
+last** — it touches every content file. Full detail per stream in `WORKPLAN.md`.
+Note some why-line work has since been committed, so check `git log` and
+`ai-briefs/why-lines-draft.md` before assuming G is untouched.
 
 | stream | what it is |
 |---|---|
@@ -120,7 +144,79 @@ content file. Full detail per stream is in `WORKPLAN.md`; this is the shape:
 | **F** · act modules | the 12 acts, evidence attached honestly |
 | **G** · why-lines | the 16 choice points that don't say what they're for. **LAST** |
 
-## The model track — this is a major piece, not a footnote
+## 🔴 START HERE: the model track, as of end of 2026-07-25
+
+Read `ai-briefs/export-decisions.md` **including its new correction banner**
+before you plan anything. Three of its load-bearing claims were measured false
+on device. If you read past the banner you will re-derive a multi-day rewrite
+from reasons that do not hold.
+
+### What is now established by measurement
+
+| | |
+|---|---|
+| `gemma-3n-E2B-it-int4.task` (2991MB) | **Works.** Loads, generates, terminates. 0.7s warm prewarm, 1.8-4.7s per short answer. This is the incumbent. |
+| `gemma-4-E2B-it.litertlm` (2468MB) | **Loads in MediaPipe on iOS** (`prewarm → true`, 4398ms). Does **not** terminate. |
+| `gemma-4-E2B-it-web.task` (1910MB) | **Does not load**: `Unable to open zip archive`. The web build is not a valid MediaPipe bundle. Dead end. |
+| GPU backend | **Hangs**, >16 min, no error. Selectable and non-functional. Never request it. |
+| Skia collision | **Did not reproduce** under the real `BreathingParticles` workload. |
+| Memory | Non-issue. 2589-3030MB free with a ~2.5GB engine resident on a 6GB A16. |
+| On-demand download | **Built and proven.** Background `URLSession`, progress events, size + SHA-256 verify before install, atomic install to Application Support, backup-excluded, Wi-Fi default, free-space precheck. Pulled 1.9GB and 2.5GB to the device. `setActiveModel()` + `downloadModel()` mean changing model is a download, not a rebuild. No HF token needed: `litert-community/gemma-4-E2B-it-litert-lm` is `gated: false`. |
+
+### The actual fork, and it is NOT "3n or 4"
+
+The reason to move to Gemma 4 was Route B's GPU story. **That reason is gone.**
+`gemma-3n` works today. So the deciding question is the **export path**, which
+neither of us has tested:
+
+- **gemma-3n**: runs well, but can we *tune and deploy* it? `export-decisions.md`
+  says MediaPipe LoRA serving never supported Gemma-3, and converting a fused
+  model back to `.task` is unproven. A model you can run but cannot tune is
+  worthless here.
+- **Gemma 4**: doesn't terminate yet, but LiteRT-LM is Google's supported path
+  and `export_hf` is one command from a fused HF dir. Also `MPPLLMInference` is
+  `SWIFT_DEPRECATED_MSG("Migrate to LiteRT LM instead")`, so MediaPipe is
+  end-of-life either way.
+
+### The gates before betting on Gemma 4, cheapest disqualifier first
+
+1. **Can we export a fine-tuned Gemma 4 to `.litertlm` at all?** Mac-only, no
+   device, 20-iteration throwaway adapter. If the toolchain doesn't work,
+   everything downstream is moot. **Do this first.**
+2. **Does Gemma 4 terminate?** Needs `LlmPromptTemplates` via the C API. See the
+   "Gemma 4 turn format" section of `export-decisions.md`, including the note
+   that inline markers were tried and FAILED, so don't retry that.
+3. **Is it fast enough?** `MODEL_TIMEOUT_MS` is 5s; a reflection is 30-50 tokens.
+   Both Gemma 4 timings so far were runaways, so tokens/sec is unknown. **This
+   gate can kill Gemma 4 on its own.**
+4. **Stock quality baseline** on the held-out set, before any tuning. Without it
+   you cannot tell whether tuning helped, and a 2B-class model may already
+   ground well untuned.
+5. **Only then train**, into a bf16 base with `--dequantize`, gated on a temp-0
+   decode comparison. RunPod belongs between 4 and 5, not before.
+
+### Dev scaffolding built on 2026-07-25 (throwaway, not committed)
+
+- `src/app/gemma-probe.tsx` at `niyora://gemma-probe`, registered under `__DEV__`
+  in `_layout.tsx`. **Self-runs on mount** and POSTs every line to a sink on the
+  Mac, because a physical phone cannot be tapped by script and app `console.log`
+  did not reliably reach Metro. Silence after a step IS the failure signal.
+- A log sink on port 8099 and a LAN file server on 8100 (both in the session
+  scratchpad). The probe derives the host from Expo's `hostUri`, so it follows
+  the LAN rather than hardcoding an IP.
+
+### Two traps that cost real time, worth knowing
+
+- **Xcode 16 debug builds split the binary.** `Niyora` is a ~92KB launcher stub;
+  all real code is in `Niyora.debug.dylib`. Searching the main binary for
+  MediaPipe symbols finds nothing and looks exactly like the `#if canImport`
+  stub trap. The decisive check is the `GemmaEngine` symbol, which only exists
+  inside the `canImport` branch.
+- **The phone locking is the biggest single time sink.** Every build, install,
+  and launch fails with `Locked` and the retries add up to more lost time than
+  anything technical. Ask her to set Auto-Lock to Never before you start.
+
+## The model track — background, superseded in places by the section above
 
 **Nothing tuned is on the phone.** That's the headline. Current state:
 

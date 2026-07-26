@@ -52,10 +52,43 @@ const mb = (bytes: number) => (bytes < 0 ? 'n/a' : `${(bytes / 1024 / 1024).toFi
 // Gemma 4 E2B, from litert-community. Ungated: verified `gated: false` over the
 // public API, so no token is needed. Served from the dev Mac over LAN during
 // iteration so a failed attempt costs seconds instead of a 2GB re-pull.
-type Candidate = { filename: string; mb: number; bytes: number };
+// Gemma 4 uses a DIFFERENT turn format from Gemma 3. From the repo's own
+// chat_template.jinja: a turn opens with `<|turn>` + role, and closes with
+// `<turn|>`, and the generation prompt is `<|turn>model`. Gemma 3 used
+// `<start_of_turn>` / `<end_of_turn>`.
+//
+// This matters more than it looks. Sent a bare prompt with no turn structure,
+// Gemma 4 answered correctly and then emitted `<turn|>` forever until it hit
+// the token cap: 92 seconds for one sentence. The docs predicted this exact
+// symptom ("generation runs past end_of_turn") and attributed it to a missing
+// eos config; the real cause here is that we never framed the turn at all.
+const GEMMA4_TEMPLATE = (p: string) => `<|turn>user\n${p}<turn|>\n<|turn>model\n`;
+const GEMMA3_TEMPLATE = (p: string) =>
+  `<start_of_turn>user\n${p}<end_of_turn>\n<start_of_turn>model\n`;
+
+// MediaPipe's C API has `LlmPromptTemplates` but the Swift surface does not
+// expose it, and there is no stop-token setting either. So the turn markers are
+// ours to write and ours to cut on. Trimming at the close marker is what keeps
+// a correct answer from arriving with a page of turn tokens stapled to it.
+const STOP_MARKERS = ['<turn|>', '<end_of_turn>', '<eos>'];
+const trimAtStop = (t: string) => {
+  let out = t;
+  for (const m of STOP_MARKERS) {
+    const i = out.indexOf(m);
+    if (i >= 0) out = out.slice(0, i);
+  }
+  return out.trim();
+};
+
+type Candidate = {
+  filename: string;
+  mb: number;
+  bytes: number;
+  wrap: (p: string) => string;
+};
 const CANDIDATES: Candidate[] = [
-  { filename: 'gemma-4-E2B-it-web.task', mb: 1868, bytes: 0 },
-  { filename: 'gemma-4-E2B-it.litertlm', mb: 2468, bytes: 0 },
+  { filename: 'gemma-4-E2B-it.litertlm', mb: 2468, bytes: 0, wrap: GEMMA4_TEMPLATE },
+  { filename: 'gemma-3n-E2B-it-int4.task', mb: 2991, bytes: 0, wrap: GEMMA3_TEMPLATE },
 ];
 
 const modelHost = () => Constants.expoConfig?.hostUri?.split(':')[0] ?? '';
@@ -149,6 +182,53 @@ export default function GemmaProbe() {
   const smoke = useCallback(() => runPrompt('smoke', SMOKE_PROMPT), [runPrompt]);
   const real = useCallback(() => runPrompt('vent', REAL_PROMPT), [runPrompt]);
 
+  // Fetch the candidate if it isn't already on disk, and wait for the native
+  // downloader to finish. Resolves false if it could not be installed, so the
+  // caller skips that candidate instead of testing a file that isn't there.
+  const ensureDownloaded = useCallback(
+    async (c: { filename: string; mb: number }) => {
+      const state = await NiyoraGemma.modelState();
+      await NiyoraGemma.setActiveModel(c.filename);
+      const already = await NiyoraGemma.modelState();
+      if (already.source === 'downloaded') {
+        append(`already downloaded (${already.bytes} bytes)`);
+        await NiyoraGemma.setActiveModel(state.activeModel);
+        return true;
+      }
+      await NiyoraGemma.setActiveModel(state.activeModel);
+
+      const url = `http://${modelHost()}:8100/${c.filename}`;
+      append(`downloading ${c.filename} from ${url}`);
+
+      return await new Promise<boolean>((resolve) => {
+        let last = -1;
+        const offProgress = NiyoraGemma.onDownloadProgress((e) => {
+          const pct = Math.floor(e.fraction * 100);
+          // Only log every 20%, or the sink drowns in progress lines.
+          if (pct >= last + 20) {
+            last = pct;
+            append(`  … ${pct}% (${Math.round(e.bytesWritten / 1e6)}MB)`);
+          }
+        });
+        const offDone = NiyoraGemma.onDownloadFinished((e) => {
+          offProgress();
+          offDone();
+          append(e.ok ? `  ↳ installed: ${e.message}` : `  ↳ DOWNLOAD FAILED: ${e.message}`);
+          resolve(e.ok);
+        });
+        NiyoraGemma.downloadModel({ url, filename: c.filename }).then((r) => {
+          if (!r.started) {
+            offProgress();
+            offDone();
+            append(`  ↳ could not start: ${r.error}`);
+            resolve(false);
+          }
+        });
+      });
+    },
+    [append],
+  );
+
   // Run the whole sequence once, unattended, as soon as the screen mounts.
   //
   // The buttons stay for re-running by hand, but the gate must not DEPEND on
@@ -165,9 +245,11 @@ export default function GemmaProbe() {
       const a = await NiyoraGemma.availability();
       append(`availability() → ${a}`);
       await checkDiagnostics();
+      // Deliberately NOT fatal any more. `availability()` describes the
+      // currently-active model, and a candidate we have not downloaded yet is
+      // legitimately unavailable. Aborting here would skip the whole point.
       if (a !== 'available') {
-        append('STOPPING: model is not loadable, later steps would be noise.');
-        return;
+        append('  ↳ active model not on disk yet; candidates below will fetch.');
       }
       // Candidates, cheapest first. Gemma 4 ships a `.task` build, which is
       // the format this MediaPipe engine already loads, so if it works we get
@@ -200,16 +282,49 @@ export default function GemmaProbe() {
           append(`  ↳ WILL NOT LOAD: ${d.lastError ?? 'unreported'}`);
           continue;
         }
-        const r = await NiyoraGemma.generateText(SMOKE_PROMPT, GEMMA_MAX_CONTEXT);
-        append(r.ok ? `  gen ${r.latencyMs}ms: ${r.text}` : `  gen FAILED: ${r.message}`);
+        // A MATRIX, not a single shot. Two unknowns are tangled up: whether
+        // the engine ever stops, and how fast it decodes. A low token cap
+        // separates them, because it bounds a runaway instead of waiting for
+        // one. 92s for 512 tokens implies ~5.5 tok/s; if that holds, 64 tokens
+        // should come back in about twelve seconds whatever else is wrong.
+        //
+        // Bare vs templated at the SAME cap also isolates my last wrong guess:
+        // inline turn markers were supposed to help and appeared to hang.
+        for (const cap of [64]) {
+          for (const [label, text] of [
+            ['bare', SMOKE_PROMPT],
+            ['templated', c.wrap(SMOKE_PROMPT)],
+          ] as const) {
+            const g0 = Date.now();
+            const g = await NiyoraGemma.generateText(text, cap);
+            const ms = Date.now() - g0;
+            if (g.ok) {
+              const clean = trimAtStop(g.text);
+              append(`  ${label} cap=${cap}: ${ms}ms, ${g.text.length} raw chars`);
+              append(`    → ${clean.slice(0, 160)}`);
+              append(`    → ~${(cap / (ms / 1000)).toFixed(1)} tok/s ceiling if it ran to cap`);
+            } else {
+              append(`  ${label} cap=${cap} FAILED after ${ms}ms: ${g.message}`);
+            }
+          }
+        }
         const d2 = await NiyoraGemma.diagnostics();
         append(`  ↳ mem left ${mb(d2.availableMemoryBytes)}`);
         await NiyoraGemma.reset();
       }
 
+      // Skia collision re-check, against whichever engine is resident.
+      // `export-decisions.md` claims MediaPipe's global Skia symbols cause
+      // EXC_BAD_ACCESS in apps linking @shopify/react-native-skia. It did not
+      // reproduce on 2026-07-25, so re-run it per model rather than assuming
+      // the earlier result carries over. Silence after this line IS the crash.
+      append('mounting BreathingParticles (Atlas + per-frame) …');
+      setSkiaMounted(true);
+      await new Promise((r) => setTimeout(r, 2500));
+      append('SKIA OK: no crash with Skia rendering alongside the engine.');
       append('— sequence complete —');
     })();
-  }, [append, checkDiagnostics, prewarm, runPrompt]);
+  }, [append, checkDiagnostics, prewarm, runPrompt, ensureDownloaded]);
 
   return (
     <View style={styles.root}>
