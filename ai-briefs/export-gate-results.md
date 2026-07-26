@@ -216,7 +216,7 @@ no RAM pressure. Container: **LiteRT-LM version 1.5.0, 12 sections.**
 
 > **Recalibrate stage 6's success criterion.** The brief says compare against
 > 2,588,147,712 bytes, "plausible size". But the text decoder is only 818 MB of
-> that 2.59 GB. 1.28 GB is per-layer embeddings, 328 MB is vision, 104 MB is
+> that 2.59 GB. 1,285 MB is per-layer embeddings, 229 MB is vision, 104 MB is
 > audio, 44 MB is an MTP drafter. A text-only fused export **should** come out
 > far smaller with far fewer sections, plausibly 4 to 6 sections and well under
 > 2 GB. **A size mismatch against the stock file is the expected result, not a
