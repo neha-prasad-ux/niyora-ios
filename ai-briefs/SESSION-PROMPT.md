@@ -155,7 +155,9 @@ prompt, it answered correctly and then emitted turn tokens for 92s until the
 512-token cap. Real decode speed is still UNKNOWN because every timing so far
 was a runaway.
 
-**2. ⚠️ The probe loop went unreliable and you must fix this first.** Runs 10
+**2. ⚠️ ~~The probe loop went unreliable and you must fix this first.~~
+RESOLVED 2026-07-26 — see "HARNESS FIXED" below, but read this first, because
+the reasoning is why the fix is trustworthy.** Runs 10
 and 11 launched the app process successfully but produced **no output at all**,
 not even the first line.
 
@@ -182,6 +184,101 @@ and have the probe emit a line at the very top of the component before it
 touches the model. A harness that cannot distinguish "no answer" from "no
 connection" is worse than no harness, because it produces confident wrong
 conclusions.
+
+### ✅ HARNESS FIXED 2026-07-26 — and which of the three causes actually fired
+
+Both instructions above were followed, and they are what made the answer
+trustworthy. The sink was restarted and proved with a `curl` ping from the Mac
+before anything was launched, so its silence could not be its own death.
+
+**Cause 3 was real and is sufficient on its own.** Reproduced deliberately
+before fixing anything, with a verified-live sink: a plain `niyora://gemma-probe`
+launch left the app alive at pid 16074, with **zero bundle requests in Metro**
+and zero output. Relaunching with
+`niyora://expo-development-client/?url=http%3A%2F%2F<host>%3A8081` produced
+`iOS Bundled` in Metro and a probe line in the sink within seconds.
+
+Note what that does and does not settle. It confirms cause 3 and explains runs
+10 and 11 without needing the others. It does **not** prove causes 1 and 2 never
+fired; both were real hazards, and the sink genuinely had been killed. The point
+of the fix is that none of the three can produce a silent ambiguous run again.
+
+**The launch sequence that works** (scripted, and it waits for proof rather than
+sleeping): launch with the `expo-development-client` URL and
+`--terminate-existing`, wait for Metro to log `iOS Bundled`, *then* launch again
+with `niyora://gemma-probe`. One launch is not enough, and the order matters.
+
+**Three independent signals now in `gemma-probe.tsx`**, so silence has exactly
+one meaning each time:
+- a **module-scope beacon**, fired before React exists → the bundle ran
+- a **5s heartbeat** carrying the name of the step in flight → the JS thread is
+  alive. This works because every native call is an Expo `AsyncFunction` and so
+  runs off the JS thread: a wedged MediaPipe call leaves JS free to keep ticking.
+- a **timeout around every native call** → a hang is reported by name instead of
+  being silence
+
+The sequence always ends in a verdict line, pass or abort. A log that stops
+without one now means one thing only: the phone stopped talking.
+
+### What Gemma 4 did once it could be measured
+
+It **runs on the phone and answers correctly**, given the right turn markers:
+*"The sky is typically blue on a clear day."* It still does not terminate.
+Two runs, identical character counts, so this is deterministic and not flaky.
+Full table in `export-decisions.md`, along with two claims corrected the same
+day: **the C API is not needed** to fix termination (`generateResponseAsync`
+returns an `AsyncThrowingStream` and `cancelGenerateResponseAsync` exists in the
+shipped Swift interface), and **the `maxTokens: 64` workaround cannot work**
+(it is a context cap, applied at warm time, clamped by `max(256, n)`).
+
+### ✅ STREAMING STOP LANDED 2026-07-26 — Gemma 4 is now usable
+
+`GemmaEngine.generate` was replaced with a streaming version that watches
+`generateResponseAsync`, cancels at `<turn|>` via
+`Session.cancelGenerateResponseAsync()`, and counts real tokens with
+`Session.sizeInTokens`. No C API, no `LlmPromptTemplates`. Build verified not to
+be the `#if canImport` stub: 785 `LlmInference` symbols and the `GemmaEngine`
+symbol present in `Niyora.debug.dylib`.
+
+**Gemma 4, templated, one sentence: 110.2s → 3.9s.** Three runs, deterministic.
+
+⚠️ **The earlier "both models are ~4-5 tok/s" claim was WRONG**, and I wrote it.
+It was estimated from character counts and I flagged it as an estimate, but I
+also said I thought it unlikely to matter. It does. Measured:
+
+| | Gemma 4 | 3n |
+|---|---|---|
+| total, templated | 3.8-4.3s | 2.4-3.3s |
+| time to first token | 2.1-2.3s | 1.5-2.3s |
+| **decode after first token** | **~5.5 tok/s** | **~10.4 tok/s** |
+| stop reason, 3/3 | `stopMarker` (we cut it) | `eos` (it stopped itself) |
+
+**3n is ~1.9x faster and terminates on its own; Gemma 4 does neither.** So speed
+*does* discriminate between the models, and Gemma 4's termination is now a
+dependency on our marker list rather than a property of the model. Both facts
+count against Gemma 4 and neither was known this morning.
+
+**The 5s `MODEL_TIMEOUT_MS` does not fit either model** once TTFT is included:
+3n lands at 4.4-7.1s, Gemma 4 at 7.6-11.4s, for a 30-50 token reflection. And
+that is measured on a *short* smoke prompt, so real TTFT will be worse. The fix
+is to stream the reflection into the UI rather than wait for a whole string.
+See `export-decisions.md` for the full working.
+
+### A bug the probe caused, repaired, and one piece still open
+
+The probe downloaded the *bundled* 3n model from the LAN file server, which
+404'd, and installed the **335-byte error page over the good copy**. Prewarm
+then failed with `Unable to open zip archive`, which reads exactly like a broken
+model rather than a wrong file.
+
+Cause: the native download size and SHA-256 checks are **opt-in**
+(`if expectedBytes > 0`, `if let want = expectedSha`), and the probe passed
+neither. Repaired on device, and the probe now refuses to download anything
+bundled and passes an expected byte count.
+
+**Still open, and it is app code rather than scaffolding:** the downloader will
+install whatever a server returns for any caller that omits `bytes`. It wants a
+floor, since no real model file is under 100MB.
 
 **Live services on the dev Mac** (all may be dead by the time you read this):
 - Metro, pinned: `EXPO_ROUTER_APP_ROOT="$(pwd)/src/app" npx expo start --dev-client --clear`

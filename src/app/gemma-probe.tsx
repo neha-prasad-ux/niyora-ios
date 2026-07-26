@@ -48,6 +48,84 @@ const REAL_PROMPT =
 
 const mb = (bytes: number) => (bytes < 0 ? 'n/a' : `${(bytes / 1024 / 1024).toFixed(0)}MB`);
 
+// ---------------------------------------------------------------------------
+// Instrumentation. Read this before trusting any number this screen produces.
+//
+// Runs 10 and 11 produced NO output at all -- not even the first line -- and
+// were reported as "the probe went quiet". That is not a result, it is three
+// different failures wearing the same face: the bundle never ran, or the JS
+// thread died, or a native call never returned. The harness could not tell them
+// apart, so every measurement taken through it was worth nothing.
+//
+// Three signals now split that ambiguity, and each one fails differently:
+//
+//   1. a module-scope beacon, fired before React exists
+//        → present: the bundle reached this route. absent: never got here.
+//   2. a heartbeat, every 5s, carrying the name of the step in flight
+//        → ticking: JS is alive. stopped: the process is gone.
+//   3. a timeout around every native call
+//        → a hang is REPORTED, with the step name, instead of being silence.
+//
+// Together: if nothing arrives, the bundle never loaded. If the beacon arrives
+// and the heartbeat stops, the process died. If the heartbeat keeps ticking
+// past a step, that native call is wedged and the tick says which one.
+//
+// The sequence also always ends with a verdict line, pass or fail. A log that
+// stops without one means the phone stopped talking, and that is now itself a
+// finding rather than an interpretation.
+// ---------------------------------------------------------------------------
+
+const SINK_HOST = Constants.expoConfig?.hostUri?.split(':')[0] ?? '';
+const BOOT = Date.now();
+
+// Fire-and-forget and fully swallowed: the probe must never fail because the
+// sink is absent. Also emitted to console.log so a Metro-attached run has a
+// second channel, and NSLog'd natively by the module for a third.
+const post = (line: string) => {
+  console.log(`[GEMMA-GATE] ${line}`);
+  if (SINK_HOST) {
+    fetch(`http://${SINK_HOST}:8099/`, { method: 'POST', body: line }).catch(() => {});
+  }
+};
+
+// Signal 1. At module scope on purpose: this runs when expo-router evaluates
+// the route, before any component mounts and before any native call. If this
+// line is missing from the sink, nothing below it ever had a chance to run and
+// the problem is upstream of this file entirely.
+post(`▶ probe module evaluated · host=${SINK_HOST || 'UNKNOWN (no hostUri!)'}`);
+
+// Signal 3. Every native call goes through this. The underlying call cannot be
+// cancelled -- MediaPipe gives us no handle -- so on timeout we report and stop
+// rather than pretending we recovered. Stopping is the honest move: a second
+// measurement taken while a runaway generation is still burning the CPU would
+// be garbage.
+const HUNG = Symbol('hung');
+
+async function withBudget<T>(work: Promise<T>, ms: number): Promise<T | typeof HUNG> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bell = new Promise<typeof HUNG>((resolve) => {
+    timer = setTimeout(() => resolve(HUNG), ms);
+  });
+  const result = await Promise.race([work, bell]);
+  if (timer) clearTimeout(timer);
+  return result;
+}
+
+class HangError extends Error {
+  constructor(readonly step: string, readonly budgetMs: number) {
+    super(`${step} did not return within ${budgetMs}ms`);
+  }
+}
+
+// Budgets are generous but finite. The point is not to be strict, it is to make
+// "still going" a printed fact with a name attached rather than a blank screen.
+const BUDGET = {
+  quick: 15_000, // availability, diagnostics, modelState, setActiveModel
+  prewarm: 180_000, // 3n cold-loaded in 17.5s, Gemma 4 in 4.4s; 180s is slack
+  generate: 180_000, // at ~5.5 tok/s a 64-token cap should land near 12s
+  download: 900_000,
+} as const;
+
 
 // Gemma 4 E2B, from litert-community. Ungated: verified `gated: false` over the
 // public API, so no token is needed. Served from the dev Mac over LAN during
@@ -83,13 +161,38 @@ const trimAtStop = (t: string) => {
 type Candidate = {
   filename: string;
   mb: number;
+  // Exact size, passed to the downloader so it verifies before installing.
+  // This is not belt-and-braces: the native size and SHA checks are OPT-IN
+  // (`if expectedBytes > 0`), so a caller that omits this gets no verification
+  // at all. On 2026-07-26 this probe omitted it, the LAN server 404'd, and a
+  // 335-byte error page was installed over the bundled 3n model and shadowed
+  // it. Zero here means "do not verify" and should be treated as a bug.
   bytes: number;
+  // Ships inside the .app. Downloading one of these can only ever replace a
+  // known-good file with something worse, so the probe refuses to try.
+  bundled: boolean;
   wrap: (p: string) => string;
 };
 const CANDIDATES: Candidate[] = [
-  { filename: 'gemma-4-E2B-it.litertlm', mb: 2468, bytes: 0, wrap: GEMMA4_TEMPLATE },
-  { filename: 'gemma-3n-E2B-it-int4.task', mb: 2991, bytes: 0, wrap: GEMMA3_TEMPLATE },
+  {
+    filename: 'gemma-4-E2B-it.litertlm',
+    mb: 2468,
+    bytes: 2_588_147_712,
+    bundled: false,
+    wrap: GEMMA4_TEMPLATE,
+  },
+  {
+    filename: 'gemma-3n-E2B-it-int4.task',
+    mb: 2991,
+    bytes: 0, // never downloaded: it is in Bundle.main
+    bundled: true,
+    wrap: GEMMA3_TEMPLATE,
+  },
 ];
+
+// Anything smaller than this is not a model, whatever the server said. The
+// realistic failure is an HTML error page, which is a few hundred bytes.
+const IMPLAUSIBLY_SMALL = 100_000_000;
 
 const modelHost = () => Constants.expoConfig?.hostUri?.split(':')[0] ?? '';
 
@@ -111,16 +214,42 @@ export default function GemmaProbe() {
   //
   // So each line is POSTed to a throwaway sink on the dev machine (see
   // scratchpad/sink.js). Host is derived from Expo's own dev-server host, so it
-  // follows the LAN rather than hardcoding an IP. Fire-and-forget and fully
-  // swallowed: the probe must never fail because the sink is absent.
+  // follows the LAN rather than hardcoding an IP.
   const append = useCallback((line: string) => {
-    console.log(`[GEMMA-GATE] ${line}`);
+    post(line);
     setLog((prev) => [...prev, line]);
-    const host = Constants.expoConfig?.hostUri?.split(':')[0];
-    if (host) {
-      fetch(`http://${host}:8099/`, { method: 'POST', body: line }).catch(() => {});
-    }
   }, []);
+
+  // Signal 2, the heartbeat. Named for the step currently in flight, so a tick
+  // is not just "alive" but "alive, and still inside prewarm". Every native
+  // call here is an Expo `AsyncFunction`, which runs off the JS thread -- that
+  // is what makes this work: a wedged MediaPipe call leaves JS free to keep
+  // ticking, so a stopped heartbeat means process death, not a slow model.
+  const phase = useRef('boot');
+  useEffect(() => {
+    const id = setInterval(() => {
+      post(`· alive ${Math.round((Date.now() - BOOT) / 1000)}s [${phase.current}]`);
+    }, 5_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Every native call in the sequence goes through here, so no call can vanish
+  // without leaving a named record of what it was doing when it stopped.
+  const step = useCallback(
+    async function run<T>(label: string, budgetMs: number, work: () => Promise<T>): Promise<T> {
+      phase.current = label;
+      const r = await withBudget(work(), budgetMs);
+      if (r === HUNG) {
+        append(`⏱ HUNG · ${label} has not returned after ${budgetMs}ms.`);
+        append('  ↳ the native call is STILL RUNNING; it cannot be cancelled.');
+        append('  ↳ stopping here rather than measuring around a wedged engine.');
+        throw new HangError(label, budgetMs);
+      }
+      phase.current = `${label} done`;
+      return r;
+    },
+    [append],
+  );
 
   const checkAvailability = useCallback(async () => {
     const a = await NiyoraGemma.availability();
@@ -186,47 +315,68 @@ export default function GemmaProbe() {
   // downloader to finish. Resolves false if it could not be installed, so the
   // caller skips that candidate instead of testing a file that isn't there.
   const ensureDownloaded = useCallback(
-    async (c: { filename: string; mb: number }) => {
-      const state = await NiyoraGemma.modelState();
-      await NiyoraGemma.setActiveModel(c.filename);
-      const already = await NiyoraGemma.modelState();
-      if (already.source === 'downloaded') {
-        append(`already downloaded (${already.bytes} bytes)`);
-        await NiyoraGemma.setActiveModel(state.activeModel);
+    async (c: Candidate) => {
+      // A bundled model is already the best copy we will ever have. Fetching it
+      // can only replace it with something worse, which is exactly what
+      // happened on 2026-07-26.
+      if (c.bundled) {
+        append('bundled in the .app — not downloading');
         return true;
       }
-      await NiyoraGemma.setActiveModel(state.activeModel);
+      const state = await step(`modelState before ${c.filename}`, BUDGET.quick, () =>
+        NiyoraGemma.modelState(),
+      );
+      await step(`probe setActiveModel ${c.filename}`, BUDGET.quick, () =>
+        NiyoraGemma.setActiveModel(c.filename),
+      );
+      const already = await step(`modelState check ${c.filename}`, BUDGET.quick, () =>
+        NiyoraGemma.modelState(),
+      );
+      if (already.source === 'downloaded') {
+        append(`already downloaded (${already.bytes} bytes)`);
+        await step('restore activeModel', BUDGET.quick, () =>
+          NiyoraGemma.setActiveModel(state.activeModel),
+        );
+        return true;
+      }
+      await step('restore activeModel', BUDGET.quick, () =>
+        NiyoraGemma.setActiveModel(state.activeModel),
+      );
 
       const url = `http://${modelHost()}:8100/${c.filename}`;
       append(`downloading ${c.filename} from ${url}`);
 
-      return await new Promise<boolean>((resolve) => {
-        let last = -1;
-        const offProgress = NiyoraGemma.onDownloadProgress((e) => {
-          const pct = Math.floor(e.fraction * 100);
-          // Only log every 20%, or the sink drowns in progress lines.
-          if (pct >= last + 20) {
-            last = pct;
-            append(`  … ${pct}% (${Math.round(e.bytesWritten / 1e6)}MB)`);
-          }
-        });
-        const offDone = NiyoraGemma.onDownloadFinished((e) => {
-          offProgress();
-          offDone();
-          append(e.ok ? `  ↳ installed: ${e.message}` : `  ↳ DOWNLOAD FAILED: ${e.message}`);
-          resolve(e.ok);
-        });
-        NiyoraGemma.downloadModel({ url, filename: c.filename }).then((r) => {
-          if (!r.started) {
+      return await step(`download ${c.filename}`, BUDGET.download, () =>
+        new Promise<boolean>((resolve) => {
+          let last = -1;
+          const offProgress = NiyoraGemma.onDownloadProgress((e) => {
+            const pct = Math.floor(e.fraction * 100);
+            // Only log every 20%, or the sink drowns in progress lines.
+            if (pct >= last + 20) {
+              last = pct;
+              append(`  … ${pct}% (${Math.round(e.bytesWritten / 1e6)}MB)`);
+            }
+          });
+          const offDone = NiyoraGemma.onDownloadFinished((e) => {
             offProgress();
             offDone();
-            append(`  ↳ could not start: ${r.error}`);
-            resolve(false);
-          }
-        });
-      });
+            append(e.ok ? `  ↳ installed: ${e.message}` : `  ↳ DOWNLOAD FAILED: ${e.message}`);
+            resolve(e.ok);
+          });
+          // `bytes` is what turns the native size check on. Without it the
+          // downloader installs whatever the server returned.
+          NiyoraGemma.downloadModel({ url, filename: c.filename, bytes: c.bytes }).then((r) => {
+            if (!r.started) {
+              offProgress();
+              offDone();
+              append(`  ↳ could not start: ${r.error}`);
+              resolve(false);
+            }
+          });
+        }),
+      );
     },
-    [append],
+    [append, step],
   );
 
   // Run the whole sequence once, unattended, as soon as the screen mounts.
@@ -240,11 +390,12 @@ export default function GemmaProbe() {
     if (ranRef.current) return;
     ranRef.current = true;
     void (async () => {
+     try {
       // Awaited before the first append, so no state is set synchronously
       // inside the effect (`react-hooks/set-state-in-effect` is an error here).
-      const a = await NiyoraGemma.availability();
+      const a = await step('availability', BUDGET.quick, () => NiyoraGemma.availability());
       append(`availability() → ${a}`);
-      await checkDiagnostics();
+      await step('diagnostics', BUDGET.quick, checkDiagnostics);
       // Deliberately NOT fatal any more. `availability()` describes the
       // currently-active model, and a candidate we have not downloaded yet is
       // legitimately unavailable. Aborting here would skip the whole point.
@@ -261,13 +412,38 @@ export default function GemmaProbe() {
       // NOTE: no GPU attempt. `preferredBackend = .gpu` was measured hanging
       // indefinitely on this model and chip, with no error and no timeout, so
       // asking for it here would wedge the whole sequence.
+      // Repair pass, before anything is measured. On 2026-07-26 a 335-byte 404
+      // page was installed under the 3n filename and shadowed the good bundled
+      // copy, so prewarm failed with "Unable to open zip archive" — which reads
+      // exactly like the model being broken rather than the file being wrong.
+      // Delete any downloaded copy too small to be a model, so the next
+      // `setActiveModel` falls back to the bundle.
+      for (const c of CANDIDATES) {
+        await step(`repair check ${c.filename}`, BUDGET.quick, () =>
+          NiyoraGemma.setActiveModel(c.filename),
+        );
+        const s = await step(`repair state ${c.filename}`, BUDGET.quick, () =>
+          NiyoraGemma.modelState(),
+        );
+        if (s.source === 'downloaded' && s.bytes > 0 && s.bytes < IMPLAUSIBLY_SMALL) {
+          append(`🧹 ${c.filename}: downloaded copy is ${s.bytes} bytes — not a model. Deleting.`);
+          const gone = await step(`delete bogus ${c.filename}`, BUDGET.quick, () =>
+            NiyoraGemma.deleteModel(c.filename),
+          );
+          append(`  ↳ deleted: ${gone}`);
+        }
+      }
+
       for (const c of CANDIDATES) {
         append(`===== ${c.filename} (${c.mb}MB) =====`);
-        let state = await NiyoraGemma.modelState();
         if (!(await ensureDownloaded(c))) continue;
 
-        await NiyoraGemma.setActiveModel(c.filename);
-        state = await NiyoraGemma.modelState();
+        await step(`setActiveModel ${c.filename}`, BUDGET.quick, () =>
+          NiyoraGemma.setActiveModel(c.filename),
+        );
+        const state = await step(`modelState ${c.filename}`, BUDGET.quick, () =>
+          NiyoraGemma.modelState(),
+        );
         append(`source=${state.source} bytes=${state.bytes}`);
         if (state.source === 'missing') {
           append('  ↳ not on disk, skipping');
@@ -275,42 +451,66 @@ export default function GemmaProbe() {
         }
 
         const t0 = Date.now();
-        const ok = await NiyoraGemma.prewarm(GEMMA_MAX_CONTEXT, 'default');
+        const ok = await step(`prewarm ${c.filename}`, BUDGET.prewarm, () =>
+          NiyoraGemma.prewarm(GEMMA_MAX_CONTEXT, 'default'),
+        );
         append(`prewarm → ${ok} in ${Date.now() - t0}ms`);
         if (!ok) {
-          const d = await NiyoraGemma.diagnostics();
+          const d = await step('diagnostics after failed prewarm', BUDGET.quick, () =>
+            NiyoraGemma.diagnostics(),
+          );
           append(`  ↳ WILL NOT LOAD: ${d.lastError ?? 'unreported'}`);
           continue;
         }
         // A MATRIX, not a single shot. Two unknowns are tangled up: whether
-        // the engine ever stops, and how fast it decodes. A low token cap
+        // the engine ever stops, and how fast it decodes. The output cap
         // separates them, because it bounds a runaway instead of waiting for
-        // one. 92s for 512 tokens implies ~5.5 tok/s; if that holds, 64 tokens
-        // should come back in about twelve seconds whatever else is wrong.
+        // one, and `stopReason` then says which of the two we witnessed.
         //
-        // Bare vs templated at the SAME cap also isolates my last wrong guess:
-        // inline turn markers were supposed to help and appeared to hang.
+        // The cap only became real on 2026-07-26. Before that it was passed as
+        // `maxTokens`, which is a context cap applied at warm time, so the
+        // "cap=64" runs were not capped at all and burned 87-110s each.
+        //
+        // Bare vs templated at the SAME cap isolates the turn-format question:
+        // inline turn markers were once assumed to help, then assumed to hang.
+        // Measured: templated answers correctly, bare trims to nothing.
         for (const cap of [64]) {
           for (const [label, text] of [
             ['bare', SMOKE_PROMPT],
             ['templated', c.wrap(SMOKE_PROMPT)],
           ] as const) {
             const g0 = Date.now();
-            const g = await NiyoraGemma.generateText(text, cap);
+            const g = await step(`generate ${label} cap=${cap} · ${c.filename}`, BUDGET.generate, () =>
+              // `cap` is now the OUTPUT cap, enforced client-side by cancelling
+              // the stream. It used to be passed as `maxTokens`, which is the
+              // context cap and did nothing to a warm engine.
+              NiyoraGemma.generateText(text, GEMMA_MAX_CONTEXT, cap),
+            );
             const ms = Date.now() - g0;
             if (g.ok) {
-              const clean = trimAtStop(g.text);
-              append(`  ${label} cap=${cap}: ${ms}ms, ${g.text.length} raw chars`);
-              append(`    → ${clean.slice(0, 160)}`);
-              append(`    → ~${(cap / (ms / 1000)).toFixed(1)} tok/s ceiling if it ran to cap`);
+              // The native side now trims at the stop marker and reports a real
+              // token count, so the old char-based tok/s estimate is gone.
+              const rate =
+                g.outputTokens > 0 && ms > 0 ? `${(g.outputTokens / (ms / 1000)).toFixed(1)}` : '?';
+              append(`  ${label} cap=${cap}: ${ms}ms, stop=${g.stopReason}, mode=${g.streamMode}`);
+              append(
+                `    → ${g.outputTokens} tokens, ${g.rawChars} raw chars, ${g.chunks} chunks, ttft=${g.msToFirstToken}ms`,
+              );
+              append(`    → ${rate} tok/s  (MEASURED, not a char estimate)`);
+              append(`    → ${trimAtStop(g.text).slice(0, 160)}`);
+              if (g.stopReason !== 'eos') {
+                append(`    ↳ WE stopped it. This model did not terminate on its own.`);
+              }
             } else {
               append(`  ${label} cap=${cap} FAILED after ${ms}ms: ${g.message}`);
             }
           }
         }
-        const d2 = await NiyoraGemma.diagnostics();
+        const d2 = await step(`diagnostics after ${c.filename}`, BUDGET.quick, () =>
+          NiyoraGemma.diagnostics(),
+        );
         append(`  ↳ mem left ${mb(d2.availableMemoryBytes)}`);
-        await NiyoraGemma.reset();
+        await step(`reset after ${c.filename}`, BUDGET.quick, () => NiyoraGemma.reset());
       }
 
       // Skia collision re-check, against whichever engine is resident.
@@ -319,12 +519,24 @@ export default function GemmaProbe() {
       // reproduce on 2026-07-25, so re-run it per model rather than assuming
       // the earlier result carries over. Silence after this line IS the crash.
       append('mounting BreathingParticles (Atlas + per-frame) …');
+      phase.current = 'skia';
       setSkiaMounted(true);
       await new Promise((r) => setTimeout(r, 2500));
       append('SKIA OK: no crash with Skia rendering alongside the engine.');
-      append('— sequence complete —');
+      append('— sequence complete · ALL STEPS RETURNED —');
+     } catch (e) {
+      // The sequence must never end without saying why. A log that stops with
+      // no verdict line now means one thing only: the phone stopped talking.
+      if (e instanceof HangError) {
+        append(`— sequence ABORTED · wedged in "${e.step}" —`);
+      } else {
+        append(`— sequence ABORTED · ${e instanceof Error ? e.message : String(e)} —`);
+      }
+     } finally {
+      phase.current = 'finished';
+     }
     })();
-  }, [append, checkDiagnostics, prewarm, runPrompt, ensureDownloaded]);
+  }, [append, step, checkDiagnostics, prewarm, runPrompt, ensureDownloaded]);
 
   return (
     <View style={styles.root}>

@@ -126,17 +126,100 @@ failed; do not retry it as if it were untested. The likely reason: markers in
 the prompt tell the MODEL what it is looking at but tell the RUNTIME nothing
 about where to stop.
 
-The mechanism that should work is `LlmPromptTemplates` (`user_prefix`,
+~~The mechanism that should work is `LlmPromptTemplates`~~ (`user_prefix`,
 `user_suffix`, `model_prefix`, `model_suffix`) passed at session config, which
 is how the engine learns a turn boundary. It exists in the C API
-(`MediaPipeTasksGenAIC`) and is exposed by **neither** Swift surface: not
-`LlmInference.Options`, not `LlmInference.Session.Options` (which offers only
-topk, topp, temperature, randomSeed, loraPath, and the two modality flags).
-So it needs the C API called directly from Swift. **Untested.**
+(`MediaPipeTasksGenAIC`) and is exposed by neither Swift surface.
+~~So it needs the C API called directly from Swift.~~
 
-Unresolved and worth measuring before anything else: real decode speed. Both
-Gemma 4 timings so far were runaways, so tokens/sec is genuinely unknown. The
-budget is `MODEL_TIMEOUT_MS` = 5s, and a reflection is roughly 30-50 tokens.
+> ### ⚠️ CORRECTED 2026-07-26: the C API is not needed
+>
+> The shipped Swift interface already carries what this needs. From
+> `MediaPipeTasksGenAI.framework/.../arm64.swiftinterface`:
+>
+> - `generateResponseAsync(inputText:) -> AsyncThrowingStream<String, Error>`
+> - `Session.cancelGenerateResponseAsync() throws`
+>
+> So the fix is client-side and in plain Swift: stream the tokens, break at
+> `<turn|>`, cancel the generation. No C API bridging, no `LlmPromptTemplates`.
+> Anyone planning a multi-day C API detour off the paragraph above should stop.
+>
+> **Also corrected: the "cap `maxTokens` low (64)" workaround cannot work.**
+> `maxTokens` is a *context* cap (input + output), it is applied at warm time in
+> `warmLocked`, and it is clamped by `max(256, maxTokens)`. Passing 64 to
+> `generateText` on an already-warm engine does nothing at all. Measured: two
+> runs at "cap=64" produced 931 and 2038 raw characters, bounded by the
+> 512-token context and not by the cap. Any plan resting on that workaround is
+> resting on nothing.
+
+### Decode speed, measured 2026-07-26
+
+Both Gemma 4 timings before today were runaways, so tokens/sec was unknown.
+It is now bounded, though still not measured precisely:
+
+| | Gemma 4 `.litertlm` | 3n `.task` |
+|---|---|---|
+| prewarm | 170-718ms | 927ms |
+| templated prompt | 110.2s, 2038 raw chars | 2.7s, 41 raw chars |
+| bare prompt | 87.3s, 931 raw chars, trims to nothing | 4.0s, 31 raw chars, correct |
+
+Both answered *"The sky is typically blue on a clear day."* when the prompt
+carried the right turn markers. Two runs, identical character counts, so the
+runaway is deterministic rather than flaky.
+
+⚠️ **Read the rate claim carefully.** Dividing characters by a chars-per-token
+guess puts **both** models near 4-5 tok/s, which would mean the entire 40x gap
+in that table is termination and not speed. That is an **estimate from character
+counts, not a token measurement**, and it is load-bearing enough that it should
+not be repeated as fact until the streaming change counts real tokens.
+
+If it holds, it has a consequence beyond Gemma 4: at 4-5 tok/s a 30-50 token
+reflection takes 7-11s against a `MODEL_TIMEOUT_MS` of 5s, so the incumbent 3n
+has the same problem and the answer is to stream the reflection rather than to
+change model.
+
+> ### ❌ That estimate was WRONG. Measured properly later the same day.
+>
+> The char-based guess put both models near 4-5 tok/s and concluded the whole
+> gap was termination rather than speed. **It does not hold.** With
+> `Session.sizeInTokens` counting real tokens, three runs each:
+>
+> | | Gemma 4 `.litertlm` | 3n `.task` |
+> |---|---|---|
+> | total, templated | 3.8-4.3s | 2.4-3.3s |
+> | time to first token | 2.1-2.3s | 1.5-2.3s |
+> | **decode after first token** | **~5.5 tok/s** | **~10.4 tok/s** |
+> | stop reason, 3/3 runs | `stopMarker` | `eos` |
+>
+> **3n decodes about 1.9x faster than Gemma 4.** Decode speed therefore *does*
+> discriminate between the models, which is exactly what the estimate denied.
+> Token counts were identical on every run (11 and 10), so this is deterministic
+> rather than noisy.
+>
+> **The two models also stop for different reasons.** 3n reaches a real `eos`
+> every time. Gemma 4 has never once terminated on its own: every run ended
+> because the client-side stop cut it at `<turn|>`. That is a dependency, not a
+> cure. If a fine-tune shifts Gemma 4's turn behaviour, the marker list has to
+> move with it or the runaway comes back.
+
+### The 5s budget, and why neither model comfortably fits
+
+`MODEL_TIMEOUT_MS` is 5s and a reflection is 30-50 tokens. Using the measured
+rates, including time-to-first-token:
+
+- **3n:** 1.5-2.3s + 2.9-4.8s decode = **4.4-7.1s**
+- **Gemma 4:** 2.1-2.3s + 5.5-9.1s decode = **7.6-11.4s**
+
+⚠️ **That is the optimistic case.** These come from a short smoke prompt.
+Prefill scales with input length and the real in-the-moment prompt is far
+longer, so TTFT in the actual flow will be worse. It has **not** been measured
+there. TTFT is already 40-60% of total time on a trivial prompt, which makes it
+the more likely thing to blow the budget, and changing model does not fix it.
+
+So the consequence is a product decision rather than a model one: **stream the
+reflection to the screen as it arrives** rather than waiting for a complete
+string. A 5s all-or-nothing timeout is the wrong shape for a 4-11s generation,
+and the API this was built on already delivers tokens one at a time.
 
 ## Smaller traps to remember
 - A fused dir won't contain `generation_config.json`; without

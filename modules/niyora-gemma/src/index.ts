@@ -95,13 +95,47 @@ export type GemmaDownloadProgress = {
 /** One raw generation, or the reason it failed. Shaping/parsing is the caller's
  *  job — this is just text in, text out. */
 export type GemmaTextResult =
-  | { ok: true; text: string; latencyMs: number }
+  | {
+      ok: true;
+      /** Already trimmed at the first stop marker. Use this. */
+      text: string;
+      latencyMs: number;
+      /** Length of everything the engine emitted before we stopped it. A large
+       *  gap between this and `text.length` means the model ran away and the
+       *  client-side stop is what saved the turn. */
+      rawChars: number;
+      /** A real count from `sizeInTokens`, not characters divided by a guess.
+       *  -1 if the count could not be taken. Every tok/s figure in the briefs
+       *  before 2026-07-26 was a char-based estimate; this replaces it. */
+      outputTokens: number;
+      chunks: number;
+      msToFirstToken: number;
+      /** How generation ended. 'eos' means the model stopped on its own;
+       *  'stopMarker' and 'tokenCap' mean WE stopped it, and a model that has
+       *  to be cut off is not the same as one that terminates. */
+      stopReason: 'eos' | 'stopMarker' | 'tokenCap' | 'error';
+      /** Whether MediaPipe's partial responses arrived as new text or as the
+       *  whole text so far. Detected at runtime rather than assumed, because
+       *  guessing wrong drops most of the output or duplicates all of it. */
+      streamMode: 'incremental' | 'cumulative' | 'unknown';
+    }
   | {
       ok: false;
       failure: 'unavailable' | 'error';
       message?: string;
       latencyMs: number;
     };
+
+/** Markers that end a model turn. Gemma 4 opens a turn with `<|turn>` and
+ *  closes with `<turn|>`; Gemma 3 used `<start_of_turn>` / `<end_of_turn>`.
+ *  Both are listed because one engine may be pointed at either model. */
+export const GEMMA_STOP_MARKERS = ['<turn|>', '<end_of_turn>', '<eos>', '<|turn>'];
+
+/** Hard ceiling on generated tokens, enforced client-side by cancelling the
+ *  stream. This is NOT `maxTokens`: that one is a context cap applied at warm
+ *  time and clamped by `max(256, n)`, so it cannot bound a single turn. A
+ *  reflection is 30-50 tokens, so 128 leaves room without funding a runaway. */
+export const GEMMA_MAX_OUTPUT_TOKENS = 128;
 
 // Load defensively: if the native module isn't in this binary, fall back to a
 // no-op so the app still runs with the session simply scripted-only (mirrors
@@ -222,10 +256,15 @@ export const NiyoraGemma = {
    * the caller (reflect-model) races it against a deadline so a slow model
    * degrades to the scripted line instead of a hung conversation.
    */
-  async generateText(prompt: string, maxTokens: number): Promise<GemmaTextResult> {
+  async generateText(
+    prompt: string,
+    maxTokens: number,
+    maxOutputTokens: number = GEMMA_MAX_OUTPUT_TOKENS,
+    stopMarkers: string[] = GEMMA_STOP_MARKERS,
+  ): Promise<GemmaTextResult> {
     if (!Native) return { ok: false, failure: 'unavailable', latencyMs: 0 };
     try {
-      return await Native.generateText(prompt, maxTokens);
+      return await Native.generateText(prompt, maxTokens, maxOutputTokens, stopMarkers);
     } catch (e: any) {
       return { ok: false, failure: 'error', message: e?.message ?? String(e), latencyMs: 0 };
     }

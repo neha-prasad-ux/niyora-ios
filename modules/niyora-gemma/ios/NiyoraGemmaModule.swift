@@ -108,6 +108,10 @@ import MediaPipeTasksGenAI
 private final class GemmaEngine {
   static let shared = GemmaEngine()
   private let queue = DispatchQueue(label: "com.niyora.gemma.engine")
+  // Separate from `queue` on purpose: generation waits on a callback delivered
+  // by MediaPipe on a queue we don't control, so it must not hold the same lock
+  // that init uses.
+  private let genLock = NSLock()
   private var llm: LlmInference?
 
   // The last underlying failure, verbatim. Loading a ~3GB model on an A16 can
@@ -144,17 +148,164 @@ private final class GemmaEngine {
     }
   }
 
-  // Run one blocking generation. Returns raw text or nil on any failure.
-  func generate(_ prompt: String, maxTokens: Int) -> String? {
-    return queue.sync {
+  // One generation, with enough detail to tell a clean stop from a runaway we
+  // had to cut short. Every field here exists because its absence caused a
+  // wrong conclusion at some point.
+  struct GenResult {
+    let text: String // trimmed at the stop marker: what a caller should use
+    let rawChars: Int // everything emitted before we stopped
+    let outputTokens: Int // real count from sizeInTokens, -1 if unavailable
+    let chunks: Int
+    let msToFirstToken: Int
+    let totalMs: Int
+    let stopReason: String // "eos" | "stopMarker" | "tokenCap" | "error"
+    let streamMode: String // "incremental" | "cumulative" | "unknown"
+  }
+
+  // Streaming generation with a client-side stop.
+  //
+  // Why this replaced the blocking `generateResponse`: Gemma 4 answers
+  // correctly and then keeps emitting turn tokens until it exhausts the
+  // context, so one sentence cost 110 SECONDS and ~510 tokens on device. The
+  // blocking call gives no way to intervene, and `maxTokens` cannot help --
+  // it is a CONTEXT cap applied at warm time and clamped by `max(256, n)`, so
+  // passing a small number to a warm engine does exactly nothing. That was
+  // measured, not assumed: two runs at "cap=64" produced 931 and 2038 chars.
+  //
+  // `ai-briefs/export-decisions.md` said fixing this needed `LlmPromptTemplates`
+  // through the C API. It does not. The shipped Swift surface has
+  // `generateResponseAsync` and `Session.cancelGenerateResponseAsync()`, so we
+  // can watch the stream and stop it ourselves.
+  //
+  // Note this is a CLIENT-side stop, not a real EOS. It bounds the cost and
+  // returns a clean answer; it does not make the model stop wanting to talk.
+  // `stopReason` reports which happened, so a model that genuinely terminates
+  // is never confused with one we cut off.
+  func generateStreaming(
+    prompt: String,
+    maxTokens: Int,
+    maxOutputTokens: Int,
+    stopMarkers: [String]
+  ) -> GenResult? {
+    // Take the engine under the lock, then release it. The progress callback
+    // arrives on a queue we do not control, so holding the serial queue across
+    // the wait below risks deadlocking against our own callback.
+    let engine: LlmInference? = queue.sync {
       if llm == nil, !warmLocked(maxTokens: maxTokens, backend: "default") { return nil }
-      guard let llm else { return nil }
-      do {
-        return try llm.generateResponse(inputText: prompt)
-      } catch {
-        lastError = "generateResponse: \(error)"
-        return nil
+      return llm
+    }
+    guard let engine else { return nil }
+
+    // Still one generation at a time, just not on the queue the callback may
+    // land on.
+    genLock.lock()
+    defer { genLock.unlock() }
+
+    do {
+      let session = try LlmInference.Session(llmInference: engine)
+      try session.addQueryChunk(inputText: prompt)
+
+      var raw = ""
+      var chunks = 0
+      var firstTokenMs = -1
+      var stopReason = "eos"
+      var streamMode = "unknown"
+      var stopped = false
+      let started = Date()
+      let finished = DispatchSemaphore(value: 0)
+      let guard_ = NSLock() // the callback is not promised to be serial
+
+      try session.generateResponseAsync(
+        progress: { partial, error in
+          guard_.lock()
+          defer { guard_.unlock() }
+          if stopped { return }
+          if let error {
+            self.lastError = "stream: \(error)"
+            stopReason = "error"
+            stopped = true
+            finished.signal()
+            return
+          }
+          guard let partial, !partial.isEmpty else { return }
+          if firstTokenMs < 0 {
+            firstTokenMs = Int(Date().timeIntervalSince(started) * 1000)
+          }
+          chunks += 1
+
+          // Whether `partialResponse` is the new text or the whole text so far
+          // is not documented in the header, and guessing wrong either drops
+          // most of the output or duplicates all of it. So detect it instead of
+          // assuming, and report which it was rather than leaving it folklore.
+          if !raw.isEmpty, partial.hasPrefix(raw) {
+            streamMode = "cumulative"
+            raw = partial
+          } else {
+            if streamMode == "unknown" { streamMode = "incremental" }
+            raw += partial
+          }
+
+          if stopMarkers.contains(where: { raw.contains($0) }) {
+            stopReason = "stopMarker"
+          } else if maxOutputTokens > 0, chunks >= maxOutputTokens {
+            stopReason = "tokenCap"
+          } else {
+            return
+          }
+          stopped = true
+          try? session.cancelGenerateResponseAsync()
+          finished.signal()
+        },
+        completion: {
+          guard_.lock()
+          defer { guard_.unlock() }
+          if stopped { return }
+          stopped = true
+          finished.signal()
+        }
+      )
+
+      finished.wait()
+      let totalMs = Int(Date().timeIntervalSince(started) * 1000)
+
+      guard_.lock()
+      let rawOut = raw
+      let chunksOut = chunks
+      let reasonOut = stopReason
+      let modeOut = streamMode
+      let firstOut = firstTokenMs
+      guard_.unlock()
+
+      // Cut at the first stop marker. Everything after it is the runaway.
+      var clean = rawOut
+      for marker in stopMarkers {
+        if let r = clean.range(of: marker) { clean = String(clean[clean.startIndex..<r.lowerBound]) }
       }
+      clean = clean.trimmingCharacters(in: .whitespacesAndNewlines)
+
+      // A REAL token count, not characters divided by a guess. Every tokens/sec
+      // figure in the briefs so far was estimated from character counts and
+      // flagged as such; this is what replaces it. A fresh session is used
+      // because the generating one has just been cancelled.
+      var tokens = -1
+      if let counter = try? LlmInference.Session(llmInference: engine) {
+        tokens = (try? counter.sizeInTokens(text: rawOut)) ?? -1
+      }
+
+      lastError = nil
+      return GenResult(
+        text: clean,
+        rawChars: rawOut.count,
+        outputTokens: tokens,
+        chunks: chunksOut,
+        msToFirstToken: firstOut,
+        totalMs: totalMs,
+        stopReason: reasonOut,
+        streamMode: modeOut
+      )
+    } catch {
+      lastError = "generateStreaming: \(error)"
+      return nil
     }
   }
 
@@ -447,15 +598,34 @@ public class NiyoraGemmaModule: Module {
     // onto the scripted fallback:
     //   { ok: true,  text: String, latencyMs: Int }
     //   { ok: false, failure: "unavailable"|"error", message: String, latencyMs: Int }
-    AsyncFunction("generateText") { (prompt: String, maxTokens: Int) async -> [String: Any] in
+    AsyncFunction("generateText") {
+      (prompt: String, maxTokens: Int, maxOutputTokens: Int, stopMarkers: [String]) async -> [String: Any] in
       #if canImport(MediaPipeTasksGenAI)
       let started = Date()
       let ms = { Int(Date().timeIntervalSince(started) * 1000) }
       guard modelPath() != nil else {
         return ["ok": false, "failure": "unavailable", "message": "model not bundled", "latencyMs": 0]
       }
-      if let text = GemmaEngine.shared.generate(prompt, maxTokens: maxTokens) {
-        return ["ok": true, "text": text, "latencyMs": ms()]
+      if let r = GemmaEngine.shared.generateStreaming(
+        prompt: prompt,
+        maxTokens: maxTokens,
+        maxOutputTokens: maxOutputTokens,
+        stopMarkers: stopMarkers
+      ) {
+        return [
+          "ok": true,
+          "text": r.text,
+          "latencyMs": r.totalMs,
+          // Everything below is what makes a timing interpretable rather than
+          // just a number: whether the model stopped on its own or we cut it
+          // off, and how many tokens it actually produced.
+          "rawChars": r.rawChars,
+          "outputTokens": r.outputTokens,
+          "chunks": r.chunks,
+          "msToFirstToken": r.msToFirstToken,
+          "stopReason": r.stopReason,
+          "streamMode": r.streamMode,
+        ]
       }
       let why = GemmaEngine.shared.lastError ?? "generation failed with no reported error"
       return ["ok": false, "failure": "error", "message": why, "latencyMs": ms()]
