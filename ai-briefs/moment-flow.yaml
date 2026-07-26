@@ -109,6 +109,44 @@ meta:
   #    if you can name a claim in it that is wrong. All approved why-lines and
   #    the reasoning behind each are in `why-lines-draft.md`.
   #
+  # 🔴 SCRIPTED vs GENERATED — THE STANDING RULE (2026-07-25)
+  #    Raised by the model session: "are the outcome lines scripted or generated?
+  #    The spec does not say which, and that ambiguity is exactly the shape of
+  #    undefined handoff that got guessed last time." Correct. Settled:
+  #
+  #      ANYTHING THAT MAKES A CLAIM ABOUT EVIDENCE IS SCRIPTED.
+  #      ANYTHING THAT NAMES HER SITUATION IS GENERATED.
+  #
+  #    So: outcome lines SCRIPTED (13 fixed strings, one per act). The universal
+  #    DV line SCRIPTED. Why-lines SCRIPTED, except the two that must name her
+  #    situation (the act options and the if-then).
+  #    WHY outcome lines can never be generated: 7 of the 13 acts are UNGRADED, so
+  #    a model asked for an outcome line will invent a rationale — which is
+  #    exactly what the ungraded marking forbids. They are also per-ACT, not
+  #    per-situation, so generation buys nothing at all.
+  #
+  # 🔴 EVERY SAFETY SUPPRESSION MUST BE A LIST OPERATION, NEVER MODEL BEHAVIOUR.
+  #    Raised by the model session, and it is the most important constraint here:
+  #    **you cannot train a model to never generate something.** Suppression as a
+  #    filter on a CLOSED candidate set (the 13 acts) is enforceable in code and
+  #    verifiable in a test. Suppression as model behaviour is a hope.
+  #    This is why "acts are the unit, topics are context" matters beyond tidiness:
+  #    it turned an untrainable safety constraint into a filter that runs BEFORE
+  #    generation. "A/B/C are never generated" is now a list op on the candidate
+  #    set, not something the weights have to remember.
+  #    RULE: if a safety constraint can only be enforced by the model choosing
+  #    correctly, IT IS NOT ENFORCED. Rewrite it as a pre-generation filter or
+  #    escalate it.
+  #
+  # 🔴 M · GET SAFE IS GATED BY THE DV SCREEN, NOT THE CRISIS SCAN. (2026-07-25)
+  #    "A gate with an unnamed trigger will get one assigned" — so, named:
+  #      crisis scan  -> suicidality / self-harm -> `crisis_handoff` (988).
+  #                      STOPS THE FLOW. Never reaches M.
+  #      DV screen    -> coercive control        -> M (get safe), a stop and a
+  #                      referral to a DV service, with no content of its own.
+  #    Two independent detectors, two different terminals, two different
+  #    resources, and they fail differently. Do not merge them.
+  #
   # THE RULE — one line, before the buttons, in her language:
   #   - ONE sentence. Never two. It sits above the chips, not inside them.
   #   - Says what this does FOR HER, not how it works in the brain.

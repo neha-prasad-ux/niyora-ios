@@ -267,6 +267,45 @@ after the corpus was built, so a woman on the flattest path has nothing behind h
 module ends in something she can do now*. Some likely end in insight. Sample them
 and report a number before deciding whether to regenerate.
 
+### 🔴 CORPUS FINDINGS FROM THE MODEL SESSION (2026-07-25) — act on these first
+
+**1. `activity_context` breaks rule 13 in 36% of its targets.** 109 of 302 make a
+physiology claim, almost all "adrenaline" — *"walking burns off the adrenaline
+sitting in your chest"*. **DROP ALL 109 AND REGENERATE.**
+This is worse than 109 bad rows: `activity_context` is the **prototype for all 19
+why-lines**, the one node that already does the job. Train on it as-is and the
+model learns *"say adrenaline whenever asked why something helps"*, and every
+why-line inherits it. The why-lines note predicted exactly this trap — "explain
+why" is the prompt that tempts a mechanism claim.
+Regenerate under **register 1, not physiology**: the evidenced line here is
+*"doing nothing for 20 minutes makes it worse"* (Bushman, N=600), which is about
+stewing vs distraction and needs no body claim.
+
+**2. The 637 Act 2 examples are architecturally obsolete. DROP ALL OF THEM.**
+They train `module: real_hurt -> text`, and the architecture is now
+act + topic + her text. **361 of the 637 carry no act and no module at all**, so
+they are unusable regardless. Note the model session restored them and then
+caught itself; both errors came from the same undefined handoff, not from
+carelessness.
+
+**3. `deweight` now maps to `None`, with the reasoning recorded.** Keep the
+sentence that goes with it: *a deleted beat has no node, and the honest answer is
+nothing, not a plausible neighbour.* That is the general rule for dead slots.
+
+**4. 🔴 THE DRAFT ACTS ARE BLOCKED ON STREAM E, NOT ON MORE TUNING.**
+Acts A, D and F produce **a message she actually sends to a real person**. Best
+measured grounding is 54%, so roughly half would carry a detail she never said.
+She edits before sending — but **an invented detail is precisely what she will
+not catch**: it reads plausibly and it is about her own life.
+This is a DESIGN fix, not an accuracy target to wait for. If the template floor
+(Stream E) works anywhere it is here: build the message from her own sentences,
+let the model add warmth, and the facts are correct by construction.
+
+**5. DO NOT GENERATE FROM THE ACT MATRIX WHILE IT IS MARKED DRAFT.**
+It encodes judgement about which acts a woman can reasonably take in which
+situation. Baked into weights, that is far harder to see and undo than a table.
+Neha corrects it first.
+
 ### Then the four reweighting changes:
 
 1. **Contrastive pairs.** Same input, right vs wrong output, differing ONLY in who
