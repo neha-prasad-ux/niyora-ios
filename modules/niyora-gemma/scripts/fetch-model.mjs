@@ -1,34 +1,61 @@
 #!/usr/bin/env node
 // Fetch the Gemma weights into ios/model/ so CocoaPods can bundle them into the
 // app at build time. Run this BEFORE `pod install` / an EAS build. The file is
-// large (~3GB) and is never committed to git (see .gitignore).
+// large (~2.6 GB) and is never committed to git (see .gitignore).
 //
-// Gemma is a gated model: you must accept Google's license and supply a source
-// URL + token yourself. Set these env vars, then run `node scripts/fetch-model.mjs`:
+// DEFAULT: our fine-tune, from the private Hugging Face repo. It is a build
+// CACHE of a ~80-minute two-pass CPU export, which is why it is stored rather
+// than regenerated. The adapter remains the source of truth.
 //
-//   GEMMA_MODEL_URL   direct download URL to the gemma-3n-E2B int4 .task file
-//                     (e.g. a Hugging Face resolve URL, or your own storage)
-//   GEMMA_MODEL_TOKEN optional bearer token (Hugging Face access token) sent as
-//                     `Authorization: Bearer <token>` for gated downloads
+//   HF_TOKEN          read token for neha-prasad/*, or ~/.cache/huggingface/token
+//
+// OVERRIDE, for a different model or the legacy gemma-3n .task:
+//
+//   GEMMA_MODEL_URL   direct download URL
+//   GEMMA_MODEL_TOKEN bearer token for that URL
+//
+// The filename decides the runtime at load time: `.litertlm` selects LiteRT-LM,
+// `.task` selects MediaPipe. Keep it in sync with kLiteRtResource in
+// ios/NiyoraGemmaModule.swift and GEMMA_MODEL_FILENAME in src/index.ts.
 //
 // EAS: add this to an `eas-build-pre-install` hook (or a prebuild step) so CI
 // pulls the model before archiving. Locally, run it once — the file is cached
 // on disk and skipped on subsequent runs unless GEMMA_FORCE=1.
 
-import { createWriteStream, existsSync, mkdirSync, statSync, unlinkSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MODEL_FILENAME = 'gemma-3n-E2B-it-int4.task'; // keep in sync with src/index.ts
+const MODEL_FILENAME = 'niyora-gemma4-e2b-v4-wide-deduped-int4.litertlm';
+// v4_wide_deduped: 96% on beat form, matching the human-authored targets, where
+// the best-grounding model scores 40%. See gemma4-runpod/docs/MODEL-CHOICE.md.
+const HF_REPO = 'neha-prasad/niyora-gemma4-e2b-v4-wide-deduped-int4-litertlm';
 const OUT_DIR = join(HERE, '..', 'ios', 'model');
 const OUT_PATH = join(OUT_DIR, MODEL_FILENAME);
 
-const url = process.env.GEMMA_MODEL_URL;
-const token = process.env.GEMMA_MODEL_TOKEN;
+const url =
+  process.env.GEMMA_MODEL_URL ??
+  `https://huggingface.co/${HF_REPO}/resolve/main/${MODEL_FILENAME}`;
+const token =
+  process.env.GEMMA_MODEL_TOKEN ??
+  process.env.HF_TOKEN ??
+  readLocalHfToken();
 const force = process.env.GEMMA_FORCE === '1';
+
+// The Hub repo is private, so a token is required. Fall back to the one the
+// huggingface-cli writes, so a fresh checkout works without exporting anything.
+function readLocalHfToken() {
+  try {
+    return readFileSync(
+      join(process.env.HOME ?? '', '.cache/huggingface/token'), 'utf8'
+    ).trim();
+  } catch {
+    return undefined;
+  }
+}
 
 function humanMB(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(0)} MB`;
