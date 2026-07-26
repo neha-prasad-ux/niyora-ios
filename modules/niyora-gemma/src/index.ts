@@ -16,7 +16,9 @@ import { requireNativeModule } from 'expo-modules-core';
 
 /** The bundled model file. The fetch script writes this name; the Swift side
  *  looks it up in the app bundle. Change both together. */
-export const GEMMA_MODEL_FILENAME = 'gemma-3n-E2B-it-int4.task';
+// The fine-tuned Gemma 4, INT4. Keep in sync with kLiteRtResource in
+// ios/NiyoraGemmaModule.swift and MODEL_FILENAME in scripts/fetch-model.mjs.
+export const GEMMA_MODEL_FILENAME = 'niyora-gemma4-e2b-v4-wide-deduped-int4.litertlm';
 
 /** Total token budget (input + output) the engine is initialised with. CBT
  *  turns are short; a small budget keeps memory down and generation fast. Set

@@ -4,3 +4,7 @@ ios/model/
 *.task
 *.tflite
 *.bin
+
+# LiteRT-LM prebuilt framework: ~85 MB, fetched by scripts/fetch-litertlm.mjs
+ios/vendor/CLiteRTLM.xcframework/
+ios/vendor/*.zip
