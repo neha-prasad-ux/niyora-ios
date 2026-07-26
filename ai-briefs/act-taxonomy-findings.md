@@ -208,7 +208,20 @@ option — it is to state the honest outcome beside it.
 
 **The column is "suppressed / doesn't apply" — never "I decided against it."**
 
-## The matrix — DRAFT, Neha to correct
+## The matrix — APPROVED (Neha, 2026-07-25)
+
+**No longer a draft. Generate from it.**
+Reviewed row by row. Four rows were challenged and three held on stated grounds:
+- `real-hurt → say it to them` **holds.** It is the HIGH rung of three, not a
+  recommendation. Rung 3 is always present, and it carries the universal DV line
+  plus the safe-space qualifier. Offering the option is not pushing her into it.
+- `shame → own my part` **holds, but only because of its outcome line.** Without
+  *"lands well with the person you hurt, less reliable at making you feel
+  better"* it would be a nudge rather than an honest offer. The line is load-bearing.
+- `sad` being all low-effort **holds.** The ladder rule is "rung 3 always present,
+  never three confrontational" — NOT "always include a hard one". Sadness often
+  has nobody to confront and inventing a target would be worse.
+- `numb` **was WRONG and is fixed.** See below.
 
 | topic | offer (high · middle · low) | suppressed / doesn't apply |
 |---|---|---|
@@ -219,7 +232,7 @@ option — it is to state the honest outcome beside it.
 | sad | G tell one person · K let it be · L look after myself | A, B, C — a mood has no target |
 | anxious | E find out · F get it ready · L look after myself | — |
 | shame | D own my part *(+outcome line)* · G tell one person · K let it be | — |
-| numb | J take something off my plate · L look after myself · K let it be | A — high-effort while flat |
+| numb | **F get it ready** (one small concrete thing) · J take something off my plate · L look after myself **framed as ENGAGING, not soothing** — sunlight, a song you love, the dog, never a bath | A — high-effort confrontation while flat |
 | promotion | B ask for the thing · I work out what I want · F get it ready | — |
 | bias | H get someone whose job it is · C hold a line · F get it ready (document) | **D own my part — DOESN'T APPLY** (see above) |
 
@@ -276,3 +289,23 @@ The standing rule (Neha, earlier) is that in a DV situation we never guide her �
 detect, stop, hand off. The universal line is not guidance about *her* situation
 and it is not conditional on us thinking she is in one. It is a fact about the
 act, attached to the act, for everybody.
+
+
+### 🔴 WHY `numb` CHANGED (2026-07-25)
+
+The row was *take something off my plate · look after myself · let it be* — all
+three **withdrawal**. **Behavioural activation says the flat need an act MOST,
+not least**, so a menu of three ways to do less is the wrong medicine for
+flatness.
+
+This is the same error Neha caught earlier in the session on "lift" vs "relax":
+BA backs *engaging* acts, not soothing ones, and borrowing its evidence for rest
+is borrowing the wrong finding. Twice in one night, in the same direction — too
+protective — which is worth knowing about how this matrix was drafted.
+
+Fixed: rung 1 becomes a small concrete DOING act, and rung 3's self-care is
+framed as engaging (sunlight, a song, the dog) rather than soothing (a bath,
+bed). Note this is the OPPOSITE of the `uncontrollable_act` decision, where Neha
+chose soothing deliberately — different node, different job. The comfort act is
+for a woman who has declined to fix anything; the `numb` menu is for a woman
+still choosing.
