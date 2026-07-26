@@ -76,6 +76,16 @@ export const NiyoraGemma = {
    * the caller (reflect-model) races it against a deadline so a slow model
    * degrades to the scripted line instead of a hung conversation.
    */
+  /** Drop the engine and give ~2.6 GB back. Safe to call when not loaded. */
+  async release(): Promise<void> {
+    if (!Native) return;
+    try {
+      await Native.release();
+    } catch {
+      // Releasing memory must never surface an error to the session.
+    }
+  },
+
   async generateText(
     prompt: string,
     maxTokens: number,

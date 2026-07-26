@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import UIKit
 
 // Thin transport to an on-device Gemma model.
 //
@@ -193,6 +194,21 @@ private final class GemmaEngine {
       return backend?.generate(prompt, system: system, maxTokens: maxTokens)
     }
   }
+
+  /// Drop the engine and return its memory.
+  ///
+  /// The model is ~2.6 GB resident. Without this it is held for the whole
+  /// process lifetime after the first session, so every unrelated screen in the
+  /// app carries that footprint and backgrounding becomes a jetsam magnet: iOS
+  /// evicts the largest suspended app first, and after one session that is us.
+  ///
+  /// Reloading costs the same multi-second warm the session already pays on
+  /// entry, and it happens while she is reading a scripted opening line rather
+  /// than waiting on a blank screen. Holding 2.6 GB between sessions to save
+  /// that is the wrong trade on a 6 GB device.
+  func release() {
+    queue.sync { backend = nil }
+  }
 }
 
 public class NiyoraGemmaModule: Module {
@@ -228,9 +244,29 @@ public class NiyoraGemmaModule: Module {
     }
 
     // Load the weights so the first turn doesn't pay cold-start latency. The
-    // JS side calls this when the session screen mounts.
+    // JS side calls this when the session screen mounts -- NOT at app launch,
+    // so opening the app does not cost 2.6 GB.
     AsyncFunction("prewarm") { (maxTokens: Int) -> Bool in
       GemmaEngine.shared.warm(maxTokens: maxTokens)
+    }
+
+    // Give the memory back. Called when the session screen unmounts.
+    AsyncFunction("release") { () -> Bool in
+      GemmaEngine.shared.release()
+      return true
+    }
+
+    // iOS asks before it kills. Dropping ~2.6 GB on a memory warning is the
+    // difference between a degraded session and the whole app being terminated
+    // mid-conversation, which loses everything she has typed.
+    // OnCreate, not OnStartObserving: the latter requires a declared Events
+    // block and only fires once JS subscribes. This must be armed for the whole
+    // module lifetime, whether or not anything is listening.
+    OnCreate {
+      NotificationCenter.default.addObserver(
+        forName: UIApplication.didReceiveMemoryWarningNotification,
+        object: nil, queue: .main
+      ) { _ in GemmaEngine.shared.release() }
     }
 
     // One generation. Never throws — returns a result object the JS side maps

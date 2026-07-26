@@ -116,6 +116,12 @@ export const ReflectModel = {
     else if (provider === 'fm') await NiyoraFm.prewarm();
   },
 
+  /** Give the model's memory back. Call when the session screen unmounts. */
+  async release(): Promise<void> {
+    // Only Gemma holds a multi-GB resident model; Apple FM is system-managed.
+    await NiyoraGemma.release();
+  },
+
   /** One bounded turn, in the shape rough-moment consumes. Never throws. */
   async generate(
     instructions: string,

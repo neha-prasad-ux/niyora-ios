@@ -96,6 +96,13 @@ export default function RoughMoment() {
         .catch(() => {});
     return () => {
       alive = false;
+      // Give the model's memory back when she leaves the session. The engine is
+      // ~2.6 GB resident; held across screens it makes the app the largest
+      // suspended process on the device, which is exactly what iOS evicts
+      // first. Reloading costs the same warm this screen already pays on entry,
+      // and it happens behind the scripted opening line rather than a blank
+      // screen.
+      if (REFLECT_AI) ReflectModel.release().catch(() => {});
     };
   }, []);
 
