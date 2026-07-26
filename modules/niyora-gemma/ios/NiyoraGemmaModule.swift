@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import UIKit
+import CryptoKit
 
 // Thin transport to an on-device Gemma model.
 //
@@ -38,11 +39,80 @@ private let kLiteRtExtension = "litertlm"
 private let kMediaPipeResource = "gemma-3n-E2B-it-int4"
 private let kMediaPipeExtension = "task"
 
+// MARK: - Where the model lives
+//
+// The weights used to be a bundle resource, which made the app a 3.1GB install
+// and meant changing model required a full rebuild and reinstall. They are now
+// DOWNLOADED at runtime into Application Support.
+//
+// Resolution order is deliberate: a downloaded model WINS over a bundled one.
+// That way a build can still ship a bundled fallback while we migrate, and the
+// downloaded file is what we actually iterate on.
+enum ModelStore {
+  static let folder = "NiyoraModels"
+
+  static func directory() throws -> URL {
+    let base = try FileManager.default.url(
+      for: .applicationSupportDirectory, in: .userDomainMask,
+      appropriateFor: nil, create: true)
+    let dir = base.appendingPathComponent(folder, isDirectory: true)
+    if !FileManager.default.fileExists(atPath: dir.path) {
+      try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    }
+    // Multi-GB weights must never go into iCloud backup. Apple rejects apps
+    // that back up re-downloadable content, and it would wreck her backup size.
+    var mutable = dir
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    try? mutable.setResourceValues(values)
+    return dir
+  }
+
+  static func url(for filename: String) -> URL? {
+    guard let dir = try? directory() else { return nil }
+    return dir.appendingPathComponent(filename)
+  }
+
+  /// The downloaded model currently installed, if any. Nil when not downloaded.
+  static func installed(filename: String) -> URL? {
+    guard let u = url(for: filename),
+          FileManager.default.fileExists(atPath: u.path) else { return nil }
+    return u
+  }
+
+  static func size(of url: URL) -> Int64 {
+    let a = try? FileManager.default.attributesOfItem(atPath: url.path)
+    return (a?[.size] as? NSNumber)?.int64Value ?? -1
+  }
+
+  /// Streamed so a ~2GB file is never held in memory to hash it.
+  static func sha256(of url: URL) -> String? {
+    guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+    defer { try? handle.close() }
+    var hasher = SHA256()
+    while true {
+      guard let chunk = try? handle.read(upToCount: 4 * 1024 * 1024), !chunk.isEmpty else { break }
+      hasher.update(data: chunk)
+    }
+    return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+  }
+}
+
+
+// Resolution order, both formats: a DOWNLOADED model wins over a bundled one.
+// Bundling a 2.6 GB model makes the app a 2.6 GB install, cannot be updated
+// without a rebuild and reinstall, and double-counts storage when a downloaded
+// copy also exists -- which it already did on the test device: a bundled 2.57 GB
+// plus a 2.41 GB download is ~5 GB of models on a phone.
 private func liteRtPath() -> String? {
-  Bundle.main.path(forResource: kLiteRtResource, ofType: kLiteRtExtension)
+  let name = "\(kLiteRtResource).\(kLiteRtExtension)"
+  if let downloaded = ModelStore.installed(filename: name) { return downloaded.path }
+  return Bundle.main.path(forResource: kLiteRtResource, ofType: kLiteRtExtension)
 }
 private func mediaPipePath() -> String? {
-  Bundle.main.path(forResource: kMediaPipeResource, ofType: kMediaPipeExtension)
+  let name = "\(kMediaPipeResource).\(kMediaPipeExtension)"
+  if let downloaded = ModelStore.installed(filename: name) { return downloaded.path }
+  return Bundle.main.path(forResource: kMediaPipeResource, ofType: kMediaPipeExtension)
 }
 private func modelPath() -> String? { liteRtPath() ?? mediaPipePath() }
 
@@ -50,6 +120,9 @@ private func modelPath() -> String? { liteRtPath() ?? mediaPipePath() }
 /// serial queue, so neither needs to be thread-safe itself.
 private protocol LlmBackend {
   func warm(maxTokens: Int) -> Bool
+  /// Free native memory. Must be explicit: LiteRT-LM has no close() and relies
+  /// on ARC, so the owner has to drop references in dependency order.
+  func release()
   /// `system` is the instruction block. LiteRT-LM applies the model's own chat
   /// template around roled messages, so passing it separately reproduces how
   /// the model was TRAINED (system + user turns) instead of flattening both
@@ -65,6 +138,7 @@ private protocol LlmBackend {
 // MediaPipe, and our fine-tune would never load, with no error anywhere.
 private final class LiteRtBackend: LlmBackend {
   private var engine: Engine?
+  private var conversation: Conversation?
   private let path: String
   init(path: String) { self.path = path }
 
@@ -72,16 +146,16 @@ private final class LiteRtBackend: LlmBackend {
     if engine != nil { return true }
     // `Engine` is an ACTOR (Engine.swift:28), so initialize() and
     // createConversation() are actor-isolated and must be AWAITED even though
-    // neither is declared `async`. Calling them directly from this synchronous
-    // context is a compile error. Worth stating: the signatures alone read as
-    // ordinary throwing methods, and the first draft here called them plainly.
+    // neither is declared `async`. Calling them directly from a synchronous
+    // context is a compile error.
     //
-    // .cpu, not .gpu, deliberately: Google's own iOS numbers put GPU at 1450 MB
-    // peak against CPU's 607 MB, for +31 tok/s decode. On a 6 GB device memory
-    // is the binding constraint, not speed.
+    // .cpu, not .gpu: Google's iOS numbers put GPU at 1450 MB peak against
+    // CPU's 607 MB for +31 tok/s decode. On a 6 GB device memory is the binding
+    // constraint. GPU also copies weights into dirty GPU-accessible buffers,
+    // which jetsam counts in full, where CPU keeps them clean and mmapped.
     //
-    // maxNumTokens is the kv-cache size (input + output). CBT turns are short,
-    // and every token of cache is resident memory on a device with little spare.
+    // maxNumTokens IS the kv-cache size (Config.swift:55). Every token of cache
+    // is resident memory.
     guard let cfg = try? EngineConfig(
       modelPath: path,
       backend: .cpu(),
@@ -90,9 +164,6 @@ private final class LiteRtBackend: LlmBackend {
     ) else { return false }
 
     let e = Engine(engineConfig: cfg)
-    // This runs on a serial queue that must not return before the engine is
-    // usable, so the semaphore bridges into the actor rather than making the
-    // whole LlmBackend protocol async for one implementation's sake.
     let sem = DispatchSemaphore(value: 0)
     var ok = false
     Task {
@@ -111,15 +182,16 @@ private final class LiteRtBackend: LlmBackend {
     var out: String?
     Task {
       do {
-        // The `.litertlm` carries the model's own jinja chat template (18.5 KB
-        // of it), and LiteRT-LM applies it to roled messages. So the system
-        // block goes in as a SYSTEM message rather than being glued onto the
-        // front of the user turn: the corpus was trained as system + user
-        // turns, and flattening them is off-distribution from training.
+        // The .litertlm carries the model's own jinja chat template (18.5 KB),
+        // and LiteRT-LM applies it to ROLED messages. So the system block goes
+        // in as a system message rather than glued onto the user turn: the
+        // corpus was trained as system + user turns.
         let cfg = system.map {
           ConversationConfig(systemMessage: Message($0, role: .system))
         }
         let convo = try await engine.createConversation(with: cfg)
+        // Held so release() can drop it BEFORE the engine. See below.
+        self.conversation = convo
         out = try await convo.sendMessage(Message(prompt)).toString
       } catch {
         out = nil
@@ -127,7 +199,30 @@ private final class LiteRtBackend: LlmBackend {
       sem.signal()
     }
     sem.wait()
+    // The turn is over; drop the conversation so it cannot pin the engine.
+    conversation = nil
     return out
+  }
+
+  /// ORDER IS LOAD-BEARING: conversation first, then engine.
+  ///
+  /// LiteRT-LM's Swift API exposes NO close()/release()/destroy(). Teardown is
+  /// deinit-only, driven by ARC (Engine.swift:269, Conversation.swift:87), and
+  /// the references are strong in one direction:
+  ///
+  ///     StreamContext ──strong──> Conversation ──strong──> Engine
+  ///
+  /// So `engine = nil` frees NOTHING while any Conversation is still alive.
+  /// Google's own Kotlin API makes this explicit -- Engine and Conversation are
+  /// both AutoCloseable and the Gallery app closes the conversation first
+  /// (LlmChatModelHelper.kt:253 then :259). Swift users get ARC and no warning.
+  ///
+  /// An earlier version of this method nilled only the backend, which dropped
+  /// the engine reference while an in-flight turn still held a conversation:
+  /// a silent no-op that looked like a working release.
+  func release() {
+    conversation = nil
+    engine = nil
   }
 }
 
@@ -151,6 +246,8 @@ private final class MediaPipeBackend: LlmBackend {
     llm = try? LlmInference(options: options)
     return llm != nil
   }
+
+  func release() { llm = nil }
 
   func generate(_ prompt: String, system: String?, maxTokens: Int) -> String? {
     if llm == nil, !warm(maxTokens: maxTokens) { return nil }
@@ -181,6 +278,17 @@ private final class GemmaEngine {
     return nil
   }
 
+  /// Serialised on `queue`, which is what prevents a double load.
+  ///
+  /// Two concurrent warms would each allocate ~2.6 GB and OOM the app
+  /// instantly. It is a real failure mode -- Google's own Swift adapter
+  /// memoises the in-flight init Task for exactly this reason
+  /// (LiteRTLanguageModel.swift:485) -- and it is reachable here: the session
+  /// screen prewarms on mount while a fast first tap can call generate(), and
+  /// a quick unmount/remount can fire prewarm twice.
+  ///
+  /// The serial queue already gives us this: the second caller blocks until the
+  /// first finishes, then sees a non-nil backend and returns immediately.
   func warm(maxTokens: Int) -> Bool {
     queue.sync {
       if backend == nil { backend = GemmaEngine.selectBackend() }
@@ -207,7 +315,13 @@ private final class GemmaEngine {
   /// than waiting on a blank screen. Holding 2.6 GB between sessions to save
   /// that is the wrong trade on a 6 GB device.
   func release() {
-    queue.sync { backend = nil }
+    queue.sync {
+      // Tell the backend to tear down in the right order first; dropping our
+      // own reference alone would leave ARC to decide, and ARC cannot break the
+      // Conversation -> Engine chain for us.
+      backend?.release()
+      backend = nil
+    }
   }
 }
 
@@ -265,6 +379,18 @@ public class NiyoraGemmaModule: Module {
     OnCreate {
       NotificationCenter.default.addObserver(
         forName: UIApplication.didReceiveMemoryWarningNotification,
+        object: nil, queue: .main
+      ) { _ in GemmaEngine.shared.release() }
+
+      // Also release on background. Google's Gallery app deliberately does NOT
+      // do this and keeps the engine resident when backgrounded -- but that is
+      // an Android app, and Android will not jetsam a suspended process nearly
+      // as fast as iOS will. A 2.6 GB suspended app is the first thing iOS
+      // evicts, and being evicted loses the whole session including what she
+      // typed. Re-warming on return costs the same seconds the screen already
+      // pays on entry.
+      NotificationCenter.default.addObserver(
+        forName: UIApplication.didEnterBackgroundNotification,
         object: nil, queue: .main
       ) { _ in GemmaEngine.shared.release() }
     }

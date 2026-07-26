@@ -47,11 +47,16 @@ Pod::Spec.new do |s|
   # present from first launch with no on-device download. If the file is
   # missing at build time the pod install still succeeds, but availability()
   # will report "modelNotReady" at runtime and the session stays scripted.
-  # Both container formats. `.litertlm` is LiteRT-LM (the current runtime, and
-  # the only one that can load a fine-tuned Gemma 4); `.task` is MediaPipe (the
-  # legacy path). The Swift side prefers `.litertlm` when both are present, so
-  # ship ONE of them -- bundling both is 5+ GB of app.
-  s.resources = ['model/*.task', 'model/*.litertlm']
+  # NO model resources. The weights are DOWNLOADED into Application Support at
+  # runtime (see ModelStore in NiyoraGemmaModule.swift), not bundled.
+  #
+  # Bundling made the app a 2.6 GB install, meant a new model required a full
+  # rebuild and reinstall, and double-counted storage whenever a downloaded copy
+  # also existed -- which it did on the test device: a 2.57 GB bundled model
+  # alongside a 2.41 GB downloaded one, ~5 GB of models on a phone.
+  #
+  # Uncomment to ship a bundled fallback; the downloaded file still wins.
+  # s.resources = ['model/*.task', 'model/*.litertlm']
 
   # Explicit rather than a bare **/* glob: that would also sweep the vendored
   # framework's own headers into the pod's compile sources.
