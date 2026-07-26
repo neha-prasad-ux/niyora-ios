@@ -75,3 +75,60 @@ describe('parseGemmaTurn — chips (JSON)', () => {
     expect(parseGemmaTurn('{"prose": "", "chips": ["a"]}', true)).toBeNull();
   });
 });
+
+// --- the grounding gate on chips -----------------------------------------
+// A tapped chip is rendered with append('me', chip): it appears on screen as a
+// bubble from HER, and is then fed back into the next prompt as
+// `she said: "<chip>"`. So an ungrounded chip shows a woman a sentence she
+// never wrote, attributed to her. These lock that gate open.
+describe('parseGemmaTurn chip grounding', () => {
+  const her = 'he forgot to pick up my prescription again after i reminded him twice';
+
+  it('keeps chips built from her own words', () => {
+    const raw = JSON.stringify({
+      prose: 'that lands.',
+      chips: ['he forgot again', 'i reminded him twice'],
+    });
+    expect(parseGemmaTurn(raw, true, her)?.chips).toEqual([
+      'he forgot again',
+      'i reminded him twice',
+    ]);
+  });
+
+  it('drops a chip that invents details she never wrote', () => {
+    const raw = JSON.stringify({
+      prose: 'that lands.',
+      chips: ['he forgot again', 'your sister cancelled brunch on saturday'],
+    });
+    expect(parseGemmaTurn(raw, true, her)?.chips).toEqual(['he forgot again']);
+  });
+
+  it('returns prose with no chips rather than inventing her words', () => {
+    // Every chip fabricated. Losing all of them is the correct outcome: the
+    // caller falls back to scripted chips.
+    const raw = JSON.stringify({
+      prose: 'that lands.',
+      chips: ['dan shouted at the office kitchen', 'rachel emailed you on tuesday'],
+    });
+    const out = parseGemmaTurn(raw, true, her);
+    expect(out?.prose).toBe('that lands.');
+    expect(out?.chips).toBeUndefined();
+  });
+
+  it('does not gate when no source text is supplied', () => {
+    // Back-compat: existing callers that pass no source keep their chips, so
+    // adding the parameter cannot silently strip an unrelated beat.
+    const raw = JSON.stringify({ prose: 'ok.', chips: ['anything at all'] });
+    expect(parseGemmaTurn(raw, true)?.chips).toEqual(['anything at all']);
+  });
+
+  it('never gates prose, which is the moon speaking', () => {
+    // An offer beat MUST introduce words she did not write. Gating prose would
+    // break `feelings`, `anchor`, and `cbt_reframe`.
+    const raw = JSON.stringify({
+      prose: 'overwhelmed, angry, guilty',
+      chips: [],
+    });
+    expect(parseGemmaTurn(raw, true, her)?.prose).toBe('overwhelmed, angry, guilty');
+  });
+});

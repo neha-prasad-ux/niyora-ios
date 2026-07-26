@@ -88,6 +88,7 @@ async function generateGemma(
   prompt: string,
   wantChips: boolean,
   timeoutMs: number,
+  sourceText?: string,
 ): Promise<ReflectTurnResult> {
   const full = composeGemmaPrompt(instructions, prompt, wantChips);
   const raced = await withDeadline(
@@ -96,7 +97,7 @@ async function generateGemma(
   );
   if (raced === TIMEOUT) return { ok: false, failure: 'timeout', latencyMs: timeoutMs };
   if (!raced.ok) return { ok: false, failure: raced.failure, message: raced.message, latencyMs: raced.latencyMs };
-  const parsed = parseGemmaTurn(raced.text, wantChips);
+  const parsed = parseGemmaTurn(raced.text, wantChips, sourceText);
   if (!parsed) {
     return { ok: false, failure: 'error', message: 'unparseable output', latencyMs: raced.latencyMs };
   }
@@ -117,10 +118,14 @@ export const ReflectModel = {
     prompt: string,
     wantChips: boolean,
     timeoutMs = 5000,
+    // Her own text. When given, generated chips are checked against it before
+    // any of them can be rendered as her words. Optional so existing callers
+    // keep compiling, but a chip-producing beat that omits it is unguarded.
+    sourceText?: string,
   ): Promise<ReflectTurnResult> {
     const provider = await resolveProvider();
     let result: ReflectTurnResult;
-    if (provider === 'gemma') result = await generateGemma(instructions, prompt, wantChips, timeoutMs);
+    if (provider === 'gemma') result = await generateGemma(instructions, prompt, wantChips, timeoutMs, sourceText);
     else if (provider === 'fm') result = await NiyoraFm.generate(instructions, prompt, wantChips, timeoutMs);
     else result = { ok: false, failure: 'unavailable', latencyMs: 0 };
     debug = {

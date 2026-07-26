@@ -1,5 +1,6 @@
 import {
   ANCHOR_IDS,
+  DEFAULT_ANSWERS,
   EMPTY_ANSWERS,
   bandLevel,
   copingStandingCopy,
@@ -86,6 +87,19 @@ describe('deriveLevel (reads the inputs off the answers)', () => {
 
   it('handles empty answers without throwing', () => {
     expect(deriveLevel(EMPTY_ANSWERS)).toBe('mild');
+  });
+});
+
+describe('DEFAULT_ANSWERS (pre-filled onboarding defaults)', () => {
+  // Locks the intended landing: someone who taps straight through gets a calm
+  // middle read, never a scary "severe". If an item list changes and pushes this
+  // off "moderate"/"mixed", these fail on purpose.
+  it('bands to a moderate level, not severe', () => {
+    expect(deriveLevel(DEFAULT_ANSWERS)).toBe('moderate');
+  });
+
+  it('reads a mixed coping standing', () => {
+    expect(deriveCopingStanding(DEFAULT_ANSWERS)).toBe('mixed');
   });
 });
 

@@ -18,6 +18,7 @@ import { type RecResult } from '@/models/recommend';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { trainSummary, workSummary, type TrainSummary } from '@/v3/game-content';
+import { CHAPTERS } from '@/v3/chapter-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 import { getPmsPrefs, type StartedWith } from '@/store/pms-prefs';
 
@@ -65,9 +66,9 @@ export default function GrowScreen() {
     Haptics.selectionAsync().catch(() => {});
     router.push('/pms-readiness');
   };
-  const openStory = () => {
+  const openStory = (chapterId: string) => {
     Haptics.selectionAsync().catch(() => {});
-    router.push('/pms-story' as Href);
+    router.push({ pathname: '/pms-story', params: { chapter: chapterId } } as Href);
   };
   const openPeriodsCare = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -167,13 +168,19 @@ export default function GrowScreen() {
             sub="The week before your period"
             hue={PMS_HUE}
           >
-            <Shelf
-              title="Neha's story"
-              sub="Get prepped for PMS, one story at a time."
-              gradient={STORY_GRADIENT}
-              backdrop={<StoryBackdrop />}
-              onOpen={openStory}
-            />
+            {/* One card per story in the serial (src/v3/chapter-content.ts).
+                Story 2+ appear here automatically; each opens the reader on its
+                own chapter. */}
+            {CHAPTERS.map((chapter) => (
+              <Shelf
+                key={chapter.id}
+                title={chapter.title}
+                sub={chapter.intro}
+                gradient={STORY_GRADIENT}
+                backdrop={<StoryBackdrop />}
+                onOpen={() => openStory(chapter.id)}
+              />
+            ))}
             <Shelf
               title="Cried, fought, or snapped?"
               sub="Feel relax the science way"

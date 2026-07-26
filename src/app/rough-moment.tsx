@@ -131,7 +131,18 @@ export default function RoughMoment() {
       if (!REFLECT_AI) return { prose: null, chips: null };
       const req = buildTurnRequest(step, compact.current);
       if (!req) return { prose: null, chips: null };
-      const r = await ReflectModel.generate(req.instructions, req.prompt, req.wantChips, MODEL_TIMEOUT_MS);
+      // Her own words, so generated chips can be checked before any of them is
+      // rendered as a bubble from her. `thought` is what she picked at confirm;
+      // `ventExcerpt` is free text when there is any. Without this the chip
+      // filter in parseGemmaTurn cannot run and every chip is trusted.
+      const herText = compact.current.thought ?? compact.current.ventExcerpt ?? '';
+      const r = await ReflectModel.generate(
+        req.instructions,
+        req.prompt,
+        req.wantChips,
+        MODEL_TIMEOUT_MS,
+        herText || undefined,
+      );
       if (__DEV__) {
         const d = reflectDebug();
         const tail = r.ok ? `${r.latencyMs}ms` : `scripted · ${r.failure} · ${r.latencyMs}ms`;
