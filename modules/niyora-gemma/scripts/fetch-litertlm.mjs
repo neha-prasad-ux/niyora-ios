@@ -4,7 +4,9 @@
 // The framework is ~85 MB of prebuilt binary, so it is NOT committed — same
 // rule as the model weights. The Swift wrapper sources under vendor/LiteRTLM
 // ARE committed: they are small, readable, and the module compiles against
-// them directly.
+// them directly. Benchmark.swift is included even though we never call it --
+// Conversation.getBenchmarkInfo() returns BenchmarkInfo, so omitting it breaks
+// the build.
 //
 // Pinned to a version AND a sha256. An unpinned binary dependency that silently
 // changes under you is how a working build becomes an unreproducible one.

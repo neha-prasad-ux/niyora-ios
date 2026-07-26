@@ -90,9 +90,13 @@ async function generateGemma(
   timeoutMs: number,
   sourceText?: string,
 ): Promise<ReflectTurnResult> {
-  const full = composeGemmaPrompt(instructions, prompt, wantChips);
+  // The instruction block goes to the native side as a SYSTEM message; only the
+  // step prompt and the output-format directive are the user turn. That matches
+  // how the model was trained (system + user turns through the chat template).
+  // composeGemmaPrompt now shapes only the user half.
+  const userTurn = composeGemmaPrompt('', prompt, wantChips).trimStart();
   const raced = await withDeadline(
-    NiyoraGemma.generateText(full, GEMMA_MAX_CONTEXT),
+    NiyoraGemma.generateText(userTurn, GEMMA_MAX_CONTEXT, instructions),
     timeoutMs,
   );
   if (raced === TIMEOUT) return { ok: false, failure: 'timeout', latencyMs: timeoutMs };

@@ -49,7 +49,11 @@ private func modelPath() -> String? { liteRtPath() ?? mediaPipePath() }
 /// serial queue, so neither needs to be thread-safe itself.
 private protocol LlmBackend {
   func warm(maxTokens: Int) -> Bool
-  func generate(_ prompt: String, maxTokens: Int) -> String?
+  /// `system` is the instruction block. LiteRT-LM applies the model's own chat
+  /// template around roled messages, so passing it separately reproduces how
+  /// the model was TRAINED (system + user turns) instead of flattening both
+  /// into one user string. MediaPipe has no role concept and concatenates.
+  func generate(_ prompt: String, system: String?, maxTokens: Int) -> String?
 }
 
 // NO `#if canImport(LiteRTLM)` and no `import LiteRTLM`. The wrapper's Swift
@@ -65,46 +69,60 @@ private final class LiteRtBackend: LlmBackend {
 
   func warm(maxTokens: Int) -> Bool {
     if engine != nil { return true }
-    // Verified against the vendored LiteRTLM 0.14.0 sources, not assumed:
-    // EngineConfig.init and Engine.initialize() are BOTH synchronous `throws`.
-    // Only Conversation.sendMessage is async. An earlier draft awaited all
-    // three and would not have compiled.
+    // `Engine` is an ACTOR (Engine.swift:28), so initialize() and
+    // createConversation() are actor-isolated and must be AWAITED even though
+    // neither is declared `async`. Calling them directly from this synchronous
+    // context is a compile error. Worth stating: the signatures alone read as
+    // ordinary throwing methods, and the first draft here called them plainly.
     //
-    // .cpu, not .gpu, deliberately. Google's own iOS numbers put GPU at 1450 MB
-    // peak against CPU's 607 MB for +31 tok/s decode. On a 6 GB device memory
+    // .cpu, not .gpu, deliberately: Google's own iOS numbers put GPU at 1450 MB
+    // peak against CPU's 607 MB, for +31 tok/s decode. On a 6 GB device memory
     // is the binding constraint, not speed.
     //
     // maxNumTokens is the kv-cache size (input + output). CBT turns are short,
-    // and every token of cache is resident memory on a device that has little
-    // to spare.
-    do {
-      let cfg = try EngineConfig(
-        modelPath: path,
-        backend: .cpu(),
-        maxNumTokens: max(256, maxTokens),
-        cacheDir: NSTemporaryDirectory()
-      )
-      let e = Engine(engineConfig: cfg)
-      try e.initialize()
-      engine = e
-      return true
-    } catch {
-      engine = nil
-      return false
+    // and every token of cache is resident memory on a device with little spare.
+    guard let cfg = try? EngineConfig(
+      modelPath: path,
+      backend: .cpu(),
+      maxNumTokens: max(256, maxTokens),
+      cacheDir: NSTemporaryDirectory()
+    ) else { return false }
+
+    let e = Engine(engineConfig: cfg)
+    // This runs on a serial queue that must not return before the engine is
+    // usable, so the semaphore bridges into the actor rather than making the
+    // whole LlmBackend protocol async for one implementation's sake.
+    let sem = DispatchSemaphore(value: 0)
+    var ok = false
+    Task {
+      do { try await e.initialize(); ok = true } catch { ok = false }
+      sem.signal()
     }
+    sem.wait()
+    engine = ok ? e : nil
+    return ok
   }
 
-  func generate(_ prompt: String, maxTokens: Int) -> String? {
+  func generate(_ prompt: String, system: String?, maxTokens: Int) -> String? {
     if engine == nil, !warm(maxTokens: maxTokens) { return nil }
     guard let engine else { return nil }
-    guard let convo = try? engine.createConversation() else { return nil }
-    // sendMessage IS async, and this runs on a serial queue that must not
-    // return before the text exists. The semaphore bridges that rather than
-    // making the whole LlmBackend protocol async for one method.
     let sem = DispatchSemaphore(value: 0)
     var out: String?
     Task {
-      out = try? await convo.sendMessage(Message(prompt)).toString
+      do {
+        // The `.litertlm` carries the model's own jinja chat template (18.5 KB
+        // of it), and LiteRT-LM applies it to roled messages. So the system
+        // block goes in as a SYSTEM message rather than being glued onto the
+        // front of the user turn: the corpus was trained as system + user
+        // turns, and flattening them is off-distribution from training.
+        let cfg = system.map {
+          ConversationConfig(systemMessage: Message($0, role: .system))
+        }
+        let convo = try await engine.createConversation(with: cfg)
+        out = try await convo.sendMessage(Message(prompt)).toString
+      } catch {
+        out = nil
+      }
       sem.signal()
     }
     sem.wait()
@@ -133,10 +151,13 @@ private final class MediaPipeBackend: LlmBackend {
     return llm != nil
   }
 
-  func generate(_ prompt: String, maxTokens: Int) -> String? {
+  func generate(_ prompt: String, system: String?, maxTokens: Int) -> String? {
     if llm == nil, !warm(maxTokens: maxTokens) { return nil }
     guard let llm else { return nil }
-    return try? llm.generateResponse(inputText: prompt)
+    // MediaPipe has no role concept: the only option is to prepend. This is one
+    // more reason the LiteRT-LM path is preferred, not merely newer.
+    let full = system.map { "\($0)\n\n\(prompt)" } ?? prompt
+    return try? llm.generateResponse(inputText: full)
   }
 }
 #endif
@@ -166,10 +187,10 @@ private final class GemmaEngine {
     }
   }
 
-  func generate(_ prompt: String, maxTokens: Int) -> String? {
+  func generate(_ prompt: String, system: String?, maxTokens: Int) -> String? {
     queue.sync {
       if backend == nil { backend = GemmaEngine.selectBackend() }
-      return backend?.generate(prompt, maxTokens: maxTokens)
+      return backend?.generate(prompt, system: system, maxTokens: maxTokens)
     }
   }
 }
@@ -216,14 +237,14 @@ public class NiyoraGemmaModule: Module {
     // onto the scripted fallback:
     //   { ok: true,  text: String, latencyMs: Int }
     //   { ok: false, failure: "unavailable"|"error", message: String, latencyMs: Int }
-    AsyncFunction("generateText") { (prompt: String, maxTokens: Int) async -> [String: Any] in
+    AsyncFunction("generateText") { (prompt: String, maxTokens: Int, system: String?) async -> [String: Any] in
       let started = Date()
       let ms = { Int(Date().timeIntervalSince(started) * 1000) }
       guard GemmaEngine.selectBackend() != nil else {
         return ["ok": false, "failure": "unavailable",
                 "message": "no model bundled", "latencyMs": 0]
       }
-      if let text = GemmaEngine.shared.generate(prompt, maxTokens: maxTokens) {
+      if let text = GemmaEngine.shared.generate(prompt, system: system, maxTokens: maxTokens) {
         return ["ok": true, "text": text, "latencyMs": ms()]
       }
       return ["ok": false, "failure": "error",

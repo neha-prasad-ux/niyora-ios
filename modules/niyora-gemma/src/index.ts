@@ -76,10 +76,21 @@ export const NiyoraGemma = {
    * the caller (reflect-model) races it against a deadline so a slow model
    * degrades to the scripted line instead of a hung conversation.
    */
-  async generateText(prompt: string, maxTokens: number): Promise<GemmaTextResult> {
+  async generateText(
+    prompt: string,
+    maxTokens: number,
+    // The instruction block, passed SEPARATELY rather than glued to the front
+    // of the prompt. LiteRT-LM applies the model's own chat template (baked
+    // into the .litertlm) around roled messages, so a system string becomes a
+    // real system turn -- which is how the corpus was trained. Flattening it
+    // into the user turn is off-distribution from training. The MediaPipe path
+    // has no role concept and prepends, which is one more reason LiteRT-LM is
+    // preferred rather than merely newer.
+    system?: string,
+  ): Promise<GemmaTextResult> {
     if (!Native) return { ok: false, failure: 'unavailable', latencyMs: 0 };
     try {
-      return await Native.generateText(prompt, maxTokens);
+      return await Native.generateText(prompt, maxTokens, system ?? null);
     } catch (e: any) {
       return { ok: false, failure: 'error', message: e?.message ?? String(e), latencyMs: 0 };
     }
