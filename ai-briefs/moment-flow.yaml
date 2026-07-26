@@ -160,8 +160,19 @@ entry:
     detail: open text field, "what's going on?"
     next: crisis_scan
   - id: crisis_scan
-    kind: branch
+    kind: ai-classify
     actor: system
+    # kind CORRECTED 2026-07-26 (Neha): was `branch`. Recognising crisis in free
+    # text is a classification the model has to make; a branch cannot read text.
+    # CONSEQUENCE, and it is load-bearing: this is now the highest-stakes AI node
+    # in the flow, it has ZERO training data, and the flow's own invariant says
+    # "every AI line has a scripted fallback, the flow must run with the model
+    # off." For crisis that fallback cannot be "skip the check". So this node is
+    # the UNION of two detectors, never either alone:
+    #   rules  = the floor. Always runs. Works with the model off or unloaded.
+    #   model  = catches phrasing the rules miss.
+    # Either one firing fires the node. The model may only ADD detections, never
+    # veto one the rules raised.
     detail: |
       pull issue + candidate feelings + intensity; tiered crisis scan.
       🔴 RUNS ON EVERY FREE-TEXT MESSAGE, NOT JUST THIS ONE. (Added to the spec
