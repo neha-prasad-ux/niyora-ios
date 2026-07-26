@@ -156,14 +156,32 @@ prompt, it answered correctly and then emitted turn tokens for 92s until the
 was a runaway.
 
 **2. ⚠️ The probe loop went unreliable and you must fix this first.** Runs 10
-and 11 launched the app process successfully but produced **no JS output at
-all** — not even the first line — and Metro's last log is still run 9's. So the
-process starts and the bundle never runs. Suspected: the dev client stops
-reconnecting to Metro after a plain `niyora://gemma-probe` launch, and needs the
-full `niyora://expo-development-client/?url=http%3A%2F%2F<host>%3A8081` deep
-link first, then the route. **Do not interpret probe silence as a model result.**
-That ambiguity is exactly what the sink was built to remove, and right now it is
-back. Fix the harness before you trust another measurement.
+and 11 launched the app process successfully but produced **no output at all**,
+not even the first line.
+
+**Do not interpret probe silence as a model result.** There are at least THREE
+independent causes and they are indistinguishable from the Mac:
+
+- **The log sink died.** Confirmed: the sink process was killed (SIGTERM) around
+  this time. The probe's POST is deliberately fire-and-forget
+  (`.catch(() => {})`) so the app never notices, and every line vanishes.
+- **Metro's console forwarding is intermittent.** It produced nothing for the
+  first several runs, started working later, and its last line is run 9's. So a
+  stale Metro log does NOT prove the JS didn't run.
+- **The dev client may stop reconnecting** after a plain `niyora://gemma-probe`
+  launch, and need the full
+  `niyora://expo-development-client/?url=http%3A%2F%2F<host>%3A8081` first.
+
+I originally wrote this section claiming the JS never ran. **That was
+overstated** — it rested on Metro's log, which is itself unreliable. Rule the
+causes out in order before concluding anything about the model.
+
+**Make the harness prove itself before each run:** POST a known line to the sink
+from the Mac (`curl -X POST -d ping http://<host>:8099/`) and confirm it lands,
+and have the probe emit a line at the very top of the component before it
+touches the model. A harness that cannot distinguish "no answer" from "no
+connection" is worse than no harness, because it produces confident wrong
+conclusions.
 
 **Live services on the dev Mac** (all may be dead by the time you read this):
 - Metro, pinned: `EXPO_ROUTER_APP_ROOT="$(pwd)/src/app" npx expo start --dev-client --clear`
