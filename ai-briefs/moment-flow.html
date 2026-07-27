@@ -1,0 +1,453 @@
+<title>In-the-moment flow — canonical map</title>
+<style>
+  :root {
+    --ground: #f4f5f9; --panel: #0c1120; --ink: #1a2036; --muted: #5b6480;
+    --accent: #4f74d8; --gold: #c8901f; --safety: #cc4b3f; --new: #2fa37a;
+    --line: #dde1ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ground: #0a0d18; --ink: #e7ebf6; --muted: #8a93ac; --line: #222838; }
+  }
+  :root[data-theme="light"] { --ground: #f4f5f9; --ink: #1a2036; --muted: #5b6480; --line: #dde1ec; }
+  :root[data-theme="dark"]  { --ground: #0a0d18; --ink: #e7ebf6; --muted: #8a93ac; --line: #222838; }
+
+  body { margin: 0; background: var(--ground); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+  header { margin-bottom: 26px; }
+  .eyebrow { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-size: clamp(24px, 4vw, 34px); margin: 8px 0 6px; letter-spacing: -0.02em; text-wrap: balance; }
+  h2 { font-size: 17px; margin: 34px 0 12px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); max-width: 64ch; font-size: 15px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 20px 0 22px;
+    padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; }
+  .legend .item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .legend .item b { color: var(--ink); font-weight: 600; }
+  .swatch { width: 13px; height: 13px; border-radius: 4px; flex: none; border: 1.5px solid; }
+  .s-ai { background: #2a3a66; border-color: #8fb4ff; }
+  .s-scr { background: #171a24; border-color: #3a4256; }
+  .s-saf { background: #3a1418; border-color: #e0574d; }
+  .s-rew { background: #2e2410; border-color: #e0a11f; }
+  .s-br  { background: #141824; border-color: #5a6480; }
+  .s-ui  { background: #221a33; border-color: #9a7fd0; }
+  .s-new { background: #102c22; border-color: #46d19e; }
+  .board { background: var(--panel); border: 1px solid #1b2740; border-radius: 16px;
+    padding: 10px; overflow-x: auto; box-shadow: 0 18px 50px -30px rgba(0,0,20,0.7); }
+  .mermaid { min-width: 760px; }
+  .changes { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-top: 8px; }
+  .chg { display: grid; grid-template-columns: 30px 1fr; gap: 14px; padding: 15px 18px;
+    border-bottom: 1px solid var(--line); }
+  .chg:last-child { border-bottom: 0; }
+  .num { font-family: ui-monospace, Menlo, monospace; font-size: 13px; font-weight: 700;
+    color: var(--new); padding-top: 1px; }
+  .chg h3 { margin: 0 0 4px; font-size: 15px; }
+  .chg p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .chg .why { display: block; margin-top: 5px; font-size: 12.5px; }
+  .why b { color: var(--ink); font-weight: 600; }
+  .was { color: var(--safety); }
+  .now { color: var(--new); }
+  .note { margin-top: 18px; font-size: 13.5px; color: var(--muted); max-width: 68ch; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 0.9em;
+    background: color-mix(in srgb, var(--accent) 12%, transparent); padding: 1px 5px;
+    border-radius: 4px; color: var(--ink); }
+  .matrix { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .matrix th, .matrix td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  .matrix th { font-weight: 600; font-size: 12px; }
+  .matrix td.topic { font-weight: 600; white-space: nowrap; }
+  .matrix .never { color: var(--safety); }
+  .scroller { overflow-x: auto; }
+  .callout { border: 1px solid var(--new); border-left-width: 3px; border-radius: 10px;
+    padding: 14px 18px; margin: 18px 0; font-size: 13.5px; }
+  .callout b { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Niyora · single source of truth · rev 2026-07-25</div>
+    <h1>In-the-moment flow — canonical map</h1>
+    <p class="sub"><span class="count">Blue</span> nodes are AI-generated (the fine-tune targets); <span style="color:var(--new);font-weight:600">green</span> nodes are this revision's changes. Everything else is fixed script, safety-verbatim, UI, or a branch. Edit <code>moment-flow.yaml</code> and this map follows.</p>
+  </header>
+
+  <div class="legend">
+    <span class="item"><span class="swatch s-new"></span><b>changed / added</b> this revision</span>
+    <span class="item"><span class="swatch s-ai"></span><b>AI slot</b> — fine-tune target</span>
+    <span class="item"><span class="swatch s-scr"></span><b>scripted</b></span>
+    <span class="item"><span class="swatch s-saf"></span><b>safety</b> — verbatim</span>
+    <span class="item"><span class="swatch s-rew"></span><b>reward</b></span>
+    <span class="item"><span class="swatch s-br"></span><b>branch</b></span>
+    <span class="item"><span class="swatch s-ui"></span><b>UI</b></span>
+  </div>
+
+  <div class="board">
+<pre class="mermaid">
+flowchart TD
+
+subgraph ENTRY [" entry "]
+  direction TB
+  raw["“tell me what happened.”<br/><i>asks for an EVENT, not a feeling</i>"]:::new
+  scan{"crisis scan · ALWAYS ON<br/>every cycle phase · errs toward firing<br/><i>runs on EVERY message, not just the first</i>"}:::new
+  safe["are you safe right now?"]:::saf
+  hand["crisis handoff · STOPS the flow<br/>988 · findahelpline.com<br/><i>plain text, never tap-to-dial</i>"]:::saf
+  split{"big or small emotion?"}:::br
+  raw --> scan
+  scan -->|venting hyperbole| split
+  scan -->|ambiguous| safe
+  scan -->|explicit intent| hand
+  safe -->|safe| split
+  safe -->|not safe| hand
+end
+
+subgraph NAMING [" naming beat "]
+  direction TB
+  clarify{"clarify · if entry is thin"}:::ai
+  ack["acknowledge · say it back<br/><i>never her read of his intent</i>"]:::ai
+  tog["you're not in this alone…"]:::scr
+  sci["putting words to it settles it<br/><i>no more 'research says'</i>"]:::new
+  feel["offer 3 feelings"]:::ai
+  nrew(["reward"]):::rew
+  heard["feel-heard · her words"]:::ai
+  refr{"reframe · small only"}:::ai
+  clarify --> ack --> tog --> sci --> feel --> nrew --> heard --> refr
+end
+
+iin["“how big does it feel right now?” · 0–10<br/><i>BEFORE acknowledge — acknowledge is one of<br/>the things we're measuring</i>"]:::new
+split -->|big / small| iin --> clarify
+refr -->|small · lands| wegood
+refr -->|small · doesn't work| body
+refr -->|big emotion| body
+
+subgraph BODY [" body check "]
+  direction TB
+  body{"slept / moved?<br/><i>“hungry” CUT — see change 00b</i>"}:::new
+  soon{"can you do it NOW?<br/><i>never food</i>"}:::new
+  donow["go do it now · we'll wait"]:::new
+  later["not now → Today action"]:::new
+  tired["you're tired. that usually makes it<br/>come out sharper than you mean.<br/><i>names the cost, sets tired:true.<br/>the now/tomorrow question moved to TIME IT</i>"]:::new
+  brew(["reward"]):::rew
+  msafe["let's make you feel safe"]:::scr
+  body -->|a gap| soon
+  soon -->|yes| donow --> brew
+  soon -->|not now| later --> brew
+  body -->|tired| tired --> brew
+  brew --> msafe
+  body -->|all good| msafe
+end
+
+msafe --> lane
+lane{"arousal lane"}:::br
+
+subgraph HIGH [" high lane · angry / anxious / overwhelmed "]
+  direction TB
+  hbre["breathe 4:6 · in for four, out for six<br/><i>count only, no vagus claim</i>"]:::ui
+  hmore{"want three more?"}:::br
+  hr1(["reward"]):::rew
+  hlong{"how long have you got?"}:::br
+  h1b["NO TIME · 30-sec filler<br/>feet on floor · cold hands<br/><b>don't act or send yet</b>"]:::new
+  hstep["1–5 MIN · scaled filler<br/>walk to window · wash hands<br/><b>don't act or send yet</b>"]:::new
+  hpick["20 MIN · activity + timer<br/><b>don't act or send yet</b><br/><i>“people told to sit and stew come out angrier”<br/>cold water · move · fix the basics · box it · accept it<br/>(the old “ladder” rungs ARE this list now)</i>"]:::new
+  hctx["activity-context · why it helps"]:::ai
+  hend(["reward · your mind has reached safety"]):::rew
+  hcbt1["CBT · surface the stuck thought"]:::ai
+  hcbt2["CBT · warm it to a truer read"]:::ai
+  lands{"does that land?<br/><i>a BEHAVIOURAL test of whether she's regulated,<br/>not a self-report. either answer proceeds.</i>"}:::new
+  resp{"do you want to respond to the situation?<br/><i>the wait is now HER choice, and it carries its reason</i>"}:::new
+  hbre --> hmore
+  hmore -->|yes| hbre
+  hmore -->|no| hr1 --> hcbt1 --> hcbt2 --> lands
+  lands -->|yeah, that helps| resp
+  lands -->|not really| resp
+  resp -->|"it takes 20 mins to wear off,<br/>i want to wait"| hlong
+  hlong -->|no time| h1b
+  hlong -->|1–2 / 5 min| hstep
+  hlong -->|20 min| hpick
+  h1b --> hctx
+  hstep --> hctx
+  hpick --> hctx --> hend
+end
+
+subgraph LOW [" low lane · flat / numb / drained "]
+  direction TB
+  lact["one small thing · sunlight · song · warm drink · pet"]:::ui
+  ljust["just the one, done is enough"]:::scr
+  lrew(["reward"]):::rew
+  lref{"reframe · then “does that land?”<br/><i>ADDED — the low lane had nothing reflective at all</i>"}:::new
+  lact --> ljust --> lrew --> lref
+  lref -->|not really| lact
+end
+
+subgraph MIXED [" mixed lane · rejection-sensitive "]
+  direction TB
+  mname["name the swing, trust no peak"]:::scr
+  mval["ride it + self-validate"]:::scr
+  mread["check the read · her thought back"]:::ai
+  msr{"swing or real?<br/><i>she sorts it · we don't argue either way</i>"}:::br
+  mreal["honor it · don't dismiss"]:::ai
+  manc["anchor · one steady line"]:::ai
+  mname --> mval --> mread --> msr
+  msr -->|swing| manc
+  msr -->|real| mreal --> manc
+end
+
+lane -->|high| hbre
+lane -->|low| lact
+lane -->|mixed| mname
+
+resp -->|"no, i'd like to go ahead,<br/>i feel relaxed"| ready
+hend --> ready
+lref -->|yeah, that helps| ready
+manc --> lands
+
+ready(["reward · you're ready"]):::rew
+ctrl{"there's no one right move here.<br/>does any of these sound good?<br/>3 options + 'show me others' + 'none feel possible'<br/><i>a menu, not a diagnosis · only once she's calm</i>"}:::new
+  acts["<b>REFERENCE, not a step</b> · the 13 acts · she never sees these names<br/>A say it to them · B ask for it · C hold a line · D own my part<br/>E find out · F get it ready · G tell one person · H get someone whose job it is<br/>I work out what i want · J take something off my plate<br/>K let it be · L look after myself · <b>M get safe (GATED, never a chip)</b><br/><i>always one high · one middle · one low. a confrontational option is never alone.</i><br/><b>ONLY 6 OF 13 ARE EVIDENCE-GRADED. the other 7 get NO science line.</b>"]:::new
+  scr2["🔴 SAFETY SCREEN · NOT A STEP · a condition on the generator<br/>runs BEFORE the options exist, not after<br/>signs of coercive control → A/B/C are NEVER GENERATED<br/><i>not softened, not caveated. by the time it's on screen the idea is in the room</i>"]:::saf
+  acts -. "the set it draws 3 from" .-> ctrl
+  scr2 -. "PRECONDITION on generating them, not a step she passes" .-> ctrl
+ready --> ctrl
+
+subgraph UNCTRL [" nothing feels possible · she still leaves with something "]
+  direction TB
+  uh["honor it · we're not fixing this tonight<br/><i>no 'but maybe', no re-asking</i>"]:::new
+  usc["warmth · aimed at HER<br/><i>tone, never a named technique</i>"]:::new
+  uact["ONE tiny comfort act, now<br/>warmth · food · shower · music · the dog"]:::new
+  uif["COPING if-then<br/>'if it lands again tonight, then i ___'"]:::new
+  udoor["door left open, no pressure"]:::new
+  uh --> usc --> uact --> uif --> udoor
+end
+
+ctrl -->|none feel possible| uh
+udoor --> wegood
+
+subgraph ACT2 [" act 2 · the act she picked · every module ends in a NOW thing "]
+  direction TB
+  a2i["the option she chose IS the module<br/><i>she picks an act, never a category</i>"]:::new
+  a2{"DRAFT · lonely · repair · real-hurt · work-clash<br/>→ a message she edits + sends<br/><br/>REFRAME+ACT · sad · anxious · shame · numb<br/>promotion · bias → a concrete act, not insight"}:::new
+  a2i --> a2
+end
+
+ctrl -->|picks an option| a2i
+ctrl -->|show me others| ctrl
+
+subgraph TIMING [" time it "]
+  direction TB
+  tim{"help her NOW<br/><i>day-14 hold removed</i>"}:::new
+  tod["IF-THEN plan · <b>she</b> fills both slots<br/>“if ___ happens, then i ___”<br/><i>trigger SEEDED from her own first sentence<br/>model may offer options, never invents · d=0.53</i>"]:::new
+  chk["+ after-the-fight checklist<br/>reconnect · look after yourself · what to watch for<br/><i>ONLY for acts that have an “after”</i>"]:::new
+  tim --> tod --> chk
+end
+
+a2 -->|the thing it produced| tim
+a2 -->|nothing to handle| close
+
+subgraph CLOSE [" we good "]
+  direction TB
+  wegood{"we good?"}:::br
+  wmore["ask for more · suggest untried"]:::ai
+  iout["“and now?” · 0–10<br/><i>never “how much BETTER do you feel”</i>"]:::new
+  nudge["one thing before you go…<br/>NOT the person this is about ·<br/>someone who'll help you THINK<br/><i>only on the frequency signal</i>"]:::new
+  close["you handled that. go be in your evening."]:::new
+  wegood -->|no| wmore --> wegood
+  wegood -->|yes| iout --> nudge --> close
+end
+
+tod --> wegood
+
+classDef ai fill:#2a3a66,stroke:#8fb4ff,stroke-width:2px,color:#eaf1ff;
+classDef scr fill:#171a24,stroke:#3a4256,color:#aeb6c8;
+classDef saf fill:#3a1418,stroke:#e0574d,color:#ffd7d2;
+classDef rew fill:#2e2410,stroke:#e0a11f,color:#ffe8a3;
+classDef br fill:#141824,stroke:#5a6480,color:#cbd3e6;
+classDef ui fill:#221a33,stroke:#9a7fd0,color:#e6dcff;
+classDef new fill:#102c22,stroke:#46d19e,stroke-width:3px,color:#c9ffe9;
+</pre>
+  </div>
+
+  <h2>Acts and topics — how the two lists connect</h2>
+  <p class="sub">Two lists described “what happens next” with no rule joining them: <b>13 acts</b> (what she <i>does</i>) and <b>10 modules</b> (what <i>happened</i>). Undefined handoffs get guessed — the training script had already invented one, quietly repointing the deleted <code>deweight</code> beat at self-compassion.</p>
+
+  <div class="callout">
+    <b>DECIDED: acts are the unit, topics are context.</b><br/>
+    The act set <b>closes</b> — an act can only aim at one of five targets (the other person · the situation · a third party · myself · my safety). <b>Topics fan out forever; targets don't.</b> A new situation needs new <i>copy</i>, never a new act. The other way round never finishes: a landlord, a sister-in-law, a diagnosis would each need their own module.<br/><br/>
+    <b>The 10 “modules” were a shortcut that hard-coded act+topic pairs.</b> <code>work-clash</code> is really “say it to them, at work”. <code>repair</code> is “own my part, with a partner”. Cells in a grid, presented as a list.<br/><br/>
+    <b>Stream F builds 13 act templates plus this matrix</b>, not 10 situation modules. One generator runs whatever she picks, on three inputs: the <b>act</b> (shape of the output), the <b>topic</b> (the words, what's at stake), and <b>her own text</b> (the facts, never invented).<br/><br/>
+    <span class="was"><b>The honest cost:</b></span> hand-written modules produce better copy than a template filled at runtime, and 13 × 10 = 130 cells is exactly why the shortcut happened. How big that quality loss is has not been tested.
+  </div>
+
+  <div class="callout"><b>WE OFFER, SHE CHOOSES</b> (Neha, 2026-07-25): <i>“we should tell her the consequence, the outcome, she can choose to do it or not, its upto her. giving options is our role, chosing is hers.”</i><br/><br/>
+  This removed a column I had drafted. I had marked <code>shame → own my part</code> and <code>lonely → tell one person</code> as <b>never offer</b>, because the evidence says both are weak <i>for her</i>. That was me deciding on her behalf. The fix is not to hide the option — it is to <b>say the honest outcome next to it</b> and let her weigh it.<br/><br/>
+  <b>Two reasons to withhold survive, and neither is paternalism:</b><br/>
+  <b>1 · Suppressed for safety.</b> When the DV screen fires we don't offer confrontational acts <i>and we don't explain why</i>. Not because we know better, but because we <b>cannot see her situation</b> and the option itself could get her hurt. A consequence line there would be us guessing at a risk we can't assess.<br/>
+  <b>2 · Doesn't apply.</b> “Say it to them” for a flat mood invents an antagonist. <code>bias → own my part</code> is the sharp one: bias is not a two-sided conflict, so owning part of it is <b>factually wrong</b>, not merely risky.<br/><br/>
+  <b>The column is now “suppressed / doesn't apply” — never “I decided against it”.</b></div>
+
+  <p class="sub" style="margin-bottom:6px"><b>✅ APPROVED 2026-07-25 — no longer a draft.</b> Reviewed row by row. Three challenged rows held on stated grounds; <code>numb</code> was wrong and is fixed. The menu shows three, and <b>rung 3 is always present</b> — the rule is “never three confrontational”, not “always include a hard one”.</p>
+
+  <div class="scroller">
+  <table class="matrix">
+    <tr><th>topic</th><th>the three to offer (high · middle · low)</th><th>suppressed / doesn't apply</th></tr>
+    <tr><td class="topic">lonely</td><td><b>B</b> ask for the thing (suggest meeting) · <b>G</b> tell one person · <b>L</b> look after myself<br/><i>G ships with its outcome line: “this helps most when they actually think it through with you. if they just agree with you, you'll feel better without much changing.”</i></td><td class="never">A, C, D — no conflict to face</td></tr>
+    <tr><td class="topic">repair</td><td><b>A</b> say it to them · <b>D</b> own my part · <b>F</b> get it ready (draft it)</td><td class="never">C hold a line — wrong direction entirely</td></tr>
+    <tr><td class="topic">real-hurt</td><td><b>A</b> say it to them · <b>C</b> hold a line · <b>L</b> look after myself<br/><i>D own-my-part is OFFERABLE with its outcome line — some women do want to look at their part, and hiding it decides for her</i></td><td class="never">A/B/C suppressed if the safety screen fires</td></tr>
+    <tr><td class="topic">work-clash</td><td><b>A</b> say it to them · <b>H</b> get someone whose job it is · <b>F</b> get it ready for the 1:1</td><td class="never">—</td></tr>
+    <tr><td class="topic">sad</td><td><b>G</b> tell one person · <b>K</b> let it be · <b>L</b> look after myself</td><td class="never">A, B, C — a mood has no target to confront</td></tr>
+    <tr><td class="topic">anxious</td><td><b>E</b> find out · <b>F</b> get it ready · <b>L</b> look after myself</td><td class="never">—</td></tr>
+    <tr><td class="topic">shame</td><td><b>D</b> own my part · <b>G</b> tell one person · <b>K</b> let it be<br/><i>D ships with its outcome line: “this usually lands well with the person you hurt. it's less reliable at making you feel better, at least not straight away.”</i></td><td class="never">—</td></tr>
+    <tr><td class="topic">numb</td><td><b>F</b> get it ready (one small concrete thing) · <b>J</b> take something off my plate · <b>L</b> look after myself<br/><i>self-care here is <b>engaging</b>, not soothing — sunlight, a song you love, the dog, never a bath</i></td><td class="never">A — high-effort confrontation while flat</td></tr>
+    <tr><td class="topic">promotion</td><td><b>B</b> ask for the thing · <b>I</b> work out what I want · <b>F</b> get it ready</td><td class="never">—</td></tr>
+    <tr><td class="topic">bias</td><td><b>H</b> get someone whose job it is · <b>C</b> hold a line · <b>F</b> get it ready (document it)</td><td class="never"><b>D own my part — DOESN'T APPLY.</b> Not a judgement about what's good for her: bias is not a two-sided conflict, so “her part” in it is factually wrong</td></tr>
+  </table>
+  </div>
+
+  <div class="callout"><b>THE UNIVERSAL DV LINE — shown to everyone, not just when the screen fires.</b><br/>
+  Whenever <b>A · say it to them</b> is offered, it carries:<br/><br/>
+  <i>“worth knowing: confronting someone doesn't work when there's abuse in the picture. that's a different situation and it needs different help.”</i><br/><br/>
+  <b>Universal is the whole point, not a detail.</b> Shown only on a screen hit, this line is a <b>disclosure</b> — it tells her the app has concluded she is being abused, on a device someone else may be reading. Shown to every woman, that inverts: no disclosure, no diagnosis, and it <b>reaches the women detection misses</b> — which matters, because the screen will fail on real cases.<br/><br/>
+  It also asks her to assess nothing. That was the fatal flaw in <i>“only if you feel safe with them”</i> as a gate: <b>coercive control distorts precisely that judgement</b>, and a woman being controlled often does believe she is safe. A statement of fact needs no self-assessment at the moment she is least able to make one.<br/><br/>
+  <b>Both layers, independent.</b> The line catches the women the screen misses. The suppression — A/B/C still not generated at all, no caveat, no explanation — catches the women who read the line and don't apply it to themselves, which in coercive relationships is common: recognising your own situation in a general statement is usually the last thing to happen, not the first.</div>
+
+  <div class="callout"><b>Why <code>numb</code> changed.</b> The row was <i>take something off my plate · look after myself · let it be</i> — three ways to do less. <b>Behavioural activation says the flat need an act MOST, not least</b>, so a menu of withdrawal is the wrong medicine for flatness.<br/><br/>
+  This is the same mistake Neha caught earlier on “lift” vs “relax”: BA backs <b>engaging</b> acts, and borrowing its evidence for rest borrows the wrong finding. Twice in one night in the same direction — too protective — which is worth knowing about how this table was drafted.<br/><br/>
+  Note this is the <b>opposite</b> of the comfort-act decision, where soothing was chosen deliberately. Different node, different job: the comfort act is for a woman who has <i>declined to fix anything</i>; the <code>numb</code> menu is for a woman still choosing.</div>
+
+  <p class="note"><b>Two rules cut across every row.</b> <b>M · get safe</b> is gated and never a chip in any topic — a stop and a referral with no content of its own. And when the safety screen fires, <b>A, B and C are not generated at all</b>, which leaves <i>sad</i> and <i>numb</i> untouched but cuts <i>real-hurt</i> down to its low-effort option. That is correct, and it is also the uncomfortable part: <b>our best-evidenced act is the one we withhold from the women in most danger.</b></p>
+
+  <h2>What changed in this revision, and why</h2>
+  <div class="changes">
+    <div class="chg"><div class="num">00d</div><div>
+      <h3>Only 6 of the 13 acts have any evidence — and 7 have none at all</h3>
+      <p>The act menu is the richest thing in the flow and the least evidenced. Graded honestly, and the ungraded ones are now marked <b>no science line permitted</b>.</p>
+      <span class="why why"><b>The one strong act</b> is <b>say it to them</b> (assertiveness g=0.62, N=503; self-guided ES≈1.00, best in the set) — but <b>DESC, the technique we actually teach, has zero trials.</b> It comes from a 1976 trade book. Claim assertiveness, never DESC.<br/>
+      <b>“Hold a line”</b> — “boundaries” has no trial evidence at all and “grey rock” has <i>literally zero</i>. Use the evidenced words instead: refusal skills, work-detachment (d=0.36).<br/>
+      <b>“Own my part”</b> — strong for the <i>recipient</i>, weak-to-null for her own wellbeing (nulls at N=172, N=462). Never claim it helps her.<br/>
+      <b>Seven acts were never graded at all</b> (ask for the thing · find out · get someone whose job it is · work out what I want · take something off my plate · look after myself · get safe). They exist in the taxonomy and in no evidence document. This matters because an agent told to “attach evidence honestly” to an ungraded act <b>invents a rationale in good faith</b>. The standing rule: <i>shipping an unevidenced act is fine; attaching a science line to it is not.</i></span>
+    </div></div>
+    <div class="chg"><div class="num">00e</div><div>
+      <h3>Two acts now carry a safety precondition</h3>
+      <p><b>Tell one person</b> → someone she feels safe with <i>who will think it through with her</i>. <b>Say it to them</b> → only if she'd feel safe saying it.</p>
+      <span class="why why"><b>Why “safe space” alone selects the wrong listener:</b> Nils &amp; Rimé found recovery happened <b>exclusively</b> when the listener stimulated <i>cognitive work</i>. Purely empathic listening produced closeness, less loneliness, and <b>an impression of feeling better with no actual recovery</b>. “Someone who gives me a safe space” reads to most people as <i>someone who'll take my side</i> — precisely the listener who produced the impression and not the recovery. So: safe is the floor, <b>thinks with you</b> is what makes it work.<br/>
+      <b>Why the second one is a layer and never the gate:</b> when there are signs of coercive control the confrontational option is <b>never generated at all</b>. Asking “do you feel safe with him?” after showing “say it to him directly” is too late — the idea is already in the room. And coercive control distorts exactly that self-assessment, so <b>her answer is the least reliable input at the precise moment we'd be relying on it</b>. The screen decides whether she ever sees the option; her answer only lets her decline one we already allowed.</span>
+    </div></div>
+    <div class="chg"><div class="num">00f</div><div>
+      <h3>All 19 why-lines are approved — and there is now a stopping rule</h3>
+      <p>Neha wrote every one. The bar she set: <b>educate AND motivate, or it's not approved.</b> Then a second rule to make review terminate.</p>
+      <span class="why why"><b>The stopping rule, in her words:</b> <i>“if there is no wrong science, fake, wrongful info we should chill. I will test more and get back, change if needed.”</i> So the bar for shipping a line is <b>not</b> “is this the best possible sentence” — it is <b>“is anything in it false, unsupported, or misleading?”</b> Agents may reopen approved copy only to challenge a claim, never to improve its style. Without that, copy review never terminates.<br/>
+      <b>What her drafts changed:</b> she motivates by naming a payoff, where mine only informed — but the first versions promised outcomes we can't back. The fix that came out of it is the general rule now: <b>when a line promises the wrong thing, point the promise at something true rather than deleting it.</b> Four of her lines beat the spec's own copy, most notably the closing rating, where the spec's “and now?” educates nothing and would fail her own test.</span>
+    </div></div>
+    <div class="chg"><div class="num">00b</div><div>
+      <h3>“Can you eat something?” is gone</h3>
+      <p><span class="was">Was:</span> the body check asked about food and offered to eat now or save it for later. <span class="now">Now:</span> not asked at all. The beat keeps sleep and movement.</p>
+      <span class="why why"><b>Three problems, all closed by not asking.</b> <b>No evidence</b> — the body-check finding covers sleep, stress and fatigue and <i>never hunger</i>; it was the one leg of this beat with nothing under it. <b>No safe claim available</b> — the only on-topic study (glucose and partner aggression) isn't in our bank, sits beside a literature that failed to replicate, and is unusable anyway because “blood sugar affects mood” is a physiology claim we've banned. <b>An uncleared safety flag</b> — our own audit records this as an <b>unscreened food prompt</b>, with binge eating elevated through the luteal phase. Asking a woman mid-distress about eating is not a neutral question, and no rewrite of the copy closes that.<br/>
+      Restoring it needs <b>both</b> the study verified and the screen designed. Not one or the other.</span>
+    </div></div>
+    <div class="chg"><div class="num">00c</div><div>
+      <h3>The if-then is two slots, and the trigger comes from her own words</h3>
+      <p><span class="was">Was:</span> “if this happens again i would ___” — one slot, generic trigger. <span class="now">Now:</span> <b>“if ___ happens, then i ___”</b>, with the first blank pre-seeded from her own opening sentence, tense-shifted and editable.</p>
+      <span class="why why"><b>Why two slots:</b> the d=0.53 effect is for a <i>specific</i> trigger paired with a response, and the specificity is the part the mechanism depends on. “If this happens again” is precisely the version that doesn't carry it.<br/>
+      <b>Why seed it from her sentence:</b> for the model to offer “if he brings it up at dinner” it would have to invent a <i>he</i> and a <i>dinner</i> — the invented-person bug, in the highest-stakes slot in the flow. Seeding from what she already wrote makes the facts correct <b>by construction</b>. She fills both halves; the model may offer options, never facts.<br/>
+      <i>Honest note: the evidence is for plans people form themselves. Whether picking from options carries the same effect is not established.</i></span>
+    </div></div>
+    <div class="chg"><div class="num">NEW</div><div>
+      <h3>Every button gets a line saying what it's for</h3>
+      <p>We ask her to choose at <b>16 points</b> and almost never say what the choice is <i>for</i>. She taps chips on trust. <code>activity_context</code> is the <b>only</b> beat in the whole flow whose job is to explain why an action helps — the other fifteen are bare.</p>
+      <span class="why why"><b>Why this isn't cosmetic:</b> if she only learns “the app told me to breathe”, she has an app habit. If she learns “waiting twenty minutes is what stops me sending the thing I'd take back”, she has a skill that survives the phone going back in her pocket. <b>Transfer is the whole point</b>, and transfer needs the reason stated.<br/>
+      <b>The trap:</b> “explain why” is exactly the prompt that tempts a mechanism claim, which the voice rules ban. So the line says what it does <i>for her</i> — ✅ “this is what stops you sending the thing you'd take back” — never ❌ “this lowers your physiological arousal”. Where the evidence is thin, say so: <i>“that's just sensible, not science.”</i><br/>
+      <b>Never on the safety beats.</b> Crisis and the safe-check stay unexplained on purpose — an explanation there reads as persuasion, and we don't persuade her about her own safety. <b>And it fades</b> after about three exposures: teaching stops when she knows.<br/>
+      Two of the sixteen are model slots rather than fixed copy, because they have to name her actual situation: <b>the three act options</b> (she's choosing between a direct, a preparatory and a self-directed act with nothing telling her what separates them) and <b>the if-then</b>.</span>
+    </div></div>
+    <div class="chg"><div class="num">NEW</div><div>
+      <h3>The tired question moved to where it can be answered</h3>
+      <p><span class="was">Was:</span> the body check asked “now / tomorrow?”. <span class="now">Now:</span> the body check only <b>names the cost</b>; the timing question is asked at <b>time-it</b>.</p>
+      <span class="why why"><b>Why:</b> at the body check she hasn't been regulated, hasn't seen the options, and hasn't chosen an act — so “now or tomorrow?” was asking her to time <b>an action that didn't exist yet</b>. Unanswerable. By time-it there's a specific thing to time: the message she just drafted. “do it now anyway” stays a real, un-shamed option either way.</span>
+    </div></div>
+    <div class="chg"><div class="num">00</div><div>
+      <h3>The ending, and a number either side of it</h3>
+      <p>Both branches now exit the same shape: <b>something concrete → an if-then → we good? → a rating → [human nudge] → close.</b> She picks an act and the if-then is for <i>doing</i> it; she picks “none feel possible” and it's for <i>surviving</i> it. Nobody leaves empty-handed.</p>
+      <span class="why why"><b>Intensity is measured twice</b> — “how big does it feel right now?” before acknowledge, “and now?” at the close. The delta is the measure, not either number.<br/>
+      <b>The wording is deliberate:</b> never “how much <i>better</i> do you feel?” — that presupposes improvement and inflates a measure the evidence already distrusts (people reported feeling better after talking an upset through while showing <b>no recovery at 3 days, 7 days or 2 months</b>). The truer number is “did you actually do it?” at 24h.<br/>
+      <b>The baseline fires before acknowledge</b> because acknowledge is one of the things being measured. And it's <b>not</b> the same as the mid-flow “any better?”, which is a routing question asked while she's still working.<br/>
+      <b>The human nudge fires on frequency only</b>, never every session — usage volume is what predicts loneliness and dependence, so the right response to a high number is to send her away.</span>
+    </div></div>
+    <div class="chg"><div class="num">01</div><div>
+      <h3>The options question — a menu, not a diagnosis</h3>
+      <p><i>“there's no one right move here. does any of these sound like something you'd want to do?”</i> — three concrete options in her own words, plus <b>“show me some others”</b> and an equally-legitimate <b>“none of these feel possible right now.”</b></p>
+      <span class="why why"><b>What changed and why:</b> this was going to be a controllability assessment — decide whether her situation is fixable, then route her. That framing needed evidence we don't have (one cross-sectional study of 170 people, measuring an <i>ability</i>, about reappraisal rather than acceptance — and the largest test since found <b>intensity</b> dominates, not controllability).<br/>
+      So we stopped assessing and started <b>asking</b>. “What do you want to do?” needs no evidence at all — it's consent. Same screen, honest framing.<br/>
+      <b>Why options rather than an open question:</b> a woman who is low answers “no, nothing” to “can you do something about this?” every time — that's the low mood answering, not the situation. Options let her <i>recognise</i> a possibility instead of having to generate one. And “show me others” means “none of these” is a real preference rather than the only exit.</span>
+    </div></div>
+    <div class="chg"><div class="num">01b</div><div>
+      <h3>Removed: the beat that told her not to trust her own read</h3>
+      <p><span class="was">Was:</span> in the mixed lane, if she called it a swing, the moon “de-weighted” it — <i>let's not give the peak the last word</i>. <span class="now">Now:</span> gone. She still sorts swing-or-real; we simply don't argue either way.</p>
+      <span class="why why"><b>Why:</b> zero evidence behind it, and a real cost — we may talk a woman out of an <b>accurate</b> read of someone who is genuinely pulling away, or genuinely unsafe. It also sat directly against the rule that the moon never overwrites her attributions about another person.</span>
+    </div></div>
+    <div class="chg"><div class="num">02</div><div>
+      <h3>Every hold branch has a filler <i>and</i> the don’t-send guardrail</h3>
+      <p><span class="was">Was:</span> only the 20-min branch had an activity <i>or</i> the “don’t act or send” line; no-time / 1–2 / 5-min issued a bare hold. <span class="now">Now:</span> every branch gets a filler scaled to its length, and <b>“don’t act on this or send anything yet” is verbatim on all of them</b>.</p>
+      <span class="why why"><b>Why the filler:</b> Gottman — heart rate resets in ~20 min <b>only with active distraction</b>. Bushman — an empty delay is rehearsal. Those short branches are <b>most sessions</b>, so most sessions took the risk without the mitigation.<br/>
+      <b>Why the guardrail everywhere:</b> the entire point of a hold is that she doesn’t fire off the reactive thing — and <b>30 seconds is long enough to send a text</b>. A hold without the guardrail protects nothing.</span>
+    </div></div>
+    <div class="chg"><div class="num">02e</div><div>
+      <h3>Tired now changes the timing — and she keeps the choice</h3>
+      <p>We asked about tiredness and then did nothing with it. Now: <i>“you're tired. that usually makes it come out sharper than you mean.”</i> → <b>now · tomorrow · not sure</b>.</p>
+      <span class="why why">You can't nap on demand, so tiredness shouldn't add a task — it should change the <i>timing</i> decision. Name the cost, don't decide for her, and keep “do it now anyway” a real un-shamed option. Tiredness happens at 2pm as well as 2am, so this isn't a night-only branch. <b>Honest note:</b> exhaustion-as-a-reason-to-wait is sensible, not evidenced — so we say it plainly and never dress it as science.</span>
+    </div></div>
+    <div class="chg"><div class="num">02f</div><div>
+      <h3>“Want to try some other practices?” — an offer, then folded away entirely</h3>
+      <p><span class="was">Was:</span> an escalation ladder. <span class="now">Then:</span> an offer. <span class="now">Now:</span> <b>deleted as a beat</b> — its five rungs simply <i>are</i> the activity list.</p>
+      <span class="why why">“Ladder” implies a hierarchy and, underneath it, that she's failing her way up it. It's also more honest: cold water, TIPP and the rest have no trial evidence, so <b>offering beats prescribing</b>.</span>
+    </div></div>
+    <div class="chg"><div class="num">02b</div><div>
+      <h3>The body check acts now instead of writing a note</h3>
+      <p><span class="was">Was:</span> a gap always became a Today action. <span class="now">Now:</span> <b>“can you eat something now?”</b> → yes: go do it, the flow waits — it’s the most useful thing available in the moment. Only <b>“not now”</b> becomes a Today action.</p>
+      <span class="why why"><b>Why:</b> deferring food/water/rest deferred the one intervention that works immediately. The body check is also the beat with the strongest evidence in our whole flow — day-to-day sleep, stress and fatigue moved the regulation biomarker while cycle phase showed no population rhythm at all.</span>
+    </div></div>
+    <div class="chg"><div class="num">02c</div><div>
+      <h3>The 10 modules collapse into the options — and each ends in a NOW thing</h3>
+      <p><span class="was">Was:</span> she picked 3 options, <i>then</i> we routed her to a module — two choices for one decision. <span class="now">Now:</span> the 3 options <b>are</b> the module entry points, phrased as her specific act. She picks an act, never a category name.</p>
+      <span class="why why"><b>And with day-14 gone, no module may dead-end in insight.</b> The four DRAFT modules (lonely, repair, real-hurt, work-clash) already produce a message she edits and sends. The six reframe modules now each attach a concrete act: sad → one small thing today · anxious → the specific fear + an anchor line · shame → repair-or-release, decided now · numb → one activation act · promotion → the actual sentence + what to gather · bias → the boundary line, rehearsed. Whatever the module produces becomes the if-then Today action.</span>
+    </div></div>
+    <div class="chg"><div class="num">02d</div><div>
+      <h3>“Nothing feels possible” no longer exits empty-handed</h3>
+      <p><span class="was">Was:</span> she picked “none feel possible”, got a warm line, and left — while every other path exited with an act and a plan. <span class="now">Now:</span> honor it → <b>warmth</b> → <b>one tiny comfort act</b> → a <b>coping if-then</b> → door left open.</p>
+      <span class="why why"><b>Why this mattered most:</b> she is the group most likely to be low or hopeless; behavioural activation says the flat need an act <b>most</b>, not least; and leaving with nothing literally <b>confirms her belief that nothing helps</b>.<br/>
+      <b>The resolution:</b> separate acting on the <i>situation</i> (she declined — respected completely, never re-asked) from acting for <i>herself</i> (still available, requires solving nothing). Implementation intentions still apply — only the “then” changes from fixing to surviving: <i>“if it lands on me again tonight, then I put the heat pack on and text mum.”</i> She leaves with the same shape everyone else does.<br/>
+      The <b>comfort act</b> carries the weight here, not the warmth — self-compassion halves against an active comparison and app-delivered versions come out near-null, so it is <b>tone, never a named method</b>: never labelled, never explained, never claimed. <i>(This panel said the opposite until 2026-07-25 — it called self-compassion “the one self-guided-evidenced move”, which is exactly the claim the spec forbids.)</i> And repeated “none feel possible” across sessions is a <b>signal to track gently</b> — never something to confront her with in the moment.</span>
+    </div></div>
+    <div class="chg"><div class="num">03</div><div>
+      <h3>The Today action is an if-then plan</h3>
+      <p><span class="was">Was:</span> a today/wait chip — a timing choice. <span class="now">Now:</span> <code>if [trigger], then [what I say]</code>, stored as her action.</p>
+      <span class="why why"><b>Why:</b> Gollwitzer/Webb implementation intentions regulate affect at <b>d = 0.53</b> against the fair comparator (goal intentions) — still the single biggest documented lever in the flow, previously reduced to a scheduling question. <i>Corrected from 0.91, which is the figure against no-regulation instructions and overstates it.</i> <b>She</b> fills both slots, not the model — self-generated intentions work better, and the model can't invent a person that way.<br/>Where the act has an <b>after</b> (say-it-to-them, own-my-part, a-real-hurt, work-clash) it also gets the after-the-fight checklist. Nobody needs one for “have a shower.”</span>
+    </div></div>
+    <div class="chg"><div class="num">04</div><div>
+      <h3>Crisis is always-on, every cycle phase</h3>
+      <p>Never gated or weighted by cycle phase; <b>errs toward firing</b> when uncertain.</p>
+      <span class="why why"><b>Why:</b> suicide deaths <b>+26%</b> and attempts <b>+17% at menstruation</b> vs +13% admissions premenstrually. A luteal-weighted design would have relaxed exactly as risk peaks. A false positive costs one gentle question; a false negative costs everything.</span>
+    </div></div>
+    <div class="chg"><div class="num">05</div><div>
+      <h3>The ~day-14 hold is gone — help her now</h3>
+      <p><span class="was">Was:</span> “hold it until around day 14.” <span class="now">Now:</span> act today once regulated; if she does want to wait, <b>schedule the return</b>.</p>
+      <span class="why why"><b>Why:</b> the day-14 number rested on a single <b>n=23</b> study that never tested the contrast we were advising — and McGowan &amp; Behar found a <i>scheduled</i> worry-window works while <b>plain postponement fails</b>. We had built the version that doesn’t work. The <b>short</b> 20-min delay stays; it’s well supported.</span>
+    </div></div>
+    <div class="chg"><div class="num">05b</div><div>
+      <h3>Three acts reframed to match what the evidence actually says</h3>
+      <p><b>Reach out</b> → <i>“tell someone who'll help you think it through”</i>, not vent to someone. Talking through an upset produced <b>no recovery at 3 days, 7 days or 2 months</b> versus a control — yet people <i>felt</i> it helped. It only worked when the listener helped her think.<br/>
+      <b>Self-compassion</b> → demoted from a technique to <b>tone</b>. It beats doing nothing but roughly halves against an active comparison, and app versions come out near-null. The comfort act that follows does the real work, so the warmth lives in the writing instead of being a named method.<br/>
+      <b>Repair</b> → said frankly: <i>apologising reliably helps the other person and the relationship. it might not make you feel better. and if you mean to and then don't, that tends to sit worse than never planning to.</i> All three are supported, and the last one is worth knowing <i>before</i> she decides.</p>
+      <span class="why why">Also: “boundaries” and “grey rock” are out as terms — neither has trial evidence (grey rock has literally none). What's evidenced is the specific version: <b>say no to this thing</b>, <b>don't reply tonight</b>, <b>leave at 6 like you planned</b>.</span>
+    </div></div>
+    <div class="chg"><div class="num">06</div><div>
+      <h3>Three copy lines stopped overclaiming</h3>
+      <p><b>Naming:</b> “research says… precise vs generic words” → <b>“putting words to a feeling settles it down a bit.”</b> Lieberman supports <i>labeling</i>; precise-vs-generic is granularity — textbook, not a citation we hold.<br/>
+      <b>Breathing:</b> keep the 4:6 count (4+6 = 10s = <b>6 breaths/min</b>, exactly the supported pace); drop “fastest lever on the vagus nerve.”<br/>
+      <b>Crying:</b> permit, never prescribe — Gračanin: crying helps <i>only</i> when it leads to comfort; otherwise it’s rumination-crying.</span>
+    </div></div>
+    <div class="chg"><div class="num">07</div><div>
+      <h3>The reflection beat never echoes her attributions</h3>
+      <p>Reflect the event, the feeling, the body — <b>never</b> her read of what someone else meant. “he didn’t call, and you’ve been checking your phone” ✅ / “he’s clearly pulling away” ❌</p>
+      <span class="why why"><b>Why:</b> sycophancy risk is highest exactly at the reflection beat (Stanford/FAccT 2025 — models endorse distorted reads). This is the one place an AI can make a spiral worse while sounding kind.</span>
+    </div></div>
+  </div>
+
+  <p class="note">Nodes needing AI generation: <code>clarify</code>, <code>acknowledge</code>, <code>feelings</code>, <code>feel-heard</code>, <code>reframe-small</code>, <code>activity-context</code>, <code>CBT stem</code>, <code>CBT reframe</code>, <code>check-the-read</code>, <code>de-weight</code>, <code>honor-real</code>, <code>anchor</code>, <code>uncontrollable-path</code>, <code>Act 2 module</code> (×10), <code>we-good-more</code>. Safety lines — crisis handoff, “in for four, out for six”, “don’t act or send” — stay verbatim and are never model-generated.</p>
+</div>
