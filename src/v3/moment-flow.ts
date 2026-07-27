@@ -55,13 +55,12 @@ export type NodeId =
   | 'name_reward'
   | 'feel_heard'
   | 'reframe_small'
+  // settle
+  | 'breathe'
+  | 'breathe_more'
   // body
   | 'make_safe'
   | 'lane_split'
-  // high lane
-  | 'high_breathe'
-  | 'high_more'
-  | 'high_reward1'
   | 'high_howlong'
   | 'high_onebreath'
   | 'high_stepaway'
@@ -72,12 +71,22 @@ export type NodeId =
   | 'high_cbt_reframe'
   | 'arousal_check'
   | 'high_ladder'
-  // low lane
+  // the hold
+  | 'high_howlong'
+  | 'high_onebreath'
+  | 'high_stepaway'
+  | 'high_pick_activity'
+  | 'high_activity_context'
+  | 'high_timer_end'
+  | 'high_cbt_stem'
+  | 'high_cbt_reframe'
+  | 'arousal_check'
+  | 'high_ladder'
+  // low and mixed lanes
   | 'low_activate'
   | 'low_justone'
   | 'low_reward'
   | 'low_better'
-  // mixed lane
   | 'mixed_name_swing'
   | 'mixed_validate'
   | 'mixed_check_read'
@@ -215,8 +224,8 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'what happened',
     branches: [
       { when: 'small_lands', next: 'we_good' },
-      { when: 'small_no', next: 'make_safe' },
-      { when: 'big', next: 'make_safe' },
+      { when: 'small_no', next: 'breathe' },
+      { when: 'big', next: 'breathe' },
     ],
     note: 'EVERYONE gets this, not only small emotions (Neha, 2026-07-27, overriding the map). Authored: a gentler reading is new content however gently phrased. She PICKS which of three is true, so the app never asserts one; the model may eventually rank them and may never write one.',
   },
@@ -233,38 +242,59 @@ export const MOMENT_FLOW: FlowNode[] = [
   // in this beat (day-to-day sleep and fatigue moved the regulation biomarker
   // where cycle phase showed no population rhythm at all), and the food leg was
   // the one with nothing under it.
-  { id: 'make_safe', owner: 'authored', phase: 'settle', next: 'lane_split' },
+  {
+    id: 'breathe',
+    owner: 'ui',
+    phase: 'settle',
+    next: 'breathe_more',
+    why: true,
+    note: 'One long exhale, out for longer than in. Count only, no vagus claim. EVERYONE gets this now, not only the high lane (Neha, 2026-07-27) — which is why it is no longer named high_breathe. Reuses the per-phase breath haptics so she can do it with her eyes shut and the phone face down.',
+  },
+  {
+    id: 'breathe_more',
+    owner: 'branch',
+    phase: 'settle',
+    branches: [
+      { when: 'yes', next: 'breathe' },
+      { when: 'no', next: 'make_safe' },
+    ],
+    note: 'Two more rounds, offered not imposed.',
+  },
+  {
+    id: 'make_safe',
+    owner: 'authored',
+    phase: 'settle',
+    why: true,
+    branches: [
+      { when: 'wait', next: 'high_howlong' },
+      { when: 'now', next: 'lane_split' },
+    ],
+    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed.',
+  },
+  // The LANE SPLIT and the low and mixed lanes were removed 2026-07-27 at
+  // Neha's call. make_safe now goes straight to the hold or straight to the
+  // menu, so there was no longer a fork to route them from.
+  //
+  // What went: lane_split, high_reward1, and the whole low lane (one small
+  // engaging act, since the flat need an act most rather than least) and mixed
+  // lane (name the swing, check the read, an anchor — with the rule that she
+  // sorts swing-from-real and we do not argue either way).
+  //
+  // The HIGH lane's hold survives, because "wait twenty minutes" needs it.
+
   {
     id: 'lane_split',
     owner: 'branch',
     phase: 'settle',
     branches: [
-      { when: 'high', next: 'high_breathe' },
+      { when: 'high', next: 'options' },
       { when: 'low', next: 'low_activate' },
       { when: 'mixed', next: 'mixed_name_swing' },
     ],
-    note: 'Routed by the feeling she picked, not by cycle phase. One flow: phase is context, never a fork.',
+    note: 'NOT A PAGE (Neha, 2026-07-27). She is never asked which lane she is in: it is derived from the feeling she already named, because asking again for something she has just told us reads as a form. High goes straight to the menu; low and mixed keep their own work first. Cycle phase is context here, never a fork.',
   },
 
-  // --- high lane -----------------------------------------------------------
-  {
-    id: 'high_breathe',
-    owner: 'ui',
-    phase: 'settle',
-    next: 'high_more',
-    why: true,
-    note: 'In for four, out for six. Count only, no vagus claim. Reuses the per-phase breath haptics so she can do it with her eyes shut and the phone face down.',
-  },
-  {
-    id: 'high_more',
-    owner: 'branch',
-    phase: 'settle',
-    branches: [
-      { when: 'yes', next: 'high_breathe' },
-      { when: 'no', next: 'high_reward1' },
-    ],
-  },
-  { id: 'high_reward1', owner: 'reward', phase: 'settle', next: 'high_howlong' },
+  // --- the hold ------------------------------------------------------------
   {
     id: 'high_howlong',
     owner: 'branch',
@@ -338,6 +368,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     next: 'arousal_check',
     note: 'An offer of other things to try, not a ladder: a hierarchy implies she is failing her way up it, and none of these have trial evidence anyway.',
   },
+
 
   // --- low lane ------------------------------------------------------------
   {

@@ -248,7 +248,15 @@ export const COPY = {
   //   · not congratulate her for feeling less than someone else would
   // What it CAN honestly say is that naming a small one is often most of the
   // work, because that is the same claim the naming beat already makes.
-  reframe_small_ask: 'Sometimes a different perspective helps. Do you think any of these is true?', // [NEHA]
+  // Split in two: the moon says the first part, then a rule, then the question
+  // sits smaller underneath it. One sentence carried both a statement and a
+  // question, which made the question easy to skim past.
+  reframe_small_intro: 'Sometimes a different perspective helps.', // [NEHA]
+  reframe_small_ask: 'Do you think any of these is true?', // [NEHA]
+  // The way out of the pick. Without it the only way forward is to endorse one
+  // of three readings, and a woman who believes none of them either picks the
+  // least wrong one, which corrupts the answer, or leaves.
+  reframe_small_none: 'No, not really', // [NEHA]
   reframe_small_check: 'Does this help?', // [NEHA]
   reframe_small_yes: 'That helps', // [DRAFT]
   reframe_small_no: 'Not really', // [DRAFT]
@@ -264,12 +272,43 @@ export const COPY = {
   // app's own audit flags an unscreened food prompt as a risk with binge eating
   // elevated through the luteal phase, and "make sure you are not low on blood
   // sugar" is a physiology claim the voice rules ban outright.
-  make_safe: "Let's make you feel safe", // [MAP]
+  /**
+   * The hold. Neha's beat, 2026-07-27, replacing the map's "let's make you feel
+   * safe". Three deliberate departures from the drafted wording:
+   *
+   * 1. NO PERSON. The draft said "reacting to your husband". The app does not
+   *    know she has one; she may have written about a manager, her sister, a
+   *    friend. Naming a relationship she did not name is the invented-detail
+   *    failure the whole grounding module exists to prevent, and it is the one
+   *    she is least able to catch because it reads plausibly and is about her
+   *    own life. If we ever want a person here it must be lifted from her own
+   *    sentence, never supplied.
+   * 2. NO PHYSIOLOGY CLAIM. "Emotions take 20 minutes to wind off" is stated as
+   *    fact and is not quite what the evidence says: the twenty-minute reset
+   *    holds with ACTIVE DISTRACTION, and an empty wait is rehearsal. So the
+   *    line says what the wait does for her instead of what her body does.
+   * 3. NO "IT IS NOT THE BEST THING TO DO". We offer and she chooses; the app
+   *    cannot see her situation well enough to rank her options for her.
+   */
+  make_safe_intro: 'You might feel like reacting right now.', // [NEHA]
+  make_safe_why:
+    'Waiting twenty minutes is what stops you sending the thing you would take back.', // [DRAFT]
+  make_safe_ask: 'Do you want to react now?', // [NEHA]
+  // Both un-shamed. "Do it now anyway" stays a real option, not a lesser one:
+  // an app that makes the impatient answer feel like a failure is one she stops
+  // being honest with.
+  make_safe_wait: 'No, I will wait twenty minutes', // [NEHA]
+  make_safe_now: 'I am ready to respond now', // [NEHA]
 
   // --- high lane ---------------------------------------------------------
-  high_breathe: 'In for four, out for six', // [MAP]
-  high_breathe_why: 'The long out-breath is the part that does it. You do not have to feel anything shift.', // [DRAFT]
-  high_more: 'Want three more?', // [MAP]
+  // One long exhale, for everyone, before the hold. Count only: the map's rule
+  // is no vagus claim, and "the long out-breath is the part that does it" is
+  // already at the edge of one, so it says what to do rather than what it does.
+  breathe: 'One long exhale.', // [NEHA]
+  breathe_why: 'Out for longer than in. You do not have to feel anything shift.', // [DRAFT]
+  breathe_more: 'Two more rounds?', // [NEHA]
+  breathe_more_yes: 'Yes', // [DRAFT]
+  breathe_more_no: 'I am good', // [DRAFT]
   high_howlong: 'How long have you got?', // [MAP]
   high_none: 'No time', // [MAP]
   high_few: 'A few minutes', // [MAP]

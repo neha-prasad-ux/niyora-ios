@@ -125,6 +125,29 @@ export const FEELING_SET: readonly FeelingWord[] = [
  * The scoring below does not care how long the list is, so replacing it is a
  * data change, not a code change.
  */
+/**
+ * Which lane a feeling word puts her in.
+ *
+ * Derived, never asked. She has just told us the word; asking "wound up, flat,
+ * or all over the place?" one screen later reads as a form rather than a
+ * conversation.
+ *
+ * HIGH is the default on purpose. An unrecognised word is far more likely to be
+ * a wound-up one in this flow, and the high lane is the one that offers the
+ * hold — so an unknown word errs toward waiting rather than toward acting.
+ */
+export type Lane = 'high' | 'low' | 'mixed';
+
+const LOW_WORDS = /\b(flat|numb|drained|empty|tired of it|low|heavy|nothing|blank)\b/i;
+const MIXED_WORDS =
+  /\b(all over the place|up and down|swinging|confused|torn|not sure|mixed)\b/i;
+
+export function laneFor(feeling: string): Lane {
+  if (MIXED_WORDS.test(feeling)) return 'mixed';
+  if (LOW_WORDS.test(feeling)) return 'low';
+  return 'high';
+}
+
 export function offerFeelings(herText: string, count = 3): string[] {
   const t = herText.toLowerCase();
   const scored = FEELING_SET.map((f, i) => ({

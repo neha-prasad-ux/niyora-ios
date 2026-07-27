@@ -54,7 +54,7 @@ import { Aurora } from '@/components/moment/aurora';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, WhyLine } from '@/components/moment/controls';
 import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
-import { analyse, offerFeelings, type Verdict } from '@/v3/moment-analyse';
+import { analyse, laneFor, offerFeelings, type Verdict } from '@/v3/moment-analyse';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
@@ -135,7 +135,15 @@ export default function Moment() {
 
   const go = useCallback((from: NodeId, key?: string) => {
     const next = advance(from, key);
-    if (next) setCurrent(next);
+    if (next == null) return;
+    // `lane_split` is a routing node, not a card. She has already named the
+    // feeling, so the lane is derived rather than asked: putting the question
+    // on screen would be the app asking for something it was just told.
+    if (next === 'lane_split') {
+      setCurrent(advance('lane_split', laneFor(chosenFeeling.current)) ?? 'options');
+      return;
+    }
+    setCurrent(next);
   }, []);
 
   const send = useCallback(() => {
@@ -465,6 +473,69 @@ export default function Moment() {
           ) : null,
         };
 
+      // One long exhale. The real breath UI (4:6 with the per-phase haptics
+      // that already exist in use-breath-cycle) is not wired yet; this is the
+      // instruction and the beat, so the flow walks.
+      case 'breathe':
+        return {
+          body: (
+            <>
+              {head(COPY.breathe)}
+              <WhyLine>{COPY.breathe_why}</WhyLine>
+            </>
+          ),
+          cta: (
+            <BeginButton fullWidth label="Done" onPress={() => setCurrent('breathe_more')} />
+          ),
+        };
+
+      // Offered, not imposed. "I am good" is not a lesser answer.
+      case 'breathe_more':
+        return {
+          body: (
+            <>
+              {head(COPY.breathe_more)}
+              <View style={styles.stack}>
+                <OptionRow
+                  label={COPY.breathe_more_yes}
+                  onPress={() => pickThenGo(() => go('breathe_more', 'yes'))}
+                />
+                <OptionRow
+                  label={COPY.breathe_more_no}
+                  onPress={() => pickThenGo(() => go('breathe_more', 'no'))}
+                />
+              </View>
+            </>
+          ),
+          cta: null,
+        };
+
+      // The hold. Names no person: the app does not know who she is upset with
+      // unless she said so, and supplying one is the invented-detail failure
+      // the grounding rules exist to prevent.
+      case 'make_safe':
+        return {
+          body: (
+            <>
+              {head(COPY.make_safe_intro)}
+              <WhyLine>{COPY.make_safe_why}</WhyLine>
+              <View style={styles.rule} />
+              <Text style={styles.feelingsAsk}>{COPY.make_safe_ask}</Text>
+              <View style={styles.stack}>
+                <OptionRow
+                  label={COPY.make_safe_wait}
+                  onPress={() => pickThenGo(() => go('make_safe', 'wait'))}
+                />
+                <OptionRow
+                  label={COPY.make_safe_now}
+                  onPress={() => pickThenGo(() => go('make_safe', 'now'))}
+                />
+              </View>
+            </>
+          ),
+          cta: null,
+        };
+
       // The reframe, small moments only. Big ones never reach here: a gentler
       // reading lands on a clear head and fails on a flooded one, so they go
       // straight to the body and the thinking happens later.
@@ -476,11 +547,21 @@ export default function Moment() {
           return {
             body: (
               <>
-                {head(COPY.reframe_small_ask)}
+                {head(COPY.reframe_small_intro)}
+                <View style={styles.rule} />
+                <Text style={styles.feelingsAsk}>{COPY.reframe_small_ask}</Text>
                 <View style={styles.stack}>
                   {SETS.smallReframes.map((r) => (
                     <OptionRow key={r} label={r} onPress={() => setReframePick(r)} />
                   ))}
+                  {/* None of them are true. Not a lesser answer: the beat asks
+                      whether a different reading is true, and "no" is a real
+                      answer to that. It skips the follow-up, because there is
+                      no line to ask whether it helped. */}
+                  <OptionRow
+                    label={COPY.reframe_small_none}
+                    onPress={() => pickThenGo(() => go('reframe_small', 'small_no'))}
+                  />
                 </View>
               </>
             ),
@@ -497,15 +578,15 @@ export default function Moment() {
               <View style={styles.stack}>
                 <OptionRow
                   label={COPY.reframe_small_yes}
-                  onPress={() => pickThenGo(() => setCurrent('we_good'))}
+                  onPress={() => pickThenGo(() => go('reframe_small', 'small_lands'))}
                 />
                 <OptionRow
                   label={COPY.reframe_small_no}
-                  onPress={() => pickThenGo(() => setCurrent('make_safe'))}
+                  onPress={() => pickThenGo(() => go('reframe_small', 'small_no'))}
                 />
                 <OptionRow
                   label={COPY.reframe_small_bigger}
-                  onPress={() => pickThenGo(() => setCurrent('make_safe'))}
+                  onPress={() => pickThenGo(() => go('reframe_small', 'big'))}
                 />
               </View>
             </>
@@ -643,19 +724,10 @@ const SPOKEN: Partial<Record<NodeId, string>> = {
   together: COPY.together,
   naming_science: COPY.naming_science,
   feelings: COPY.feelings_ask,
-  make_safe: COPY.make_safe,
-  high_breathe: COPY.high_breathe,
-  high_more: COPY.high_more,
   high_howlong: COPY.high_howlong,
   high_cbt_stem: COPY.high_cbt_stem,
   arousal_check: COPY.arousal_check,
   high_ladder: COPY.high_ladder,
-  low_activate: COPY.low_activate,
-  low_justone: COPY.low_justone,
-  low_better: COPY.low_better,
-  mixed_name_swing: COPY.mixed_name_swing,
-  mixed_validate: COPY.mixed_validate,
-  mixed_swing_real: COPY.mixed_swing_real,
   unctrl_honor: COPY.unctrl_honor,
   unctrl_warmth: COPY.unctrl_warmth,
   unctrl_act: COPY.unctrl_act,
