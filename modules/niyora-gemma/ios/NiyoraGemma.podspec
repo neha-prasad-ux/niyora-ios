@@ -36,10 +36,29 @@ Pod::Spec.new do |s|
   # the simulator works too.
   s.vendored_frameworks = 'vendor/CLiteRTLM.xcframework'
 
-  # MediaPipe stays for the legacy `.task` path. Google has it in
-  # maintenance-only mode, so it is the fallback, not the default.
-  s.dependency 'MediaPipeTasksGenAI'
-  s.dependency 'MediaPipeTasksGenAIC'
+  # MediaPipe is DROPPED (2026-07-27). It used to stay for the legacy `.task`
+  # path, but linking it alongside LiteRT-LM makes the app unlaunchable:
+  #
+  #   Watchdog Violation (0x8BADF00D) — process-launch watchdog transgression:
+  #   exhausted real (wall clock) time allowance of 20.00 seconds
+  #
+  # The crash backtrace is entirely inside dyld running static initializers,
+  # before main():
+  #   _GLOBAL__sub_I_thread_pool_executor.cc
+  #   mediapipe::GlobalFactoryRegistry<absl::StatusOr<mediapipe::Executor*>, …>
+  #   dyld4::Loader::findAndRunAllInitializers
+  # so MediaPipe's global constructors alone spend the whole launch allowance
+  # and the app is killed with a blank screen having run none of our code.
+  # The two runtimes also collide at link time — both vendor Skia, giving
+  # `duplicate symbol 'SkPathBuilder::SkPathBuilder'`.
+  #
+  # Nothing is lost. MediaPipe's bundler has no Gemma 4 model type
+  # (`Unknown special model: GEMMA_4_E2B`), so it cannot load our fine-tune at
+  # any point; LiteRT-LM is the only runtime that can. The Swift side already
+  # guards every MediaPipe reference behind `#if canImport(MediaPipeTasksGenAI)`
+  # and compiles to the LiteRT-LM-only path when the pods are absent.
+  # s.dependency 'MediaPipeTasksGenAI'
+  # s.dependency 'MediaPipeTasksGenAIC'
 
   # The Gemma weights (~3GB) are bundled into the app at BUILD time, not stored
   # in git. `scripts/fetch-model.mjs` writes the .task file into ./model before

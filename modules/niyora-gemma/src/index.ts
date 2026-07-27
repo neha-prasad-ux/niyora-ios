@@ -20,10 +20,16 @@ import { requireNativeModule } from 'expo-modules-core';
 // ios/NiyoraGemmaModule.swift and MODEL_FILENAME in scripts/fetch-model.mjs.
 export const GEMMA_MODEL_FILENAME = 'niyora-gemma4-e2b-v4-wide-deduped-int4.litertlm';
 
-/** Total token budget (input + output) the engine is initialised with. CBT
- *  turns are short; a small budget keeps memory down and generation fast. Set
- *  once at prewarm — the engine is loaded once and reused across turns. */
-export const GEMMA_MAX_CONTEXT = 512;
+/** Total token budget (input + output) the engine is initialised with, i.e.
+ *  the kv-cache size. Every token of cache is resident memory, so this is a
+ *  real cost, but 512 was too tight: in an on-device sweep (2026-07-27, A16)
+ *  stock Gemma 4 failed to generate at 512 and generated at 2048. Keep it at
+ *  2048 unless something forces it down.
+ *
+ *  There is a CEILING too, on the other side: LiteRT #6765 reports Gemma 4 on
+ *  iOS arm64 returning nil at 8192 and crashing at 16384+, stable at 4096. So
+ *  the usable window is roughly 2048-4096. */
+export const GEMMA_MAX_CONTEXT = 2048;
 
 /** Why the on-device model can or cannot run right now. */
 export type GemmaAvailability =
@@ -59,6 +65,86 @@ export const NiyoraGemma = {
   /** Session-start state: can the model run, and if not, why. */
   async availability(): Promise<GemmaAvailability> {
     return Native ? Native.availability() : 'unsupported';
+  },
+
+  /**
+   * Diagnostic: override the engine knobs and drop any resident engine.
+   * `maxTokens <= 0` restores the caller-supplied value.
+   */
+  async setRuntimeConfig(maxTokens: number, useGpu: boolean): Promise<boolean> {
+    if (!Native?.setRuntimeConfig) return false;
+    try {
+      return await Native.setRuntimeConfig(maxTokens, useGpu);
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Load a specific file from the models directory instead of the default
+   * fine-tune. Drops any resident engine first. Pass '' to restore the
+   * default. Diagnostic: lets one binary compare our export against a stock
+   * model on the same device.
+   */
+  async setActiveModel(filename: string): Promise<boolean> {
+    if (!Native?.setActiveModel) return false;
+    try {
+      return await Native.setActiveModel(filename);
+    } catch {
+      return false;
+    }
+  },
+
+  /** Mirror a JS line into the native NSLog stream, so a device console
+   *  capture carries the whole picture rather than only the native half. */
+  async note(s: string): Promise<void> {
+    if (!Native?.note) return;
+    try {
+      await Native.note(s);
+    } catch {
+      // Diagnostics must never break the thing they are diagnosing.
+    }
+  },
+
+  /**
+   * The reason the last load or generation failed, or '' when none. Every
+   * failure inside the engine is a caught Swift error that would otherwise
+   * collapse into `modelNotReady`, which is the same thing an absent file
+   * reports -- so without this a broken model and a missing model look
+   * identical from JS.
+   */
+  async lastError(): Promise<string> {
+    if (!Native?.lastError) return '';
+    try {
+      return await Native.lastError();
+    } catch {
+      return '';
+    }
+  },
+
+  /** What is actually on disk, and which file the resolver picked. */
+  async modelFiles(): Promise<{
+    resolvedPath?: string;
+    liteRtPath?: string;
+    directory?: string;
+    files?: { name: string; size: number }[];
+  }> {
+    if (!Native?.modelFiles) return {};
+    try {
+      return await Native.modelFiles();
+    } catch {
+      return {};
+    }
+  },
+
+  /** Which runtime answered: 'litertlm', 'mediapipe', or 'none'. */
+  async backendName(): Promise<string> {
+    if (!Native?.backendName) return 'none';
+    try {
+      return await Native.backendName();
+    } catch {
+      return 'none';
+    }
   },
 
   /**

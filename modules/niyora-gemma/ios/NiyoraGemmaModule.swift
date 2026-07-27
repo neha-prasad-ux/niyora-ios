@@ -104,7 +104,19 @@ enum ModelStore {
 // without a rebuild and reinstall, and double-counts storage when a downloaded
 // copy also exists -- which it already did on the test device: a bundled 2.57 GB
 // plus a 2.41 GB download is ~5 GB of models on a phone.
+// An explicit model file, set by setActiveModel(). Nil means "use the default
+// fine-tune". This exists so the SAME binary can run the same battery against
+// our export and against a known-good stock model sitting beside it on disk --
+// the only way to tell "the runtime cannot run this model" apart from "the
+// runtime cannot run any model", which is the difference between a broken
+// export and a broken integration.
+private var kActiveModelOverride: String? = nil
+
 private func liteRtPath() -> String? {
+  if let override = kActiveModelOverride {
+    if let installed = ModelStore.installed(filename: override) { return installed.path }
+    return nil
+  }
   let name = "\(kLiteRtResource).\(kLiteRtExtension)"
   if let downloaded = ModelStore.installed(filename: name) { return downloaded.path }
   return Bundle.main.path(forResource: kLiteRtResource, ofType: kLiteRtExtension)
@@ -136,6 +148,40 @@ private protocol LlmBackend {
 // canImport(LiteRTLM) would evaluate FALSE and silently compile the whole
 // LiteRT-LM path out — the build would succeed, the app would fall back to
 // MediaPipe, and our fine-tune would never load, with no error anywhere.
+// Why a load failed. Both failure paths below used to collapse into a bare
+// `false`, so a model that could not load was indistinguishable from one that
+// was simply absent -- availability() said "modelNotReady" either way and the
+// session degraded to scripted with no reason recorded anywhere. That silence
+// is the single hardest thing to debug in this module, so the reason is kept
+// here and surfaced through lastError().
+enum GemmaDiag {
+  private static let lock = NSLock()
+  private static var _last: String = ""
+
+  /// Record a REAL failure. Only these update `last`, so the reason survives
+  /// until something else genuinely fails.
+  static func set(_ s: String) {
+    lock.lock(); _last = s; lock.unlock()
+    NSLog("[NiyoraGemma] %@", s)
+  }
+
+  /// Log without touching `last`. Notes from JS used to go through set(),
+  /// which overwrote the very error we were trying to read back.
+  static func log(_ s: String) {
+    NSLog("[NiyoraGemma] %@", s)
+  }
+
+  static var last: String {
+    lock.lock(); defer { lock.unlock() }; return _last
+  }
+}
+
+// Runtime knobs, overridable from JS purely so the failing configuration can be
+// swept on device without a rebuild per combination. Defaults match shipping
+// behaviour. See setRuntimeConfig().
+private var kForceGpu: Bool = false
+private var kMaxTokensOverride: Int? = nil
+
 private final class LiteRtBackend: LlmBackend {
   private var engine: Engine?
   private var conversation: Conversation?
@@ -156,18 +202,38 @@ private final class LiteRtBackend: LlmBackend {
     //
     // maxNumTokens IS the kv-cache size (Config.swift:55). Every token of cache
     // is resident memory.
-    guard let cfg = try? EngineConfig(
-      modelPath: path,
-      backend: .cpu(),
-      maxNumTokens: max(256, maxTokens),
-      cacheDir: NSTemporaryDirectory()
-    ) else { return false }
+    let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+    let size = (attrs?[.size] as? NSNumber)?.int64Value ?? -1
+    let tokens = max(256, kMaxTokensOverride ?? maxTokens)
+    let backend: Backend = kForceGpu ? .gpu : .cpu()
+    GemmaDiag.log(
+      "warm: size=\(size) maxTokens=\(tokens) backend=\(kForceGpu ? "gpu" : "cpu")")
+
+    let cfg: EngineConfig
+    do {
+      cfg = try EngineConfig(
+        modelPath: path,
+        backend: backend,
+        maxNumTokens: tokens,
+        cacheDir: NSTemporaryDirectory()
+      )
+    } catch {
+      GemmaDiag.set("EngineConfig FAILED: \(error)")
+      return false
+    }
 
     let e = Engine(engineConfig: cfg)
     let sem = DispatchSemaphore(value: 0)
     var ok = false
     Task {
-      do { try await e.initialize(); ok = true } catch { ok = false }
+      do {
+        try await e.initialize()
+        ok = true
+        GemmaDiag.set("engine initialized")
+      } catch {
+        ok = false
+        GemmaDiag.set("engine.initialize FAILED: \(error)")
+      }
       sem.signal()
     }
     sem.wait()
@@ -189,10 +255,25 @@ private final class LiteRtBackend: LlmBackend {
         let cfg = system.map {
           ConversationConfig(systemMessage: Message($0, role: .system))
         }
-        let convo = try await engine.createConversation(with: cfg)
+        // Two steps, reported separately: creating the conversation applies the
+        // model's chat template (and the system turn), while sendMessage runs
+        // prefill+decode. They fail for completely different reasons and a
+        // single catch cannot tell them apart.
+        let convo: Conversation
+        do {
+          convo = try await engine.createConversation(with: cfg)
+        } catch {
+          GemmaDiag.set("createConversation FAILED (system=\(system != nil)): \(error)")
+          throw error
+        }
         // Held so release() can drop it BEFORE the engine. See below.
         self.conversation = convo
-        out = try await convo.sendMessage(Message(prompt)).toString
+        do {
+          out = try await convo.sendMessage(Message(prompt)).toString
+        } catch {
+          GemmaDiag.set("sendMessage FAILED: \(error)")
+          throw error
+        }
       } catch {
         out = nil
       }
@@ -345,6 +426,59 @@ public class NiyoraGemmaModule: Module {
       }
       return GemmaEngine.shared.warm(maxTokens: maxTokens ?? 512)
         ? "available" : "modelNotReady"
+    }
+
+    /// Push a line from JS into the same NSLog stream as the native
+    /// diagnostics, so `devicectl --console` captures the whole verdict in one
+    /// place. console.log alone is not reliably forwarded in a Release build.
+    AsyncFunction("note") { (s: String) -> Bool in
+      GemmaDiag.log(s)
+      return true
+    }
+
+    /// Point the loader at a specific file in the models directory, dropping
+    /// any resident engine first so the next warm() picks the new one up.
+    /// Pass an empty string to go back to the default fine-tune.
+    /// Override the engine knobs and drop any resident engine, so a failing
+    /// configuration can be swept on device instead of one rebuild per
+    /// combination. maxTokens <= 0 restores the caller-supplied value.
+    AsyncFunction("setRuntimeConfig") { (maxTokens: Int, useGpu: Bool) -> Bool in
+      GemmaEngine.shared.release()
+      kMaxTokensOverride = maxTokens > 0 ? maxTokens : nil
+      kForceGpu = useGpu
+      GemmaDiag.log("runtime config: maxTokens=\(maxTokens) gpu=\(useGpu)")
+      return true
+    }
+
+    AsyncFunction("setActiveModel") { (filename: String) -> Bool in
+      GemmaEngine.shared.release()
+      kActiveModelOverride = filename.isEmpty ? nil : filename
+      GemmaDiag.log("active model set to \(filename.isEmpty ? "(default)" : filename)")
+      return true
+    }
+
+    /// The reason the last load or generation failed, or "" if none. Exists
+    /// because every failure path here is a caught error that otherwise turns
+    /// into a bare false, leaving "modelNotReady" as the only symptom.
+    AsyncFunction("lastError") { () -> String in
+      GemmaDiag.last
+    }
+
+    /// What is ACTUALLY on disk and which path was chosen. Answers "is the file
+    /// even there, and is it the one we think" without a devicectl round trip.
+    AsyncFunction("modelFiles") { () -> [String: Any] in
+      var out: [String: Any] = [:]
+      out["resolvedPath"] = modelPath() ?? ""
+      out["liteRtPath"] = liteRtPath() ?? ""
+      if let dir = try? ModelStore.directory() {
+        out["directory"] = dir.path
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        out["files"] = names.map { n -> [String: Any] in
+          let p = dir.appendingPathComponent(n).path
+          return ["name": n, "size": ModelStore.size(of: URL(fileURLWithPath: p))]
+        }
+      }
+      return out
     }
 
     /// Which runtime answered. Diagnostic only, logged in dev, so a silent
