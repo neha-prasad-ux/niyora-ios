@@ -488,7 +488,7 @@ lanes:
     branches: [{when: yes, next: high_breathe}, {when: no, next: high_reward1}]
   - id: high_reward1
     kind: reward
-    next: high_howlong
+    next: high_cbt_stem
   - id: high_howlong
     kind: branch
     actor: moon
@@ -519,6 +519,15 @@ lanes:
     verbatim: "don't act on this or send anything yet"
     detail: "1-2 / 5 MIN: step away AND do a scaled filler (walk to the window and back, wash your hands, tidy one surface, a lap of the corridor). Never a bare hold."
     next: high_activity_context
+  # 🔴 `high_ladder` FOLDED IN HERE 2026-07-25. It was a separate beat asking
+  # "want to try some other practices?" after a failed arousal check. With
+  # `arousal_check` gone (replaced by `respond_check`) it had no trigger, and its
+  # five rungs overlapped this activity list almost completely. So they ARE the
+  # list now: cold water · move your body · fix the hunger/thirst · box it for ten
+  # minutes · accept it and protect yourself from acting on it.
+  # None of the five has trial evidence, so they are OFFERED, never prescribed,
+  # and never ranked. Removing the beat also removes the implication that she was
+  # failing her way up a ladder.
   - id: high_pick_activity
     kind: ui
     actor: moon
@@ -540,7 +549,7 @@ lanes:
     kind: reward
     actor: moon
     verbatim_ish: "your mind has reached safety"
-    next: high_cbt_stem
+    next: ready_reward
   - id: high_cbt_stem
     kind: ai-reframe
     actor: moon
@@ -551,27 +560,92 @@ lanes:
     kind: ai-reframe
     actor: moon
     intent: "warm the option she picked into a smaller, truer read"
-    next: arousal_check
-  - id: arousal_check
+    next: reframe_lands
+  # ── THE REFRAME CHECK + THE RESPOND CHOICE ──────────────────────────
+  # RESTRUCTURED 2026-07-25 (Neha). Two changes, one idea.
+  #
+  # 1. EVERY LANE GETS A REFRAME, AND EVERY REFRAME CAN BE REJECTED.
+  #    Before: only `reframe_small` had a reject branch. `high_cbt_reframe` and
+  #    `mixed_check_read` handed her a reframe and moved on regardless — so the
+  #    BIGGER the feeling, the less she could push back, which is backwards.
+  #    Neha's reason, and it is the right one: "so that they are also sure they
+  #    thought through." Rejecting a reframe is itself a cognitive act. A woman
+  #    offered a smaller reading who says "no, this is real" has TESTED it and
+  #    confirmed the feeling stands. That is worth more than being spared the ask.
+  #
+  # 2. THE 20-MIN HOLD MOVED AFTER THE REFRAME, AND BECAME A CHOICE.
+  #    Before: breathe -> hold -> reframe -> "any better?" (self-report).
+  #    Now:    breathe -> reframe -> "does it land?" -> SHE CHOOSES wait or go.
+  #    Why this is better on the evidence, not just on autonomy: the reframe is a
+  #    BEHAVIOURAL TEST of whether she is regulated. If it lands, she is calm
+  #    enough to act. If it doesn't, that is evidence she needs the wait — rather
+  #    than us asking "any better?" and trusting self-report, which is exactly the
+  #    measure this project distrusts.
+  #    Honest caveat: a reframe can fail because it is TOO SOON (Sheppes:
+  #    reappraisal works poorly at high arousal) or because the thought is TRUE.
+  #    We cannot tell those apart. It does not matter here, because both route to
+  #    the same place: offer the wait.
+  #
+  # 🔴 THE CHOICE DOES NOT REMOVE THE GUARDRAIL. She may skip the waiting room;
+  #    she may not skip the seatbelt. "don't act on this or send anything yet"
+  #    stays verbatim on the drafted message either way, and `time_it` still asks
+  #    when. Self-assessed calm while flooded is unreliable in precisely the way
+  #    that matters — the same failure mode as the tired question and the DV
+  #    safe-space question.
+  - id: reframe_lands
     kind: branch
     actor: moon
-    text: "arousal dropped?"
-    branches: [{when: yes, next: ready_reward}, {when: no, next: high_ladder}]
-  - id: high_ladder
-    kind: scripted
-    actor: moon
-    text: "want to try some other practices?"
+    text: "does that land?"
+    ui: "'yeah, that helps' · 'not really'"
     detail: |
-      RENAMED from "escalation ladder" 2026-07-25 (Neha). It is an OFFER, not a
-      ladder. "Ladder"/"escalate" implies a hierarchy and, underneath it, that she
-      is failing her way up it. It is also more honest: none of these have trial
-      evidence, so offering beats prescribing.
-      The set (never repeat the breath she just did): cold water · move your body ·
-      fix the hunger/thirst · box it for ten minutes · accept it and protect her
-      from acting on it.
-    next: arousal_check
-
-  # LOW lane (activation, NOT calming — no breath, no break)
+      Reached from BOTH `high_cbt_reframe` and `mixed_anchor`. Either answer
+      proceeds — this is a signal, never a gate, and never an argument. If she
+      says no we do NOT re-reframe; we carry "the reframe didn't land" into the
+      respond choice and let it inform what she picks.
+      WHY-LINE (approved, #10): "we're not deleting the thought, just checking if
+      a smaller version fits."
+    branches:
+      - {when: lands, next: respond_check}
+      - {when: doesnt_land, next: respond_check, detail: "carry the signal forward"}
+  - id: respond_check
+    kind: branch
+    actor: moon
+    text: "do you want to respond to the situation?"
+    ui: |
+      "it takes 20 mins to wear off, i want to wait"
+      "no, i'd like to go ahead, i feel relaxed"
+    detail: |
+      REPLACES `arousal_check` ("any better?"), which is now deleted — Neha:
+      "yes, fold". One question instead of two, and this one carries its reason.
+      The wait option states the fact that motivates it, which is the why-line
+      this decision point never had.
+      🔴 NOT AVAILABLE ON THE LOW LANE. (Neha: "only reframe for low lane.")
+      "Do you want to respond to the situation?" presumes there is a situation to
+      respond to; for a woman who is simply flat there may not be. The low lane
+      gets the reframe and goes straight on.
+    branches:
+      - {when: wait, next: high_howlong, detail: "the hold + a filler. never a bare wait."}
+      - {when: go_ahead, next: ready_reward, detail: "straight to the act menu. THE VERBATIM DON'T-SEND LINE STILL FIRES."}
+  - id: low_reframe
+    kind: ai-reframe
+    actor: moon
+    text: "does that land?"
+    ui: "'yeah, that helps' · 'not really'"
+    intent: |
+      One gentle reframe of what she said, then ask if it fits. Same job as
+      `reframe_small`, on the flat lane.
+    detail: |
+      ADDED 2026-07-25 (Neha: "yes, everywhere"). The low lane previously offered
+      NOTHING reflective — activation only — so a flat woman never got to test a
+      thought at all. Behavioural activation says the flat need an act most, which
+      is why the act comes FIRST here and the reframe second. It does not replace
+      the activation, it follows it.
+      No respond question on this lane. "not really" loops back to one more
+      small act rather than to a wait, because waiting is not the flat woman's
+      problem.
+    branches:
+      - {when: lands, next: ready_reward}
+      - {when: doesnt_land, next: low_activate, detail: "one more small act, never an argument"}
   - id: low_activate
     kind: ui
     actor: moon
@@ -585,14 +659,7 @@ lanes:
     next: low_reward
   - id: low_reward
     kind: reward
-    next: low_better
-  - id: low_better
-    kind: branch
-    actor: moon
-    text: "feeling better?"
-    branches: [{when: yes, next: ready_reward}, {when: no, next: low_activate}]
-
-  # MIXED / labile lane
+    next: low_reframe
   - id: mixed_name_swing
     kind: scripted
     actor: moon
@@ -628,7 +695,7 @@ lanes:
     kind: ai-reframe
     actor: moon
     intent: "one steadying anchor she can hold while the swing passes"
-    next: ready_reward
+    next: reframe_lands
 
 # ── READY -> ACT 2 ───────────────────────────────────────────────────
 act2:
