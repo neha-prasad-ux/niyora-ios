@@ -108,29 +108,37 @@ describe('buildTurnRequest', () => {
     expect(buildTurnRequest('change', state())).toBeNull();
   });
 
-  // The beats that carry her confirmed thought forward.
-  const THOUGHT_STEPS: RoughStep[] = ['examine', 'reframe', 'keep'];
+  // The rev-2 rule: the model may echo, pick or transform, and may never
+  // compose. These three are the compose beats — a CBT stem, a gentler
+  // reading, the line she keeps — and all three produced near-nonsense on the
+  // phone in the run where acknowledge passed. They are not flagged off, they
+  // are unreachable: no slot, so no request, so nothing for a caller to send.
+  const COMPOSE_STEPS: RoughStep[] = ['examine', 'reframe', 'keep'];
 
-  it.each(THOUGHT_STEPS)('%s: carries her thought, bounded, with instructions', (step) => {
-    const req = buildTurnRequest(step, state({ thought: 'everything is falling apart' }));
-    expect(req).not.toBeNull();
-    expect(req!.instructions).toContain('never');
-    expect(req!.prompt).toContain('falling apart');
+  it.each(COMPOSE_STEPS)('%s: cannot reach the model at all', (step) => {
+    expect(buildTurnRequest(step, state({ thought: 'everything is falling apart' }))).toBeNull();
   });
 
-  it('confirm opens the session bounded and wanting chips (no vent to carry)', () => {
+  it('confirm is the one model beat left, and it never asks for chips', () => {
     const req = buildTurnRequest('confirm', state());
     expect(req).not.toBeNull();
     expect(req!.instructions).toContain('never');
-    expect(req!.wantChips).toBe(true);
+    // Chips at this beat are the authored core-thought menu. A model that
+    // writes her options is composing, whatever the beat is called.
+    expect(req!.wantChips).toBe(false);
   });
 
-  it('only confirm and examine want chips (the effort gradient)', () => {
-    const s = state({ thought: 't', feeling: 'hurt' });
-    expect(buildTurnRequest('confirm', s)!.wantChips).toBe(true);
-    expect(buildTurnRequest('examine', s)!.wantChips).toBe(true);
-    expect(buildTurnRequest('reframe', s)!.wantChips).toBe(false);
-    expect(buildTurnRequest('keep', s)!.wantChips).toBe(false);
+  it('declines the turn when she has typed nothing, rather than echoing air', () => {
+    expect(buildTurnRequest('confirm', state({ ventExcerpt: '' }))).toBeNull();
+  });
+
+  it('sends only her own words, never the chip she tapped', () => {
+    const req = buildTurnRequest(
+      'confirm',
+      state({ ventExcerpt: 'he went quiet all evening', tappedChip: 'I am not enough' }),
+    );
+    expect(req!.prompt).toContain('he went quiet all evening');
+    expect(req!.prompt).not.toContain('I am not enough');
   });
 
   it('injects cycle context when present, on its own line', () => {
@@ -160,13 +168,11 @@ describe('buildTurnRequest', () => {
     expect(req!.prompt).not.toContain('she feels:');
   });
 
-  it('maps every model beat to a slot that has training data', () => {
-    expect(buildTurnRequest('examine', state())!.prompt).toContain('[high_cbt_stem]');
-    expect(buildTurnRequest('reframe', state())!.prompt).toContain('[high_cbt_reframe]');
-    expect(buildTurnRequest('keep', state())!.prompt).toContain('[reframe_small]');
-    // Scripted beats never reach the model.
-    expect(buildTurnRequest('pattern', state())).toBeNull();
-    expect(buildTurnRequest('change', state())).toBeNull();
+  it('maps the one model beat to a slot that has training data, and nothing else', () => {
+    expect(buildTurnRequest('confirm', state())!.prompt).toContain('[acknowledge]');
+    // Every other beat in the arc is authored copy.
+    const rest: RoughStep[] = ['pattern', 'examine', 'change', 'reframe', 'keep'];
+    for (const step of rest) expect(buildTurnRequest(step, state())).toBeNull();
   });
 });
 

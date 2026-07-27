@@ -75,6 +75,52 @@ const AGREEMENT: Array<[RegExp, string]> = [
 const NO_ECHO =
   /\b(stupid|pathetic|insane|crazy|psycho|idiot|worthless|dramatic|"?overreacting"?)\b/i;
 
+/**
+ * The core beliefs, in her own voice. Name-calling is not the dangerous shape —
+ * this is: a flat global claim about who she is, which she believes, and which
+ * an echo turns into the app agreeing with her.
+ *
+ *   she writes  "I am too much"
+ *   echo says   "so, you're too much."
+ *
+ * The word list above misses every one of these, and so does `isGrounded`,
+ * because each word IS hers — grounding checks for invention, and there is no
+ * invention here, only endorsement. That is why this is a separate rule and not
+ * more words in NO_ECHO.
+ *
+ * The set is not arbitrary: these are the five universal core beliefs the app
+ * already names in CONFIRM_THOUGHT_CHIPS (worthless, abandoned, too-much,
+ * helpless, unloved), plus their common phrasings.
+ */
+// Every pattern matches BOTH persons. She writes "i am too much"; the reply we
+// have to vet says "you're too much". A first-person-only rule would guard her
+// input and wave the echo straight through, which is the case that matters.
+const SUBJ = String.raw`(?:i(?:'m|’m| am)|you(?:'re|’re| are))`;
+const HEDGE = String.raw`(?:\s+(?:so|just|always|such|really))*\s*(?:a|an)?\s*`;
+const BELIEF =
+  '(?:too much|not enough|never enough|worthless|useless|unlovable|burden|failure|mess|broken|damaged|nothing|invisible|replaceable)';
+
+const CORE_BELIEF = [
+  new RegExp(String.raw`\b${SUBJ}${HEDGE}${BELIEF}\b`, 'i'),
+  /\bno ?one\s+(?:really\s+)?(?:cares|loves|wants|likes|would miss)\b/i,
+  /\b(?:i|you)\s+(?:can'?t|cannot|can not)\s+handle\s+(?:this|it|any of it|anything)\b/i,
+  new RegExp(String.raw`\b${SUBJ}\s+(?:going to|gonna)\s+be\s+(?:left|abandoned|alone)\b`, 'i'),
+  /\bevery ?one\s+(?:hates|leaves|abandons)\s+(?:me|you)\b/i,
+  /\b(?:i|you)(?:'ll|’ll| will)\s+(?:always\s+)?(?:be alone|end up alone)\b/i,
+  /\b(?:i|you)\s+(?:ruin|wreck|screw up)\s+(?:everything|it all)\b/i,
+];
+
+/**
+ * Is this sentence one the app must never say back to her?
+ *
+ * Exported because the model path needs the same guard: a generated reply that
+ * repeats her self-attack passes `isGrounded` perfectly, since every word came
+ * from her. Grounding stops invention; this stops agreement.
+ */
+export function echoBlocked(text: string): boolean {
+  return NO_ECHO.test(text) || CORE_BELIEF.some((re) => re.test(text));
+}
+
 /** Her read of someone else's intent. Flow rule 07: never echo it. */
 const ATTRIBUTION =
   /\b(pulling away|losing interest|doesn'?t care|hates? (me|you)|done with (me|you)|never cared|thinks (i'?m|you'?re))\b/i;
@@ -120,7 +166,7 @@ export function groundedReflection(herText: string): GroundedReflection {
 
   // Prefer the first clause that describes something, not how she judges it.
   for (const c of candidates) {
-    if (NO_ECHO.test(c)) continue;
+    if (echoBlocked(c)) continue;
     if (ATTRIBUTION.test(c)) continue;
 
     const flipped = flipPerson(c)
@@ -131,12 +177,14 @@ export function groundedReflection(herText: string): GroundedReflection {
 
     if (flipped.split(/\s+/).length < 3) continue;
 
-    return { text: `so, ${flipped}.` };
+    // Lowercased above to normalise whatever she typed, then sentence-cased
+    // here: this is the app speaking, and the house style is sentence case.
+    return { text: `So, ${flipped}.` };
   }
 
   // Everything she wrote was self-attack or an attribution about someone else.
   // Both are things the flow forbids repeating, so there is nothing to reflect.
-  const blocked = candidates.some((c) => NO_ECHO.test(c));
+  const blocked = candidates.some((c) => echoBlocked(c));
   return { text: null, reason: blocked ? 'self-attack' : 'attribution' };
 }
 

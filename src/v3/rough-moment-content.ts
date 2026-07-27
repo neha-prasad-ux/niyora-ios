@@ -151,17 +151,32 @@ export const INSTRUCTIONS =
  * vocabularies meet. Row counts are from v4_wide_deduped.
  *
  *   confirm -> acknowledge      (424 rows) reflect her words, invent nothing
- *   examine -> high_cbt_stem    (233 rows) one question, must end in '?'
- *   reframe -> high_cbt_reframe (270 rows) declarative, gentler frame
- *   keep    -> reframe_small    (203 rows) the small, truer line she keeps
  *
- * `pattern` and `change` are scripted and never reach the model.
+ * ONE ENTRY, deliberately. The model may echo, pick or transform; it may never
+ * compose. `acknowledge` is the only echo beat in this arc and the only one
+ * measured working on device (77%, iPhone 15, 2026-07-27).
+ *
+ * Removed 2026-07-27, not merely disabled:
+ *
+ *   examine -> high_cbt_stem    (233 rows) a CBT stem it has to invent
+ *   reframe -> high_cbt_reframe (270 rows) a new, gentler reading
+ *   keep    -> reframe_small    (203 rows) the small, truer line
+ *
+ * All three are compose beats, all three produced near-nonsense on the phone in
+ * the same run that acknowledge passed, and compose measured 26%. They are
+ * deleted from the map rather than gated behind a flag so the beat cannot reach
+ * a model by accident: buildTurnRequest returns null and the authored line is
+ * the only thing left to render. A suppression that depends on remembering not
+ * to call something is not a suppression.
+ *
+ * They come back as authored copy plus PICK over a closed set (10 stems, 10
+ * reframes), which is a list operation, not generation. Until that copy is
+ * written, `SCRIPT` is the whole of those beats.
+ *
+ * `pattern` and `change` were always scripted and never reached the model.
  */
 const BEAT_SLOT: Partial<Record<RoughStep, string>> = {
   confirm: 'acknowledge',
-  examine: 'high_cbt_stem',
-  reframe: 'high_cbt_reframe',
-  keep: 'reframe_small',
 };
 
 /**
@@ -193,7 +208,15 @@ export interface TurnRequest {
  * Intelligence off) -- it must read complete on its own, not like an error.
  */
 export const SCRIPT = {
-  confirmIntro: 'Do you feel any of these is true?',
+  // The opening ask. She can type it out, or tap one of the core thoughts if
+  // typing is more than she has right now — both paths are first-class.
+  confirmIntro: 'What is going on?',
+  entryPlaceholder: 'Type it out…',
+  chipsLabel: 'Or pick one',
+  // The authored floor under the acknowledge beat, used only when there is
+  // nothing in her sentence that can safely be said back (see ground-floor:
+  // self-attack and attributions about other people are never echoed).
+  acknowledge: 'Okay. Let us look at it.',
   // Spot the pattern: name the distortion in plain, first-person words, no
   // jargon. Scripted (a fixed, gentle set), never model-generated.
   patternIntro: 'Do you think any of these is true about how you feel?',
@@ -213,7 +236,7 @@ export const SCRIPT = {
   changeNo: 'So it is okay to sleep on it, it can wait',
   reframe: 'A hard moment is real but not the whole story',
   keepQuote: 'This is not the whole story, it is a moment',
-  keepSupport: 'You noticed the thought, reflected on it, and now you know it is a smaller than you perceived',
+  keepSupport: 'You noticed the thought, reflected on it, and now you know it is smaller than you perceived',
 } as const;
 
 /** Fallback thought proposal when the model can't offer one: her own words,
@@ -244,21 +267,15 @@ export const CONFIRM_THOUGHT_CHIPS = [
  * calls the model (vent is hers alone; confirm's feeling row is scripted).
  */
 export function buildTurnRequest(step: RoughStep, state: CompactState): TurnRequest | null {
-  // `pattern` and `change` are scripted-only beats (a fixed, gentle set of
-  // plain-word distortions and a yes/no agency check) — they never call the
-  // model, so the effort gradient stays confirm + examine.
+  // Every beat except `confirm` is authored now, so this returns null for all
+  // of them. That is the enforcement point for "the model may never compose".
   const slot = BEAT_SLOT[step];
   if (!slot) return null;
 
-  // Her own words, which every beat is grounded in. `confirm` has only the
-  // vent; later beats prefer the thought she confirmed herself.
-  const herText = step === 'confirm' ? state.ventExcerpt : (state.thought ?? state.ventExcerpt);
-
-  // The one piece of situational context the corpus carries beyond her text:
-  // what she tapped. Kept as a bare note line, which is how training rows that
-  // had extra context wrote it.
-  const note =
-    step === 'reframe' && state.tappedChip ? `she tapped "${state.tappedChip}".` : null;
+  // Her own words, and only ever hers: acknowledge echoes what she typed.
+  // Nothing else is sent, because nothing else is hers.
+  const herText = state.ventExcerpt;
+  if (!herText) return null;
 
   return {
     instructions: INSTRUCTIONS,
@@ -266,11 +283,11 @@ export function buildTurnRequest(step: RoughStep, state: CompactState): TurnRequ
       herText,
       feeling: state.feeling,
       cycle: state.cycleContext,
-      note,
+      note: null,
     }),
     // Chips are authored, never generated (see reflect-model-parse). The flag
     // only tells the caller whether to render a chip row.
-    wantChips: step === 'confirm' || step === 'examine',
+    wantChips: false,
   };
 }
 
