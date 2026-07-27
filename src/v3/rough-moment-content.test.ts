@@ -90,11 +90,15 @@ describe('dayPill', () => {
     expect(dayPill({ ...CYCLE, length: null }, new Date(2026, 6, 24))).toBeNull();
   });
 
-  it('feeds the prompt line only when a pill exists', () => {
+  // The corpus emits `cycle:` ONLY when the premenstrual flag is set
+  // (assemble.py build_user), and always as "day N, premenstrual window".
+  // Outside the window it sends nothing at all, so neither do we.
+  it('feeds the compact corpus phrase, and only inside the window', () => {
     expect(cycleContextLine(null)).toBeNull();
-    expect(cycleContextLine({ label: 'day 24', inWindow: true })).toContain('day 24');
-    expect(cycleContextLine({ label: 'day 24', inWindow: true })).toContain('premenstrual');
-    expect(cycleContextLine({ label: 'day 8', inWindow: false })).not.toContain('premenstrual');
+    expect(cycleContextLine({ label: 'day 8', inWindow: false })).toBeNull();
+    expect(cycleContextLine({ label: 'day 24', inWindow: true })).toBe(
+      'day 24, premenstrual window',
+    );
   });
 });
 
@@ -129,15 +133,40 @@ describe('buildTurnRequest', () => {
     expect(buildTurnRequest('keep', s)!.wantChips).toBe(false);
   });
 
-  it('injects cycle context when present', () => {
-    const req = buildTurnRequest('confirm', state({ cycleContext: 'It is day 24 of her cycle.' }));
-    expect(req!.prompt).toContain('day 24');
+  it('injects cycle context when present, on its own line', () => {
+    const req = buildTurnRequest('confirm', state({ cycleContext: 'day 24, premenstrual window' }));
+    expect(req!.prompt).toContain('\ncycle: day 24, premenstrual window');
   });
 
-  it('quiet voice is enforced in instructions, not hoped for', () => {
+  // The system turn must stay byte-identical to the trained one
+  // (gemma4-runpod assemble.py:29-30). Every row of v4_wide_deduped carries
+  // exactly this string. Editing it is what produced third-person and
+  // degenerate output on device.
+  it('sends the trained system string verbatim', () => {
     const req = buildTurnRequest('confirm', state());
-    expect(req!.instructions).toContain('No exclamation points');
-    expect(req!.instructions).toContain('Never diagnose');
+    expect(req!.instructions).toBe(
+      'you reply to a woman having a hard moment. warm, plain, like a close friend in her 30s. ' +
+        'say her own words back. never advise. lowercase, max 2 sentences, no dashes.',
+    );
+  });
+
+  // The user turn is the corpus shape: a bracketed flow-node slot, then only
+  // the fields that are present, newline-joined.
+  it('sends the corpus user shape, tagged with the trained slot', () => {
+    const req = buildTurnRequest('confirm', state());
+    expect(req!.prompt.startsWith('[acknowledge]\n')).toBe(true);
+    expect(req!.prompt).toContain('she wrote: "');
+    // `she feels:` is suppressed for acknowledge, matching training.
+    expect(req!.prompt).not.toContain('she feels:');
+  });
+
+  it('maps every model beat to a slot that has training data', () => {
+    expect(buildTurnRequest('examine', state())!.prompt).toContain('[high_cbt_stem]');
+    expect(buildTurnRequest('reframe', state())!.prompt).toContain('[high_cbt_reframe]');
+    expect(buildTurnRequest('keep', state())!.prompt).toContain('[reframe_small]');
+    // Scripted beats never reach the model.
+    expect(buildTurnRequest('pattern', state())).toBeNull();
+    expect(buildTurnRequest('change', state())).toBeNull();
   });
 });
 
