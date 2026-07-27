@@ -84,17 +84,6 @@ const PHASE_LABEL: Record<Phase, string> = {
 const ACCESSORY_ID = 'moment-entry-done';
 
 /**
- * At or above this on the 1-5 rating, the moment is "big" and skips the gentle
- * reframe.
- *
- * 4 is a judgement, not a finding: it puts the midpoint on the small side, so
- * a 3 still gets offered the gentle line before the body work. Named rather
- * than buried in a comparison so it is easy to move once there is real data on
- * where women actually sit when they open this.
- */
-const BIG_FROM = 4;
-
-/**
  * How long a tapped answer stays visible before the card moves on.
  *
  * Matches reflect.tsx, which set the house feel for this. Without the pause the
@@ -102,29 +91,6 @@ const BIG_FROM = 4;
  * the choice registers and there is a moment to notice a mistap.
  */
 const ADVANCE_MS = 260;
-
-/**
- * The body check's answers.
- *
- * Sleep and movement only. Food was cut from this beat (map change 00b) on
- * three separate grounds, any one of which is enough: the body-check evidence
- * covers sleep, stress and fatigue and never hunger; the only on-topic study is
- * not in the bank and sits beside a literature that failed to replicate; and
- * the app's own audit flags an unscreened food prompt as a risk, with binge
- * eating elevated through the luteal phase. Restoring it needs the study
- * verified AND a screen designed, not one or the other.
- */
-type BodyItem = 'moved' | 'slept' | 'eaten';
-
-/** Each answer's follow-up, in the order they are walked. Movement and food are
- *  fixable in the next ten minutes so they get an offer; sleep is not, so it
- *  only names the cost. */
-const BODY_ORDER: BodyItem[] = ['moved', 'eaten', 'slept'];
-const BODY_NEXT: Record<BodyItem, NodeId> = {
-  moved: 'body_ask_soon',
-  eaten: 'body_eat',
-  slept: 'body_tired',
-};
 
 export default function Moment() {
   const reduceMotion = useReducedMotion();
@@ -138,12 +104,6 @@ export default function Moment() {
   const [feeling, setFeeling] = useState<string | null>(null);
   /** She chose to name it herself, so the field is showing. */
   const [otherOpen, setOtherOpen] = useState(false);
-  /**
-   * What she ticked at the body check. Multi-select, because they are not
-   * alternatives: barely moving and sleeping badly happen together often, and
-   * making her choose one loses the other.
-   */
-  const [bodyPicks, setBodyPicks] = useState<BodyItem[]>([]);
   /** The reading she chose at the reframe, before we ask whether it helped. */
   const [reframePick, setReframePick] = useState<string | null>(null);
 
@@ -220,41 +180,11 @@ export default function Moment() {
     [],
   );
 
-  /**
-   * Where she goes once the feeling is named.
-   *
-   * BIG or SMALL, taken from the rating she already gave rather than asking a
-   * second time. Small gets the gentle reading; big skips it, because a reframe
-   * lands on a clear head and fails on a flooded one, so the body comes first
-   * and the thinking happens once she is not at the peak.
-   */
-  const afterFeeling = useCallback(
-    (): NodeId => ((baseline.current ?? 0) >= BIG_FROM ? 'body_check' : 'reframe_small'),
-    [],
-  );
-
   /** Show the choice, then move. One decisive tap needs no confirming. */
   const pickThenGo = useCallback((next: () => void) => {
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
     advanceTimer.current = setTimeout(next, ADVANCE_MS);
   }, []);
-
-  /**
-   * Walk the follow-ups she ticked, in order, then move on.
-   *
-   * `done` is the item just finished. Each answer has its own follow-up and
-   * they are not interchangeable, so ticking two means seeing two, rather than
-   * the app picking one on her behalf.
-   */
-  const nextBodyBeat = useCallback(
-    (done?: BodyItem) => {
-      const remaining = BODY_ORDER.filter(
-        (i) => bodyPicks.includes(i) && (done == null || BODY_ORDER.indexOf(i) > BODY_ORDER.indexOf(done)),
-      );
-      setCurrent(remaining.length > 0 ? BODY_NEXT[remaining[0]] : 'make_safe');
-    },
-    [bodyPicks],
-  );
 
   // Sized to the cap height of the question's first letter, so the moon reads
   // as a character on the same line rather than an illustration beside it.
@@ -487,7 +417,7 @@ export default function Moment() {
                     // lines she has just read.
                     pickThenGo(() => {
                       chosenFeeling.current = f;
-                      setCurrent(afterFeeling());
+                      setCurrent('reframe_small');
                     });
                   }}
                 />
@@ -529,118 +459,12 @@ export default function Moment() {
                 chosenFeeling.current = draft.trim();
                 setDraft('');
                 setOtherOpen(false);
-                setCurrent(afterFeeling());
+                setCurrent('reframe_small');
               }}
             />
           ) : null,
         };
 
-      // Sleep and movement, never food. The two branches differ because the
-      // fixes differ: she can move in the next ten minutes, she cannot nap.
-      case 'body_check': {
-        const toggle = (i: BodyItem) =>
-          setBodyPicks((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
-        return {
-          body: (
-            <>
-              {head(COPY.body_check)}
-              <WhyLine>{COPY.body_why}</WhyLine>
-              <View style={styles.stack}>
-                <OptionRow
-                  label={COPY.body_moved}
-                  selected={bodyPicks.includes('moved')}
-                  onPress={() => toggle('moved')}
-                />
-                <OptionRow
-                  label={COPY.body_eaten}
-                  selected={bodyPicks.includes('eaten')}
-                  onPress={() => toggle('eaten')}
-                />
-                <OptionRow
-                  label={COPY.body_slept}
-                  selected={bodyPicks.includes('slept')}
-                  onPress={() => toggle('slept')}
-                />
-                {/* "Both fine" clears rather than being a fourth tick, so it
-                    cannot be selected alongside the things it contradicts. */}
-                <OptionRow
-                  label={COPY.body_fine}
-                  onPress={() => {
-                    setBodyPicks([]);
-                    pickThenGo(() => setCurrent('make_safe'));
-                  }}
-                />
-              </View>
-            </>
-          ),
-          // Multi-select has no single decisive tap, so this one keeps its
-          // button: she is done when she says she is.
-          cta: (
-            <BeginButton
-              fullWidth
-              label="Continue"
-              disabled={bodyPicks.length === 0}
-              onPress={() => nextBodyBeat()}
-            />
-          ),
-        };
-      }
-
-      // Fixable now, so it is an offer rather than a note. "Later" is a real
-      // answer, not a lesser one.
-      case 'body_ask_soon':
-        return {
-          body: (
-            <>
-              {head(COPY.body_move_ask)}
-              <View style={styles.stack}>
-                <OptionRow
-                  label={COPY.body_move_yes}
-                  onPress={() => pickThenGo(() => setCurrent('body_do_now'))}
-                />
-                <OptionRow
-                  label={COPY.body_move_later}
-                  onPress={() => pickThenGo(() => nextBodyBeat('moved'))}
-                />
-              </View>
-            </>
-          ),
-          cta: null,
-        };
-
-      // A bare offer, and deliberately no WhyLine. Every other choice point in
-      // the flow explains itself; this one cannot, because there is no claim we
-      // can make honestly. See the note in moment-copy before adding one.
-      case 'body_eat':
-        return {
-          body: (
-            <>
-              {head(COPY.body_eat_ask)}
-              <View style={styles.stack}>
-                <OptionRow
-                  label={COPY.body_eat_yes}
-                  onPress={() => pickThenGo(() => nextBodyBeat('eaten'))}
-                />
-                <OptionRow
-                  label={COPY.body_eat_later}
-                  onPress={() => pickThenGo(() => nextBodyBeat('eaten'))}
-                />
-              </View>
-            </>
-          ),
-          cta: null,
-        };
-
-      // Cannot be napped away, so this only names the cost and moves on.
-      case 'body_tired':
-        return {
-          body: head(COPY.body_tired, { tone: 'said' }),
-          cta: (
-            <BeginButton fullWidth label="Continue" onPress={() => nextBodyBeat('slept')} />
-          ),
-        };
-
-      // Her word said back, then the split.
       // The reframe, small moments only. Big ones never reach here: a gentler
       // reading lands on a clear head and fails on a flooded one, so they go
       // straight to the body and the thinking happens later.
@@ -677,11 +501,11 @@ export default function Moment() {
                 />
                 <OptionRow
                   label={COPY.reframe_small_no}
-                  onPress={() => pickThenGo(() => setCurrent('body_check'))}
+                  onPress={() => pickThenGo(() => setCurrent('make_safe'))}
                 />
                 <OptionRow
                   label={COPY.reframe_small_bigger}
-                  onPress={() => pickThenGo(() => setCurrent('body_check'))}
+                  onPress={() => pickThenGo(() => setCurrent('make_safe'))}
                 />
               </View>
             </>
@@ -819,11 +643,6 @@ const SPOKEN: Partial<Record<NodeId, string>> = {
   together: COPY.together,
   naming_science: COPY.naming_science,
   feelings: COPY.feelings_ask,
-  body_check: COPY.body_check,
-  body_ask_soon: COPY.body_ask_soon,
-  body_do_now: COPY.body_do_now,
-  body_today_action: COPY.body_today_action,
-  body_tired: COPY.body_tired,
   make_safe: COPY.make_safe,
   high_breathe: COPY.high_breathe,
   high_more: COPY.high_more,

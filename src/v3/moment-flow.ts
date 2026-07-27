@@ -56,13 +56,6 @@ export type NodeId =
   | 'feel_heard'
   | 'reframe_small'
   // body
-  | 'body_check'
-  | 'body_ask_soon'
-  | 'body_eat'
-  | 'body_do_now'
-  | 'body_today_action'
-  | 'body_tired'
-  | 'body_reward'
   | 'make_safe'
   | 'lane_split'
   // high lane
@@ -222,64 +215,24 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'what happened',
     branches: [
       { when: 'small_lands', next: 'we_good' },
-      { when: 'small_no', next: 'body_check' },
-      { when: 'big', next: 'body_check' },
+      { when: 'small_no', next: 'make_safe' },
+      { when: 'big', next: 'make_safe' },
     ],
-    note: 'Small emotions only, and authored: a gentler reading of her situation is new content however gently phrased. Model picks which line, never writes one.',
+    note: 'EVERYONE gets this, not only small emotions (Neha, 2026-07-27, overriding the map). Authored: a gentler reading is new content however gently phrased. She PICKS which of three is true, so the app never asserts one; the model may eventually rank them and may never write one.',
   },
 
-  // --- body ----------------------------------------------------------------
-  {
-    id: 'body_check',
-    owner: 'authored',
-    phase: 'settle',
-    why: true,
-    // Multi-select, so the screen walks whichever of these she ticked in turn.
-    // The edges are still declared here: the graph is what the reachability
-    // test checks, and a beat the screen can reach but the table cannot is
-    // exactly the drift that left the last flow with unreachable nodes.
-    branches: [
-      { when: 'gap', next: 'body_ask_soon' },
-      { when: 'eaten', next: 'body_eat' },
-      { when: 'tired', next: 'body_tired' },
-      { when: 'all_good', next: 'make_safe' },
-    ],
-    note: 'Slept, moved and eaten. Multi-select: they are not alternatives. FOOD was cut by map change 00b and RESTORED 2026-07-27 at Neha\'s call; it ships as a bare offer with no "why" line, because it is unevidenced and an unevidenced beat may never carry a science line.',
-  },
-  {
-    id: 'body_eat',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'body_reward',
-    // NO `why: true`. Every other choice point explains itself; this one cannot,
-    // because there is no claim we can make honestly. See moment-copy.
-    note: 'A bare offer. The drafted "make sure you are not low on blood sugar" is a physiology claim stated as fact, which the voice rules ban outright. Do not add it back.',
-  },
-  {
-    id: 'body_ask_soon',
-    owner: 'branch',
-    phase: 'settle',
-    branches: [
-      { when: 'now', next: 'body_do_now' },
-      { when: 'not_now', next: 'body_today_action' },
-    ],
-  },
-  {
-    id: 'body_do_now',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'body_reward',
-    note: 'Go do it now, we will wait. Requires the in-memory resume hold, or the flow deletes her while she is doing what it asked.',
-  },
-  { id: 'body_today_action', owner: 'authored', phase: 'settle', next: 'body_reward' },
-  {
-    id: 'body_tired',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'body_reward',
-    note: 'Names the cost only. The now-or-tomorrow question moved to time_it, where there is finally a specific thing to time.',
-  },
-  { id: 'body_reward', owner: 'reward', phase: 'settle', next: 'make_safe' },
+  // --- settle ---------------------------------------------------------------
+  //
+  // The body check (slept / moved / eaten and their follow-ups) was REMOVED
+  // 2026-07-27 at Neha's call. It sat between naming the feeling and the lanes
+  // and asked three questions before anything had helped her yet. What went
+  // with it: body_check, body_ask_soon, body_eat, body_do_now,
+  // body_today_action, body_tired, body_reward.
+  //
+  // Worth knowing if it comes back: the sleep leg was the best-evidenced thing
+  // in this beat (day-to-day sleep and fatigue moved the regulation biomarker
+  // where cycle phase showed no population rhythm at all), and the food leg was
+  // the one with nothing under it.
   { id: 'make_safe', owner: 'authored', phase: 'settle', next: 'lane_split' },
   {
     id: 'lane_split',

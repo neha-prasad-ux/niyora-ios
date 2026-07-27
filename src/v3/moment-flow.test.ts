@@ -127,23 +127,21 @@ describe('the beats the evidence turns on', () => {
     expect(ALL).toContain('intensity_out');
   });
 
-  // Food was cut by map change 00b and restored 2026-07-27 at Neha's call. The
-  // reasons for the cut did not go away, so what is guarded changed rather than
-  // disappearing: it may be OFFERED, it may never be JUSTIFIED.
-  it('offers food without explaining it', () => {
-    const eat = node('body_eat');
-    // Every other choice point in the flow carries a line saying what it is
-    // for. This one must not: the beat is unevidenced, and the standing rule is
-    // that an unevidenced beat may ship but may never carry a science line,
-    // because anyone asked to justify one invents a rationale in good faith.
-    expect(eat.why).toBeUndefined();
-    expect(eat.owner).toBe('authored');
+  // The body check (slept / moved / eaten) was removed 2026-07-27. If it comes
+  // back, the food leg is the one to look at hardest: it is unevidenced, the
+  // app's own audit flags an unscreened food prompt as a risk with binge eating
+  // elevated through the luteal phase, and the drafted "make sure you are not
+  // low on blood sugar" is a physiology claim the voice rules ban outright.
+  it('has no body check', () => {
+    expect(ALL.filter((id) => id.startsWith('body_'))).toEqual([]);
   });
 
-  it('keeps the reason for the original cut written down', () => {
-    // So a future reader meets the argument rather than an unexplained offer.
-    expect(node('body_eat').note ?? '').toMatch(/physiology claim|do not add it back/i);
-    expect(node('body_check').note ?? '').toMatch(/unevidenced|00b/i);
+  it('sends everyone through the reframe, not only small moments', () => {
+    // Was gated on the opening rating; now every path from the feeling lands
+    // here, so it cannot be reached by only half the women who arrive.
+    const r = node('reframe_small');
+    expect(r.branches?.map((b) => b.when).sort()).toEqual(['big', 'small_lands', 'small_no']);
+    expect(r.note ?? '').toMatch(/everyone/i);
   });
 
   it('gives "none of these feel possible" a full ending, not a dead end', () => {

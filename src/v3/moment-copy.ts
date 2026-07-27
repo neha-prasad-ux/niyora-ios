@@ -256,51 +256,14 @@ export const COPY = {
   feelings_why: 'Naming it is the part that takes the edge off. Picking roughly right is enough.', // [DRAFT]
 
   // --- body --------------------------------------------------------------
-  // [MAP] slept / moved. FOOD IS NOT ASKED (change 00b): no evidence behind it,
-  // no safe claim available, and an unscreened food prompt with binge eating
-  // elevated through the luteal phase. Restoring it needs BOTH a verified study
-  // and a designed screen, not one or the other.
-  body_check: 'How has today been on you?', // [NEHA]
-  // The two are NOT the same answer, which is why they are separate branches:
-  // a movement gap is fixable in the next ten minutes, bad sleep is not. So one
-  // leads to "go and do it, we'll wait" and the other only names the cost.
-  body_moved: 'I have barely moved', // [NEHA]
-  body_slept: 'I slept badly', // [NEHA]
-  body_fine: 'Both fine', // [DRAFT]
-  body_multi_hint: 'Pick any that are true.', // [DRAFT]
-  // Movement is fixable in the next ten minutes, so it gets an offer.
-  body_move_ask: 'Would you like to give it a little movement?', // [NEHA]
-  body_move_yes: 'Yes, start', // [NEHA]
-  body_move_later: 'Later', // [NEHA]
-
-  /**
-   * FOOD. Restored 2026-07-27 at Neha's call, overriding map change 00b, which
-   * had cut it. Recorded rather than quietly reinstated, because the reasons
-   * for the cut have not gone away:
-   *
-   *   · UNEVIDENCED. The body-check finding covers sleep, stress and fatigue,
-   *     never hunger. The only on-topic study is not in the bank and sits
-   *     beside a literature that failed to replicate.
-   *   · UNSCREENED. The app's own audit flags a food prompt as a risk, with
-   *     binge eating elevated through the luteal phase. No screen exists.
-   *
-   * So it ships as a bare offer and NOTHING ELSE. There is deliberately no
-   * "why" line here, unlike every other choice point in the flow: the standing
-   * rule is that an unevidenced act may ship but may never carry a science
-   * line, because an agent asked to justify one invents a rationale in good
-   * faith. In particular the drafted "make sure you are not low on blood
-   * sugar" is exactly the banned shape: a physiology claim, stated to her as
-   * fact. Do not add it back.
-   */
-  body_eaten: 'I have not eaten in a while', // [NEHA]
-  body_eat_ask: 'Would you like to get something to eat?', // [DRAFT]
-  body_eat_yes: 'Yes, I will', // [NEHA]
-  body_eat_later: 'Later', // [NEHA]
-  body_why: 'Tired and lack of sleep makes emotions rough.', // [NEHA]
-  body_ask_soon: 'Can you do something about that now?', // [DRAFT]
-  body_do_now: "Go do it now · we'll wait", // [MAP]
-  body_today_action: "Then it goes on today's list, not tonight's.", // [DRAFT]
-  body_tired: "You're tired. That usually makes emotions come out sharper than you mean.", // [NEHA]
+  // The body check (slept / moved / eaten) and its follow-ups were removed
+  // 2026-07-27 at Neha's call: three questions between naming the feeling and
+  // the lanes, before anything had helped her yet. The copy went with them.
+  //
+  // If it returns, the food leg needs the most care. It is unevidenced, the
+  // app's own audit flags an unscreened food prompt as a risk with binge eating
+  // elevated through the luteal phase, and "make sure you are not low on blood
+  // sugar" is a physiology claim the voice rules ban outright.
   make_safe: "Let's make you feel safe", // [MAP]
 
   // --- high lane ---------------------------------------------------------
