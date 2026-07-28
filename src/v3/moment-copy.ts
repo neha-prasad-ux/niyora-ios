@@ -24,6 +24,11 @@
 /** The closed sets. The model may rank these; it may never add to one. */
 export const SETS = {
   /**
+   * UNUSED as of 2026-07-28: the CBT stem beat that picked from these was cut
+   * (see moment-flow's hold section). Kept only as a record of the approach.
+   * Do not re-wire without revisiting why it went: it is a menu of core
+   * negative beliefs, and reframing is the weak tool at high arousal.
+   *
    * [DRAFT] Ten stuck thoughts. The model ranks the three closest to her text.
    * Five are from the spec's worked example; five are mine and need review.
    */
@@ -60,23 +65,23 @@ export const SETS = {
   ],
 
   /**
-   * [DRAFT] Twelve activities for the hold, each with the line saying what it
-   * is for. Three are the spec's worked examples. The line never claims a
-   * mechanism: it says what it does for her.
+   * [DRAFT] The hold activities, as cards (icon + short title). Cut from twelve
+   * to SIX 2026-07-28 (Neha) — twelve was a wall to read while flooded. The six
+   * kept are all OFF-PHONE and hands-busy, which is the mechanism: the hold
+   * works by getting her away from the device and the impulse to send. The `why`
+   * shows on the timer screen after she picks, so the grid stays a clean choice.
+   *
+   * Dropped (still fine, just less core): a song loud, standing outside,
+   * stretching, ringing someone easy, watering the plants, sitting with a show.
+   * `icon` is an SF Symbol.
    */
   activities: [
-    { id: 'washing_up', label: 'Washing up', why: "Twenty minutes with your hands busy is the part that works. It isn't about the dishes." }, // [MAP]
-    { id: 'walk', label: 'A walk', why: 'Moving while you wait is what stops the twenty minutes turning into rehearsal.' }, // [MAP]
-    { id: 'shower', label: 'A shower', why: "You can't reach your phone in there. That's most of the benefit." }, // [MAP]
-    { id: 'tidy', label: 'Tidying one surface', why: 'One finished thing, while the rest is unfinished. That is the whole point of it.' },
-    { id: 'music', label: 'A song, loud', why: 'Something else to follow for three minutes. It does not have to be a calm one.' },
-    { id: 'cook', label: 'Making something to eat', why: 'Your hands know this one, so your head gets to stop running it.' },
-    { id: 'pet', label: 'The dog, the cat', why: 'Something that wants you and asks you nothing.' },
-    { id: 'outside', label: 'Standing outside', why: 'A different set of things to look at. That is enough to interrupt it.' },
-    { id: 'stretch', label: 'Stretching', why: 'Slow and physical, so the twenty minutes has a shape instead of a wait.' },
-    { id: 'call', label: 'Ringing someone easy', why: 'Not the person this is about. Someone who is simple to talk to.' },
-    { id: 'plants', label: 'Watering the plants', why: 'Small, finishable, and it does not matter if you do it badly.' },
-    { id: 'shownothing', label: 'Sitting with a show on', why: 'The least active one, and still better than the phone in your hand.' },
+    { id: 'washing_up', label: 'Washing up', icon: 'drop.fill', why: "Twenty minutes with your hands busy is the part that works. It isn't about the dishes." }, // [MAP]
+    { id: 'walk', label: 'A walk', icon: 'figure.walk', why: 'Moving while you wait is what stops the twenty minutes turning into rehearsal.' }, // [MAP]
+    { id: 'shower', label: 'A shower', icon: 'shower.fill', why: "You can't reach your phone in there. That's most of the benefit." }, // [MAP]
+    { id: 'cook', label: 'Make something', icon: 'frying.pan.fill', why: 'Your hands know this one, so your head gets to stop running it.' },
+    { id: 'tidy', label: 'Tidy one surface', icon: 'sparkles', why: 'One finished thing, while the rest is unfinished. That is the whole point of it.' },
+    { id: 'pet', label: 'The dog, the cat', icon: 'pawprint.fill', why: 'Something that wants you and asks you nothing.' },
   ],
 
   /**
@@ -112,6 +117,31 @@ export const SETS = {
   ],
 
 } as const;
+
+/**
+ * The guided breath, as a script (Neha 2026-07-28). The screen walks it: the
+ * moon is the breath ball, `inhale`/`exhale` steps pace it (in for four, out for
+ * six) and their copy changes through the cycle; `count` steps mark the rounds
+ * down between breaths; `intro` opens it. Three rounds, the last one shortened
+ * to near-silence, then the flow moves on. She can leave any time via the one
+ * quiet "skip, I'm breathing calmly" button.
+ *
+ * The stretched vowels ("deeeeply") are deliberate texture, not typos: the word
+ * is as long as the breath it asks for. [NEHA] throughout.
+ */
+export type BreathStep = { kind: 'intro' | 'inhale' | 'exhale' | 'count'; text: string };
+
+export const BREATH_SCRIPT: readonly BreathStep[] = [
+  { kind: 'intro', text: "Let's take a deep breath" },
+  { kind: 'inhale', text: 'Inhale deeeeply' },
+  { kind: 'exhale', text: 'Now, exhale slowly… really slow' },
+  { kind: 'count', text: 'Just two more' },
+  { kind: 'inhale', text: 'Inhale deeeeply' },
+  { kind: 'exhale', text: 'Now, exhale slowly… really slow' },
+  { kind: 'count', text: 'Last one' },
+  { kind: 'inhale', text: 'Inhale…' },
+  { kind: 'exhale', text: 'Exhale…' },
+] as const;
 
 /**
  * The two DV rules are DIFFERENT rules and must not be modelled as one flag.
@@ -228,13 +258,21 @@ export const COPY = {
   intensity_in: 'How big does it feel right now?', // [MAP]
 
   // --- naming ------------------------------------------------------------
+  // The echo confirm (Neha 2026-07-28): the moon says her words back, and she
+  // says whether it landed before anything moves on. "No" opens a field to say
+  // it again; only "yes" reveals the naming.
+  ack_confirm: 'Did I get that right?', // [DRAFT]
+  ack_yes: "Yes, that's it", // [DRAFT]
+  ack_no: 'No, not quite', // [DRAFT]
+  ack_fix: 'Tell me again, in your words.', // [DRAFT]
+
   together: "You're not in this alone tonight.", // [MAP]
   // Neha 2026-07-27, replacing the map's "putting words to it settles it".
   // Better for two reasons beyond preference: it is an invitation rather than a
   // claim about what naming does to her, and it reads as the lead-in to the
   // question underneath it instead of a standalone assertion.
   naming_science: "Let's give this emotion a name.", // [NEHA]
-  feelings_ask: 'Which of the emotions do you feel the most?', // [NEHA]
+  feelings_ask: 'Which feeling is strongest?', // [NEHA] shortened 2026-07-28
   feelings_other: 'Something else', // [DRAFT]
   feelings_other_hint: 'Your word for it.', // [DRAFT]
   // Her word in an authored sentence: a transform, not composition. The second
@@ -251,6 +289,8 @@ export const COPY = {
   // Split in two: the moon says the first part, then a rule, then the question
   // sits smaller underneath it. One sentence carried both a statement and a
   // question, which made the question easy to skim past.
+  // The group marker over the AI-written readings (the "moon voice" token).
+  reframe_moon_label: "The moon's read", // [DRAFT]
   reframe_small_intro: 'Sometimes a different perspective helps.', // [NEHA]
   reframe_small_ask: 'Do you think any of these is true?', // [NEHA]
   // The way out of the pick. Without it the only way forward is to endorse one
@@ -258,9 +298,9 @@ export const COPY = {
   // least wrong one, which corrupts the answer, or leaves.
   reframe_small_none: 'No, not really', // [NEHA]
   reframe_small_check: 'Does this help?', // [NEHA]
-  reframe_small_yes: 'That helps', // [DRAFT]
-  reframe_small_no: 'Not really', // [DRAFT]
-  reframe_small_bigger: "It's bigger than that", // [DRAFT]
+  reframe_small_yes: 'That helps', // [NEHA] approved 2026-07-28
+  reframe_small_no: 'Not really', // [NEHA] approved 2026-07-28
+  reframe_small_bigger: "It's bigger than that", // [NEHA] approved 2026-07-28
   feelings_why: 'Naming it is the part that takes the edge off. Picking roughly right is enough.', // [DRAFT]
 
   // --- body --------------------------------------------------------------
@@ -290,36 +330,52 @@ export const COPY = {
    * 3. NO "IT IS NOT THE BEST THING TO DO". We offer and she chooses; the app
    *    cannot see her situation well enough to rank her options for her.
    */
-  make_safe_intro: 'You might feel like reacting right now.', // [NEHA]
-  make_safe_why:
-    'Waiting twenty minutes is what stops you sending the thing you would take back.', // [DRAFT]
-  make_safe_ask: 'Do you want to react now?', // [NEHA]
-  // Both un-shamed. "Do it now anyway" stays a real option, not a lesser one:
-  // an app that makes the impatient answer feel like a failure is one she stops
-  // being honest with.
-  make_safe_wait: 'No, I will wait twenty minutes', // [NEHA]
-  make_safe_now: 'I am ready to respond now', // [NEHA]
+  // Reframed as a challenge 2026-07-28 (Neha): a game to beat, not a warning to
+  // heed. The stakes are hers, the win is holding off.
+  make_safe_intro: '20-Minute Challenge', // [NEHA]
+  make_safe_why: 'Beat the urge to react immediately.', // [NEHA]
+  make_safe_ask: 'Do you want to react now?', // [NEHA] (unused since the challenge reframe)
+  // Both un-shamed. "I am not" stays a real option, not a lesser one: an app
+  // that makes the impatient answer feel like a failure is one she stops being
+  // honest with.
+  make_safe_wait: 'I am ready', // [NEHA]
+  make_safe_now: 'I am not', // [NEHA]
 
   // --- high lane ---------------------------------------------------------
   // One long exhale, for everyone, before the hold. Count only: the map's rule
   // is no vagus claim, and "the long out-breath is the part that does it" is
   // already at the edge of one, so it says what to do rather than what it does.
-  breathe: 'One long exhale.', // [NEHA]
-  breathe_why: 'Out for longer than in. You do not have to feel anything shift.', // [DRAFT]
-  breathe_more: 'Two more rounds?', // [NEHA]
-  breathe_more_yes: 'Yes', // [DRAFT]
-  breathe_more_no: 'I am good', // [DRAFT]
+  // The breath is a guided sequence now (BREATH_SCRIPT, below the SETS block),
+  // with the moon as the breath ball, three paced rounds and one quiet exit
+  // (Neha 2026-07-28). The old single line + "two more rounds?" fork is gone.
+  breathe_skip: "Skip, I'm breathing calmly", // [NEHA]
+  // The "how long have you got?" beat was removed 2026-07-28 (see moment-flow's
+  // hold section): the button that reaches the hold already says "twenty
+  // minutes", so this asked what she had just answered. Copy kept, unwired, in
+  // case the short-hold fillers ever return.
   high_howlong: 'How long have you got?', // [MAP]
   high_none: 'No time', // [MAP]
   high_few: 'A few minutes', // [MAP]
   high_twenty: 'Twenty minutes', // [MAP]
+
+  // The pick that fills the hold. No copy existed for it: the map has the
+  // twelve activities but never the line that asks her to choose one.
+  high_pick_activity: 'Pick one thing to do with the time.', // [DRAFT]
+  // Why picking beats waiting. Sanctioned framing: the twenty-minute reset
+  // holds with active distraction, and an empty wait is rehearsal — so the line
+  // says what having something to do is FOR, not what her body is doing.
+  high_pick_activity_why:
+    'Not an empty wait. Something to do with your hands is what keeps the twenty minutes from turning into going over it again.', // [DRAFT]
 
   /**
    * [SAFETY] On EVERY hold branch, not only the twenty minute one, because
    * thirty seconds is long enough to send a text. A hold without this protects
    * nothing.
    */
-  hold_guard: "Don't act on this or send anything till the timer's up", // [SAFETY]
+  // The hold's safety instruction, reworded by Neha 2026-07-28. Still the load-
+  // bearing line (don't act during the wait); the benefit sits under it.
+  hold_guard: "Don't react to the situation for 20 minutes.", // [NEHA]
+  hold_guard_benefit: 'This gives you time to be your best.', // [NEHA]
 
   /** [MAP] Approved 2026-07-27. The one exclamation point in the app. */
   hold_done: 'Yey! Twenty minutes, the hard part done.',
@@ -331,9 +387,18 @@ export const COPY = {
   hold_early: "You've got {left} left. Here's something to do with them.",
   hold_ready: "i'm ready now", // [MAP]
 
-  high_cbt_stem: 'Which one is closest to what your head is saying?', // [MAP]
-  arousal_check: 'Any better?', // [MAP]
-  high_ladder: 'Want to try some other practices?', // [MAP]
+  // high_cbt_stem and high_ladder were CUT 2026-07-28 (see moment-flow's hold
+  // section): the stuck-thought menu and the "other practices" loop went with
+  // the CBT reframe. Copy kept, unwired.
+  high_cbt_stem: 'Which one is closest to what your head is saying?', // [MAP] (cut)
+  high_ladder: 'Want to try some other practices?', // [MAP] (cut)
+  // The post-hold readiness rating, replacing "Any better?" (Neha 2026-07-28).
+  arousal_check: 'Do you think you are now in a better place to react?', // [NEHA]
+  arousal_check_low: 'Not yet', // [DRAFT]
+  arousal_check_high: 'Ready', // [DRAFT]
+  // Shown when she rates the readiness check low. Permission, not a block: the
+  // act menu still follows, with "none of these feel possible" as the way out.
+  arousal_check_wait: "If you feel like you're not in the space to respond, don't. We can wait.", // [NEHA]
 
   // --- low lane ----------------------------------------------------------
   low_activate: 'One small thing. Not a good one, just one.', // [DRAFT]
@@ -348,17 +413,36 @@ export const COPY = {
   mixed_swing: "The swing", // [DRAFT]
   mixed_real_label: 'Something real', // [DRAFT]
 
+  // Interim line for the `ready_reward` beat: the light/celebration itself is
+  // deferred with the reward system, so this just bridges settle -> what to do.
+  ready_reward: 'The settling is done. Now, what you might do.', // [DRAFT]
+
   // --- the act -----------------------------------------------------------
   options: "There's no one right move here. Does any of these sound good?", // [MAP]
   options_why: 'Three, so you can recognise one instead of having to think one up.', // [DRAFT]
   options_more: 'Show me some others', // [MAP]
   options_none: 'None of these feel possible right now', // [MAP]
 
+  // Shown ONLY when she rated it high and chose to act now without the hold.
+  // An offer above the acts, never a wall in front of them: she can still pick
+  // an act right below it. Says what the distance is FOR, does not shame the
+  // choice to skip it, and does not rank her options. [DRAFT] awaiting Neha.
+  options_hold_nudge:
+    'You rated this a big one. Whatever you pick will keep till you have twenty minutes between you and it.', // [DRAFT]
+  options_hold_take: 'Take twenty minutes first', // [DRAFT]
+
+  // Shown after she picks "say it to them", on its own screen, carrying the
+  // universal DV line below it. A plain lead-in, not a warning label. [DRAFT].
+  options_dv_head: 'Before you do, one thing worth knowing.', // [DRAFT]
+
   // --- nothing feels possible --------------------------------------------
-  unctrl_honor: "Then we're not fixing this tonight. That's a fair read.", // [MAP] + [DRAFT] tail
-  unctrl_warmth: 'You came and looked at it. That was the hard part, and it counts.', // [DRAFT]
-  unctrl_act: 'One small comfort, now. Warmth, food, a shower, music, the dog.', // [DRAFT]
-  unctrl_door: 'It will be here tomorrow if you want it. No pressure either way.', // [DRAFT]
+  // Merged 2026-07-28 (Neha) into one moon line: not fixing it tonight is fair,
+  // looking at it counts, one small kind thing now. The old separate beats
+  // (unctrl_warmth "you came and looked... it counts", unctrl_act "one small
+  // comfort...", unctrl_door "it will be here tomorrow") were four reassurances
+  // in a row where the honest answer to "nothing is possible" is one.
+  unctrl_honor:
+    "We're not fixing this tonight, and that's a fair call. You looked at it, which was the hard part. Do one small kind thing now, and let the rest keep.", // [DRAFT]
 
   // --- timing and close --------------------------------------------------
   time_it: 'When?', // [DRAFT]
@@ -369,8 +453,11 @@ export const COPY = {
   today_action: 'If ______ happens, then I ______', // [MAP]
   today_action_why: 'A plan tied to a specific moment is the kind that actually fires. Vague ones do not.', // [DRAFT]
 
-  we_good: 'We good?', // [MAP]
+  // `we_good` was merged into the closing rating 2026-07-28 (Neha): the number
+  // she gives IS the "we good", so a separate yes/no page asked the same thing
+  // twice. "Not yet" is how she asks for something she has not tried.
   intensity_out: 'And now?', // [MAP]
+  intensity_out_not_yet: 'Not yet, show me something else', // [NEHA] approved 2026-07-28
   close: 'You handled that. Go be in your evening.', // [MAP]
 } as const;
 

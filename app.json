@@ -15,6 +15,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
+        "NSCameraUsageDescription": "Niyora lets you take a photo to colour a picture with, as a calming moment.",
+        "NSPhotoLibraryUsageDescription": "Niyora lets you choose a photo to colour a picture with, as a calming moment.",
         "NSBonjourServices": [
           "_niyora._tcp"
         ]

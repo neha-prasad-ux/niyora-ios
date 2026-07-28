@@ -52,36 +52,16 @@ export type NodeId =
   | 'together'
   | 'naming_science'
   | 'feelings'
-  | 'name_reward'
-  | 'feel_heard'
   | 'reframe_small'
   // settle
   | 'breathe'
-  | 'breathe_more'
-  // body
+  // the hold
   | 'make_safe'
   | 'lane_split'
-  | 'high_howlong'
-  | 'high_onebreath'
-  | 'high_stepaway'
   | 'high_pick_activity'
   | 'high_activity_context'
   | 'high_timer_end'
-  | 'high_cbt_stem'
-  | 'high_cbt_reframe'
   | 'arousal_check'
-  | 'high_ladder'
-  // the hold
-  | 'high_howlong'
-  | 'high_onebreath'
-  | 'high_stepaway'
-  | 'high_pick_activity'
-  | 'high_activity_context'
-  | 'high_timer_end'
-  | 'high_cbt_stem'
-  | 'high_cbt_reframe'
-  | 'arousal_check'
-  | 'high_ladder'
   // low and mixed lanes
   | 'low_activate'
   | 'low_justone'
@@ -99,21 +79,21 @@ export type NodeId =
   | 'act'
   // nothing feels possible
   | 'unctrl_honor'
-  | 'unctrl_warmth'
-  | 'unctrl_act'
   | 'unctrl_ifthen'
-  | 'unctrl_door'
   // timing and close
   | 'time_it'
   | 'today_action'
   | 'after_checklist'
-  | 'we_good'
   | 'we_good_more'
   | 'intensity_out'
-  | 'human_nudge'
   | 'close';
 
-export type Phase = 'what happened' | 'settle' | 'what to do' | 'the plan';
+// Three states, named for what the app does in each (Neha 2026-07-28): reflect
+// (what happened, name it, reframe), regulate (breath, hold, the wait), react
+// (what to do, the message, close). They double as the progress map she sees,
+// so she always knows where she stands and that this goes somewhere. `the plan`
+// folded into `react`.
+export type Phase = 'reflect' | 'regulate' | 'react';
 
 export type FlowNode = {
   id: NodeId;
@@ -147,14 +127,14 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'raw_entry',
     owner: 'ui',
-    phase: 'what happened',
+    phase: 'reflect',
     next: 'intensity_in',
     note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held.',
   },
   {
     id: 'safe_check',
     owner: 'safety',
-    phase: 'what happened',
+    phase: 'reflect',
     branches: [
       { when: 'safe', next: 'intensity_in' },
       { when: 'not_safe', next: 'crisis_handoff' },
@@ -164,14 +144,14 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'crisis_handoff',
     owner: 'safety',
-    phase: 'what happened',
+    phase: 'reflect',
     terminal: true,
     note: 'STOPS the flow. Counts as a completed session for the badge: every ending counts except abandonment.',
   },
   {
     id: 'intensity_in',
     owner: 'ui',
-    phase: 'what happened',
+    phase: 'reflect',
     next: 'clarify',
     note: '0 to 10, taken BEFORE acknowledge because acknowledge is one of the things being measured. Also routes big vs small, rather than asking her the same thing twice.',
   },
@@ -180,7 +160,7 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'clarify',
     owner: 'echo',
-    phase: 'what happened',
+    phase: 'reflect',
     slot: 'clarify',
     next: 'acknowledge',
     note: 'Only when her entry is thin. Asks for the concrete thing using her own words.',
@@ -188,42 +168,39 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'acknowledge',
     owner: 'echo',
-    phase: 'what happened',
+    phase: 'reflect',
     slot: 'acknowledge',
     next: 'together',
     note: 'The one beat measured working on device. Never her read of his intent.',
   },
-  { id: 'together', owner: 'authored', phase: 'what happened', next: 'naming_science' },
+  { id: 'together', owner: 'authored', phase: 'reflect', next: 'naming_science' },
   {
     id: 'naming_science',
     owner: 'authored',
-    phase: 'what happened',
+    phase: 'reflect',
     next: 'feelings',
     note: 'Putting words to it settles it. No "research says", no mechanism claim.',
   },
   {
     id: 'feelings',
     owner: 'pick',
-    phase: 'what happened',
+    phase: 'reflect',
     slot: 'feelings',
-    next: 'name_reward',
+    next: 'reframe_small',
     why: true,
     note: 'Three from the 22 approved words. Ranking a list already written, so a suppression is an array filter.',
   },
-  { id: 'name_reward', owner: 'reward', phase: 'what happened', next: 'feel_heard' },
-  {
-    id: 'feel_heard',
-    owner: 'echo',
-    phase: 'what happened',
-    slot: 'feel_heard',
-    next: 'reframe_small',
-  },
+  // name_reward and feel_heard were removed 2026-07-28 (Neha): the screen has
+  // always jumped from the merged acknowledge card straight to the reframe, so
+  // both were dead nodes. name_reward also broke the celebration rule -- naming
+  // a feeling is not a hard act, and light is for acts, not states -- and
+  // feel_heard was a second echo on top of the one acknowledge already carries.
   {
     id: 'reframe_small',
     owner: 'authored',
-    phase: 'what happened',
+    phase: 'reflect',
     branches: [
-      { when: 'small_lands', next: 'we_good' },
+      { when: 'small_lands', next: 'intensity_out' },
       { when: 'small_no', next: 'breathe' },
       { when: 'big', next: 'breathe' },
     ],
@@ -242,34 +219,30 @@ export const MOMENT_FLOW: FlowNode[] = [
   // in this beat (day-to-day sleep and fatigue moved the regulation biomarker
   // where cycle phase showed no population rhythm at all), and the food leg was
   // the one with nothing under it.
+  // A guided exhale sequence 2026-07-28 (Neha): the moon becomes the breath
+  // ball, three paced rounds with copy that changes through each inhale/exhale
+  // (BREATH_SCRIPT in moment-copy), a light tick at every turn. It runs the
+  // three and moves on, or she leaves early with the one quiet "skip, I'm
+  // breathing calmly" button. No "two more rounds?" fork any more -- both the
+  // finished sequence and the skip land on the hold.
   {
     id: 'breathe',
     owner: 'ui',
-    phase: 'settle',
-    next: 'breathe_more',
+    phase: 'regulate',
     why: true,
-    note: 'One long exhale, out for longer than in. Count only, no vagus claim. EVERYONE gets this now, not only the high lane (Neha, 2026-07-27) — which is why it is no longer named high_breathe. Reuses the per-phase breath haptics so she can do it with her eyes shut and the phone face down.',
-  },
-  {
-    id: 'breathe_more',
-    owner: 'branch',
-    phase: 'settle',
-    branches: [
-      { when: 'yes', next: 'breathe' },
-      { when: 'no', next: 'make_safe' },
-    ],
-    note: 'Two more rounds, offered not imposed.',
+    next: 'make_safe',
+    note: 'In for four, out for six, so the exhale is the long half. Count only, no vagus claim. EVERYONE gets this, not only the high lane (Neha, 2026-07-27).',
   },
   {
     id: 'make_safe',
     owner: 'authored',
-    phase: 'settle',
+    phase: 'regulate',
     why: true,
     branches: [
-      { when: 'wait', next: 'high_howlong' },
+      { when: 'wait', next: 'high_pick_activity' },
       { when: 'now', next: 'lane_split' },
     ],
-    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed.',
+    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" goes STRAIGHT to picking the activity (Neha, 2026-07-28): the button already says "twenty minutes", so a "how long have you got?" question after it asks something she has just answered. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
   },
   // The LANE SPLIT and the low and mixed lanes were removed 2026-07-27 at
   // Neha's call. make_safe now goes straight to the hold or straight to the
@@ -285,7 +258,7 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'lane_split',
     owner: 'branch',
-    phase: 'settle',
+    phase: 'regulate',
     branches: [
       { when: 'high', next: 'options' },
       { when: 'low', next: 'low_activate' },
@@ -295,35 +268,19 @@ export const MOMENT_FLOW: FlowNode[] = [
   },
 
   // --- the hold ------------------------------------------------------------
-  {
-    id: 'high_howlong',
-    owner: 'branch',
-    phase: 'settle',
-    branches: [
-      { when: 'none', next: 'high_onebreath' },
-      { when: 'few', next: 'high_stepaway' },
-      { when: 'twenty', next: 'high_pick_activity' },
-    ],
-  },
-  {
-    id: 'high_onebreath',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'high_activity_context',
-    why: true,
-    note: '30-second filler. Carries the don-t-send line like every other branch: 30 seconds is long enough to send a text.',
-  },
-  {
-    id: 'high_stepaway',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'high_activity_context',
-    why: true,
-  },
+  //
+  // The "how long have you got?" beat (high_howlong: no time / a few minutes /
+  // twenty) was removed 2026-07-28 at Neha's call, and with it the two short
+  // fillers it routed to (high_onebreath, high_stepaway). The button that
+  // reaches here already says "twenty minutes", so asking how long afterwards
+  // asks something she has just answered, and the flat 1-vs-5-minute fork was
+  // work in front of the thing that helps. "Wait" now lands straight on the
+  // pick; anyone who does not want the full twenty leaves it with "i'm ready
+  // now", which is un-shamed and always there.
   {
     id: 'high_pick_activity',
     owner: 'authored',
-    phase: 'settle',
+    phase: 'regulate',
     next: 'high_activity_context',
     why: true,
     note: 'The 20 minute hold with a timer. An empty wait is rehearsal, so she picks something to do.',
@@ -331,42 +288,30 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'high_activity_context',
     owner: 'authored',
-    phase: 'settle',
+    phase: 'regulate',
     next: 'high_timer_end',
     note: 'Twelve activities, twelve lines. The model has no job here. It is also the beat where the fine-tune broke the no-mechanism rule in 36% of its training targets.',
   },
-  { id: 'high_timer_end', owner: 'reward', phase: 'settle', next: 'high_cbt_stem' },
-  {
-    id: 'high_cbt_stem',
-    owner: 'pick',
-    phase: 'settle',
-    slot: 'high_cbt_stem',
-    next: 'high_cbt_reframe',
-    note: 'Ten authored stems. The model ranks the three closest to her text and never writes one.',
-  },
-  {
-    id: 'high_cbt_reframe',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'arousal_check',
-    note: 'One line per stem, deterministic once she has picked. Shape: you know {her observed fact}, you do not know {the inference} yet.',
-  },
+  { id: 'high_timer_end', owner: 'reward', phase: 'regulate', next: 'arousal_check' },
+  // The CBT stem + matched reframe (high_cbt_stem / high_cbt_reframe) were CUT
+  // 2026-07-28 (Neha). Two reasons that compound: (1) reframing is the weak
+  // tool at high arousal -- the evidence favours distance/distraction, which is
+  // what the hold already is, so a second reframe argues against the flow's own
+  // logic; (2) it offered a menu of ten pre-written negative beliefs, a
+  // rumination list that also handed her the exact core beliefs the app is
+  // careful never to echo. Asking her to reframe instead was redundant: we
+  // already have her problem statement from the entry. The hold IS the
+  // intervention for the big emotion; after it, straight to "any better?".
+  // After the hold, she rates whether she is in a better place to react. A
+  // rating, not a yes/no (Neha 2026-07-28): the hold is the intervention and
+  // this reads whether it landed, then straight to the act menu. NOT the
+  // closing delta rating -- that is intensity_out, at the very end.
   {
     id: 'arousal_check',
-    owner: 'branch',
-    phase: 'settle',
-    branches: [
-      { when: 'better', next: 'ready_reward' },
-      { when: 'not_yet', next: 'high_ladder' },
-    ],
-    note: 'A routing question asked while she is still working. NOT the closing rating.',
-  },
-  {
-    id: 'high_ladder',
-    owner: 'authored',
-    phase: 'settle',
-    next: 'arousal_check',
-    note: 'An offer of other things to try, not a ladder: a hierarchy implies she is failing her way up it, and none of these have trial evidence anyway.',
+    owner: 'ui',
+    phase: 'regulate',
+    next: 'options',
+    note: '"Do you think you are now in a better place to react?" She rates it, then goes to what to do. high_ladder (the "want other practices?" loop) was cut with the CBT beat -- an empty offer that also implied she was failing her way up a ladder.',
   },
 
 
@@ -374,17 +319,17 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'low_activate',
     owner: 'authored',
-    phase: 'settle',
+    phase: 'regulate',
     next: 'low_justone',
     why: true,
     note: 'One small thing: sunlight, a song, a warm drink, the dog. Engaging, never soothing. The flat need an act most, not least.',
   },
-  { id: 'low_justone', owner: 'authored', phase: 'settle', next: 'low_reward' },
-  { id: 'low_reward', owner: 'reward', phase: 'settle', next: 'low_better' },
+  { id: 'low_justone', owner: 'authored', phase: 'regulate', next: 'low_reward' },
+  { id: 'low_reward', owner: 'reward', phase: 'regulate', next: 'low_better' },
   {
     id: 'low_better',
     owner: 'branch',
-    phase: 'settle',
+    phase: 'regulate',
     branches: [
       { when: 'yes', next: 'ready_reward' },
       { when: 'no', next: 'low_activate' },
@@ -392,19 +337,19 @@ export const MOMENT_FLOW: FlowNode[] = [
   },
 
   // --- mixed lane ----------------------------------------------------------
-  { id: 'mixed_name_swing', owner: 'authored', phase: 'settle', next: 'mixed_validate' },
-  { id: 'mixed_validate', owner: 'authored', phase: 'settle', next: 'mixed_check_read' },
+  { id: 'mixed_name_swing', owner: 'authored', phase: 'regulate', next: 'mixed_validate' },
+  { id: 'mixed_validate', owner: 'authored', phase: 'regulate', next: 'mixed_check_read' },
   {
     id: 'mixed_check_read',
     owner: 'echo',
-    phase: 'settle',
+    phase: 'regulate',
     slot: 'mixed_check_read',
     next: 'mixed_swing_real',
   },
   {
     id: 'mixed_swing_real',
     owner: 'branch',
-    phase: 'settle',
+    phase: 'regulate',
     branches: [
       { when: 'swing', next: 'mixed_anchor' },
       { when: 'real', next: 'mixed_real' },
@@ -414,7 +359,7 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'mixed_real',
     owner: 'echo',
-    phase: 'settle',
+    phase: 'regulate',
     slot: 'mixed_real',
     next: 'mixed_anchor',
     note: 'May restate, never endorse.',
@@ -422,117 +367,114 @@ export const MOMENT_FLOW: FlowNode[] = [
   {
     id: 'mixed_anchor',
     owner: 'authored',
-    phase: 'settle',
+    phase: 'regulate',
     next: 'ready_reward',
     note: 'Eight authored anchors. An anchor she can hold does not need to be bespoke, it needs to be good.',
   },
 
   // --- the act -------------------------------------------------------------
-  { id: 'ready_reward', owner: 'reward', phase: 'what to do', next: 'options' },
+  { id: 'ready_reward', owner: 'reward', phase: 'react', next: 'options' },
   {
     id: 'options',
     owner: 'pick',
-    phase: 'what to do',
+    phase: 'react',
     slot: 'controllability',
     why: true,
     branches: [
       { when: 'picks', next: 'act' },
       { when: 'show_others', next: 'options' },
+      { when: 'take_hold', next: 'high_pick_activity' },
       { when: 'none_possible', next: 'unctrl_honor' },
     ],
-    note: 'Three acts from the closed set of 13, always one direct, one preparatory, one self-directed, her nouns filled in. A menu, not a diagnosis: we stopped assessing whether her situation is fixable and started asking what she wants to do. The DV screen removes confrontational acts from the candidate array BEFORE ranking, and the universal line ships with "say it to them" for everyone, not only on a screen hit.',
+    note: 'Three acts from the closed set of 13, always one direct, one preparatory, one self-directed, her nouns filled in. A menu, not a diagnosis: we stopped assessing whether her situation is fixable and started asking what she wants to do. The DV screen removes confrontational acts from the candidate array BEFORE ranking, and the universal line ships with "say it to them" for everyone, not only on a screen hit. `take_hold` is the offer shown ONLY when she rated it high AND chose to act now without the twenty-minute hold: a real path back into the hold, never a wall in front of the acts (Neha, 2026-07-28).',
   },
   {
     id: 'act',
     owner: 'she',
-    phase: 'what to do',
+    phase: 'react',
     next: 'time_it',
     note: 'An authored scaffold she fills. The message she sends to a real person is the highest-stakes output in the app, and drafting it for her is the beat form measured at 26%.',
   },
 
   // --- nothing feels possible ---------------------------------------------
+  //
+  // Consolidated 2026-07-28 (Neha): the four beats here (honor / warmth /
+  // comfort / door) were four Continue taps for one thought, and on the
+  // "nothing is possible" path a string of separate reassurances reads as the
+  // app not hearing the "nothing". `honor` now carries all three sentiments in
+  // one moon line -- not fixing it tonight is fair, looking at it counts, do
+  // one small kind thing -- and leads STRAIGHT to the plan. What went:
+  // unctrl_warmth, unctrl_act, unctrl_door.
   {
     id: 'unctrl_honor',
     owner: 'authored',
-    phase: 'what to do',
-    next: 'unctrl_warmth',
-    note: 'A valid answer with a full ending of its own. No "but maybe", no re-asking.',
-  },
-  { id: 'unctrl_warmth', owner: 'authored', phase: 'what to do', next: 'unctrl_act' },
-  {
-    id: 'unctrl_act',
-    owner: 'authored',
-    phase: 'what to do',
+    phase: 'react',
     next: 'unctrl_ifthen',
-    note: 'One tiny comfort act, now. Soothing here is deliberate and is the opposite of the low lane: this is a woman who has declined to fix anything.',
+    note: 'A valid answer with a full ending of its own. No "but maybe", no re-asking. Merges the old honor + warmth + comfort lines into one moon line, then goes straight to the plan.',
   },
   {
     id: 'unctrl_ifthen',
     owner: 'she',
-    phase: 'the plan',
-    next: 'unctrl_door',
-    note: 'A coping if-then, not a fixing one. Same mechanism as today_action, surviving instead of solving.',
+    phase: 'react',
+    next: 'close',
+    note: 'A coping if-then, not a fixing one. Same mechanism as today_action, surviving instead of solving. Goes straight to close: the "it will be here tomorrow" door line was folded into the one honor line above.',
   },
-  { id: 'unctrl_door', owner: 'authored', phase: 'the plan', next: 'we_good' },
 
   // --- timing and close ----------------------------------------------------
   {
     id: 'time_it',
     owner: 'branch',
-    phase: 'the plan',
+    phase: 'react',
     next: 'today_action',
     note: 'Now, tomorrow, not sure. "Do it now anyway" stays a real un-shamed option.',
   },
   {
     id: 'today_action',
     owner: 'she',
-    phase: 'the plan',
+    phase: 'react',
     why: true,
     branches: [
       { when: 'has_after', next: 'after_checklist' },
-      { when: 'no_after', next: 'we_good' },
+      { when: 'no_after', next: 'intensity_out' },
     ],
     note: 'if ___ happens, then i ___. She fills both slots; the trigger is seeded from her own opening sentence, tense-shifted, so the facts are correct by construction and the model never invents a him or a dinner.',
   },
   {
     id: 'after_checklist',
     owner: 'authored',
-    phase: 'the plan',
-    next: 'we_good',
+    phase: 'react',
+    next: 'intensity_out',
     note: 'Only for acts that have an after.',
   },
+  // The closing check. `we_good` and the outcome rating were MERGED here
+  // 2026-07-28 (Neha): they were two taps on two pages for one question. The
+  // rating she gives IS the "we good", and "not yet" is how she asks for
+  // something she has not tried. The delta between this and intensity_in is the
+  // flow's only outcome measure, so it is still a real reading.
   {
-    id: 'we_good',
-    owner: 'branch',
-    phase: 'the plan',
+    id: 'intensity_out',
+    owner: 'ui',
+    phase: 'react',
     branches: [
-      { when: 'yes', next: 'intensity_out' },
-      { when: 'no', next: 'we_good_more' },
+      { when: 'rated', next: 'close' },
+      { when: 'not_yet', next: 'we_good_more' },
     ],
+    note: 'And now? Never "how much better do you feel", which presupposes improvement and inflates a measure the evidence already distrusts. Carries the "we good?" sense on the same card: the number is the answer, "not yet" opens the untried options.',
   },
   {
     id: 'we_good_more',
     owner: 'echo',
-    phase: 'the plan',
+    phase: 'react',
     slot: 'we_good_more',
-    next: 'we_good',
-    note: 'One node doing two jobs: the ask is echo, the untried options are an authored list minus what she already did.',
+    next: 'intensity_out',
+    note: 'One node doing two jobs: the ask is echo, the untried options are an authored list minus what she already did. Loops back to the merged closing rating, not to a separate "we good" page.',
   },
-  {
-    id: 'intensity_out',
-    owner: 'ui',
-    phase: 'the plan',
-    next: 'human_nudge',
-    note: 'And now? Never "how much better do you feel", which presupposes improvement and inflates a measure the evidence already distrusts. The delta is the result, not either number.',
-  },
-  {
-    id: 'human_nudge',
-    owner: 'authored',
-    phase: 'the plan',
-    next: 'close',
-    note: 'Fires on the frequency signal only, never every session: usage volume is what predicts loneliness, so the right response to a high number is to send her away.',
-  },
-  { id: 'close', owner: 'authored', phase: 'the plan', terminal: true },
+  // human_nudge ("you've been here a lot, go be with someone") was removed from
+  // the path 2026-07-28 (Neha): it is a pure usage-frequency beat -- fires only
+  // on a high-usage signal, never on emotion size -- so it belongs with the
+  // reward / light / usage system, which is deliberately deferred until every
+  // flow exists rather than judged one beat at a time. To be reintroduced then.
+  { id: 'close', owner: 'authored', phase: 'react', terminal: true },
 ];
 
 const BY_ID = new Map(MOMENT_FLOW.map((n) => [n.id, n]));

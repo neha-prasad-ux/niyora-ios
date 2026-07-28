@@ -14,6 +14,7 @@
 // onboarding-v3 and rough-moment; it has no token yet, and inventing one would
 // be a bigger change than reusing it.
 
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -22,6 +23,13 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import Animated, {
+  FadeInUp,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
@@ -32,11 +40,36 @@ const tap = () => Haptics.selectionAsync().catch(() => {});
 /** The app's existing selected-chip fill. Not a token yet; see file header. */
 const SELECTED = 'rgba(150, 120, 235, 0.28)';
 
+// One option-motion language (motion-design rules, neha-prasad.com):
+//   · options are ACTIONS, so they RISE into place (Y-axis: bottom is action),
+//     never drop from the top — motion has to match where the thing lives.
+//   · stagger 20-60ms; a small base delay so the parent card settles first
+//     (parent before children).
+//   · the press is DIRECT touch, so it is a SPRING, not an ease.
+const STAGGER = 45;
+const STAGGER_BASE = 60;
+/** How long a tapped option holds its colour before the beat advances, so the
+ *  choice registers on every screen — not just the ones that tracked it by hand.
+ *  Matches the moment screen's own ADVANCE_MS. */
+const ADVANCE_MS = 260;
+/** Interactive spring: stiffness 300 / damping 25 / mass 1, ~72% ratio. */
+const PRESS_SPRING = { stiffness: 320, damping: 26, mass: 1 } as const;
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 // --- one option, one line ----------------------------------------------------
 
 /**
  * A full-width option row. One thumb-sized target per line, so she never reads
  * across a wrapped pill row while upset.
+ *
+ * `index` opts the row into the group stagger (options settle in one after
+ * another). `hint` is the VoiceOver hint — e.g. "suggested by the moon" on an
+ * AI-written reading. `tint` is the phase colour: pass it and the row lights up
+ * in that colour when tapped and holds it for a beat before `onPress` fires, so
+ * the choice registers the same way on every screen. Without it, `onPress`
+ * fires immediately (for rows that open a field rather than advance a beat).
+ * The press-down spring is universal, so every tap answers the same way.
  */
 export function OptionRow({
   label,
@@ -44,28 +77,82 @@ export function OptionRow({
   selected = false,
   disabled = false,
   style,
+  index,
+  hint,
+  tint,
 }: {
   label: string;
   onPress: () => void;
   selected?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  index?: number;
+  hint?: string;
+  tint?: StyleProp<ViewStyle>;
 }) {
+  const reduce = useReducedMotion();
+  const press = useSharedValue(0);
+  const pressStyle = useAnimatedStyle(() => ({
+    // Scale is a transform, which reduce-motion avoids; there it presses with
+    // opacity alone (motion-design accessibility swap: scale → opacity fade).
+    transform: [{ scale: 1 - press.value * (reduce ? 0 : 0.03) }],
+    opacity: 1 - press.value * 0.1,
+  }));
+  // The tapped-and-holding state, so the colour registers before the beat moves.
+  const [flash, setFlash] = useState(false);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+  const active = selected || flash;
   return (
-    <Pressable
-      style={[styles.row, selected && styles.rowOn, disabled && styles.rowOff, style]}
-      onPress={() => {
-        if (disabled) return;
-        tap();
-        onPress();
-      }}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected, disabled }}
+    <Animated.View
+      entering={
+        index != null && !reduce
+          ? FadeInUp.delay(STAGGER_BASE + index * STAGGER).duration(220)
+          : undefined
+      }
     >
-      <Text style={[styles.rowText, disabled && styles.rowTextOff]}>{label}</Text>
-    </Pressable>
+      <AnimatedPressable
+        style={[
+          styles.row,
+          active && (tint ?? styles.rowOn),
+          disabled && styles.rowOff,
+          style,
+          pressStyle,
+        ]}
+        onPressIn={() => {
+          // Spring, because she touched it directly; begins on the same frame,
+          // well under the 100ms feedback rule.
+          if (!disabled) press.value = withSpring(1, PRESS_SPRING);
+        }}
+        onPressOut={() => {
+          press.value = withSpring(0, PRESS_SPRING);
+        }}
+        onPress={() => {
+          if (disabled) return;
+          tap();
+          // With a tint, hold the colour for a beat, then advance; otherwise fire
+          // now (rows that toggle a field in place, never leaving the screen).
+          if (tint) {
+            setFlash(true);
+            flashTimer.current = setTimeout(onPress, ADVANCE_MS);
+          } else {
+            onPress();
+          }
+        }}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={hint}
+        accessibilityState={{ selected: active, disabled }}
+      >
+        <Text style={[styles.rowText, disabled && styles.rowTextOff]}>{label}</Text>
+      </AnimatedPressable>
+    </Animated.View>
   );
 }
 
@@ -131,6 +218,7 @@ export function ScaleButtons({
   lowLabel?: string;
   highLabel?: string;
 }) {
+  const reduce = useReducedMotion();
   return (
     <View style={styles.numbersWrap}>
       <View style={styles.numbers}>
@@ -138,19 +226,24 @@ export function ScaleButtons({
           const n = i + 1;
           const on = value === n;
           return (
-            <Pressable
+            <Animated.View
               key={n}
-              style={[styles.number, on && styles.numberOn]}
-              onPress={() => {
-                tap();
-                onChange(n);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`${n} out of 5`}
-              accessibilityState={{ selected: on }}
+              style={styles.numberCell}
+              entering={reduce ? undefined : FadeInUp.delay(STAGGER_BASE + i * STAGGER).duration(220)}
             >
-              <Text style={[styles.numberText, on && styles.numberTextOn]}>{n}</Text>
-            </Pressable>
+              <Pressable
+                style={[styles.number, on && styles.numberOn]}
+                onPress={() => {
+                  tap();
+                  onChange(n);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${n} out of 5`}
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.numberText, on && styles.numberTextOn]}>{n}</Text>
+              </Pressable>
+            </Animated.View>
           );
         })}
       </View>
@@ -220,6 +313,8 @@ const styles = StyleSheet.create({
   // Five fit one row. Each stretches to share the width rather than sitting at
   // a fixed size, so the row fills the card on any phone.
   numbers: { flexDirection: 'row', gap: 8 },
+  // The stagger wrapper carries the row flex now; the button fills it.
+  numberCell: { flex: 1 },
   number: {
     flex: 1,
     height: 56,
