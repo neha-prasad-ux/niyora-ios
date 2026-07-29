@@ -90,16 +90,16 @@ describe('deriveLevel (reads the inputs off the answers)', () => {
   });
 });
 
-describe('DEFAULT_ANSWERS (pre-filled onboarding defaults)', () => {
-  // Locks the intended landing: someone who taps straight through gets a calm
-  // middle read, never a scary "severe". If an item list changes and pushes this
-  // off "moderate"/"mixed", these fail on purpose.
-  it('bands to a moderate level, not severe', () => {
-    expect(deriveLevel(DEFAULT_ANSWERS)).toBe('moderate');
+describe('DEFAULT_ANSWERS (first-run onboarding seed)', () => {
+  // DECISION (2026-07-24): first-run stays BLANK — pre-selecting answers would
+  // inflate her derived level and plan. These lock that in: an empty seed reads
+  // as the lowest band with no coping standing, so nothing is pre-inflated.
+  it('is blank, so it bands to mild, never a pre-inflated level', () => {
+    expect(deriveLevel(DEFAULT_ANSWERS)).toBe('mild');
   });
 
-  it('reads a mixed coping standing', () => {
-    expect(deriveCopingStanding(DEFAULT_ANSWERS)).toBe('mixed');
+  it('has no coping standing until she actually chooses', () => {
+    expect(deriveCopingStanding(DEFAULT_ANSWERS)).toBeNull();
   });
 });
 

@@ -175,24 +175,23 @@ export const EMPTY_ANSWERS: V3Answers = {
 };
 
 /**
- * Pre-filled defaults for first-time onboarding, so every answer step opens with
- * the most common answer already selected (review-and-continue instead of
- * decide-from-a-blank-slate). Chosen to land the read on a calm middle: count 4
- * with two emotional anchors + "a little" impact banded to MODERATE (never a
- * scary "severe"), and a mixed coping standing. Kept separate from EMPTY_ANSWERS,
- * which is the shared merge-base used by the stores, pms-reads, and tests.
+ * First-run onboarding seed (retake starts EMPTY instead, then seeds from her
+ * last read so the then-vs-now compare stays honest).
  *
- * The cycle date is deliberately left blank: pre-filling "today" as a period
- * start would corrupt the prediction (see src/app/onboarding.tsx), and the
- * fact_hormones step already lets her continue without one.
+ * DECISION (2026-07-24): first-run stays BLANK. Pre-selecting "common" answers
+ * to cut drop-off was considered and rejected — pre-checking symptoms,
+ * impairment, or levers would inflate her derived level and her plan, which is
+ * not a trade worth making. Do NOT add pre-selections here. Kept as its own
+ * const (not a reference to EMPTY_ANSWERS) to preserve the first-run vs retake
+ * seam and avoid shared-mutation surprises.
  */
 export const DEFAULT_ANSWERS: V3Answers = {
-  presence: ['mood_swings', 'irritability', 'cravings', 'bloating'], // 2 anchors + 2 body
-  impairment: { work: 1, relationships: 1 }, // "A little"
-  cycle: { lastPeriod: null, starts: [], length: null, unsure: false }, // stays optional
-  remission: 'yes',
-  levers: { sleep: 1, food: 1, movement: 1 }, // "Sometimes"
-  coping: ['talk', 'distract', 'withdraw', 'suppress'], // 2 engage + 2 disengage -> mixed
+  presence: [],
+  impairment: {},
+  cycle: { lastPeriod: null, starts: [], length: null, unsure: false },
+  remission: null,
+  levers: {},
+  coping: [],
 };
 
 // --- Level banding (decision 2) ---------------------------------------
