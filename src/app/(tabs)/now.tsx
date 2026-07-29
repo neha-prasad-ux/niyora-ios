@@ -620,6 +620,20 @@ export default function NowScreen() {
           contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + 106 }]}
           showsVerticalScrollIndicator={false}
         >
+          {/* Dev-only shortcut straight into the Rough Moment reflect chat, so
+              the on-device AI session is reachable for testing without walking
+              the whole Steady-yourself flow (which is PMS-day gated). Never
+              ships — __DEV__ only. */}
+          {__DEV__ && (
+            <Pressable
+              onPress={() => router.push('/rough-moment' as Href)}
+              style={styles.devChatLink}
+              accessibilityRole="button"
+              accessibilityLabel="Open reflect chat (dev)"
+            >
+              <Text style={styles.devChatLinkText}>💬 reflect chat (dev)</Text>
+            </Pressable>
+          )}
           {/* The soul: one big calm moon that carries the whole reward — her
               earned rings, her brightness, her material — and lights up when
               the day's action lands. */}
@@ -839,6 +853,15 @@ export default function NowScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
+  devChatLink: {
+    alignSelf: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  devChatLinkText: { fontFamily: 'Poppins-Light', fontSize: 13, color: 'rgba(255,255,255,0.9)' },
   // The crossing line sits over the bloom, near the moon's centre.
   crossingLabel: {
     position: 'absolute',
