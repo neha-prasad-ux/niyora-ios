@@ -109,23 +109,92 @@ export function dayPill(cycle: V3Answers['cycle'], today: Date = new Date()): Da
   return { label: `day ${day}`, inWindow };
 }
 
-/** The one sentence of cycle context injected into prompts. */
+/**
+ * Cycle context, in the compact form the corpus was built with.
+ *
+ * gemma4-runpod assemble.py build_user() emits `cycle: day 24, premenstrual
+ * window` and only when the premenstrual flag is set. The long sentence this
+ * used to produce ("It is day 24 of her cycle, inside the premenstrual window,
+ * when thoughts can feel louder than they are.") never appeared in training,
+ * and off-distribution context is what makes a 2B degenerate.
+ */
 export function cycleContextLine(pill: DayPill | null): string | null {
-  if (!pill) return null;
-  return pill.inWindow
-    ? `It is ${pill.label} of her cycle, inside the premenstrual window, when thoughts can feel louder than they are.`
-    : `It is ${pill.label} of her cycle.`;
+  if (!pill || !pill.inWindow) return null;
+  return `${pill.label}, premenstrual window`;
 }
 
 // --- Model requests per step ---------------------------------------------
 
-/** Shared system prompt. Bounds every generated turn. */
-export const INSTRUCTIONS = [
-  'You help a woman steady one difficult thought during a rough moment, using a gentle CBT-style structure.',
-  'You are not a therapist and never present yourself as one. Never diagnose, never mention disorders or medication, never give medical advice.',
-  "Voice: quiet and warm. One or two short sentences. No exclamation points. No emojis. No pep talk, no \"you've got this\". Plain words.",
-  'Never dismiss the feeling. Never argue. You reflect, ask one small question, or offer one gentler way to hold the thought.',
-].join(' ');
+/**
+ * The system turn, BYTE-IDENTICAL to the one the corpus was trained with
+ * (gemma4-runpod assemble.py:29-30). Every one of the 2,542 rows in
+ * v4_wide_deduped carries exactly this string and no other.
+ *
+ * Do not "improve" it. The previous version here was a four-sentence
+ * sentence-case CBT brief that the model had never seen, and on device it
+ * produced third-person and near-degenerate output ("One minute today feels
+ * like one thing today, one thing today at once."). The same model on the
+ * trained string answers "he ignored you all evening, that's enough today."
+ *
+ * Note the deliberate absence of the word "moon": a small model
+ * free-associates on lunar imagery from that token alone and writes poetry
+ * instead of reflection. "Moon" is the app-facing persona name, never a
+ * model-facing one.
+ */
+export const INSTRUCTIONS =
+  'you reply to a woman having a hard moment. warm, plain, like a close friend in her 30s. ' +
+  'say her own words back. never advise. lowercase, max 2 sentences, no dashes.';
+
+/**
+ * The corpus slot each model beat is sent as. Beat names are OURS; slot names
+ * are the flow node ids the model was trained on, so this map is where the two
+ * vocabularies meet. Row counts are from v4_wide_deduped.
+ *
+ *   confirm -> acknowledge      (424 rows) reflect her words, invent nothing
+ *
+ * ONE ENTRY, deliberately. The model may echo, pick or transform; it may never
+ * compose. `acknowledge` is the only echo beat in this arc and the only one
+ * measured working on device (77%, iPhone 15, 2026-07-27).
+ *
+ * Removed 2026-07-27, not merely disabled:
+ *
+ *   examine -> high_cbt_stem    (233 rows) a CBT stem it has to invent
+ *   reframe -> high_cbt_reframe (270 rows) a new, gentler reading
+ *   keep    -> reframe_small    (203 rows) the small, truer line
+ *
+ * All three are compose beats, all three produced near-nonsense on the phone in
+ * the same run that acknowledge passed, and compose measured 26%. They are
+ * deleted from the map rather than gated behind a flag so the beat cannot reach
+ * a model by accident: buildTurnRequest returns null and the authored line is
+ * the only thing left to render. A suppression that depends on remembering not
+ * to call something is not a suppression.
+ *
+ * They come back as authored copy plus PICK over a closed set (10 stems, 10
+ * reframes), which is a list operation, not generation. Until that copy is
+ * written, `SCRIPT` is the whole of those beats.
+ *
+ * `pattern` and `change` were always scripted and never reached the model.
+ */
+const BEAT_SLOT: Partial<Record<RoughStep, string>> = {
+  confirm: 'acknowledge',
+};
+
+/**
+ * Build the user turn in the corpus shape (assemble.py build_user): a bracketed
+ * slot tag, then only the fields that are present, newline-joined, in this
+ * fixed order. `she feels:` is suppressed for acknowledge, matching training.
+ */
+function buildUser(
+  slot: string,
+  parts: { herText?: string | null; feeling?: string | null; cycle?: string | null; note?: string | null },
+): string {
+  const lines = [`[${slot}]`];
+  if (parts.herText) lines.push(`she wrote: "${parts.herText}"`);
+  if (parts.feeling && slot !== 'acknowledge') lines.push(`she feels: ${parts.feeling}`);
+  if (parts.cycle) lines.push(`cycle: ${parts.cycle}`);
+  if (parts.note) lines.push(parts.note);
+  return lines.join('\n');
+}
 
 export interface TurnRequest {
   instructions: string;
@@ -139,7 +208,15 @@ export interface TurnRequest {
  * Intelligence off) -- it must read complete on its own, not like an error.
  */
 export const SCRIPT = {
-  confirmIntro: 'Do you feel any of these is true?',
+  // The opening ask. She can type it out, or tap one of the core thoughts if
+  // typing is more than she has right now — both paths are first-class.
+  confirmIntro: 'What is going on?',
+  entryPlaceholder: 'Type it out…',
+  chipsLabel: 'Or pick one',
+  // The authored floor under the acknowledge beat, used only when there is
+  // nothing in her sentence that can safely be said back (see ground-floor:
+  // self-attack and attributions about other people are never echoed).
+  acknowledge: 'Okay. Let us look at it.',
   // Spot the pattern: name the distortion in plain, first-person words, no
   // jargon. Scripted (a fixed, gentle set), never model-generated.
   patternIntro: 'Do you think any of these is true about how you feel?',
@@ -159,7 +236,7 @@ export const SCRIPT = {
   changeNo: 'So it is okay to sleep on it, it can wait',
   reframe: 'A hard moment is real but not the whole story',
   keepQuote: 'This is not the whole story, it is a moment',
-  keepSupport: 'You noticed the thought, reflected on it, and now you know it is a smaller than you perceived',
+  keepSupport: 'You noticed the thought, reflected on it, and now you know it is smaller than you perceived',
 } as const;
 
 /** Fallback thought proposal when the model can't offer one: her own words,
@@ -190,49 +267,28 @@ export const CONFIRM_THOUGHT_CHIPS = [
  * calls the model (vent is hers alone; confirm's feeling row is scripted).
  */
 export function buildTurnRequest(step: RoughStep, state: CompactState): TurnRequest | null {
-  const cycle = state.cycleContext ? ` ${state.cycleContext}` : '';
-  switch (step) {
-    // `pattern` and `change` are scripted-only beats (a fixed, gentle set of
-    // plain-word distortions and a yes/no agency check) — they never call the
-    // model, so the effort gradient stays confirm + examine.
-    case 'pattern':
-    case 'change':
-      return null;
-    case 'confirm':
-      return {
-        instructions: INSTRUCTIONS,
-        prompt:
-          `She just had a rough moment.${cycle}\n` +
-          'Name the single distressing thought most likely underneath, in her own vocabulary, under 12 words, first person. Put that thought in the chips (one or two candidate phrasings). The prose is one short sentence introducing it, like: Do you feel any of these is true?',
-        wantChips: true,
-      };
-    case 'examine':
-      return {
-        instructions: INSTRUCTIONS,
-        prompt:
-          `Her thought right now: "${state.thought ?? state.ventExcerpt}". The feeling is mostly ${state.feeling ?? 'heavy'}.${cycle}\n` +
-          'Ask one small, gentle CBT-style question that helps her look at the thought from a step outside (evidence, size, or whether it has visited before). The chips are two or three honest answers she might tap, in her vocabulary.',
-        wantChips: true,
-      };
-    case 'reframe': {
-      const tapped = state.tappedChip ? ` Looking at it, she said: "${state.tappedChip}".` : '';
-      return {
-        instructions: INSTRUCTIONS,
-        prompt:
-          `Her thought right now: "${state.thought ?? state.ventExcerpt}". The feeling is mostly ${state.feeling ?? 'heavy'}.${tapped}${cycle}\n` +
-          'Offer one gentler, believable way to hold the thought. Not a denial, not a silver lining · a smaller, truer version. One or two sentences.',
-        wantChips: false,
-      };
-    }
-    case 'keep':
-      return {
-        instructions: INSTRUCTIONS,
-        prompt:
-          `Her thought right now: "${state.thought ?? state.ventExcerpt}".${cycle}\n` +
-          'Write the single line she keeps: the gentler version of the thought, first person or plain statement, under 12 words, no quotes around it.',
-        wantChips: false,
-      };
-  }
+  // Every beat except `confirm` is authored now, so this returns null for all
+  // of them. That is the enforcement point for "the model may never compose".
+  const slot = BEAT_SLOT[step];
+  if (!slot) return null;
+
+  // Her own words, and only ever hers: acknowledge echoes what she typed.
+  // Nothing else is sent, because nothing else is hers.
+  const herText = state.ventExcerpt;
+  if (!herText) return null;
+
+  return {
+    instructions: INSTRUCTIONS,
+    prompt: buildUser(slot, {
+      herText,
+      feeling: state.feeling,
+      cycle: state.cycleContext,
+      note: null,
+    }),
+    // Chips are authored, never generated (see reflect-model-parse). The flag
+    // only tells the caller whether to render a chip row.
+    wantChips: false,
+  };
 }
 
 // --- The Keep (result-ladder card: title, quote, support, caption) --------

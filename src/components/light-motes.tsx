@@ -1,5 +1,5 @@
 // Earned light, seen landing: when the ledger records an act (light-bus), a
-// small mote drifts from the content area down into the Now tab's moon, which
+// small mote drifts from the content area down into the Moon tab's moon, which
 // pulses as it absorbs (tab-moon.tsx listens for `moteArrived`). Light is
 // mostly earned inside full-screen flows that cover the tab bar, so motes
 // queue while the tabs are hidden and play on return — the moment she can
@@ -29,6 +29,12 @@ import {
   BAR_SIDE_INSET,
   MOON_CENTER_FROM_BAR_TOP,
 } from '@/components/night-tab-bar';
+
+// Where the light is going. These MUST track the Tabs.Screen order in
+// (tabs)/_layout.tsx: the motes are aimed by pure geometry, with no ref and no
+// measurement, so a mismatch here misses the icon silently and nothing fails.
+const TAB_COUNT = 4;
+const MOON_TAB_INDEX = 3; // now, grow, you, moon
 
 const QUEUE_MAX = 3; // a burst plays as at most this many motes on return
 const QUEUE_FRESH_MS = 60_000; // stale earns stop announcing themselves
@@ -113,14 +119,18 @@ function Mote({ mote, onDone }: { mote: ActiveMote; onDone: (id: number) => void
   // Deeper acts are bigger sparks (visit ~9px, apply ~13px).
   const size = 8 + Math.min(5, mote.event.amount * 0.12);
 
-  // Flight path: from mid-screen (where the cards live) into the Now tab's
+  // Flight path: from mid-screen (where the cards live) into the MOON tab's
   // moon, lobbed slightly upward first so it reads as a spark, not a drop.
   const sx = width / 2 + mote.jx;
   const sy = height * 0.42 + mote.jy;
   const barTop = height - (BAR_CONTENT_HEIGHT + Math.max(insets.bottom, BAR_MIN_BOTTOM_PAD));
-  // The bar is inset from both edges now, so the tab row is narrower than the
-  // screen: center of the first of three equal tabs within that inset row.
-  const ex = BAR_SIDE_INSET + (width - 2 * BAR_SIDE_INSET) / 6;
+  // The bar is inset from both edges, so the tab row is narrower than the
+  // screen: centre of tab MOON_TAB_INDEX among TAB_COUNT equal tabs within that
+  // inset row. Written out rather than folded into one constant because the old
+  // form was a bare `/ 6` that silently meant "first of three" — when a fourth
+  // tab landed it aimed the light at a place no tab was.
+  const rowWidth = width - 2 * BAR_SIDE_INSET;
+  const ex = BAR_SIDE_INSET + (rowWidth * (2 * MOON_TAB_INDEX + 1)) / (2 * TAB_COUNT);
   const ey = barTop + MOON_CENTER_FROM_BAR_TOP;
   const cx = sx + (ex - sx) * 0.25;
   const cy = sy - 64;

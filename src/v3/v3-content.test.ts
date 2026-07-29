@@ -1,5 +1,6 @@
 import {
   ANCHOR_IDS,
+  DEFAULT_ANSWERS,
   EMPTY_ANSWERS,
   bandLevel,
   copingStandingCopy,
@@ -86,6 +87,19 @@ describe('deriveLevel (reads the inputs off the answers)', () => {
 
   it('handles empty answers without throwing', () => {
     expect(deriveLevel(EMPTY_ANSWERS)).toBe('mild');
+  });
+});
+
+describe('DEFAULT_ANSWERS (first-run onboarding seed)', () => {
+  // DECISION (2026-07-24): first-run stays BLANK — pre-selecting answers would
+  // inflate her derived level and plan. These lock that in: an empty seed reads
+  // as the lowest band with no coping standing, so nothing is pre-inflated.
+  it('is blank, so it bands to mild, never a pre-inflated level', () => {
+    expect(deriveLevel(DEFAULT_ANSWERS)).toBe('mild');
+  });
+
+  it('has no coping standing until she actually chooses', () => {
+    expect(deriveCopingStanding(DEFAULT_ANSWERS)).toBeNull();
   });
 });
 

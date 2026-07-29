@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { scanForCrisis, CRISIS_COPY } from '@/lib/crisis-scan';
 import type { Activity } from '@/models/activities';
 import { Pill } from '@/components/Pill';
 
@@ -29,6 +30,7 @@ type Props = { activity: Activity; onComplete: () => void };
 
 export function WriteView({ activity, onComplete }: Props) {
   const [text, setText] = useState('');
+  const [crisis, setCrisis] = useState(false);
   const fade = useSharedValue(1);
   const insets = useSafeAreaInsets();
 
@@ -36,6 +38,25 @@ export function WriteView({ activity, onComplete }: Props) {
     // Drop the keyboard so it slides away with the words, instead of sitting
     // there after everything has dissolved.
     Keyboard.dismiss();
+
+    // CRISIS SCAN. This field is the one place in the app where she writes
+    // whatever she wants, unprompted, knowing it disappears — which is exactly
+    // where someone puts the thing they would never tap a button about. Wysa's
+    // data: 82% of crisis instances were surfaced by DETECTION, only 18% by the
+    // user saying so.
+    //
+    // The scan is a list operation over static phrases (crisis-scan.ts), never
+    // a model call, and the copy it shows is human-written and never generated.
+    // The text still never leaves the device and is still never stored; we read
+    // it in memory and drop it.
+    //
+    // Deliberately does NOT dissolve first: the words stay on screen under the
+    // message, because making them vanish at the moment she is shown a helpline
+    // reads as the app recoiling from what she said.
+    if (scanForCrisis(text)) {
+      setCrisis(true);
+      return;
+    }
     fade.value = withTiming(0, { duration: 850, easing: Easing.in(Easing.cubic) }, (done) => {
       if (done) runOnJS(onComplete)();
     });
@@ -72,8 +93,21 @@ export function WriteView({ activity, onComplete }: Props) {
           selectionColor="rgba(196, 178, 255, 0.9)"
         />
       </Animated.View>
+      {crisis ? (
+        <View style={styles.crisis}>
+          <Text style={styles.crisisTitle}>{CRISIS_COPY.title}</Text>
+          <Text style={styles.crisisBody}>{CRISIS_COPY.body}</Text>
+          {CRISIS_COPY.lines.map((l) => (
+            <View key={l.label} style={styles.crisisRow}>
+              <Text style={styles.crisisLine}>{l.label}</Text>
+              <Text style={styles.crisisDetail}>{l.detail}</Text>
+            </View>
+          ))}
+          <Text style={styles.crisisDetail}>{CRISIS_COPY.emergency}</Text>
+        </View>
+      ) : null}
       <View style={styles.actions}>
-        <Pill label="Disappear" onPress={onDisappear} />
+        <Pill label={crisis ? CRISIS_COPY.back : 'Disappear'} onPress={crisis ? () => setCrisis(false) : onDisappear} />
       </View>
     </KeyboardAvoidingView>
   );
@@ -81,6 +115,39 @@ export function WriteView({ activity, onComplete }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
+  crisis: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  crisisTitle: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: 6,
+  },
+  crisisBody: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    marginBottom: 10,
+  },
+  crisisRow: { marginBottom: 8 },
+  crisisLine: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textPrimary,
+  },
+  crisisDetail: {
+    fontFamily: 'Poppins-Light',
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textSubtitle,
+  },
   title: {
     fontFamily: 'Poppins-Medium',
     fontSize: 22,

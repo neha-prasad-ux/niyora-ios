@@ -4,12 +4,22 @@
 // canvas so they can overflow the slot the way it does.
 //
 // Resting, each icon is a flat neutral silhouette; on focus it crossfades to its
-// full colour — the sun a warm glow, the star gold. Only Today's moon carries a
-// ring and stays live when resting; the sun and star are ringless and grey out.
+// full colour — the sun a warm glow, the star gold, Today's rings a cool
+// moonstone. All three grey out at rest; only the live moon (now the Moon tab)
+// stays lit while resting, because it is her actual moon rather than a symbol.
 
 import { useEffect, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  Ellipse,
+  G,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -91,6 +101,66 @@ export function SunIcon({ focused, size = 24 }: TabIconProps) {
       size={size}
       grey={<SunColour fill={GRAY} />}
       colour={<SunColour fill="colour" />}
+    />
+  );
+}
+
+// --- Today: the rings, with no body -------------------------------------------
+// The moon body moved to the Moon tab, so what stays on Today is the ring: the
+// thing she grows, and the daily ask. Drawn as the moon's rings at the same
+// tilt and proportion, so the two icons read as the same object seen twice —
+// but deliberately empty in the middle, because her moon is not here any more.
+//
+// Static, unlike the live moon. The ring here is a symbol for the daily loop,
+// not a readout of her state, and a second live subscriber to moon-state would
+// imply it was.
+//
+// Its gradient id must not collide with tab-moon's `tabMoonRing`: react-native-svg
+// resolves Defs ids globally on iOS, and both icons are mounted at once.
+function RingsColour({ fill }: { fill: string }) {
+  const colour = fill === 'colour';
+  return (
+    <Svg width={CANVAS} height={CANVAS} viewBox="0 0 24 24">
+      <Defs>
+        <LinearGradient id="todayRings" x1={3} y1={12} x2={21} y2={12} gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#8fb2e8" />
+          <Stop offset="0.5" stopColor="#eaf2ff" />
+          <Stop offset="1" stopColor="#8fb2e8" />
+        </LinearGradient>
+      </Defs>
+      {/* Same -20° tilt as the moon's rings (tab-moon.tsx), so they match. */}
+      <G rotation={-20} origin="12, 12">
+        <Ellipse
+          cx={12}
+          cy={12}
+          rx={9}
+          ry={2.9}
+          fill="none"
+          stroke={colour ? 'url(#todayRings)' : fill}
+          strokeWidth={1.2}
+        />
+        <Ellipse
+          cx={12}
+          cy={12}
+          rx={6.1}
+          ry={1.95}
+          fill="none"
+          stroke={colour ? 'url(#todayRings)' : fill}
+          strokeWidth={0.95}
+          opacity={0.75}
+        />
+      </G>
+    </Svg>
+  );
+}
+
+export function RingsIcon({ focused, size = 24 }: TabIconProps) {
+  return (
+    <Crossfade
+      focused={focused}
+      size={size}
+      grey={<RingsColour fill={GRAY} />}
+      colour={<RingsColour fill="colour" />}
     />
   );
 }

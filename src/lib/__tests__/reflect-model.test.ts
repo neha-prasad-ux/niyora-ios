@@ -1,77 +1,78 @@
 import { composeGemmaPrompt, parseGemmaTurn } from '@/lib/reflect-model-parse';
 
+// The JSON contract is GONE (2026-07-27). The corpus contains zero JSON
+// targets — every assistant target is bare lowercase prose, at most two
+// sentences — so asking for `{"prose": …, "chips": […]}` was off-distribution.
+// Measured on device: the model answered in prose, the JSON parse returned
+// null, and `confirm` and `examine` fell back to their scripted lines every
+// single time, which read as "the AI rarely fires" rather than as an error.
+// Chips are now always the authored sets. These tests lock the new contract.
+
 describe('composeGemmaPrompt', () => {
-  it('asks for JSON when chips are wanted', () => {
-    const out = composeGemmaPrompt('INSTR', 'PROMPT', true);
-    expect(out).toContain('INSTR');
-    expect(out).toContain('PROMPT');
-    expect(out).toContain('JSON');
-    expect(out).toContain('chips');
+  it('never asks for JSON, whatever the caller wants', () => {
+    for (const wantChips of [true, false]) {
+      const out = composeGemmaPrompt('INSTR', 'PROMPT', wantChips);
+      expect(out).toContain('INSTR');
+      expect(out).toContain('PROMPT');
+      expect(out).toContain('only the sentence');
+      expect(out).not.toContain('JSON');
+      expect(out).not.toContain('chips');
+    }
   });
 
-  it('asks for a bare sentence when chips are not wanted', () => {
-    const out = composeGemmaPrompt('INSTR', 'PROMPT', false);
-    expect(out).toContain('only the sentence');
-    expect(out).not.toContain('JSON');
+  it('composes the same prompt regardless of wantChips', () => {
+    expect(composeGemmaPrompt('I', 'P', true)).toBe(composeGemmaPrompt('I', 'P', false));
   });
 });
 
-describe('parseGemmaTurn — prose only', () => {
+describe('parseGemmaTurn', () => {
   it('returns trimmed prose', () => {
-    expect(parseGemmaTurn('  This is a moment, not the whole story.  ', false)).toEqual({
+    expect(parseGemmaTurn('  This is a moment, not the whole story.  ')).toEqual({
       prose: 'This is a moment, not the whole story.',
     });
   });
 
-  it('strips wrapping quotes and turn tokens', () => {
+  it('strips wrapping quotes and Gemma 3 turn tokens', () => {
     const raw = '<start_of_turn>model "It can wait until morning." <end_of_turn>';
-    expect(parseGemmaTurn(raw, false)).toEqual({ prose: 'It can wait until morning.' });
+    expect(parseGemmaTurn(raw)).toEqual({ prose: 'It can wait until morning.' });
+  });
+
+  // The shipped model is Gemma 4, whose embedded chat template uses <|turn> /
+  // <turn|> and never <start_of_turn>. Verified by reading the template out of
+  // niyora-gemma4-e2b-v4-wide-deduped-int4.litertlm itself.
+  it('strips Gemma 4 turn tokens', () => {
+    expect(parseGemmaTurn('<|turn>model that lands. <turn|>')).toEqual({
+      prose: 'that lands.',
+    });
+  });
+
+  it('strips channel and tool scaffolding', () => {
+    expect(parseGemmaTurn('<|channel>that lands.')).toEqual({ prose: 'that lands.' });
   });
 
   it('returns null for empty output', () => {
-    expect(parseGemmaTurn('   ', false)).toBeNull();
+    expect(parseGemmaTurn('   ')).toBeNull();
   });
-});
 
-describe('parseGemmaTurn — chips (JSON)', () => {
-  it('parses a clean JSON object', () => {
-    const raw = '{"prose": "Do any of these feel true?", "chips": ["I am too much", "I will be left"]}';
-    expect(parseGemmaTurn(raw, true)).toEqual({
-      prose: 'Do any of these feel true?',
-      chips: ['I am too much', 'I will be left'],
+  it('never returns chips, so the caller always uses the authored set', () => {
+    expect(parseGemmaTurn('overwhelmed, angry, guilty', true)?.chips).toBeUndefined();
+  });
+
+  // An offer beat MUST be able to introduce words she did not write — naming a
+  // feeling, proposing a gentler frame. Prose was never gated on grounding and
+  // still is not; the risk that gate existed for lived entirely in chips, which
+  // are now authored, so it is zero by construction.
+  it('never gates prose, which is the moon speaking', () => {
+    const her = 'he forgot to pick up my prescription again after i reminded him twice';
+    expect(parseGemmaTurn('overwhelmed, angry, guilty', true, her)?.prose).toBe(
+      'overwhelmed, angry, guilty',
+    );
+  });
+
+  // Real capture from the device, 2026-07-27, cpu/1024, 1135ms.
+  it('passes through a real on-device generation unchanged', () => {
+    expect(parseGemmaTurn("he ignored you all evening, that's enough today.")).toEqual({
+      prose: "he ignored you all evening, that's enough today.",
     });
-  });
-
-  it('parses JSON wrapped in a code fence', () => {
-    const raw = '```json\n{"prose": "How big is this, really?", "chips": ["Huge", "Smaller than it feels"]}\n```';
-    expect(parseGemmaTurn(raw, true)).toEqual({
-      prose: 'How big is this, really?',
-      chips: ['Huge', 'Smaller than it feels'],
-    });
-  });
-
-  it('parses JSON buried after preamble text', () => {
-    const raw = 'Sure, here you go: {"prose": "One small step is enough.", "chips": ["Yes", "No"]}';
-    expect(parseGemmaTurn(raw, true)).toEqual({
-      prose: 'One small step is enough.',
-      chips: ['Yes', 'No'],
-    });
-  });
-
-  it('clamps to three chips and drops non-strings', () => {
-    const raw = '{"prose": "p", "chips": ["a", "b", "c", "d", 5, null]}';
-    expect(parseGemmaTurn(raw, true)).toEqual({ prose: 'p', chips: ['a', 'b', 'c'] });
-  });
-
-  it('returns prose without chips when chips are missing', () => {
-    expect(parseGemmaTurn('{"prose": "just this"}', true)).toEqual({ prose: 'just this' });
-  });
-
-  it('returns null on malformed JSON', () => {
-    expect(parseGemmaTurn('{"prose": "oops", "chips": [', true)).toBeNull();
-  });
-
-  it('returns null when prose is empty', () => {
-    expect(parseGemmaTurn('{"prose": "", "chips": ["a"]}', true)).toBeNull();
   });
 });

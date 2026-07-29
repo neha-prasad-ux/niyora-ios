@@ -90,11 +90,15 @@ describe('dayPill', () => {
     expect(dayPill({ ...CYCLE, length: null }, new Date(2026, 6, 24))).toBeNull();
   });
 
-  it('feeds the prompt line only when a pill exists', () => {
+  // The corpus emits `cycle:` ONLY when the premenstrual flag is set
+  // (assemble.py build_user), and always as "day N, premenstrual window".
+  // Outside the window it sends nothing at all, so neither do we.
+  it('feeds the compact corpus phrase, and only inside the window', () => {
     expect(cycleContextLine(null)).toBeNull();
-    expect(cycleContextLine({ label: 'day 24', inWindow: true })).toContain('day 24');
-    expect(cycleContextLine({ label: 'day 24', inWindow: true })).toContain('premenstrual');
-    expect(cycleContextLine({ label: 'day 8', inWindow: false })).not.toContain('premenstrual');
+    expect(cycleContextLine({ label: 'day 8', inWindow: false })).toBeNull();
+    expect(cycleContextLine({ label: 'day 24', inWindow: true })).toBe(
+      'day 24, premenstrual window',
+    );
   });
 });
 
@@ -104,40 +108,71 @@ describe('buildTurnRequest', () => {
     expect(buildTurnRequest('change', state())).toBeNull();
   });
 
-  // The beats that carry her confirmed thought forward.
-  const THOUGHT_STEPS: RoughStep[] = ['examine', 'reframe', 'keep'];
+  // The rev-2 rule: the model may echo, pick or transform, and may never
+  // compose. These three are the compose beats — a CBT stem, a gentler
+  // reading, the line she keeps — and all three produced near-nonsense on the
+  // phone in the run where acknowledge passed. They are not flagged off, they
+  // are unreachable: no slot, so no request, so nothing for a caller to send.
+  const COMPOSE_STEPS: RoughStep[] = ['examine', 'reframe', 'keep'];
 
-  it.each(THOUGHT_STEPS)('%s: carries her thought, bounded, with instructions', (step) => {
-    const req = buildTurnRequest(step, state({ thought: 'everything is falling apart' }));
-    expect(req).not.toBeNull();
-    expect(req!.instructions).toContain('never');
-    expect(req!.prompt).toContain('falling apart');
+  it.each(COMPOSE_STEPS)('%s: cannot reach the model at all', (step) => {
+    expect(buildTurnRequest(step, state({ thought: 'everything is falling apart' }))).toBeNull();
   });
 
-  it('confirm opens the session bounded and wanting chips (no vent to carry)', () => {
+  it('confirm is the one model beat left, and it never asks for chips', () => {
     const req = buildTurnRequest('confirm', state());
     expect(req).not.toBeNull();
     expect(req!.instructions).toContain('never');
-    expect(req!.wantChips).toBe(true);
+    // Chips at this beat are the authored core-thought menu. A model that
+    // writes her options is composing, whatever the beat is called.
+    expect(req!.wantChips).toBe(false);
   });
 
-  it('only confirm and examine want chips (the effort gradient)', () => {
-    const s = state({ thought: 't', feeling: 'hurt' });
-    expect(buildTurnRequest('confirm', s)!.wantChips).toBe(true);
-    expect(buildTurnRequest('examine', s)!.wantChips).toBe(true);
-    expect(buildTurnRequest('reframe', s)!.wantChips).toBe(false);
-    expect(buildTurnRequest('keep', s)!.wantChips).toBe(false);
+  it('declines the turn when she has typed nothing, rather than echoing air', () => {
+    expect(buildTurnRequest('confirm', state({ ventExcerpt: '' }))).toBeNull();
   });
 
-  it('injects cycle context when present', () => {
-    const req = buildTurnRequest('confirm', state({ cycleContext: 'It is day 24 of her cycle.' }));
-    expect(req!.prompt).toContain('day 24');
+  it('sends only her own words, never the chip she tapped', () => {
+    const req = buildTurnRequest(
+      'confirm',
+      state({ ventExcerpt: 'he went quiet all evening', tappedChip: 'I am not enough' }),
+    );
+    expect(req!.prompt).toContain('he went quiet all evening');
+    expect(req!.prompt).not.toContain('I am not enough');
   });
 
-  it('quiet voice is enforced in instructions, not hoped for', () => {
+  it('injects cycle context when present, on its own line', () => {
+    const req = buildTurnRequest('confirm', state({ cycleContext: 'day 24, premenstrual window' }));
+    expect(req!.prompt).toContain('\ncycle: day 24, premenstrual window');
+  });
+
+  // The system turn must stay byte-identical to the trained one
+  // (gemma4-runpod assemble.py:29-30). Every row of v4_wide_deduped carries
+  // exactly this string. Editing it is what produced third-person and
+  // degenerate output on device.
+  it('sends the trained system string verbatim', () => {
     const req = buildTurnRequest('confirm', state());
-    expect(req!.instructions).toContain('No exclamation points');
-    expect(req!.instructions).toContain('Never diagnose');
+    expect(req!.instructions).toBe(
+      'you reply to a woman having a hard moment. warm, plain, like a close friend in her 30s. ' +
+        'say her own words back. never advise. lowercase, max 2 sentences, no dashes.',
+    );
+  });
+
+  // The user turn is the corpus shape: a bracketed flow-node slot, then only
+  // the fields that are present, newline-joined.
+  it('sends the corpus user shape, tagged with the trained slot', () => {
+    const req = buildTurnRequest('confirm', state());
+    expect(req!.prompt.startsWith('[acknowledge]\n')).toBe(true);
+    expect(req!.prompt).toContain('she wrote: "');
+    // `she feels:` is suppressed for acknowledge, matching training.
+    expect(req!.prompt).not.toContain('she feels:');
+  });
+
+  it('maps the one model beat to a slot that has training data, and nothing else', () => {
+    expect(buildTurnRequest('confirm', state())!.prompt).toContain('[acknowledge]');
+    // Every other beat in the arc is authored copy.
+    const rest: RoughStep[] = ['pattern', 'examine', 'change', 'reframe', 'keep'];
+    for (const step of rest) expect(buildTurnRequest(step, state())).toBeNull();
   });
 });
 

@@ -24,8 +24,41 @@ Pod::Spec.new do |s|
   # ever absent the module builds the "unsupported" stub and no Gemma symbol is
   # referenced. No entitlement or purpose string is needed: the model runs
   # on-device and no user data leaves the phone.
-  s.dependency 'MediaPipeTasksGenAI'
-  s.dependency 'MediaPipeTasksGenAIC'
+  # LiteRT-LM, vendored. It is published SPM-only (no CocoaPod exists; the
+  # `LiteRTSwift` pod is the tensor runtime, a different thing), and this
+  # project is entirely CocoaPods. Rather than bolt an SPM package reference
+  # onto the Xcode project, the prebuilt xcframework and the Swift wrapper from
+  # the v0.14.0 release are vendored here, keeping one dependency system.
+  #
+  # This is the ONLY runtime that can load a fine-tuned Gemma 4: litert-torch
+  # emits `.litertlm` exclusively and MediaPipe's bundler has no Gemma 4 model
+  # type. The xcframework carries ios-arm64 and ios-arm64-simulator slices, so
+  # the simulator works too.
+  s.vendored_frameworks = 'vendor/CLiteRTLM.xcframework'
+
+  # MediaPipe is DROPPED (2026-07-27). It used to stay for the legacy `.task`
+  # path, but linking it alongside LiteRT-LM makes the app unlaunchable:
+  #
+  #   Watchdog Violation (0x8BADF00D) — process-launch watchdog transgression:
+  #   exhausted real (wall clock) time allowance of 20.00 seconds
+  #
+  # The crash backtrace is entirely inside dyld running static initializers,
+  # before main():
+  #   _GLOBAL__sub_I_thread_pool_executor.cc
+  #   mediapipe::GlobalFactoryRegistry<absl::StatusOr<mediapipe::Executor*>, …>
+  #   dyld4::Loader::findAndRunAllInitializers
+  # so MediaPipe's global constructors alone spend the whole launch allowance
+  # and the app is killed with a blank screen having run none of our code.
+  # The two runtimes also collide at link time — both vendor Skia, giving
+  # `duplicate symbol 'SkPathBuilder::SkPathBuilder'`.
+  #
+  # Nothing is lost. MediaPipe's bundler has no Gemma 4 model type
+  # (`Unknown special model: GEMMA_4_E2B`), so it cannot load our fine-tune at
+  # any point; LiteRT-LM is the only runtime that can. The Swift side already
+  # guards every MediaPipe reference behind `#if canImport(MediaPipeTasksGenAI)`
+  # and compiles to the LiteRT-LM-only path when the pods are absent.
+  # s.dependency 'MediaPipeTasksGenAI'
+  # s.dependency 'MediaPipeTasksGenAIC'
 
   # The Gemma weights (~3GB) are bundled into the app at BUILD time, not stored
   # in git. `scripts/fetch-model.mjs` writes the .task file into ./model before
@@ -33,9 +66,20 @@ Pod::Spec.new do |s|
   # present from first launch with no on-device download. If the file is
   # missing at build time the pod install still succeeds, but availability()
   # will report "modelNotReady" at runtime and the session stays scripted.
-  s.resources = ['model/*.task']
+  # NO model resources. The weights are DOWNLOADED into Application Support at
+  # runtime (see ModelStore in NiyoraGemmaModule.swift), not bundled.
+  #
+  # Bundling made the app a 2.6 GB install, meant a new model required a full
+  # rebuild and reinstall, and double-counted storage whenever a downloaded copy
+  # also existed -- which it did on the test device: a 2.57 GB bundled model
+  # alongside a 2.41 GB downloaded one, ~5 GB of models on a phone.
+  #
+  # Uncomment to ship a bundled fallback; the downloaded file still wins.
+  # s.resources = ['model/*.task', 'model/*.litertlm']
 
-  s.source_files = "**/*.{h,m,swift}"
+  # Explicit rather than a bare **/* glob: that would also sweep the vendored
+  # framework's own headers into the pod's compile sources.
+  s.source_files = ['*.{h,m,swift}', 'vendor/LiteRTLM/*.swift']
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     'SWIFT_COMPILATION_MODE' => 'wholemodule'

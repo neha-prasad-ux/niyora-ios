@@ -13,6 +13,8 @@
 // (988 Lifeline / Crisis Text Line published materials). Human-curated;
 // review before any TestFlight release.
 
+import { Linking } from 'react-native';
+
 const CRISIS_PHRASES = [
   'kill myself',
   'killing myself',
@@ -77,3 +79,16 @@ export const CRISIS_COPY = {
   emergency: 'If you are in immediate danger, call your local emergency number.',
   back: 'Back to what you were writing',
 } as const;
+
+// The three lines' actions, matched to CRISIS_COPY.lines BY ORDER: the 988
+// lifeline, the Crisis Text Line, and the by-country directory. Kept next to
+// the copy so a line and its number can never drift apart — a resource row
+// that dials the wrong place is worse than no row.
+export const CRISIS_URLS = ['tel:988', 'sms:741741', 'https://findahelpline.com'] as const;
+
+/** Open a crisis line by its index in CRISIS_COPY.lines. Silent on failure:
+ *  a dead link must not put an error dialog in front of her. */
+export function openCrisisLine(index: number): void {
+  const url = CRISIS_URLS[index];
+  if (url) Linking.openURL(url).catch(() => {});
+}
