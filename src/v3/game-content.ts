@@ -67,7 +67,7 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
     title: 'Know the water',
     kind: 'swipe',
     intro:
-      "Real quick, let's clear up a few things about getting irritable. Swipe right if it is true, left if it is a myth.",
+      "Real quick, let us clear up a few things about getting irritable. Tap Truth if it is true, Myth if it is not.",
   },
   {
     id: 'irr-l2',
@@ -83,7 +83,7 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
     title: 'Match the move',
     kind: 'preview',
     intro:
-      'You can read it now. So pick what actually helps. Not sure? Hold a card to see how it plays out before you commit.',
+      'You can read the size now. So pick what actually helps her.',
   },
   {
     id: 'irr-l4',
@@ -104,7 +104,7 @@ export const IRRITABILITY_LEVELS: GameLevel[] = [
 ];
 
 // L1 cards, Truth / Myth. Each statement is a clean positive claim so the choice
-// is crisp. The hunger/sleep card stays general (no PMS-specific number) per the
+// is crisp. The hangry card stays general (no PMS-specific number) per the
 // content gate; the prevalence card cites the verified figure among PMS sufferers
 // (StatPearls / NIH: irritability ~95%, the most-reported PMS symptom), NOT 95%
 // of all women.
@@ -114,32 +114,32 @@ export const L1_CARDS: L1Card[] = [
     statement: 'Irritability is the number one PMS symptom, ahead of the mood dips and the anxiety.',
     isTrue: true,
     reveal:
-      'About 95 percent of people who get PMS feel it, more than any other symptom. If your fuse is short this week, you are in very good company, and it is the most normal thing in the world.',
+      'About 95 percent of people who get PMS feel it, more than any other symptom. Short fuse this week just means you are normal.',
   },
   {
     id: 'l1-vent',
-    statement: 'Letting the anger out, snapping or venting it, usually leaves you more wound up, not calmer.',
-    isTrue: true,
+    statement: 'Letting the anger out by venting it helps you calm down.',
+    isTrue: false,
     reveal:
       'Venting feels like release, but it mostly rehearses the anger and keeps your body switched on. The calm comes from letting the heat drop, not from firing it off.',
   },
   {
     id: 'l1-suppress',
-    statement: 'The grown-up move is to swallow it, keep smiling, and wait for it to blow over.',
+    statement: 'It is usually better to not react, keep smiling, and wait for the right time.',
     isTrue: false,
     reveal:
-      'Clamped down, it does not clear, it leaks out later as a sharp tone or a bigger blowup. Naming it and giving it room is a different thing from bottling it, and it is what actually works.',
+      'Clamped down it does not clear, it leaks out later as a sharp tone or a bigger blowup. Naming it is what actually works.',
   },
   {
     id: 'l1-hungry',
-    statement: 'Skipping meals or running short on sleep makes you quicker to snap.',
+    statement: 'Hangry, being hungry and angry at once, is a real thing.',
     isTrue: true,
     reveal:
-      'A dip in blood sugar or a rough night shortens anyone\'s fuse. Before you read too much into the mood, check whether she has eaten and slept.',
+      'A dip in blood sugar shortens anyone\'s fuse. Before you read too much into a mood, check whether you have eaten.',
   },
   {
     id: 'l1-hormones',
-    statement: 'If your period turns you into someone who snaps, your hormones must be off.',
+    statement: 'If you snap during PMS, your hormones must be off.',
     isTrue: false,
     reveal:
       'Your hormones are doing exactly what they should. Your brain is just reading them louder this week. Nothing about you is broken.',
@@ -161,9 +161,6 @@ export const L1_CONGRATS = {
   subtitle: 'You passed Level 1',
   body: 'That is the groundwork laid. Ready to see how you handle Level 2?',
 };
-
-export const L1_CLOSE =
-  'So before you help anyone, check the basics. Is she hungry? Wiped out? That is step one.';
 
 // Level 2 intro + the "cheat code" teaching page + the sublabels on the two
 // buttons. Warm Californian voice; the science of reading intensity in plain
@@ -208,24 +205,21 @@ export const L2_SCENES: L2Scene[] = [
     id: 'l2-d',
     scene: `${FRIEND_NAME} is running for her flight when the desk says her passport is expired. Her hands are shaking and the words will not come.`,
     answer: 'lot',
-    why: 'About as big as it gets. You cannot reason through a flood, so she takes ten minutes first, then sorts it out.',
+    why: 'About as big as it gets. You cannot reason a person through a flood like this.',
   },
   {
     id: 'l2-e',
     scene: `${FRIEND_NAME}'s boss picks apart her work in front of the whole team. She goes quiet and her jaw is tight.`,
     answer: 'lot',
-    why: 'Quiet is not the same as calm. The tight jaw and the silence say she is flooded. Ten minutes before she says a word.',
+    why: 'Quiet is not the same as calm. The tight jaw and the silence say she is flooded.',
   },
 ];
 
 export const L2_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 2',
-  body: 'You can read the size now. That is the read the whole game turns on.',
+  body: 'You can read the size now. That is the read everything else turns on.',
 };
-
-export const L2_CLOSE =
-  'That is the whole skill. Read the size first. Nail that and the rest is easy.';
 
 // Level 3 intro + the cheat code (the solution flips with the size) + four
 // scenes reusing the Level 2 situations, so reading the size now drives the
@@ -264,9 +258,9 @@ export const L3_SCENES: L3Scene[] = [
         future: 'Calling herself needy just stacks shame on the annoyance. Buried, it does not leave, it comes back louder.',
       },
       {
-        label: 'He is probably slammed at work',
+        label: 'Think "He is probably slammed at work"',
         tier: 'best',
-        future: 'A fairer read, and it lands because she can still think. The annoyance eases.',
+        future: 'She can still think straight, so a kinder read lands and it stops feeling like a big deal.',
       },
       {
         label: 'Take 20 and get some space',
@@ -283,7 +277,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'Take 20 and let her body settle',
         tier: 'best',
-        future: 'She is flooded. The gap lets the wave drop, then she can think.',
+        future: 'She is flooded, so the gap lets the wave drop. Twenty minutes later the problem feels smaller, and she can think again.',
       },
       {
         label: 'Get straight back to work like nothing happened',
@@ -310,7 +304,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'Step away for 20 and breathe',
         tier: 'best',
-        future: 'Flooded and shaking. First her body settles, then she sorts the passport.',
+        future: 'She steps back, the shaking settles, and her head clears. Then she sorts out the passport calm.',
       },
       {
         label: 'Force a calm face and swallow it',
@@ -327,7 +321,7 @@ export const L3_SCENES: L3Scene[] = [
       {
         label: 'It is a rough day talking, not everyone turning on her',
         tier: 'best',
-        future: 'Loud but still reachable, so a fairer read lands and the heat drops.',
+        future: 'She is loud but still reachable, so a kinder read lands and the heat drops.',
       },
       {
         label: 'Tell her she is being dramatic and needs to calm down',
@@ -346,14 +340,11 @@ export const L3_SCENES: L3Scene[] = [
 export const L3_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 3',
-  body: 'You can pick the solution that fits the size now. That is the move the whole game builds to.',
+  body: 'You can pick the solution that fits the size now. Next comes the power move the whole game builds to.',
 };
 
-export const L3_PAYLOAD =
-  'Same three solutions every time. All that changed was the size, and that flipped what helped. That is the whole game.';
-
 // Level 4 · The power move. We have not taught a breath yet, so this level
-// establishes it from scratch: the long exhale, why it works, then five slow
+// establishes it from scratch: the long exhale, why it works, then three slow
 // rounds done together. No right or wrong, so the reward is doing it.
 export const L4_INTRO = {
   level: 'Level 4',
@@ -375,7 +366,7 @@ export const L4_TEACH = {
 export const L4_CONGRATS = {
   title: 'Congratulations',
   subtitle: 'You passed Level 4',
-  body: 'That long exhale is your power move now. Five slow rounds, any time you need to come back to steady.',
+  body: 'That long exhale is your power move now. Three slow rounds, any time you need to come back to steady.',
 };
 
 // Level 5 · The last test. A capstone: one real moment run end to end. She reads
@@ -384,7 +375,7 @@ export const L4_CONGRATS = {
 export const L5_INTRO = {
   level: 'Level 5',
   title: 'The last test',
-  subtitle: 'One real moment, start to finish. Read it, handle it, breathe.',
+  subtitle: 'A few real moments. Read each one, handle it, breathe.',
 };
 
 export interface L5Capstone {
@@ -465,6 +456,7 @@ export const L5_DECK: Deck = {
       id: 'irr-d1',
       scene: `${FRIEND_NAME} has been snapping at everyone since lunch. All she has had today is a coffee.`,
       route: 'basics',
+      foil: 'big',
       reveal: 'A coffee is not lunch. Feed her first, then see what is actually left.',
       nudge: 'Check what she has eaten before you read the feeling.',
     },
@@ -472,6 +464,7 @@ export const L5_DECK: Deck = {
       id: 'irr-d2',
       scene: `${FRIEND_NAME} is annoyed her partner did not text back, but she still laughs when you tease her about it.`,
       route: 'small',
+      foil: 'big',
       reveal: 'Still reachable, so a kinder read lands and the annoyance eases.',
       nudge: 'She is still laughing. How big is this really?',
     },
@@ -479,6 +472,7 @@ export const L5_DECK: Deck = {
       id: 'irr-d3',
       scene: `${FRIEND_NAME} has not slept, her partner blew off her hard work, and her voice is shaking.`,
       route: 'big',
+      foil: 'basics',
       reveal: 'Flooded. The gap lets the wave drop, then she can think and talk.',
       nudge: 'Shaking voice, no sleep. Is she really still thinking straight?',
     },
@@ -486,6 +480,7 @@ export const L5_DECK: Deck = {
       id: 'irr-d4',
       scene: `${FRIEND_NAME} keeps grumbling about small stuff but shrugs it off when you check in.`,
       route: 'small',
+      foil: 'big',
       reveal: 'Small and reachable. A fairer read settles it, no space needed.',
       nudge: 'She shrugs it off. This one is not as big as it looks.',
     },
@@ -494,7 +489,7 @@ export const L5_DECK: Deck = {
 
 export const L5_CONGRATS = {
   title: 'Congratulations',
-  body: 'You have crossed every level in mastering irritability. Try to apply them in real life, and share your thoughts with me. I would love to know.',
+  body: 'That is the whole method, and it is yours now. Next rough day, you know how to read it and stay strong.',
 };
 
 // --- The Chapter bundle ------------------------------------------------------
@@ -547,6 +542,7 @@ export interface DeckCard {
   id: string;
   scene: string;
   route: DeckRoute; // the gate that fits
+  foil: DeckRoute; // the tempting wrong gate shown alongside it (2-choice test)
   reveal: string; // affirming why, shown when she routes it right
   nudge: string; // gentle "look again" when she routes it wrong; never the answer
 }
@@ -559,27 +555,41 @@ export interface Deck {
 // The self-compassion power move (Confidence chapter). Two guided beats she taps
 // through, then she picks one kind line to keep. No right or wrong, like the breath.
 export interface CompassionContent {
-  teach: { kicker: string; title: string; beats: string[] };
+  teach: { kicker: string; title: string; beats: string[]; foot?: string }; // foot: optional dosing note under the beats
   practice: { label: string; line: string; cue: string }[]; // the tap-through beats
   kindPrompt: string; // the prompt above the kind-line options
   kindLines: string[]; // she picks one
 }
 
-// The script-builder power move (Assertiveness chapter). v1 is instruction-first:
-// teach the four-part shape, then reveal a worked line one part at a time, then
-// she reads the whole thing out loud. AI feedback comes later; for now the script
-// is prewritten and specific.
+// The script-builder power move (Assertiveness chapter). She builds the four-part
+// line by choosing, one part per page: each step offers the version that lands and
+// a tempting decoy, a different failure mode each time (blame, judgment, hedge,
+// threat). The correct picks assemble into her line. AI feedback comes later; the
+// copy is fixed.
+export interface ScriptStep {
+  part: string; // 'Name it'
+  hint: string; // 'the facts, no blame'
+  correct: string; // the version that lands; assembles into the final line
+  decoy: string; // the tempting mistake she chooses against
+  why: string; // why the decoy backfires, shown when she taps it
+}
 export interface ScriptContent {
   teach: { kicker: string; title: string; rows: { part: string; hint: string }[] };
   scenario: string;
-  lines: { part: string; text: string }[]; // revealed one at a time, then assembled
-  sayIt: string; // the "read it out loud" close
+  steps: ScriptStep[];
+  sayIt: string; // the "read it out loud" close on the assembled line
 }
 
 export interface Chapter {
   id: string;
   emotion: string; // display name for the home card, e.g. 'Irritability'
   track?: 'growth' | 'workplace'; // which shelf; defaults to growth when absent
+  // Optional display labels for the two intensity poles. Growth chapters leave
+  // these undefined and read Small / Big everywhere. Speaking up reframes the
+  // read as a decision, so it overrides the hero + answer buttons to Now / Later
+  // and the L2/L3 cheat columns to Speak now / Speak later.
+  poles?: { small: string; big: string }; // hero + answer buttons
+  cheatCols?: { small: string; big: string }; // L2 & L3 cheat column headers
   levels: GameLevel[];
   L1_CARDS: L1Card[];
   L1_INTRO: { kicker: string; subtitle: string; emotion: string; level: string; round: string };
@@ -588,10 +598,14 @@ export interface Chapter {
   L2_CHEAT: { kicker: string; title: string; rows: CheatRow[] };
   L2_SCENES: L2Scene[];
   L2_CONGRATS: Congrats;
-  L3_INTRO: { level: string; title: string; lead: string; points: { term: string; def: string }[] };
-  L3_CHEAT: { kicker: string; title: string; rows: CheatRowBad[] };
-  L3_SCENES: L3Scene[];
-  L3_CONGRATS: Congrats;
+  // Level 3 (match the move) is optional: Speaking up drops it, since for that
+  // course the "move" is just the now/wait read L2 already makes. Chapters that
+  // keep a 'preview' level must provide all four; the runner renders L3 by kind,
+  // so a chapter with no 'preview' level never touches these.
+  L3_INTRO?: { level: string; title: string; lead: string; points: { term: string; def: string }[] };
+  L3_CHEAT?: { kicker: string; title: string; rows: CheatRowBad[] };
+  L3_SCENES?: L3Scene[];
+  L3_CONGRATS?: Congrats;
   L4_INTRO: { level: string; title: string; subtitle: string };
   L4_TEACH: { kicker: string; title: string; rule: string; doses: { size: string; amount: string }[]; cta: string };
   L4_CONGRATS: Congrats;
@@ -707,6 +721,13 @@ export const ANXIETY: Chapter = {
         'The calming brain chemistry that dips late in your cycle comes back as your period begins, so the edge tends to lift fast. Knowing it is cyclical, not permanent, takes some of the bite out.',
     },
     {
+      id: 'anx-l1-pmdd',
+      statement: 'If PMS anxiety hits you hard, you probably have PMDD.',
+      isTrue: false,
+      reveal:
+        'PMDD is real, but far rarer than the internet makes it look. Many more people believe they have it than actually do when it is tracked properly. A hard premenstrual week is common, and it is not the same thing.',
+    },
+    {
       id: 'anx-l1-suppress',
       statement: 'Telling yourself to stop worrying can make the worry louder.',
       isTrue: true,
@@ -719,13 +740,6 @@ export const ANXIETY: Chapter = {
       isTrue: false,
       reveal:
         'Checking calms you for a second, then the doubt grows back a little stronger and asks to be checked again. Reassurance is a loop, not an exit. Naming the worry is what loosens it.',
-    },
-    {
-      id: 'anx-l1-avoid',
-      statement: 'Avoiding what makes you anxious quietly makes the anxiety bigger.',
-      isTrue: true,
-      reveal:
-        'Every time you dodge it, your brain learns the thing was dangerous, so next time the fear is bigger. Facing it in small steps is what shrinks it.',
     },
     {
       id: 'anx-l1-body',
@@ -813,7 +827,7 @@ export const ANXIETY: Chapter = {
     rows: [
       { label: 'Name and ground', small: 'works best', big: 'not enough on its own', bad: false },
       { label: 'Step away and breathe', small: 'more than she needs', big: 'best, it settles the alarm', bad: false },
-      { label: 'Push it away', small: 'not a good choice', big: 'comes back stronger', bad: true },
+      { label: 'Make it worse', small: 'not a good choice', big: 'comes back stronger', bad: true },
     ],
   },
   L3_SCENES: [
@@ -828,9 +842,9 @@ export const ANXIETY: Chapter = {
           future: 'Naming it puts a gap between her and the thought. It loses its grip and she moves on.',
         },
         {
-          label: 'Push the worry down and power on',
+          label: 'Check it one more time to be sure',
           tier: 'worst',
-          future: 'Buried, it keeps buzzing under everything. It comes back stronger.',
+          future: 'One check quiets it for a second, then the doubt grows back and asks for another. That is the loop.',
         },
         {
           label: 'Leave the room for 20 and breathe',
@@ -919,7 +933,7 @@ export const ANXIETY: Chapter = {
   L4_TEACH: {
     kicker: 'The cheat code',
     title: 'Make your exhale longer',
-    rule: 'Breathe in for 4, out for 8. The long exhale is the part that calms the alarm.',
+    rule: 'Breathe in for 4, out for 8. The out-breath is where your heart slows, so a long exhale is what calms the alarm.',
     doses: [
       { size: 'Small feeling', amount: '3 slow rounds' },
       { size: 'Big feeling', amount: 'Step away and keep breathing slow' },
@@ -984,6 +998,7 @@ export const ANXIETY: Chapter = {
         id: 'anx-d1',
         scene: `${FRIEND_NAME} is on edge and jumpy, and it hits you she has been running on no breakfast and four hours of sleep.`,
         route: 'basics',
+        foil: 'big',
         reveal: 'Empty and wired first. Get her fed and rested before you read the worry.',
         nudge: 'Check her body basics before the worry itself.',
       },
@@ -991,6 +1006,7 @@ export const ANXIETY: Chapter = {
         id: 'anx-d2',
         scene: `${FRIEND_NAME} keeps rechecking one email she already sent, but she can still laugh it off.`,
         route: 'small',
+        foil: 'big',
         reveal: 'One worry she can name, and she is still reachable. Naming it and grounding lands.',
         nudge: 'She can still laugh. How big is this worry really?',
       },
@@ -998,6 +1014,7 @@ export const ANXIETY: Chapter = {
         id: 'anx-d3',
         scene: `${FRIEND_NAME} has a presentation in an hour. Her heart is pounding, her thoughts are racing, and she cannot sit still.`,
         route: 'big',
+        foil: 'small',
         reveal: 'Full alarm. She steps away and slows her exhale before anything else.',
         nudge: 'Pounding heart, racing thoughts. Is logic landing right now?',
       },
@@ -1005,6 +1022,7 @@ export const ANXIETY: Chapter = {
         id: 'anx-d4',
         scene: `${FRIEND_NAME} feels a low buzz of nerves about the week but can still get on with her day.`,
         route: 'small',
+        foil: 'big',
         reveal: 'Still steady. Name it and come back to what is real, no need to step away.',
         nudge: 'The nerves are there, but are they running her?',
       },
@@ -1012,7 +1030,8 @@ export const ANXIETY: Chapter = {
   },
   L5_CONGRATS: {
     title: 'Congratulations',
-    body: 'You have crossed every level in steadying anxiety. Try it in real life, and tell me how it goes. I would love to know.',
+    subtitle: 'The moves are yours now',
+    body: 'The alarm will still sound some months. Now you know it is usually false, and you know how to quiet it. Be kind to yourself the first few times.',
   },
 };
 
@@ -1131,31 +1150,31 @@ export const MOOD_SWINGS: Chapter = {
   L2_SCENES: [
     {
       id: 'mood-l2-a',
-      scene: `${FRIEND_NAME} tears up at an advert, then laughs at herself.`,
+      scene: `${FRIEND_NAME} tears up at a TV commercial, then laughs at herself.`,
       answer: 'little',
       why: 'A quick wave she can name. She feels it, but she is still steady.',
     },
     {
       id: 'mood-l2-b',
-      scene: `${FRIEND_NAME} reads one short text, decides everyone is sick of her, and is typing a long reply she means to send now.`,
+      scene: `${FRIEND_NAME} gets a short text. She reads it and decides everyone is sick of her. Now she is typing a long reply to send right away.`,
       answer: 'lot',
-      why: 'One text became a verdict about everything, and she is about to act on it. That is a big wave.',
+      why: 'One text turned into a verdict about everything. And she is about to act on it. Big wave.',
     },
     {
       id: 'mood-l2-c',
-      scene: `${FRIEND_NAME} wells up at a song and her voice wobbles, then she laughs at herself and carries on.`,
+      scene: `${FRIEND_NAME} snaps at her sister over nothing. A second later she feels bad and lets it go.`,
       answer: 'little',
-      why: 'Tears on the surface, but she is still steady underneath and lets it pass. Teary is not the same as flooded.',
+      why: 'A flash of temper, gone as fast as it came. She caught it and let it drop. Small.',
     },
     {
       id: 'mood-l2-d',
-      scene: `${FRIEND_NAME} is crying hard, sure the friendship is over, and cannot get a sentence out.`,
+      scene: `${FRIEND_NAME} is crying hard. She is sure the friendship is over. She cannot get a word out.`,
       answer: 'lot',
       why: 'Full tears and a cannot-talk flood. The wave is at its peak, so nothing gets decided yet.',
     },
     {
       id: 'mood-l2-e',
-      scene: `${FRIEND_NAME}'s partner makes a small joke and she is suddenly furious and close to tears, phone in hand.`,
+      scene: `${FRIEND_NAME}'s partner makes a small joke. Out of nowhere she is furious and close to tears, phone in hand.`,
       answer: 'lot',
       why: 'A small spark, a big surge, a phone in hand. She is flooded and about to act. Wait first.',
     },
@@ -1187,15 +1206,15 @@ export const MOOD_SWINGS: Chapter = {
     {
       id: 'mood-l3-advert',
       intensity: 'little',
-      prompt: `${FRIEND_NAME} tears up at an advert, then laughs at herself. What helps most?`,
+      prompt: `${FRIEND_NAME} tears up at a TV commercial, then laughs at herself. What helps most?`,
       options: [
         {
           label: 'Name it, I feel tender right now, it passes',
           tier: 'best',
-          future: 'She said what it was, a wave of tender, not a verdict. Named, it moves through and a minute later it is gone.',
+          future: 'She said what it was, a wave of tenderness, not a verdict. Named, it moves through and a minute later it is gone.',
         },
         {
-          label: 'Decide something is wrong with her',
+          label: 'Decide something is wrong with you',
           tier: 'worst',
           future: 'Turning a small wave into a verdict makes it stick. It snowballs.',
         },
@@ -1209,7 +1228,7 @@ export const MOOD_SWINGS: Chapter = {
     {
       id: 'mood-l3-text',
       intensity: 'lot',
-      prompt: `${FRIEND_NAME} read one text, decided everyone is sick of her, and is about to send a long reply. What helps most?`,
+      prompt: `${FRIEND_NAME} got a short text. She decided everyone is sick of her. She is about to send a long reply. What helps most?`,
       options: [
         {
           label: 'Do not send it yet, step away and breathe',
@@ -1222,7 +1241,7 @@ export const MOOD_SWINGS: Chapter = {
           future: 'Sending mid-wave says things she does not mean. It cannot be unsent.',
         },
         {
-          label: 'Tell herself they are probably not upset',
+          label: 'Tell yourself they are probably not upset',
           tier: 'lesser',
           future: 'A fair read, but mid-flood it bounces off. First the wave has to drop.',
         },
@@ -1261,12 +1280,12 @@ export const MOOD_SWINGS: Chapter = {
           future: 'She named the feeling out loud, so it lands and the edge softens. Still reachable, no need to leave.',
         },
         {
-          label: 'Tell her to toughen up',
+          label: 'Tell yourself to toughen up',
           tier: 'worst',
           future: 'Pushing it down stacks it up. Small now, bigger later.',
         },
         {
-          label: 'Send her off alone for 20',
+          label: 'Go off alone for 20',
           tier: 'lesser',
           future: 'Overkill. She did not need space, naming it would do it.',
         },
@@ -1286,10 +1305,10 @@ export const MOOD_SWINGS: Chapter = {
   L4_TEACH: {
     kicker: 'The cheat code',
     title: 'Make your exhale longer',
-    rule: 'Breathe in for 4, out for 8. The long exhale buys the time for the wave to crest.',
+    rule: 'Breathe in for 4, out for 8. A long exhale tells the body to stand down, which buys time for the wave to crest.',
     doses: [
       { size: 'Small feeling', amount: '3 slow rounds' },
-      { size: 'Big feeling', amount: 'Breathe slow and wait before you decide' },
+      { size: 'Big feeling', amount: 'Slow rounds, and decide nothing yet' },
     ],
     cta: "Let's breathe",
   },
@@ -1304,7 +1323,7 @@ export const MOOD_SWINGS: Chapter = {
     subtitle: 'One real moment, start to finish. Read it, handle it, breathe.',
   },
   L5_CAPSTONE: {
-    scene: `It is a rough PMS day. ${FRIEND_NAME} read a short text, decided her friend is done with her, and she is crying with the phone in her hand.`,
+    scene: `It is a rough PMS day. ${FRIEND_NAME} got a short text. She decided her friend is done with her. Now she is crying with the phone in her hand.`,
     size: 'lot',
     sizeWhy: 'Tears, a verdict from one text, phone in hand. She is flooded and about to act.',
     prompt: 'What helps her most right now?',
@@ -1351,27 +1370,31 @@ export const MOOD_SWINGS: Chapter = {
         id: 'mood-d1',
         scene: `${FRIEND_NAME} has been up and down all morning, and she skipped both breakfast and lunch in the rush.`,
         route: 'basics',
+        foil: 'small',
         reveal: 'Empty tank first. Food and a breath before you read the wave.',
         nudge: 'Check the basics before you read the mood.',
       },
       {
         id: 'mood-d2',
-        scene: `${FRIEND_NAME} tears up at an advert, then laughs at herself.`,
+        scene: `${FRIEND_NAME} tears up at a TV commercial, then laughs at herself.`,
         route: 'small',
+        foil: 'big',
         reveal: 'A quick wave she can name. She feels it, and it passes.',
         nudge: 'She laughs right after. How big is this wave?',
       },
       {
         id: 'mood-d3',
-        scene: `${FRIEND_NAME} read one short text, decided everyone is done with her, and is crying too hard to speak.`,
+        scene: `${FRIEND_NAME} is mid-argument with her sister. Everything feels like it is falling apart. She is about to say the one thing she cannot take back.`,
         route: 'big',
-        reveal: 'Flooded. She holds off on deciding anything and is gentle with herself first.',
-        nudge: 'She cannot get a sentence out. Is she deciding clearly right now?',
+        foil: 'small',
+        reveal: 'Flooded and about to say it. She holds the sentence, breathes, and is gentle with herself first.',
+        nudge: 'She is about to say something she cannot unsay. How big is this wave?',
       },
       {
         id: 'mood-d4',
         scene: `${FRIEND_NAME} feels a little extra sensitive today but can still let small things go.`,
         route: 'small',
+        foil: 'big',
         reveal: 'Still steady. Name it and let it pass, no big move needed.',
         nudge: 'She can still let things go. This wave is small.',
       },
@@ -1396,13 +1419,13 @@ export const MOOD_SWINGS: Chapter = {
 // nerves you name and ground, big nerves you step away from and breathe down.
 export const WORK_ANXIETY: Chapter = {
   id: 'work-anxiety',
-  emotion: 'Nerves at work',
+  emotion: 'Nervousness at work',
   track: 'workplace',
   levels: [
     { id: 'wanx-l1', n: 1, title: 'Know the water', kind: 'swipe',
-      intro: "Real quick, let's clear up a few things about nerves at work. Swipe right if it is true, left if it is a myth." },
+      intro: "Real quick, let's clear up a few things about nervousness at work. Swipe right if it is true, left if it is a myth." },
     { id: 'wanx-l2', n: 2, title: 'Read the wave', kind: 'tap',
-      intro: 'Here is what changes everything. How big are the nerves, a little or a lot? What helps depends entirely on the answer.' },
+      intro: 'Here is what changes everything. How big is the nervousness, a little or a lot? What helps depends entirely on the answer.' },
     { id: 'wanx-l3', n: 3, title: 'Match the move', kind: 'preview',
       intro: 'You can read it now. So pick what actually calms her. Not sure? Hold a card to see how it plays out before you commit.' },
     { id: 'wanx-l4', n: 4, title: 'The power move', kind: 'breathe',
@@ -1411,34 +1434,34 @@ export const WORK_ANXIETY: Chapter = {
       intro: 'Last one. Put the whole chapter into a single plan, in your own words, so it is ready before you need it.' },
   ],
   L1_CARDS: [
-    { id: 'wanx-l1-energy', statement: 'A rush of nerves before a big moment can actually sharpen you.',
-      isTrue: true, reveal: 'That jolt is your body getting ready, more fuel not less. Read as readiness instead of dread and the same feeling works for you. The trick is what you call it.' },
-    { id: 'wanx-l1-avoid', statement: 'Dodging the thing that scares you at work makes the fear grow.',
-      isTrue: true, reveal: 'Every time you skip the speak-up or the ask, your brain learns it was dangerous, so next time the fear is bigger. Doing it in small steps is what shrinks it.' },
+    { id: 'wanx-l1-energy', statement: 'The nervousness you feel before a big moment can help you perform better.',
+      isTrue: true, reveal: 'That jolt is your body getting ready, more fuel not less. Read it as readiness instead of dread and the same feeling works for you. The trick is what you call it.' },
+    { id: 'wanx-l1-face', statement: 'Facing the thing that scares you at work, bit by bit, is what shrinks the fear.',
+      isTrue: true, reveal: 'Every time you skip the speak-up or the ask, your brain files it as dangerous and the fear grows. Do it in small steps and the thing you dread rarely lands the way you feared, so the fear shrinks instead.' },
     { id: 'wanx-l1-check', statement: 'If a message is worrying you, rereading it a few times is the quickest way to feel sure.',
       isTrue: false, reveal: 'Each reread calms you for a moment, then hands the doubt back a little bigger. Checking is a loop, not an exit. Naming the worry is what loosens it.' },
-    { id: 'wanx-l1-cram', statement: 'The more anxious you feel before a presentation, the more you should cram right up to the start.',
-      isTrue: false, reveal: 'Cramming on a racing mind does not stick and only winds you tighter. Once the prep is done, the job is to settle the body, not to pile on more.' },
     { id: 'wanx-l1-suppress', statement: 'Telling yourself to stop being nervous before you walk in tends to make it louder.',
-      isTrue: true, reveal: 'The harder you push the nerves away, the more your brain keeps checking they are gone, which holds them front and center. You name them, then come back to what is real right now.' },
+      isTrue: true, reveal: 'The harder you push the nervousness away, the more your brain keeps checking it is gone, which holds it front and center. You name it, then come back to what is real right now.' },
+    { id: 'wanx-l1-seen', statement: 'The people watching can always tell how nervous you are.',
+      isTrue: false, reveal: 'What feels obvious to you barely shows. The shaky hands and racing heart live mostly on the inside, and the room catches a fraction of what you feel. People are watching your point, not hunting for your nervousness.' },
   ],
-  L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to steady your nerves at work.', emotion: 'At work: Nerves', level: 'Level 1', round: 'Easy round' },
+  L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to steady your nervousness at work.', emotion: 'At work: Nervousness', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },
-  L2_INTRO: { level: 'Level 2', title: 'Big or small?', subtitle: 'Nerves come big or small. Noticing which comes before any fix.' },
+  L2_INTRO: { level: 'Level 2', title: 'Big or small?', subtitle: 'Nervousness comes big or small. Noticing which comes before any fix.' },
   L2_CHEAT: { kicker: 'Cheat code', title: 'How to spot the size', rows: [
     { label: 'Thinking', small: 'one worry you can name', big: 'what-if loops, mind goes blank' },
     { label: 'Body', small: 'a little tense or fidgety', big: 'racing heart, tight chest, shaky' },
     { label: 'Control', small: 'can still start the task', big: 'frozen, or avoiding it altogether' },
   ] },
   L2_SCENES: [
-    { id: 'wanx-l2-a', scene: `${FRIEND_NAME} presents in an hour. Her heart is quick, but she is calmly running her opening line.`, answer: 'little', why: 'A quick heart on its own does not make it big. She is still thinking clearly and prepping. Reachable, so small.' },
-    { id: 'wanx-l2-b', scene: `${FRIEND_NAME} says she is fine about the review. She looks calm, but she has reread one email for ten minutes and cannot start her real work.`, answer: 'lot', why: 'Calm face, but she is stuck and cannot function. Frozen counts as big, even when it looks quiet.' },
-    { id: 'wanx-l2-c', scene: `${FRIEND_NAME} is wound up before a call, pacing and talking fast, but she can still answer a question and crack a joke.`, answer: 'little', why: 'Lots of energy, but she is still in the driver seat. Loud is not the same as flooded. She can be reached.' },
-    { id: 'wanx-l2-d', scene: `${FRIEND_NAME} went quiet in a meeting and gave short answers, and now she cannot shake that she blew it.`, answer: 'lot', why: 'Quiet and short is the tell, plus a thought she cannot put down. She is flooded under the calm surface.' },
-    { id: 'wanx-l2-e', scene: `${FRIEND_NAME} has knots before giving feedback, but she has written out what she wants to say.`, answer: 'little', why: 'Knots, yes, but she can plan and prepare. Still in control, still small.' },
+    { id: 'wanx-l2-a', scene: `${FRIEND_NAME} presents in an hour, heart quick, but calmly running her opening line.`, answer: 'little', why: 'A quick heart on its own does not make it big. She is still thinking clearly and prepping. Reachable, so small.' },
+    { id: 'wanx-l2-b', scene: `${FRIEND_NAME} says she is fine about the review and looks calm, but has reread one email for ten minutes and cannot start her work.`, answer: 'lot', why: 'Calm face, but she is stuck and cannot function. Frozen counts as big, even when it looks quiet.' },
+    { id: 'wanx-l2-c', scene: `${FRIEND_NAME} is pacing and talking fast during the call, but can still answer a question and crack a joke.`, answer: 'little', why: 'Lots of energy, but she is still in the driver seat. Loud is not the same as flooded. She can be reached.' },
+    { id: 'wanx-l2-d', scene: `${FRIEND_NAME} went quiet in a meeting, gave short answers, and now cannot stop thinking she blew it.`, answer: 'lot', why: 'Quiet and short is the tell, plus a thought she cannot put down. She is flooded under the calm surface.' },
+    { id: 'wanx-l2-e', scene: `${FRIEND_NAME} is tense before giving feedback, but has written out what she wants to say.`, answer: 'little', why: 'Tense, yes, but she can plan and prepare. Still in control, still small.' },
   ],
   L2_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 2', body: 'You can read the size now. That is the read the whole game turns on.' },
-  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle work nerves best.', points: [
+  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle nervousness at work best.', points: [
     { term: 'Name and ground', def: 'label the worry, then come back to what is real right now' },
     { term: 'Step away and breathe', def: 'leave the trigger for a bit and slow your exhale' },
   ] },
@@ -1448,46 +1471,46 @@ export const WORK_ANXIETY: Chapter = {
     { label: 'Check and re-check', small: 'feels safe, feeds the loop', big: 'feeds the loop, faster', bad: true },
   ] },
   L3_SCENES: [
-    { id: 'wanx-l3-msg', intensity: 'little', prompt: `${FRIEND_NAME} is tense about a message she already sent her manager. What helps most?`, options: [
+    { id: 'wanx-l3-msg', intensity: 'little', prompt: `${FRIEND_NAME} sent her manager a message and now cannot stop worrying about it. What helps most?`, options: [
       { label: 'Name it, this is a worry, not a fact', tier: 'best', future: 'Naming it puts a gap between her and the thought. It loses its grip and she moves on.' },
       { label: 'Reread the message a few more times to be sure', tier: 'worst', future: 'Checking calms her for a second, then the doubt grows back bigger. Each reread teaches her she cannot trust the last one.' },
       { label: 'Step away from her desk for a while and breathe', tier: 'lesser', future: 'Not wrong, but this one is small. Naming it would settle it without the break.' },
     ] },
-    { id: 'wanx-l3-present', intensity: 'lot', prompt: `${FRIEND_NAME} presents in an hour, heart pounding, thoughts racing, cannot focus. What helps most?`, options: [
-      { label: 'Step away for a few and breathe slow', tier: 'best', future: 'She is flooded. A few slow exhales drop the alarm, then her head clears.' },
+    { id: 'wanx-l3-present', intensity: 'lot', prompt: `${FRIEND_NAME} has to present in an hour. Her heart is pounding, her thoughts are racing, and she cannot focus. What helps most?`, options: [
+      { label: 'Step away for a few minutes and breathe out slow', tier: 'best', future: 'She is flooded. A few slow exhales drop the alarm, then her head clears.' },
       { label: 'Run the whole deck one more time to feel ready', tier: 'worst', future: 'Cramming on a racing mind does not stick, and it winds her tighter. The prep is done, the body is not.' },
       { label: 'Tell herself there is nothing to fear', tier: 'lesser', future: 'A fair thought, but mid-spiral it bounces off. Her body has to settle first.' },
     ] },
-    { id: 'wanx-l3-froze', intensity: 'lot', prompt: `${FRIEND_NAME} went quiet in a meeting and cannot shake that she blew it. What helps most?`, options: [
-      { label: 'Step out, breathe slow, let the wave drop', tier: 'best', future: 'Flooded and stuck on it. First the body settles, then the thought loses its grip.' },
+    { id: 'wanx-l3-froze', intensity: 'lot', prompt: `${FRIEND_NAME} went quiet in a meeting, and now cannot stop thinking she blew it. What helps most?`, options: [
+      { label: 'Step away, breathe out slow, and let it settle', tier: 'best', future: 'Flooded and stuck on it. First the body settles, then the thought loses its grip.' },
       { label: 'Ask a colleague if it really went that badly', tier: 'worst', future: 'A yes calms her for a minute, a maybe spikes her. Reassurance hands the worry to someone else and it comes right back.' },
-      { label: 'Remind herself one quiet moment is not a verdict', tier: 'lesser', future: 'True, but too worked up to hear it. The reframe has to wait for calm.' },
+      { label: 'Remind herself one quiet moment does not mean she failed', tier: 'lesser', future: 'True, but too worked up to hear it. The reframe has to wait for calm.' },
     ] },
-    { id: 'wanx-l3-buzz', intensity: 'little', prompt: `${FRIEND_NAME} has a low buzz of nerves about a review but can still work. What helps most?`, options: [
-      { label: 'Name it, nerves, not danger', tier: 'best', future: 'Still reachable, so naming it lands and the buzz eases.' },
-      { label: 'Google how to survive a performance review', tier: 'worst', future: 'An hour of worst-case reading later, the buzz is a spiral. Chasing certainty feeds the fear.' },
-      { label: 'Take a long walk to shake it off', tier: 'lesser', future: 'Pleasant, but overkill here. Naming it would do it in a moment.' },
+    { id: 'wanx-l3-buzz', intensity: 'little', prompt: `${FRIEND_NAME} feels a little nervous about a review but can still work. What helps most?`, options: [
+      { label: 'Name it, nervousness, not danger', tier: 'best', future: 'Still reachable, so naming it lands and the nervousness eases.' },
+      { label: 'Google how to survive a performance review', tier: 'worst', future: 'An hour of worst-case reading later, the nervousness has spiraled. Chasing certainty feeds the fear.' },
+      { label: 'Take a long walk to clear her head', tier: 'lesser', future: 'Pleasant, but overkill here. Naming it would do it in a moment.' },
     ] },
   ],
   L3_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 3', body: 'You can pick the calm that fits the size now. That is the move the whole game builds to.' },
-  L4_INTRO: { level: 'Level 4', title: 'The power move', subtitle: 'You can read your nerves now. Here is the one move that switches the alarm off before you walk in.' },
+  L4_INTRO: { level: 'Level 4', title: 'The power move', subtitle: 'You can read your nervousness now. Here is the one move that switches the alarm off before you walk in.' },
   L4_TEACH: { kicker: 'The cheat code', title: 'Make your exhale longer', rule: 'Breathe in for 4, out for 8. The long exhale is the part that calms the alarm.', doses: [
     { size: 'Small feeling', amount: '3 slow rounds' },
-    { size: 'Big feeling', amount: 'Step away and keep breathing slow' },
+    { size: 'Big feeling', amount: 'Step away and keep breathing out slow' },
   ], cta: "Let's breathe" },
   L4_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 4', body: 'That long exhale is your power move now. Three slow rounds, any time the alarm gets loud before a big moment.' },
   L5_INTRO: { level: 'Level 5', title: 'The last test', subtitle: 'One real work moment, start to finish. Read it, handle it, breathe.' },
   L5_CAPSTONE: { scene: `${FRIEND_NAME} is up next to present. Her chest is tight, her thoughts are racing, and she cannot slow down.`, size: 'lot', sizeWhy: 'Tight chest and racing thoughts. Her body is in alarm, so thinking will not land yet.', prompt: 'What helps her most right now?', options: [
-    { label: 'Step away and breathe slow for a few', tier: 'best', future: 'The slow exhales drop the alarm. Then her thoughts stop sprinting and she can walk in.' },
-    { label: 'Rehearse every line one more frantic time', tier: 'worst', future: 'Cramming mid-flood spins her faster. It has to wait until she is steady.' },
+    { label: 'Step away and breathe out slow for a few minutes', tier: 'best', future: 'The slow exhales drop the alarm. Then her thoughts stop sprinting and she can walk in.' },
+    { label: 'Frantically rehearse every line one more time', tier: 'worst', future: 'Cramming mid-flood spins her faster. It has to wait until she is steady.' },
     { label: 'Tell herself it will be fine', tier: 'lesser', future: 'A kind thought, but flooded it bounces off. Her body has to settle first.' },
   ] },
   L5_BREATH_Q: BREATH_Q_SHARED,
-  L5_REORDER: { stepLabel: 'Put it in order', prompt: 'When nerves hit before a work moment, what do you do?', steps: [
+  L5_REORDER: { stepLabel: 'Put it in order', prompt: 'When nervousness hits before a work moment, what do you do?', steps: [
     'Check if I am hungry or tired',
     'Read the size, big or small',
     'Small feeling, name it and ground',
-    'Big feeling, step away and breathe slow',
+    'Big feeling, step away and breathe out slow',
   ], whyRight: 'That is the whole method, start to finish.', whyWrong: 'Not the order yet. Move the steps around and try again.' },
   L5_DECK: {
     stepLabel: 'Route each moment',
@@ -1501,13 +1524,15 @@ export const WORK_ANXIETY: Chapter = {
         id: 'wanx-d1',
         scene: `${FRIEND_NAME} is wired before a call and snappy in the chat, running on no lunch and a rough night.`,
         route: 'basics',
-        reveal: 'Empty and tired first. Steady the body before you read the nerves.',
-        nudge: 'Check food and sleep before the nerves.',
+        foil: 'big',
+        reveal: 'Empty and tired first. Steady the body before you read the nervousness.',
+        nudge: 'Check food and sleep before the nervousness.',
       },
       {
         id: 'wanx-d2',
         scene: `${FRIEND_NAME} presents in an hour but is calmly running her opening line, heart a little quick.`,
         route: 'small',
+        foil: 'big',
         reveal: 'A quick heart alone is not big. Name it, ground, and she is ready.',
         nudge: 'She is still prepping calmly. How big is this?',
       },
@@ -1515,19 +1540,21 @@ export const WORK_ANXIETY: Chapter = {
         id: 'wanx-d3',
         scene: `${FRIEND_NAME} says she is fine, but she has reread one email for ten minutes and cannot start her work.`,
         route: 'big',
+        foil: 'small',
         reveal: 'Frozen counts as big, even when it looks quiet. She steps away and breathes first.',
         nudge: 'She is stuck and cannot function. Is that really small?',
       },
       {
         id: 'wanx-d4',
-        scene: `${FRIEND_NAME} has knots before giving feedback but has written out what she wants to say.`,
+        scene: `${FRIEND_NAME} has an update to give in standup, a little nervous, but she knows her three points.`,
         route: 'small',
-        reveal: 'Knots, but she can plan. Name it, ground, and go.',
-        nudge: 'She can still prepare. This one is small.',
+        foil: 'big',
+        reveal: 'A little nervous, but she is ready and can speak. Name it, ground, and go.',
+        nudge: 'She knows her points. How big is this?',
       },
     ],
   },
-  L5_CONGRATS: { title: 'Congratulations', body: 'You have crossed every level in steadying your nerves at work. Try it before your next big moment, and tell me how it goes. I would love to know.' },
+  L5_CONGRATS: { title: 'Congratulations', body: 'You have crossed every level in steadying your nervousness at work. Try it before your next big moment, and tell me how it goes. I would love to know.' },
 };
 
 // Chapter 5 · Confidence. The graded levels teach reading and reframing self-doubt;
@@ -1549,16 +1576,16 @@ export const CONFIDENCE: Chapter = {
       intro: 'Last one. Put the whole chapter into a single plan, in your own words, so it is ready before you need it.' },
   ],
   L1_CARDS: [
-    { id: 'conf-l1-impostor', statement: 'Feeling like a fraud at work is common, even among people who are very good.',
+    { id: 'conf-l1-impostor', statement: 'The more you grow, the more you feel like you do not deserve it.',
       isTrue: true, reveal: 'Around half of people feel it, and it climbs with how capable you actually are. It is a feeling, not a fact about your work. You are in a big, quiet club.' },
     { id: 'conf-l1-action', statement: 'You have to feel confident before you can do the hard thing.',
       isTrue: false, reveal: 'It runs the other way. You do the thing a little scared, it goes okay, and the confidence follows. Waiting to feel ready is the trap. Action builds it, not the other way around.' },
-    { id: 'conf-l1-compare', statement: 'Measuring yourself against how sorted everyone else looks fuels the doubt.',
-      isTrue: true, reveal: 'You are comparing your inside to their outside. Everyone else is winging parts of it too, they just do it quietly. The reel is not the room.' },
-    { id: 'conf-l1-harsh', statement: 'Being hard on yourself is what keeps your standards high.',
+    { id: 'conf-l1-gap', statement: 'Women evaluate themselves lower than equally performing men.',
+      isTrue: true, reveal: 'It is a self-evaluation gap, not a skill gap. Women rate their own work lower than men do, even when the work is just as good and even when they know someone is watching. The doubt is not reading your ability. It is misreading it.' },
+    { id: 'conf-l1-harsh', statement: 'Being cruel to yourself helps you grow more than being kind.',
       isTrue: false, reveal: 'A harsh inner voice mostly makes you anxious and slower. Talking to yourself the way you would a friend is what actually keeps you steady and sharp. Kind beats cruel, every time.' },
     { id: 'conf-l1-evidence', statement: 'Recalling a real past win can quiet a flare of self-doubt.',
-      isTrue: true, reveal: 'Doubt deals in feelings. Evidence deals in facts. One concrete thing you handled before is a fact the doubt cannot argue with.' },
+      isTrue: true, reveal: 'Doubt is a guess, not a fact. It deals in feelings, evidence deals in facts. One concrete thing you handled before is a fact the guess cannot argue with. When in doubt, recall the wins.' },
   ],
   L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills for a steadier sense of yourself at work.', emotion: 'At work: Confidence', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },
@@ -1569,27 +1596,27 @@ export const CONFIDENCE: Chapter = {
     { label: 'Control', small: 'can still speak up', big: 'shrinking, going quiet, pulling back' },
   ] },
   L2_SCENES: [
-    { id: 'conf-l2-a', scene: `${FRIEND_NAME} has an idea in a meeting and feels a flicker of is-this-obvious, but her hand is already half up.`, answer: 'little', why: 'A flicker, and she is still moving toward speaking. Small doubt, still in the driver seat.' },
-    { id: 'conf-l2-b', scene: `${FRIEND_NAME} smiles and says she is thrilled about the promotion, then quietly starts listing everyone more qualified than her.`, answer: 'lot', why: 'The smile hides it. That list is the I-do-not-belong loop starting up. Big, even when it looks fine.' },
-    { id: 'conf-l2-c', scene: `${FRIEND_NAME} got sharp feedback and feels the sting, but she can already see one fair point in it.`, answer: 'little', why: 'It stings, but she is still weighing it clearly. Reachable, so it is small.' },
-    { id: 'conf-l2-d', scene: `${FRIEND_NAME} keeps rereading one critical Slack line and has stopped opening her other work.`, answer: 'lot', why: 'One line has taken over and she cannot function around it. That is the big one, however quiet it looks.' },
-    { id: 'conf-l2-e', scene: `${FRIEND_NAME} wonders out loud if she has enough experience for a role, and pulls up the job description to check.`, answer: 'little', why: 'A real question she is actually checking, not a spiral. Still steady.' },
+    { id: 'conf-l2-a', scene: `${FRIEND_NAME} has an idea in a meeting, thinks is-this-obvious, hand already half up.`, answer: 'little', why: 'A flicker, and she is still moving toward speaking. Small doubt, still in the driver seat.' },
+    { id: 'conf-l2-b', scene: `${FRIEND_NAME} smiles when asked about the promotion, then quietly lists everyone more qualified.`, answer: 'lot', why: 'The smile hides it. That list is the I-do-not-belong loop starting up. Big, even when it looks fine.' },
+    { id: 'conf-l2-c', scene: `${FRIEND_NAME} gets sharp feedback, feels the sting, but can see one fair point.`, answer: 'little', why: 'It stings, but she is still weighing it clearly. Reachable, so it is small.' },
+    { id: 'conf-l2-d', scene: `${FRIEND_NAME} rereads one critical Slack line, has stopped working.`, answer: 'lot', why: 'One line has taken over and she cannot function around it. That is the big one, however quiet it looks.' },
+    { id: 'conf-l2-e', scene: `${FRIEND_NAME} wonders if she has enough experience, pulls up the job description to check.`, answer: 'little', why: 'A real question she is actually checking, not a spiral. Still steady.' },
   ],
   L2_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 2', body: 'You can read the size now. That is the read the whole game turns on.' },
-  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle self-doubt best.', points: [
-    { term: 'Name it and check the facts', def: 'call it doubt, then recall one real win it cannot argue with' },
+  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves handle self-doubt best. The catch: the bigger the doubt, the less the facts land, so a big one needs kindness first.', points: [
+    { term: 'You know it is doubt, check the facts', def: 'a guess, not a fact, so recall one real win it cannot argue with' },
     { term: 'Be kind and steady', def: 'talk to yourself like a friend, and take the next small step anyway' },
   ] },
   L3_CHEAT: { kicker: 'Cheat code', title: 'When to check the facts, when to be kind', rows: [
-    { label: 'Name it and check the facts', small: 'works best', big: 'not enough on its own', bad: false },
+    { label: 'You know it is doubt, check the facts', small: 'works best', big: 'not enough on its own', bad: false },
     { label: 'Be kind and steady', small: 'more than she needs', big: 'best, it steadies her', bad: false },
     { label: 'Prove it to everyone', small: 'the bar just moves', big: 'the bar keeps moving', bad: true },
   ] },
   L3_SCENES: [
     { id: 'conf-l3-idea', intensity: 'little', prompt: `${FRIEND_NAME} feels an is-this-obvious flicker before sharing an idea. What helps most?`, options: [
-      { label: 'Name it, that is doubt, and say it anyway', tier: 'best', future: 'Named, the flicker loses its grip, and saying it is how the confidence grows.' },
+      { label: 'You know it is doubt, say it anyway', tier: 'best', future: 'You know it is doubt, so the flicker loses its grip, and saying it is how the confidence grows.' },
       { label: 'Wait to see if someone smarter says it first', tier: 'worst', future: 'Holding back feels humble, but it teaches her to stay quiet, and someone else gets the credit for her idea.' },
-      { label: 'Quietly recall a past win before she speaks', tier: 'lesser', future: 'Fine, but this one is small. Naming it and speaking would do it.' },
+      { label: 'Quietly recall a past win before she speaks', tier: 'lesser', future: 'Fine, but this one is small. You know it is doubt, and speaking would do it.' },
     ] },
     { id: 'conf-l3-table', intensity: 'lot', prompt: `${FRIEND_NAME} is spiraling that the senior table will find out she does not belong. What helps most?`, options: [
       { label: 'Be kind to herself and take one small step in', tier: 'best', future: 'Flooded, she needs steadying before facts. A kind word and one small action settle her.' },
@@ -1602,7 +1629,7 @@ export const CONFIDENCE: Chapter = {
       { label: 'Weigh the praise against the one critique', tier: 'lesser', future: 'Sensible, but too worked up to hold both. Calm has to come first.' },
     ] },
     { id: 'conf-l3-apply', intensity: 'little', prompt: `${FRIEND_NAME} hesitates to apply, unsure she ticks enough boxes. What helps most?`, options: [
-      { label: 'Name the doubt and check the actual boxes', tier: 'best', future: 'Still steady, so the facts land. She sees she is closer than the doubt claimed.' },
+      { label: 'You know it is doubt, check the actual boxes', tier: 'best', future: 'Still steady, so the facts land. She sees she is closer than the doubt claimed.' },
       { label: 'Add one more course before she feels ready', tier: 'worst', future: 'There is always one more course. Waiting to feel ready is how the role passes her by.' },
       { label: 'Give herself a quick pep talk first', tier: 'lesser', future: 'Not wrong, but overkill here. A quick box-check would do it.' },
     ] },
@@ -1619,10 +1646,10 @@ export const CONFIDENCE: Chapter = {
       'Notice it. Say, this one is hard right now.',
       'Remember, everyone who has stood here has felt it too.',
       'Say one kind thing, the way you would to a friend.',
-    ] },
+    ], foot: 'Small wobble, just the kind line. Big one, all three beats.' },
     practice: [
       { label: 'Notice', line: 'This one is hard right now.', cue: 'I feel this' },
-      { label: 'Not alone', line: 'Everyone who has sat at that table has felt this too.', cue: 'I am not the only one' },
+      { label: 'Not alone', line: 'Everyone who has stood where you are has felt this too.', cue: 'I am not the only one' },
     ],
     kindPrompt: 'Now the kind thing. Pick the line you would offer a friend standing here.',
     kindLines: [
@@ -1651,7 +1678,7 @@ export const CONFIDENCE: Chapter = {
   L5_REORDER: { stepLabel: 'Put it in order', prompt: 'When self-doubt hits at work, what do you do?', steps: [
     'Check if I am hungry or tired',
     'Read the size, big or small',
-    'Small doubt, name it and recall a real win',
+    'Small doubt, know it is a guess, recall a real win',
     'Big doubt, be kind and take one small step',
   ], whyRight: 'That is the whole method, start to finish.', whyWrong: 'Not the order yet. Move the steps around and try again.' },
   L5_DECK: {
@@ -1666,27 +1693,31 @@ export const CONFIDENCE: Chapter = {
         id: 'conf-d1',
         scene: `${FRIEND_NAME} is doubting everything today, and it clicks that she is running on no sleep and no lunch.`,
         route: 'basics',
+        foil: 'big',
         reveal: 'Empty and tired makes everything look worse. Steady the body first.',
         nudge: 'Check the basics before you weigh the doubt.',
       },
       {
         id: 'conf-d2',
-        scene: `${FRIEND_NAME} feels an is-this-obvious flicker before sharing an idea, but her hand is already half up.`,
+        scene: `${FRIEND_NAME} has an idea in a meeting, thinks is-this-obvious, hand already half up.`,
         route: 'small',
-        reveal: 'A small flicker, still moving. Name it and recall one real win.',
+        foil: 'big',
+        reveal: 'A small flicker, still moving. Just a guess, not a fact. Recall one real win.',
         nudge: 'She is already reaching to speak. How big is this?',
       },
       {
         id: 'conf-d3',
-        scene: `${FRIEND_NAME} smiles about the promotion, then quietly lists everyone more qualified than her.`,
+        scene: `${FRIEND_NAME} smiles when asked about the promotion, then quietly lists everyone more qualified.`,
         route: 'big',
+        foil: 'small',
         reveal: 'That list is the I-do-not-belong loop. A kind word first, then one small step.',
         nudge: 'Under the smile, is she spiralling or steady?',
       },
       {
         id: 'conf-d4',
-        scene: `${FRIEND_NAME} got sharp feedback and feels the sting but can already see one fair point in it.`,
+        scene: `${FRIEND_NAME} gets sharp feedback, feels the sting, but can see one fair point.`,
         route: 'small',
+        foil: 'big',
         reveal: 'Still weighing it clearly. Name the sting and recall what she does well.',
         nudge: 'She can still see it fairly. This is small.',
       },
@@ -1702,84 +1733,54 @@ export const ASSERTIVENESS: Chapter = {
   id: 'assertiveness',
   emotion: 'Speaking up',
   track: 'workplace',
+  poles: { small: 'Now', big: 'Later' },
+  cheatCols: { small: 'Speak now', big: 'Speak later' },
   levels: [
     { id: 'assert-l1', n: 1, title: 'Know the water', kind: 'swipe',
       intro: "Real quick, let's clear up a few things about speaking up at work. Swipe right if it is true, left if it is a myth." },
     { id: 'assert-l2', n: 2, title: 'Read the wave', kind: 'tap',
       intro: 'Here is what changes everything. Is she steady enough to say it now, a little worked up or a lot? What helps depends entirely on the answer.' },
-    { id: 'assert-l3', n: 3, title: 'Match the move', kind: 'preview',
-      intro: 'You can read it now. So pick what actually helps her be heard. Not sure? Hold a card to see how it plays out before you commit.' },
-    { id: 'assert-l4', n: 4, title: 'The power move', kind: 'script',
+    { id: 'assert-l4', n: 3, title: 'The power move', kind: 'script',
       intro: 'The one move that lets you speak up without a fight: build the line before you need it. Here is the shape, then we build one together.' },
-    { id: 'assert-l5', n: 5, title: 'The last test', kind: 'chips',
+    { id: 'assert-l5', n: 4, title: 'The last test', kind: 'chips',
       intro: 'Last one. Put the whole chapter into a single plan, in your own words, so it is ready before you need it.' },
   ],
   L1_CARDS: [
-    { id: 'assert-l1-warmfirm', statement: 'You can be warm and firm at the same time.',
-      isTrue: true, reveal: 'Kind and clear are not opposites. The strongest ask is friendly and specific at once. You do not have to choose between nice and heard.' },
     { id: 'assert-l1-aggressive', statement: 'Being assertive means being blunt or forceful.',
-      isTrue: false, reveal: 'Assertive is stating what you need and leaving room for the other person. Aggressive rolls over them. They look similar for a second and land completely differently.' },
-    { id: 'assert-l1-bottle', statement: 'Swallowing a frustration at work makes it quietly leak out later.',
-      isTrue: true, reveal: 'Unsaid things do not disappear, they come out sideways, as a short tone or a slow build of resentment. Saying it cleanly once is kinder to everyone, including you.' },
-    { id: 'assert-l1-no', statement: 'Saying no to extra work makes you look difficult.',
-      isTrue: false, reveal: 'A clear, reasoned no reads as someone who knows their priorities. Saying yes to everything is what quietly costs you. A good no protects your best work.' },
-    { id: 'assert-l1-soften', statement: 'Wrapping a hard ask in enough apologies and reasons makes it land better.',
-      isTrue: false, reveal: 'A pile of sorries makes a simple ask sound like a problem and invites a no. Warm and clear, with the ask left plain, is what actually gets a yes.' },
+      isTrue: false, reveal: 'Assertive is saying what you need and leaving room for the other person. Aggressive rolls over them. They look alike for a second and land completely differently.' },
+    { id: 'assert-l1-team', statement: 'Asking for something at work lands better when you frame it as a win for the team, not just for you.',
+      isTrue: true, reveal: 'Same ask, warmer yes. Tying it to something you both gain turns a personal demand into a shared win, and it sidesteps some of the pushback a solo ask can draw. It is why a good ask ends on the upside for both of you.' },
+    { id: 'assert-l1-natural', statement: 'Women are just naturally less assertive than men.',
+      isTrue: false, reveal: 'Not really. Women speak up as clearly as anyone. What differs is the reception: the same firm ask draws more pushback for a woman than a man. The skill is yours to build. The unfair part is not your fault.' },
+    { id: 'assert-l1-abrasive', statement: 'Say the exact same firm thing a man says, and a woman is likelier to be called abrasive.',
+      isTrue: true, reveal: "That is bias in the room, not a flaw in your delivery. Naming it matters for one reason, so you do not read someone else's double standard as your own mistake and go quiet. You keep saying it clearly. The problem is theirs to fix." },
+    { id: 'assert-l1-knack', statement: 'Speaking up well is a knack. You either have it or you do not.',
+      isTrue: false, reveal: 'It is a skill, not a personality. The people who sound natural are usually following a shape: name the thing, say how it lands, ask for the change, and give the upside. Learn the shape and it is yours too, even on a nervous day.' },
   ],
   L1_INTRO: { kicker: 'Grow at work', subtitle: 'Simple, science-backed skills to speak up and be heard.', emotion: 'At work: Speaking up', level: 'Level 1', round: 'Easy round' },
   L1_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 1', body: 'That is the groundwork laid. Ready to see how you handle Level 2?' },
-  L2_INTRO: { level: 'Level 2', title: 'Big or small?', subtitle: 'How worked up you are decides whether to speak now. Noticing which comes first.' },
+  L2_INTRO: { level: 'Level 2', title: 'Speak now or later?', subtitle: 'Your state of mind decides whether to speak now or later. Learning to read it comes first.' },
   L2_CHEAT: { kicker: 'Cheat code', title: 'How to spot the size', rows: [
     { label: 'Thinking', small: 'can plan the words', big: 'just want to snap or shut down' },
     { label: 'Body', small: 'a little tense', big: 'hot, heart racing, jaw tight' },
     { label: 'Control', small: 'can speak evenly', big: 'it would come out sharp' },
   ] },
   L2_SCENES: [
-    { id: 'assert-l2-a', scene: `${FRIEND_NAME}'s teammate took credit for her idea. Her voice is level and she is already drafting what to say.`, answer: 'little', why: 'Annoyed, but level and planning. She can say it evenly right now.' },
-    { id: 'assert-l2-b', scene: `${FRIEND_NAME} sounds perfectly calm, but under the table she is gripping her pen and her replies have gone clipped and short.`, answer: 'lot', why: 'The calm voice is a lid. The grip and the clipped replies say she is flooded underneath. Wait first.' },
-    { id: 'assert-l2-c', scene: `${FRIEND_NAME} is animated and talking fast about being passed over, but she can still laugh and hear the other side.`, answer: 'little', why: 'Heated on the surface, but still open and thinking. Loud is not the same as flooded.' },
-    { id: 'assert-l2-d', scene: `${FRIEND_NAME} got dumped with a deadline that is not hers. She is quiet now, jaw tight, replaying it on a loop.`, answer: 'lot', why: 'Quiet, tight, and stuck on a loop. That is flooded, even without a raised voice. Steady first, then speak.' },
-    { id: 'assert-l2-e', scene: `${FRIEND_NAME} needs to correct a colleague and feels a little awkward, but she can say it plainly.`, answer: 'little', why: 'Awkward but level. She can name it kindly and clearly.' },
+    { id: 'assert-l2-a', scene: `${FRIEND_NAME}'s teammate took credit for her work in the meeting. She saw it coming, so it does not throw her, and her voice and face stay even.`, answer: 'little', why: 'Steady, not blindsided. She saw it coming and kept level, so she can say it now, kind and clear.' },
+    { id: 'assert-l2-b', scene: `${FRIEND_NAME} sounds calm, but she is gripping her pen and her replies have gone short and clipped.`, answer: 'lot', why: 'The calm voice is a lid. The grip and the clipped replies say she is worked up underneath. Better to wait.' },
+    { id: 'assert-l2-c', scene: `${FRIEND_NAME} is bummed about being passed over, but she can still laugh and hear the other side.`, answer: 'little', why: 'Low, but still open and thinking. Feeling down is not the same as too worked up, so she can speak now.' },
+    { id: 'assert-l2-d', scene: `${FRIEND_NAME} got dumped with a deadline that is not hers. She is quiet now, jaw tight, replaying it on a loop.`, answer: 'lot', why: 'Quiet, tight, and stuck on a loop. That is worked up, even without a raised voice. Steady first, then speak.' },
+    { id: 'assert-l2-e', scene: `${FRIEND_NAME} needs to correct a colleague and feels a little awkward, but she can say it plainly.`, answer: 'little', why: 'Awkward but level. She can name it kindly and clearly, so now works.' },
+    { id: 'assert-l2-f', scene: `${FRIEND_NAME} was talked over for the third time. Her jaw is tight and she is gripping her pen under the table.`, answer: 'lot', why: 'Tight jaw, gripping her pen. She is too worked up, so it would come out sharp. Wait, then speak.' },
+    { id: 'assert-l2-g', scene: `${FRIEND_NAME} wants to ask for a day off. She feels a small flutter, but she is calm and can say it plainly.`, answer: 'little', why: 'A small flutter, but steady underneath. She can just ask, now.' },
   ],
   L2_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 2', body: 'You can read the size now. That is the read the whole game turns on.' },
-  L3_INTRO: { level: 'Level 3', title: 'What helps most?', lead: 'Two moves get you heard.', points: [
-    { term: 'Say it now, kind and clear', def: 'while you are steady, name it plainly and warmly' },
-    { term: 'Wait, then use your line', def: 'let the heat drop, then say it steadily' },
-  ] },
-  L3_CHEAT: { kicker: 'Cheat code', title: 'When to speak now, when to wait', rows: [
-    { label: 'Say it now, kind and clear', small: 'best, she is steady', big: 'it comes out sharp', bad: false },
-    { label: 'Wait, then use your line', small: 'more than she needs', big: 'best, it lands clean', bad: false },
-    { label: 'Hint or vent', small: 'the point never lands', big: 'the point never lands', bad: true },
-  ] },
-  L3_SCENES: [
-    { id: 'assert-l3-credit', intensity: 'little', prompt: `${FRIEND_NAME}'s teammate took credit for her idea, and she is annoyed but steady. What helps most?`, options: [
-      { label: 'Say it now, kind and clear', tier: 'best', future: 'Steady, so a warm and specific word lands. She is heard, and it stays easy between them.' },
-      { label: 'Drop a hint and hope he takes it', tier: 'worst', future: 'A hint is easy to miss and easy to dodge. The point never quite lands, and it happens again next week.' },
-      { label: 'Wait a day to make sure she is calm', tier: 'lesser', future: 'Fine, but she is already calm. Waiting just lets it sit for no reason.' },
-    ] },
-    { id: 'assert-l3-deadline', intensity: 'lot', prompt: `${FRIEND_NAME} got dumped with a deadline, quiet now, jaw tight, replaying it. What helps most?`, options: [
-      { label: 'Wait until steady, then use her line', tier: 'best', future: 'Flooded, she would snap or freeze. A short pause, then the same words land as clear, not loaded.' },
-      { label: 'Vent about it to a work friend instead', tier: 'worst', future: 'Venting lets off steam, but nothing changes with the person who can fix it. The deadline is still hers.' },
-      { label: 'Fire back a quick message right now', tier: 'lesser', future: 'Understandable, but mid-flood it reads as sharp and the point gets lost in the tone.' },
-    ] },
-    { id: 'assert-l3-talkedover', intensity: 'lot', prompt: `${FRIEND_NAME} was talked over a third time and she is worked up. What helps most?`, options: [
-      { label: 'Take a breath, wait, then raise it steadily', tier: 'best', future: 'The heat drops first, so when she names it, it lands as a fair ask, not a blowup.' },
-      { label: 'Soften it into a joke about always getting cut off', tier: 'worst', future: 'The joke makes it easy to laugh off and ignore. A real pattern gets waved away as banter.' },
-      { label: 'Jump back in louder to finish her point', tier: 'lesser', future: 'Tempting, but matching the heat turns it into a clash. Better to raise it once she is steady.' },
-    ] },
-    { id: 'assert-l3-dayoff', intensity: 'little', prompt: `${FRIEND_NAME} wants to ask for a day off and feels a small flutter but is calm. What helps most?`, options: [
-      { label: 'Just ask, simply and directly', tier: 'best', future: 'Steady, so a plain ask works. Clear and easy, no big build-up needed.' },
-      { label: 'Wrap the ask in apologies and reasons', tier: 'worst', future: 'The pile of sorries makes a simple ask sound like a problem, and it invites a no.' },
-      { label: 'Wait for a slower week to bring it up', tier: 'lesser', future: 'There is rarely a slower week. Calm and clear now is already the right moment.' },
-    ] },
-  ],
-  L3_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 3', body: 'You can pick when to speak and when to wait now. That is the move the whole game builds to.' },
-  L4_INTRO: { level: 'Level 4', title: 'The power move', subtitle: 'You know when to speak now. Here is how to build the line so it lands clean.' },
+  L4_INTRO: { level: 'Level 3', title: 'The power move', subtitle: 'You know when to speak now. Here is how to build the line so it lands clean.' },
   L4_TEACH: { kicker: 'The cheat code', title: 'The four-part line', rule: 'Name the facts, say how it lands, ask for the change, and give the upside.', doses: [
     { size: 'Small ask', amount: 'The ask and the why' },
     { size: 'Bigger ask', amount: 'All four parts' },
   ], cta: "Let's build it" },
-  L4_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 4', body: 'That four-part line is your power move now. Build it before the moment, and you walk in ready.' },
+  L4_CONGRATS: { title: 'Congratulations', subtitle: 'You passed Level 3', body: 'That four-part line is your power move now. Build it before the moment, and you walk in ready.' },
   L4_SCRIPT: {
     teach: { kicker: 'The cheat code', title: 'The four-part line', rows: [
       { part: 'Name it', hint: 'the facts, no blame' },
@@ -1787,16 +1788,28 @@ export const ASSERTIVENESS: Chapter = {
       { part: 'Ask', hint: 'the clear change you want' },
       { part: 'Because', hint: 'the upside for both of you' },
     ] },
-    scenario: 'A teammate keeps talking over you in meetings.',
-    lines: [
-      { part: 'Name it', text: 'In the last few meetings, I have been cut off before I finished my point.' },
-      { part: 'How it lands', text: 'It makes it hard for me to get my ideas into the room.' },
-      { part: 'Ask', text: 'Could we let each other finish before jumping in?' },
-      { part: 'Because', text: 'I think we will both make sharper calls if we hear the whole thing.' },
+    scenario: 'A teammate keeps interrupting when you speak.',
+    steps: [
+      { part: 'Name it', hint: 'the facts, no blame',
+        correct: 'In the last few meetings, I have been cut off before I finished my point.',
+        decoy: 'You keep interrupting me and talking over everyone.',
+        why: 'That opens with blame, so he goes defensive before he hears the ask.' },
+      { part: 'How it lands', hint: 'the effect on you or the work',
+        correct: 'It makes it hard for me to get my ideas into the room.',
+        decoy: 'It is rude and pretty unprofessional.',
+        why: 'That is a label, not an effect. It makes it about his character, not the work.' },
+      { part: 'Ask', hint: 'the clear change you want',
+        correct: 'Could we let each other finish before jumping in?',
+        decoy: 'Could you maybe try to be a bit better about that?',
+        why: 'Too vague to act on, and the hedge invites a shrug.' },
+      { part: 'Because', hint: 'the upside for both of you',
+        correct: 'We will both do our best thinking if we hear the whole thing.',
+        decoy: 'Otherwise I will have to bring it up with our manager.',
+        why: 'A threat turns a fair ask into a fight. The upside is what makes it land.' },
     ],
-    sayIt: 'Read your line out loud once, so it is in your mouth and not just your head.',
+    sayIt: 'Read your whole line out loud once, so it is in your mouth and not just your head.',
   },
-  L5_INTRO: { level: 'Level 5', title: 'The last test', subtitle: 'One real work moment, start to finish. Read it, choose your moment, build the line.' },
+  L5_INTRO: { level: 'Level 4', title: 'The last test', subtitle: 'A few real work moments, quick. Read each one and make the call.' },
   L5_CAPSTONE: { scene: `${FRIEND_NAME} was just talked over again in a meeting and she is furious, gripping her pen under the table.`, size: 'lot', sizeWhy: 'Furious and gripping. Right now it would come out as an attack. She needs to steady first.', prompt: 'What helps her most right now?', options: [
     { label: 'Take a breath, wait, then raise it with her line', tier: 'best', future: 'The heat drops, so her four-part line lands as a fair ask instead of a blowup.' },
     { label: 'Laugh it off now and vent about it after', tier: 'worst', future: 'Joking hides it and venting changes nothing. The one person who could fix it never hears the ask.' },
@@ -1823,35 +1836,39 @@ export const ASSERTIVENESS: Chapter = {
     stepLabel: 'Route each moment',
     gates: {
       basics: { lead: 'Basics first', move: 'food or sleep' },
-      small: { lead: 'Steady', move: 'say it now' },
-      big: { lead: 'Worked up', move: 'wait, then line' },
+      small: { lead: 'Now', move: 'say it, kind and clear' },
+      big: { lead: 'Later', move: 'wait, then your line' },
     },
     cards: [
       {
         id: 'assert-d1',
-        scene: `${FRIEND_NAME} is short and prickly before a hard conversation, running on no lunch and little sleep.`,
+        scene: `${FRIEND_NAME} worked through the whole night and walked straight into an early meeting. She cannot think straight.`,
         route: 'basics',
-        reveal: 'Empty and tired sharpens every word. Steady the body before she speaks.',
-        nudge: 'Check the basics before she says a thing.',
+        foil: 'big',
+        reveal: 'Running on no sleep. Get her rested before she says a word, or it comes out as pure exhaustion.',
+        nudge: 'Before you read the mood, check the sleep.',
       },
       {
         id: 'assert-d2',
-        scene: `${FRIEND_NAME}'s teammate took credit for her idea. Her voice is level and she is already drafting what to say.`,
+        scene: `${FRIEND_NAME}'s teammate took the credit for her work. She did not react in the moment, and now she is calmly drafting what to say.`,
         route: 'small',
-        reveal: 'Steady and planning. She can say it now, kind and clear.',
-        nudge: 'Her voice is level. Can she speak evenly right now?',
+        foil: 'big',
+        reveal: 'Quiet then, but steady now and already planning. She can send it, kind and clear.',
+        nudge: 'She is calm and drafting. Ready to speak, or actually too worked up?',
       },
       {
         id: 'assert-d3',
-        scene: `${FRIEND_NAME} was talked over a third time. Her jaw is tight and she is gripping her pen.`,
+        scene: `${FRIEND_NAME} was talked over for the third time. Her jaw is tight and she is gripping her pen under the table.`,
         route: 'big',
-        reveal: 'Flooded, it would come out as an attack. She waits, then uses her line.',
+        foil: 'small',
+        reveal: 'Too worked up, it would come out as an attack. She waits, then uses her line.',
         nudge: 'Tight jaw, gripped pen. Would it come out clean right now?',
       },
       {
         id: 'assert-d4',
         scene: `${FRIEND_NAME} needs to correct a colleague and feels a little awkward, but she can say it plainly.`,
         route: 'small',
+        foil: 'big',
         reveal: 'Awkward but steady. She names it kindly and clearly, now.',
         nudge: 'Awkward, but is she actually worked up?',
       },
@@ -1873,7 +1890,7 @@ export const COURSE_TITLE: Record<string, string> = {
   irritability: 'Stay steady',
   anxiety: 'Calm the spiral',
   'mood-swings': 'Ride the waves',
-  'work-anxiety': 'Steady your nerves',
+  'work-anxiety': 'Overcome nervousness',
   confidence: 'Sound confident',
   assertiveness: 'Speak up',
 };

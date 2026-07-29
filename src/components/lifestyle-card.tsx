@@ -14,7 +14,8 @@ type Item = { id: ReadinessCheckId; label: string };
 
 // The two standalone habits, then the food list, in glanceable form.
 const HABITS: readonly Item[] = [
-  { id: 'woundDown', label: 'Sleep 8 hours' },
+  { id: 'sleep', label: 'Sleep 7–8 hours' },
+  { id: 'move', label: 'Move your body' },
   { id: 'steady', label: 'Never stay hungry' },
 ];
 const FOODS: readonly Item[] = [

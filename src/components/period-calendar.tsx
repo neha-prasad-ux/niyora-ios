@@ -43,6 +43,10 @@ export function PeriodCalendar({
 }) {
   const base = useDefaultStyles('dark');
 
+  // A period can only be in the past, so cap selection at today. Defaulted here
+  // (not just per-caller) so every calendar blocks the future the same way.
+  const cappedMax = useMemo(() => maxDate ?? new Date(), [maxDate]);
+
   // We draw the moon ourselves inside each cell, so the library's own selected /
   // today backgrounds are switched off.
   const pickerStyles = useMemo(
@@ -59,14 +63,18 @@ export function PeriodCalendar({
     () => ({
       Day: (day: CalendarDay) => {
         const isMoon = moonDays.has(dayToYmd(day.date));
+        // Future days (past the cap) are unselectable — show that, so a tap that
+        // does nothing reads as "not yet", not a broken calendar.
+        const isDisabled = day.isDisabled;
         return (
-          <View style={styles.cell}>
+          <View style={[styles.cell, isDisabled && styles.cellDisabled]}>
             <View style={[styles.pill, isMoon && styles.moon]}>
               <Text
                 style={[
                   styles.label,
                   !day.isCurrentMonth && styles.labelOutside,
                   isMoon && styles.labelMoon,
+                  isDisabled && styles.labelDisabled,
                 ]}
               >
                 {day.text}
@@ -82,7 +90,7 @@ export function PeriodCalendar({
   return (
     <DateTimePicker
       mode="single"
-      maxDate={maxDate}
+      maxDate={cappedMax}
       components={components}
       onChange={({ date: d }) => {
         if (d) onDayPress(new Date(d as string | number | Date));
@@ -120,6 +128,14 @@ const styles = StyleSheet.create({
   },
   labelOutside: {
     color: 'rgba(255, 255, 255, 0.28)',
+  },
+  // Future days: dimmed well below the muted out-of-month grey so they clearly
+  // read as unavailable, not just adjacent-month.
+  cellDisabled: {
+    opacity: 0.4,
+  },
+  labelDisabled: {
+    color: 'rgba(255, 255, 255, 0.18)',
   },
   labelMoon: {
     color: '#1b1430',

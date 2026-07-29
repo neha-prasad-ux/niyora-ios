@@ -1,8 +1,10 @@
 import {
   isInPmsWindow,
+  isInPmsNotificationSpan,
   pmsOffsetDays,
   daysUntilPmsWindow,
   nextPmsWindowStartDate,
+  pmsSequenceWindowStartDate,
 } from './pms-window';
 
 // A predicted period start; with a 28-day cycle the next period lands 2026-06-29.
@@ -105,5 +107,56 @@ describe('nextPmsWindowStartDate', () => {
 
   it('is null when no date is set', () => {
     expect(nextPmsWindowStartDate(null, 28, d(2026, 6, 8))).toBeNull();
+  });
+});
+
+describe('isInPmsNotificationSpan', () => {
+  // 28-day cycle from 2026-06-01: window opens 06-22, grace runs to 07-01, and
+  // the prep countdown starts 3 days before the window (06-19).
+  it('is false when no date is set', () => {
+    expect(isInPmsNotificationSpan(null, 28, d(2026, 6, 19))).toBe(false);
+  });
+
+  it('opens on the first prep day (3 days before the window)', () => {
+    expect(isInPmsNotificationSpan(START, 28, d(2026, 6, 18))).toBe(false); // 4 days before window
+    expect(isInPmsNotificationSpan(START, 28, d(2026, 6, 19))).toBe(true); // first prep day
+  });
+
+  it('covers the prep countdown, the window, and the grace', () => {
+    expect(isInPmsNotificationSpan(START, 28, d(2026, 6, 22))).toBe(true); // window start
+    expect(isInPmsNotificationSpan(START, 28, d(2026, 6, 29))).toBe(true); // predicted period
+    expect(isInPmsNotificationSpan(START, 28, d(2026, 7, 1))).toBe(true); // last grace day
+    expect(isInPmsNotificationSpan(START, 28, d(2026, 7, 2))).toBe(false); // past the grace
+  });
+});
+
+describe('pmsSequenceWindowStartDate', () => {
+  const ymd = (date: Date | null) =>
+    date
+      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      : null;
+
+  it('returns the upcoming window start mid-cycle', () => {
+    expect(ymd(pmsSequenceWindowStartDate(START, 28, d(2026, 6, 8)))).toBe('2026-06-22');
+  });
+
+  it('stays on the current window through its span (unlike nextPmsWindowStartDate)', () => {
+    expect(ymd(pmsSequenceWindowStartDate(START, 28, d(2026, 6, 19)))).toBe('2026-06-22'); // prep day
+    expect(ymd(pmsSequenceWindowStartDate(START, 28, d(2026, 6, 25)))).toBe('2026-06-22'); // inside window
+    expect(ymd(pmsSequenceWindowStartDate(START, 28, d(2026, 7, 1)))).toBe('2026-06-22'); // last grace day
+  });
+
+  it('rolls to the next cycle only once the grace has passed', () => {
+    expect(ymd(pmsSequenceWindowStartDate(START, 28, d(2026, 7, 2)))).toBe('2026-07-20');
+  });
+
+  it('returns a local Date at midnight', () => {
+    const date = pmsSequenceWindowStartDate(START, 28, d(2026, 6, 8));
+    expect(date?.getHours()).toBe(0);
+    expect(date?.getMinutes()).toBe(0);
+  });
+
+  it('is null when no date is set', () => {
+    expect(pmsSequenceWindowStartDate(null, 28, d(2026, 6, 8))).toBeNull();
   });
 });

@@ -136,14 +136,14 @@ export const COPING_ITEMS: {
   label: string;
   mode: 'engagement' | 'disengagement';
 }[] = [
-  { id: 'talk', label: 'Talk it through with someone', mode: 'engagement' },
+  { id: 'talk', label: 'Discuss with someone', mode: 'engagement' },
   { id: 'withdraw', label: 'Keep to yourself', mode: 'disengagement' },
   { id: 'reframe', label: 'Try to see it differently', mode: 'engagement' },
   { id: 'ruminate', label: 'Keep replaying it', mode: 'disengagement' },
   { id: 'distract', label: 'Distract yourself', mode: 'engagement' },
   { id: 'suppress', label: 'Push it down and carry on', mode: 'disengagement' },
   { id: 'engage', label: 'Keep talking it out', mode: 'engagement' },
-  { id: 'vent', label: 'Take it out on someone', mode: 'disengagement' },
+  { id: 'vent', label: 'End up hurting someone', mode: 'disengagement' },
   { id: 'cry', label: 'Cry it out', mode: 'engagement' },
   { id: 'accept', label: 'Let it pass', mode: 'engagement' },
 ];
@@ -166,6 +166,26 @@ export interface V3Answers {
 }
 
 export const EMPTY_ANSWERS: V3Answers = {
+  presence: [],
+  impairment: {},
+  cycle: { lastPeriod: null, starts: [], length: null, unsure: false },
+  remission: null,
+  levers: {},
+  coping: [],
+};
+
+/**
+ * First-run onboarding seed (retake starts EMPTY instead, then seeds from her
+ * last read so the then-vs-now compare stays honest).
+ *
+ * DECISION (2026-07-24): first-run stays BLANK. Pre-selecting "common" answers
+ * to cut drop-off was considered and rejected — pre-checking symptoms,
+ * impairment, or levers would inflate her derived level and her plan, which is
+ * not a trade worth making. Do NOT add pre-selections here. Kept as its own
+ * const (not a reference to EMPTY_ANSWERS) to preserve the first-run vs retake
+ * seam and avoid shared-mutation surprises.
+ */
+export const DEFAULT_ANSWERS: V3Answers = {
   presence: [],
   impairment: {},
   cycle: { lastPeriod: null, starts: [], length: null, unsure: false },
@@ -273,17 +293,17 @@ export function copingStandingCopy(
     case 'disengaging':
       return {
         line: 'You tend to push feelings down or keep them at a distance',
-        tail: 'Common, and the pattern that keeps them going, also the most trainable',
+        tail: 'It is common but also something we can work on',
       };
     case 'engaging':
       return {
         line: 'You tend to work with the feelings, by talking or reframing',
-        tail: 'That is the pattern that eases things, and we build on it',
+        tail: 'That is good, and let us train to make it stronger',
       };
     case 'mixed':
       return {
         line: 'You do a bit of both, working with feelings and pushing some down',
-        tail: 'The working-with side is the one that helps, and it gets stronger with practice',
+        tail: 'Let us double down on Working with side, it gets stronger with practice',
       };
     default:
       return null;
@@ -347,7 +367,7 @@ export function compareReads(beforeA: V3Answers, afterA: V3Answers): ReadCompari
     dir < 0
       ? `${levelWord(before)} → ${after}. It is easing.`
       : dir > 0
-        ? `${levelWord(before)} → ${after}. A rougher stretch — the details below show what changed.`
+        ? `${levelWord(before)} → ${after}. A rougher stretch. The details below show what changed.`
         : `Still ${after}. Levels move slowly; the details below move first.`;
 
   const moved: string[] = [];

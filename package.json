@@ -60,6 +60,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "build:dev": "bash scripts/build-dev-client.sh",
     "build:ios:release": "expo run:ios --configuration Release",
     "build:ios": "eas build -p ios --profile production",
     "submit:ios": "eas submit -p ios --latest",

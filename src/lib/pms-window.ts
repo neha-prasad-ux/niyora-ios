@@ -11,6 +11,7 @@
 
 export const PMS_WINDOW_BEFORE_DAYS = 7; // premenstrual stretch before the predicted period
 export const PMS_GRACE_AFTER_DAYS = 2; // absorbs a slightly late period we cannot observe
+export const PMS_PREP_LEAD_DAYS = 3; // prep countdown fired before the window opens
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -112,4 +113,51 @@ export function isInPmsWindow(
   const offset = pmsOffsetDays(lastPeriodStart, cycleLength, today);
   if (offset == null) return false;
   return offset >= -PMS_WINDOW_BEFORE_DAYS && offset <= PMS_GRACE_AFTER_DAYS;
+}
+
+// True when today falls inside the whole PMS *notification* span: from the first
+// prep day (PMS_PREP_LEAD_DAYS before the window opens) through the grace after
+// the predicted start. Wider than isInPmsWindow because the prep countdown fires
+// before the window itself. Used to pause the daily breath reminder so it never
+// doubles up with the PMS sequence.
+export function isInPmsNotificationSpan(
+  lastPeriodStart: string | null,
+  cycleLength: number,
+  today: Date,
+): boolean {
+  if (!lastPeriodStart) return false;
+  const offset = pmsOffsetDays(lastPeriodStart, cycleLength, today);
+  if (offset == null) return false;
+  return (
+    offset >= -(PMS_WINDOW_BEFORE_DAYS + PMS_PREP_LEAD_DAYS) &&
+    offset <= PMS_GRACE_AFTER_DAYS
+  );
+}
+
+// The window start that the PMS notification sequence should anchor to. Unlike
+// nextPmsWindowStartDate (which always rolls forward to a strictly future
+// window), this stays on the *current* window while today is still inside its
+// notification span, so the daily sequence keeps firing through the days that
+// remain. It only rolls to the next cycle once today is past the grace. The
+// returned day may be in the past; schedulePmsReminders skips any notification
+// whose moment has already passed. Returned as a local Date at midnight. null
+// when there is no usable last-period date.
+export function pmsSequenceWindowStartDate(
+  lastPeriodStart: string | null,
+  cycleLength: number,
+  today: Date,
+): Date | null {
+  if (!lastPeriodStart) return null;
+  const start = parseDayNumber(lastPeriodStart);
+  if (start == null) return null;
+  const len = clampCycleLength(cycleLength);
+  const t = dayNumberLocal(today);
+  const nearestPeriod = start + Math.round((t - start) / len) * len;
+  const offset = t - nearestPeriod;
+  // In-span or still ahead of the nearest window: anchor to it. Only once the
+  // grace has passed do we hand off to the next cycle's window.
+  const periodDay = offset > PMS_GRACE_AFTER_DAYS ? nearestPeriod + len : nearestPeriod;
+  const windowStartDay = periodDay - PMS_WINDOW_BEFORE_DAYS;
+  const utc = new Date(windowStartDay * MS_PER_DAY);
+  return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
 }

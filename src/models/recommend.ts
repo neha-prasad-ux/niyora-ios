@@ -33,6 +33,10 @@ export const FEELINGS: readonly Feeling[] = [
   { id: 'low', label: 'Low', short: 'hold-yourself', long: 'belly', oneMin: 'short' },
   { id: 'foggy', label: 'Foggy', short: 'five-senses', long: 'alternate-nostril', oneMin: 'short' },
   { id: 'overwhelmed', label: 'Overwhelmed', short: 'soft-gaze', long: 'ocean', oneMin: 'long' },
+  // Not a distress state, so it stays out of PmsFeeling (which drives the
+  // steady flow). When she already feels good we savour rather than fix: a soft,
+  // open-awareness mindful reset, with a slow belly breath as the longer option.
+  { id: 'good', label: 'I feel good', short: 'soft-gaze', long: 'belly', oneMin: 'short' },
 ];
 
 // The need axis: the felt state she's reaching for ("How do you want to feel?").
@@ -63,6 +67,9 @@ export const FEELING_NEED_DEFAULT: Record<PmsFeeling, Need> = {
 };
 
 export function defaultNeedFor(feelingId: string): Need | undefined {
+  // "good" is not a PmsFeeling, so it isn't in the map above; savouring a good
+  // moment reaches for relaxed, never a fix.
+  if (feelingId === 'good') return 'relaxed';
   return FEELING_NEED_DEFAULT[feelingId as PmsFeeling];
 }
 
@@ -146,7 +153,10 @@ const TECHNIQUE_NEEDS: Record<string, readonly Need[]> = {
 // breathing path); activity cards carry activityId.
 export type RecCard = {
   id: string;
-  source: 'technique' | 'activity';
+  // 'understand' cards are a "why this happens" reframe slotted into the deck by
+  // the result view (never ranked): a read, not a do. Tapping opens the reframe
+  // sheet rather than navigating. Carries the Understand card id to resolve it.
+  source: 'technique' | 'activity' | 'understand';
   title: string;
   feelings: readonly PmsFeeling[]; // feelings it serves
   needs: readonly Need[]; // needs it serves
@@ -156,6 +166,7 @@ export type RecCard = {
   techniqueId?: string;
   rounds?: number; // breathing: scaled to the chosen time
   activityId?: string;
+  understandId?: string; // 'understand' cards: the Understand passage to open
   feelingId?: string; // primary feeling carried for session loop-closing
 };
 

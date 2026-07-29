@@ -15,6 +15,9 @@
       "niyora-health": [
         "./modules/niyora-health/src/index"
       ],
+      "niyora-gemma": [
+        "./modules/niyora-gemma/src/index"
+      ],
       "niyora-fm": [
         "./modules/niyora-fm/src/index"
       ]

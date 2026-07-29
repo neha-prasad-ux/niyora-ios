@@ -30,6 +30,15 @@ describe('setupCardFor', () => {
   it('shows nothing once the read is done', () => {
     expect(setupCardFor({ stepIndex: 13, answers: EMPTY_ANSWERS, done: true })).toBeNull();
   });
+
+  it('shows nothing when a read exists even if the done flag desynced to false', () => {
+    // The desync case: onboarding finished (a read was recorded) but a
+    // step-change autosave left done:false. The read wins, so the setup card
+    // clears instead of stranding her on "finish setting up".
+    expect(
+      setupCardFor({ stepIndex: 14, answers: EMPTY_ANSWERS, done: false }, true),
+    ).toBeNull();
+  });
 });
 
 describe('getOnboardingV3Progress', () => {

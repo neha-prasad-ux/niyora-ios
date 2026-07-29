@@ -1,0 +1,12 @@
+{
+  "name": "niyora-gemma",
+  "version": "1.0.0",
+  "description": "On-device Gemma (LiteRT-LM / MediaPipe) bridge for the Rough Moment CBT session",
+  "main": "src/index",
+  "types": "src/index",
+  "files": [
+    "src",
+    "ios",
+    "expo-module.config.json"
+  ]
+}

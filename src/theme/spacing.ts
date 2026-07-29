@@ -12,7 +12,10 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  card: 16,
+  // The card radius the app actually draws everywhere (Grow shelves, the
+  // phase-action card, chapter cards, onboarding). One value so every rounded
+  // card matches instead of splitting into 16 / 18 / 22.
+  card: 22,
   pill: 18,
   control: 14,
 } as const;

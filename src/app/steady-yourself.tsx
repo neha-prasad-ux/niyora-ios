@@ -26,6 +26,7 @@ import { CloseButton } from '@/components/CloseButton';
 import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
 import { recordLight } from '@/store/light-ledger';
+import { addSteadyEntry } from '@/store/steady-history';
 import {
   BREAK_TITLE,
   BREAK_WHY,
@@ -62,6 +63,7 @@ const STEADY_REF = 'steady-yourself';
 // (breathing helped, or after a break/reset) — never while she is still hot.
 type Phase =
   | 'recognise'
+  | 'rateBefore'
   | 'read'
   | 'breathe'
   | 'breakOffer'
@@ -70,12 +72,21 @@ type Phase =
   | 'doReflect'
   | 'endingReconnect'
   | 'endingLine'
+  | 'rateAfter'
+  | 'relief'
   | 'exit'
   | 'close';
 
 export default function SteadyYourselfScreen() {
   const [phase, setPhase] = useState<Phase>('recognise');
   const [what, setWhat] = useState<WhatHappenedId | null>(null);
+  // The before/after feel-ratings (1..5) that measure whether the flow actually
+  // helped. `before` is taken right after she names what happened (peak), `after`
+  // once she has cooled down, and the relief screen scales its line to the shift.
+  const [before, setBefore] = useState<number | null>(null);
+  const [after, setAfter] = useState<number | null>(null);
+  // The reset-proof lifetime count, read fresh on the relief screen.
+  const [reliefCount, setReliefCount] = useState<number | null>(null);
 
   // A history stack for the in-flow Back button: every forward step records the
   // step it left, so Back retraces the actual path she took (branches included).
@@ -156,10 +167,31 @@ export default function SteadyYourselfScreen() {
   const chooseWhat = useCallback(
     (id: WhatHappenedId) => {
       setWhat(id);
-      go('read');
+      // Name it, then rate it before any calming, so the shift is measured from
+      // the peak.
+      go('rateBefore');
     },
     [go],
   );
+
+  // The relief screen: record the completed flow (once) and read the fresh
+  // lifetime count. Recording needs both ratings; the light is logged here
+  // rather than on 'close' since a rated flow ends here. Then it settles home.
+  const reliefRecorded = useRef(false);
+  useEffect(() => {
+    if (phase !== 'relief') return;
+    if (!reliefRecorded.current) {
+      reliefRecorded.current = true;
+      recordLight('apply', { refId: STEADY_REF }).catch(() => {});
+      if (before != null && after != null) {
+        addSteadyEntry({ what, before, after, at: new Date().toISOString() })
+          .then((s) => setReliefCount(s.count))
+          .catch(() => {});
+      }
+    }
+    const t = setTimeout(() => router.back(), 4600);
+    return () => clearTimeout(t);
+  }, [phase, before, after, what]);
 
   // The quick menu behind "I can't spare 20". The two doing-options cool her
   // down and converge on the reflect invite; exit carries the parting line out.
@@ -183,7 +215,8 @@ export default function SteadyYourselfScreen() {
     [go, leaveTo],
   );
 
-  const showClose = phase !== 'doReflect' && phase !== 'exit' && phase !== 'close';
+  const showClose =
+    phase !== 'doReflect' && phase !== 'exit' && phase !== 'close' && phase !== 'relief';
 
   return (
     <View style={styles.root}>
@@ -216,6 +249,13 @@ export default function SteadyYourselfScreen() {
               label: w.label,
               onPress: () => chooseWhat(w.id),
             }))}
+          />
+        ) : phase === 'rateBefore' ? (
+          <FeelStep
+            title="How strong is it right now?"
+            value={before}
+            onPick={setBefore}
+            onNext={() => go('read')}
           />
         ) : phase === 'read' ? (
           <Read what={what} onNext={() => go('breathe')} />
@@ -273,13 +313,22 @@ export default function SteadyYourselfScreen() {
             title={GENTLE_LINE_INTRO}
             primaryLabel="Yes, show me the message"
             onPrimary={() =>
-              leaveTo('close', () =>
+              leaveTo('rateAfter', () =>
                 router.push({ pathname: '/activity', params: { id: 'bridge-back' } }),
               )
             }
             secondaryLabel="I'll find my own words"
-            onSecondary={() => go('close')}
+            onSecondary={() => go('rateAfter')}
           />
+        ) : phase === 'rateAfter' ? (
+          <FeelStep
+            title="And how is it now?"
+            value={after}
+            onPick={setAfter}
+            onNext={() => go('relief')}
+          />
+        ) : phase === 'relief' ? (
+          <Relief before={before} after={after} count={reliefCount} />
         ) : phase === 'close' ? (
           <Closing line={CLOSE_LINE} />
         ) : phase === 'exit' ? (
@@ -463,6 +512,107 @@ function Closing({ line }: { line: string }) {
   );
 }
 
+// --- The 1..5 feel scale, light on the left, heavy on the right ---------------
+function FeelScale({ value, onPick }: { value: number | null; onPick: (n: number) => void }) {
+  return (
+    <View style={styles.scaleWrap}>
+      <View style={styles.scaleRow}>
+        {[1, 2, 3, 4, 5].map((n) => {
+          const selected = value === n;
+          return (
+            <Pressable
+              key={n}
+              onPress={() => onPick(n)}
+              hitSlop={8}
+              style={[styles.scaleDot, selected && styles.scaleDotOn]}
+              accessibilityRole="button"
+              accessibilityLabel={`${n} of 5`}
+              accessibilityState={{ selected }}
+            >
+              <Text style={[styles.scaleNum, selected && styles.scaleNumOn]}>{n}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.scaleLabels}>
+        <Text style={styles.scaleEnd}>A little</Text>
+        <Text style={styles.scaleEnd}>A lot</Text>
+      </View>
+    </View>
+  );
+}
+
+// A rating step: name the level now, then continue. Used before the calming
+// (from the peak) and after it (once cooled down), so the shift is real.
+function FeelStep({
+  title,
+  value,
+  onPick,
+  onNext,
+}: {
+  title: string;
+  value: number | null;
+  onPick: (n: number) => void;
+  onNext: () => void;
+}) {
+  return (
+    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeIn.duration(400)} style={styles.block}>
+        <Text style={styles.title}>{title}</Text>
+        <FeelScale
+          value={value}
+          onPick={(n) => {
+            Haptics.selectionAsync().catch(() => {});
+            onPick(n);
+          }}
+        />
+        <View style={styles.feelFooter}>
+          <BeginButton label="Continue" onPress={onNext} disabled={value == null} fullWidth />
+        </View>
+      </Animated.View>
+    </ScrollView>
+  );
+}
+
+// The relief payoff: a line scaled to the real before/after shift, then the
+// reset-proof "N times you've come back" count. Honesty is the ask, so a small
+// or no shift is still met warmly, never as a failure.
+function Relief({
+  before,
+  after,
+  count,
+}: {
+  before: number | null;
+  after: number | null;
+  count: number | null;
+}) {
+  const shift = before != null && after != null ? before - after : 0;
+  const line =
+    shift >= 2
+      ? 'That eased a lot. Well done for staying with it.'
+      : shift >= 1
+        ? 'A little lighter than when you started. That counts.'
+        : after != null && after <= 2
+          ? 'You are in a calmer place now.'
+          : 'Some days it barely shifts, and showing up for yourself still matters.';
+  return (
+    <View style={styles.center}>
+      <Orb size={140} still />
+      <Animated.Text entering={FadeIn.duration(700)} style={styles.closeLine}>
+        {line}
+      </Animated.Text>
+      {count != null && (
+        <Animated.Text
+          entering={FadeIn.duration(700).delay(500)}
+          style={styles.reliefCount}
+        >
+          {`That's ${count} ${count === 1 ? 'time' : 'times'} you've come back to yourself.`}
+        </Animated.Text>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1, paddingHorizontal: 24 },
@@ -598,4 +748,39 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 12,
   },
+  reliefCount: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 20,
+  },
+  scaleWrap: { width: '100%', gap: 10, marginTop: 14 },
+  scaleRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
+  scaleDot: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scaleDotOn: {
+    borderColor: colors.primarySolid,
+    backgroundColor: 'rgba(150, 110, 205, 0.22)',
+  },
+  scaleNum: { fontFamily: 'Poppins-Regular', fontSize: 16, color: colors.textSubtitle },
+  scaleNumOn: { color: colors.textPrimary },
+  scaleLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 4,
+  },
+  scaleEnd: { fontFamily: 'Poppins-Regular', fontSize: 12, color: colors.textTagline },
+  feelFooter: { width: '100%', marginTop: 20 },
 });

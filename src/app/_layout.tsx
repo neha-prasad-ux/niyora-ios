@@ -8,16 +8,23 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ErrorBoundary } from '../components/error-boundary';
 import * as Notifications from 'expo-notifications';
-import { COMEBACK_NUDGE_ID } from '../lib/notifications';
+import {
+  COMEBACK_NUDGE_ID,
+  cancelCombackNudge,
+  notificationRoute,
+  scheduleCombackNudge,
+} from '../lib/notifications';
 import {
   STRESS_NUDGE_ID,
   registerStressNudgeCategory,
   answerFromAction,
 } from '../lib/stress-nudge';
 import { recordAnswer } from '../store/nudge-history';
+import { getReminder } from '../store/reminder-prefs';
 import { useStressTick } from '../hooks/use-stress-tick';
 import { FM_EXPERIMENT, STRESS_EXPERIMENT } from '../config/features';
 
@@ -55,6 +62,13 @@ export default function RootLayout() {
         router.push({ pathname: '/session', params: { id: 'quick-calm' } });
         return;
       }
+      // The day-specific PMS beats and the break-over nudge open the surface
+      // their copy promised, so a tap lands on the feature, not the last screen.
+      const route = notificationRoute(id);
+      if (route) {
+        router.push(route);
+        return;
+      }
       if (id === STRESS_NUDGE_ID) {
         // Yes / No / Not now is the ground truth. Record it; a Yes also offers
         // a calming session, the natural next step (the action flow is C1).
@@ -66,6 +80,23 @@ export default function RootLayout() {
           router.push({ pathname: '/session', params: { id: 'quick-calm' } });
         }
         return;
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // The comeback nudge is armed when she leaves and disarmed when she returns:
+  // scheduling on background means a user who never comes back still hears from
+  // us COMEBACK_LAPSE_DAYS later, and foregrounding cancels a nudge meant only
+  // for someone who drifted. Gated on the daily-reminder consent she granted.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        cancelCombackNudge().catch(() => {});
+      } else if (state === 'background') {
+        getReminder()
+          .then((r) => (r.enabled ? scheduleCombackNudge() : undefined))
+          .catch(() => {});
       }
     });
     return () => sub.remove();

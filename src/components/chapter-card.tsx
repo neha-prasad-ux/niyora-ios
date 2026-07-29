@@ -126,8 +126,9 @@ const CHAPTER_GRADIENT_FALLBACK: readonly [string, string, string] = [
 ];
 
 // Whole-card tap opens the chapter (resuming at her first incomplete level).
-// `peek` drops the progress tag so the card can sit cleanly in a stacked deck
-// (used by the onboarding plan preview).
+// `peek` drops the progress tag AND the tap affordance (no chevron, not a
+// button) so the card sits in the onboarding plan preview as something to read,
+// not a control — the deck is a montage of the plan, not a menu.
 export function ChapterCard({
   chapter,
   training,
@@ -160,9 +161,14 @@ export function ChapterCard({
       )}
       <Pressable
         style={styles.chapterCard}
-        onPress={onOpen}
-        accessibilityRole="button"
-        accessibilityLabel={`${chapter.emotion}. ${blurb}. ${statusWord}.`}
+        onPress={peek ? undefined : onOpen}
+        disabled={peek}
+        accessibilityRole={peek ? 'text' : 'button'}
+        accessibilityLabel={
+          peek
+            ? `${chapter.emotion}. ${blurb}.`
+            : `${chapter.emotion}. ${blurb}. ${statusWord}.`
+        }
       >
         <LinearGradient
           colors={gradient}
@@ -176,13 +182,15 @@ export function ChapterCard({
             <Text style={styles.chapterTitle}>{chapter.emotion}</Text>
             <Text style={styles.cardSub}>{blurb}</Text>
           </View>
-          <SymbolView
-            name="chevron.right"
-            tintColor="rgba(255, 255, 255, 0.7)"
-            size={15}
-            weight="semibold"
-            style={styles.cardChevron}
-          />
+          {!peek && (
+            <SymbolView
+              name="chevron.right"
+              tintColor="rgba(255, 255, 255, 0.7)"
+              size={15}
+              weight="semibold"
+              style={styles.cardChevron}
+            />
+          )}
         </View>
       </Pressable>
     </View>

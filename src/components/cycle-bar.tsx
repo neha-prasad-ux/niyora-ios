@@ -4,17 +4,11 @@
 // luminous pearl marks today at the fill's leading edge. Display only — the
 // doors it used to hold now live on the card button and the utility row.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import type { BandPhase, PhaseBand } from '@/lib/phase-band';
 import { colors } from '@/theme/colors';
-
-const LABEL: Record<BandPhase, string> = {
-  build: 'Build',
-  pms: 'PMS',
-  period: 'Periods',
-};
 
 // Per-phase vertical gradient pairs — a dim resting wash and a lit elapsed wash,
 // each with a soft top-to-bottom shade so the bar reads as glass. On-brand: it
@@ -41,7 +35,7 @@ type CycleBarProps = {
   periodEmphasized: boolean;
   /**
    * When set (0..1), the bar switches to preparedness mode: a single violet fill
-   * grows across the whole bar to this fraction (her PMS readiness), and the dot
+   * grows across the whole bar to this fraction (her PMS readiness), and the tick
    * marks where she is in the cycle. The phase zones stay as a dim context track.
    * When null (default), the elapsed cycle fills the zones as before.
    */
@@ -69,8 +63,6 @@ export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarP
     acc += band.segments[i].fraction;
     boundaries.push(acc);
   }
-  // Where the PMS zone begins, to anchor its label under the real zone.
-  const pmsStart = band.segments[0]?.fraction ?? 0.64;
 
   return (
     <View style={styles.wrap}>
@@ -135,58 +127,12 @@ export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarP
           ))}
       </View>
 
-      {/* Today: in prep mode a distinct vertical tick (a "you are here" goalpost,
-          not a slider thumb, since the fill is preparedness not time); otherwise
-          the luminous pearl on the elapsed edge. Drawn in the unclipped wrap so
-          the glow isn't cut by the bar's rounded mask. */}
-      {showPearl &&
-        (prepMode ? (
-          <View pointerEvents="none" style={[styles.todayTick, { left: `${elapsed * 100}%` }]} />
-        ) : (
-          <View pointerEvents="none" style={[styles.pearl, { left: `${elapsed * 100}%` }]}>
-            <View style={styles.pearlCore} />
-          </View>
-        ))}
-
-      {/* The legend. In prep mode the labels anchor to their real zones (Build at
-          the start, PMS where its short slice begins, Periods at the end) so the
-          spacing reads the proportions. Otherwise the even Build/PMS/Periods row. */}
-      {prepMode ? (
-        <View style={styles.legendAnchored}>
-          <Text
-            style={[styles.legendLabel, curIdx === 0 ? styles.legendOn : styles.legendDim, styles.legendBuild]}
-            numberOfLines={1}
-          >
-            {LABEL.build}
-          </Text>
-          <Text
-            style={[
-              styles.legendLabel,
-              curIdx === 1 ? styles.legendOn : styles.legendDim,
-              { position: 'absolute', left: `${pmsStart * 100}%` },
-            ]}
-            numberOfLines={1}
-          >
-            {LABEL.pms}
-          </Text>
-          <Text
-            style={[styles.legendLabel, curIdx === 2 ? styles.legendOn : styles.legendDim, styles.legendPeriod]}
-            numberOfLines={1}
-          >
-            {LABEL.period}
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.legend}>
-          {band.segments.map((seg, i) => (
-            <Text
-              key={seg.phase}
-              style={[styles.legendLabel, i === curIdx ? styles.legendOn : styles.legendDim]}
-              numberOfLines={1}
-            >
-              {LABEL[seg.phase]}
-            </Text>
-          ))}
+      {/* Today: a luminous pearl on the elapsed edge (cycle mode only). In prep
+          mode the fill is preparedness, not time, so there is no today marker.
+          Drawn in the unclipped wrap so the glow isn't cut by the bar's mask. */}
+      {showPearl && !prepMode && (
+        <View pointerEvents="none" style={[styles.pearl, { left: `${elapsed * 100}%` }]}>
+          <View style={styles.pearlCore} />
         </View>
       )}
     </View>
@@ -230,22 +176,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.bandRoseBorder,
   },
-  legend: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 7,
-    paddingHorizontal: 2,
-  },
-  // Prep-mode legend: labels positioned against their real zones.
-  legendAnchored: {
-    position: 'relative',
-    height: 16,
-    marginTop: 7,
-    paddingHorizontal: 2,
-  },
-  legendBuild: { position: 'absolute', left: 0 },
-  legendPeriod: { position: 'absolute', right: 0 },
   // Boundary seam: a thin dark divider spanning the bar, marking a phase edge on
   // top of the readiness fill.
   boundary: {
@@ -256,28 +186,6 @@ const styles = StyleSheet.create({
     marginLeft: -StyleSheet.hairlineWidth / 2,
     backgroundColor: 'rgba(8, 7, 12, 0.55)',
   },
-  // Today marker in prep mode: a slim luminous vertical tick, taller than the
-  // track so it reads as a position goalpost rather than a draggable thumb.
-  todayTick: {
-    position: 'absolute',
-    top: -2,
-    height: BAR_HEIGHT + 4,
-    width: 2.5,
-    marginLeft: -1.25,
-    borderRadius: 1.5,
-    backgroundColor: '#ffffff',
-    shadowColor: '#eaf0ff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.95,
-    shadowRadius: 4,
-  },
-  legendLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11.5,
-    letterSpacing: 0.3,
-  },
-  legendOn: { color: 'rgba(255, 255, 255, 0.92)' },
-  legendDim: { color: 'rgba(255, 255, 255, 0.42)' },
   // The pearl sits centered on the bar height; marginLeft pulls it onto the edge.
   pearl: {
     position: 'absolute',

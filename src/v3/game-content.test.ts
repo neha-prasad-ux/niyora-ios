@@ -23,10 +23,10 @@ function chapterCopy(ch: Chapter): string[] {
     ch.L2_INTRO.subtitle,
     ...ch.L2_CHEAT.rows.flatMap((r) => [r.small, r.big]),
     ch.L2_CONGRATS.body,
-    ...ch.L3_SCENES.flatMap((s) => [s.prompt, ...s.options.flatMap((o) => [o.label, o.future])]),
-    ch.L3_INTRO.lead,
-    ...ch.L3_CHEAT.rows.flatMap((r) => [r.small, r.big]),
-    ch.L3_CONGRATS.body,
+    ...(ch.L3_SCENES ?? []).flatMap((s) => [s.prompt, ...s.options.flatMap((o) => [o.label, o.future])]),
+    ...(ch.L3_INTRO ? [ch.L3_INTRO.lead] : []),
+    ...(ch.L3_CHEAT ? ch.L3_CHEAT.rows.flatMap((r) => [r.small, r.big]) : []),
+    ...(ch.L3_CONGRATS ? [ch.L3_CONGRATS.body] : []),
     ch.L4_INTRO.subtitle,
     ch.L4_TEACH.rule,
     ...ch.L4_TEACH.doses.flatMap((d) => [d.size, d.amount]),
@@ -182,7 +182,7 @@ function workExtras(ch: Chapter): string[] {
       ch.L4_SCRIPT.teach.title,
       ...ch.L4_SCRIPT.teach.rows.flatMap((r) => [r.part, r.hint]),
       ch.L4_SCRIPT.scenario,
-      ...ch.L4_SCRIPT.lines.flatMap((l) => [l.part, l.text]),
+      ...ch.L4_SCRIPT.steps.flatMap((s) => [s.part, s.hint, s.correct, s.decoy, s.why]),
       ch.L4_SCRIPT.sayIt,
     );
   }
@@ -211,12 +211,15 @@ describe('workplace track', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('each workplace chapter has five levels, numbered 1..5, distinct kinds', () => {
+  it('each workplace chapter numbers levels 1..n with distinct kinds', () => {
     for (const c of WORK_CHAPTERS) {
-      expect(c.levels).toHaveLength(5);
-      expect(c.levels.map((l) => l.n)).toEqual([1, 2, 3, 4, 5]);
-      expect(new Set(c.levels.map((l) => l.kind)).size).toBe(5);
+      // Speaking up drops its redundant L3, so length varies; numbering stays contiguous.
+      expect(c.levels.map((l) => l.n)).toEqual(c.levels.map((_l, idx) => idx + 1));
+      expect(new Set(c.levels.map((l) => l.kind)).size).toBe(c.levels.length);
     }
+    expect(getChapter('work-anxiety').levels).toHaveLength(5);
+    expect(getChapter('confidence').levels).toHaveLength(5);
+    expect(getChapter('assertiveness').levels).toHaveLength(4);
   });
 
   it('the level-4 power move matches its payload', () => {
@@ -226,13 +229,13 @@ describe('workplace track', () => {
     expect(conf.levels[3].kind).toBe('compassion');
     expect(conf.L4_COMPASSION?.kindLines.length).toBeGreaterThanOrEqual(2);
     const assert = byId('assertiveness');
-    expect(assert.levels[3].kind).toBe('script');
-    expect(assert.L4_SCRIPT?.lines.length).toBe(4);
+    expect(assert.levels.some((l) => l.kind === 'script')).toBe(true);
+    expect(assert.L4_SCRIPT?.steps.length).toBe(4);
   });
 
   it('each L3 scene and the L5 capstone have one best/lesser/worst', () => {
     for (const c of WORK_CHAPTERS) {
-      for (const s of [...c.L3_SCENES, { options: c.L5_CAPSTONE.options }]) {
+      for (const s of [...(c.L3_SCENES ?? []), { options: c.L5_CAPSTONE.options }]) {
         expect(s.options.filter((o) => o.tier === 'best')).toHaveLength(1);
         expect(s.options.filter((o) => o.tier === 'lesser')).toHaveLength(1);
         expect(s.options.filter((o) => o.tier === 'worst')).toHaveLength(1);

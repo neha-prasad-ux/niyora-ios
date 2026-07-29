@@ -181,7 +181,7 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
           <Animated.View entering={FadeIn.duration(500)} style={styles.celebrateCard}>
             <Orb size={120} hue={CELEBRATE_HUE} />
             <Text style={styles.celebrateLead}>Nicely done.</Text>
-            <Text style={styles.celebrateSub}>You took a moment for yourself.</Text>
+            <Text style={styles.celebrateSub}>Dear mind you are safe & relaxed</Text>
           </Animated.View>
         </>
       ) : phase === 'feel' ? (

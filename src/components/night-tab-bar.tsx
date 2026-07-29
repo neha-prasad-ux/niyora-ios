@@ -17,12 +17,16 @@ import { requireOptionalNativeModule } from 'expo';
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withSequence,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
@@ -32,27 +36,50 @@ import { colors } from '@/theme/colors';
 // move between SDKs.
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
 
-// The glass bar breathes at the top, not just the sides: more air above the
-// icons than the old 6px. Everything below derives from this pad so the capsule
-// and the light-mote target stay locked to the icons.
-const BAR_PAD_TOP = 14;
+// Slim, Apple-style floating glass bar: balanced air above and below a compact
+// body (icon + always-on label), sized so the whole thing reads as one clean
+// capsule rather than a tall slab. Everything below derives from these pads so
+// the selection capsule and the light-mote target stay locked to the icons.
+const BAR_PAD_TOP = 15;
+const BAR_PAD_BOTTOM = 15;
 const ICON_SLOT = 28;
-const TAB_BODY = 44; // icon slot + always-on label
-export const BAR_CONTENT_HEIGHT = BAR_PAD_TOP + TAB_BODY; // above the inset pad
+const LABEL_GAP = 5; // air between the icon and its label
+const LABEL_LINE = 13;
+const TAB_BODY = ICON_SLOT + LABEL_GAP + LABEL_LINE; // icon slot + always-on label
+// The bar no longer spans the screen: it's a rounded pill floated in from the
+// edges, so content flows past its sides instead of colliding with a full slab.
+export const BAR_SIDE_INSET = 16;
+// The full height of the pill (top air + body + bottom air). Consumers add the
+// safe-area float below it to know the total space the bar occupies.
+export const BAR_CONTENT_HEIGHT = BAR_PAD_TOP + TAB_BODY + BAR_PAD_BOTTOM;
+// A true capsule: the radius is exactly half the height, so the ends are full
+// semicircles (the iOS floating-glass tab bar shape), not a rounded rectangle.
+const BAR_RADIUS = BAR_CONTENT_HEIGHT / 2;
 export const BAR_MIN_BOTTOM_PAD = 12; // devices without a home-indicator inset
 export const MOON_CENTER_FROM_BAR_TOP = BAR_PAD_TOP + ICON_SLOT / 2;
 
+// Icons carry colour only when lit: the selected tab warms to the orb's
+// moonlit blue, the resting tabs stay a dim white.
 const INACTIVE_TINT = 'rgba(255, 255, 255, 0.40)';
+const ACTIVE_TINT = 'hsl(222, 82%, 84%)';
 
-// The selection capsule: round (radius = half height), wide enough to hold
-// icon + label with air, and the one lit surface on a transparent bar.
-const PILL_WIDTH = 76;
-const PILL_TOP = BAR_PAD_TOP - 4; // frames the icon slot with a little air above
-const PILL_HEIGHT = 48;
+// The selection highlight: a rounded-rect frost holding the whole tab — icon and
+// label both — the one lit surface on an otherwise quiet bar. Its width fills the
+// tab (the bar's third) minus an even side pad, so the pill scales with the
+// screen and the gap between pills is 2 × PILL_H_PAD.
+const PILL_H_PAD = 10; // gap from the pill to each side of its tab
+const PILL_HEIGHT = 62;
+const PILL_RADIUS = PILL_HEIGHT / 2; // max round: full capsule ends
+const PILL_TOP = BAR_PAD_TOP + (TAB_BODY - PILL_HEIGHT) / 2;
 
 // One spring for everything the selection touches (capsule glide, icon lift,
-// label rise) so the whole move reads as a single gesture.
-const SELECT_SPRING = { damping: 19, stiffness: 190, mass: 0.9 };
+// label rise) so the whole move reads as a single gesture. Under-damped on
+// purpose: it overshoots and settles with a bounce, the bubbly part of the feel.
+const SELECT_SPRING = { damping: 12, stiffness: 160, mass: 1 };
+
+// The squash-and-stretch pulse fired on every tab change: a quick stretch, then
+// a springy settle back — the pill wobbles like a bubble as it lands.
+const SQUISH_SPRING = { damping: 9, stiffness: 140, mass: 0.8 };
 
 const glassAvailable = isLiquidGlassAvailable();
 
@@ -76,40 +103,56 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
 
   const [rowWidth, setRowWidth] = useState(0);
   const tabWidth = state.routes.length > 0 ? rowWidth / state.routes.length : 0;
+  // The pill fills its tab minus an even side pad, so it scales with the screen.
+  const pillWidth = Math.max(0, tabWidth - PILL_H_PAD * 2);
 
   // The capsule's home, in tab-index space; the spring makes the glide.
   const active = useSharedValue(state.index);
+  // 0 at rest; pulsed to 1 and springs back on every change, driving the squash.
+  const squish = useSharedValue(0);
   useEffect(() => {
     if (reduceMotion) {
       active.value = state.index;
-    } else {
-      active.value = withSpring(state.index, SELECT_SPRING);
+      return;
     }
-  }, [state.index, active, reduceMotion]);
+    active.value = withSpring(state.index, SELECT_SPRING);
+    squish.value = withSequence(
+      withTiming(1, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withSpring(0, SQUISH_SPRING),
+    );
+  }, [state.index, active, squish, reduceMotion]);
 
   const pillStyle = useAnimatedStyle(
     () => ({
-      transform: [{ translateX: active.value * tabWidth + (tabWidth - PILL_WIDTH) / 2 }],
+      width: pillWidth,
+      // Stretch along travel, thin down across it, then wobble back to 1 — the
+      // bubble squishing as it lands.
+      transform: [
+        { translateX: active.value * tabWidth + PILL_H_PAD },
+        { scaleX: 1 + 0.14 * squish.value },
+        { scaleY: 1 - 0.12 * squish.value },
+      ],
     }),
-    [tabWidth],
+    [tabWidth, pillWidth],
   );
 
   return (
-    <View pointerEvents="box-none" style={styles.bar}>
+    <View pointerEvents="box-none" style={[styles.bar, { bottom: bottomPad }]}>
       {/* The mist: content stays visible through it but stops competing with
           the icons. Apple's native glass where the OS has it (already in the
           dev client), expo-blur on older iOS, plain dark as the last resort.
-          Kept behind the row so the capsule's glass reads over it. */}
+          Kept behind the row so the capsule's glass reads over it, and clipped
+          to the pill's radius so the frost has clean rounded edges. */}
       {glassAvailable ? (
         <GlassView
           pointerEvents="none"
           style={styles.blur}
           glassEffectStyle="regular"
           colorScheme="dark"
-          tintColor="rgba(10, 8, 16, 0.45)"
+          tintColor="rgba(10, 8, 16, 0.42)"
         />
       ) : blurAvailable ? (
-        <BlurView pointerEvents="none" style={styles.blur} tint="dark" intensity={40} />
+        <BlurView pointerEvents="none" style={styles.blur} tint="dark" intensity={48} />
       ) : null}
       {/* The bar's own night colour over the mist — the original bar's dark,
           eased to let each backdrop breathe: glass carries its own material,
@@ -122,7 +165,7 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
         ]}
       />
       <View
-        style={[styles.row, { paddingBottom: bottomPad }]}
+        style={styles.row}
         onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}
       >
         {tabWidth > 0 && (
@@ -132,12 +175,21 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
                 style={styles.pillGlass}
                 glassEffectStyle="regular"
                 colorScheme="dark"
-                tintColor="rgba(165, 184, 213, 0.14)"
+                tintColor="rgba(216, 228, 250, 0.08)"
               />
             )}
             {/* The colour itself, over the glass: the capsule always reads as
                 the orb's moonlit blue, glass or not. */}
             <View style={styles.pillTint} />
+            {/* Inner shadow: darker at the top and bottom inner edges, clear in
+                the middle, so the pill reads as a recessed glass well rather than
+                a raised chip — no outer drop shadow. */}
+            <LinearGradient
+              pointerEvents="none"
+              colors={['rgba(0, 0, 0, 0.28)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.16)']}
+              locations={[0, 0.32, 0.68, 1]}
+              style={styles.pillInnerShadow}
+            />
           </Animated.View>
         )}
         {state.routes.map((route, index) => {
@@ -168,7 +220,7 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
             >
               {options.tabBarIcon?.({
                 focused,
-                color: focused ? colors.textPrimary : INACTIVE_TINT,
+                color: focused ? ACTIVE_TINT : INACTIVE_TINT,
                 size: 24,
               })}
             </TabButton>
@@ -202,10 +254,10 @@ function TabButton({
     }
   }, [focused, focus, reduceMotion]);
 
-  // A gentle lift as the capsule arrives; the capsule carries the glow, the
-  // icon only rises to meet it.
+  // A bubbly pop as the capsule arrives: the bouncy focus spring overshoots past
+  // 1, so the icon springs up a touch bigger and settles back with the pill.
   const iconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + 0.06 * focus.value }, { translateY: -1.5 * focus.value }],
+    transform: [{ scale: 1 + 0.12 * focus.value }, { translateY: -2.5 * focus.value }],
   }));
   const labelStyle = useAnimatedStyle(() => ({
     // The resting tab keeps a legible, dimmed label (never fully hidden); it
@@ -236,10 +288,17 @@ function TabButton({
 
 const styles = StyleSheet.create({
   bar: {
+    // A rounded pill floated in from the edges (bottom is set inline from the
+    // safe-area inset), not a slab pinned to the screen. A soft drop shadow
+    // lifts it off the night behind so it reads as one clean glass object.
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: BAR_SIDE_INSET,
+    right: BAR_SIDE_INSET,
+    borderRadius: BAR_RADIUS,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
   },
   blur: {
     position: 'absolute',
@@ -247,6 +306,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    borderRadius: BAR_RADIUS,
+    overflow: 'hidden',
   },
   wash: {
     position: 'absolute',
@@ -254,17 +315,27 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(10, 8, 16, 0.75)',
+    borderRadius: BAR_RADIUS,
+    // A crisp hairline rim so the glass has a clean edge rather than a fuzzy one.
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    // Lighter than a slab so the pill reads as glass. With expo-blur in the
+    // build this sits over a real frost; the dark bottom of the night sky keeps
+    // even the no-blur fallback legible while showing content through.
+    backgroundColor: 'rgba(10, 8, 16, 0.44)',
   },
   washSolid: {
-    backgroundColor: 'rgba(10, 8, 16, 0.92)',
+    // The no-blur fallback: still see-through, just a touch denser so the icons
+    // keep a backing when content scrolls under a bar without a real blur.
+    backgroundColor: 'rgba(10, 8, 16, 0.52)',
   },
   washOverGlass: {
-    backgroundColor: 'rgba(10, 8, 16, 0.18)',
+    backgroundColor: 'rgba(10, 8, 16, 0.14)',
   },
   row: {
     flexDirection: 'row',
     paddingTop: BAR_PAD_TOP,
+    paddingBottom: BAR_PAD_BOTTOM,
   },
   // The moonlit capsule the selection rests in, with its glow bleeding softly
   // past the edges (the shadow of the translucent shape is the glow). The
@@ -274,16 +345,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: PILL_TOP,
     left: 0,
-    width: PILL_WIDTH,
     height: PILL_HEIGHT,
-    borderRadius: PILL_HEIGHT / 2,
-    backgroundColor: 'rgba(165, 184, 213, 0.05)',
+    borderRadius: PILL_RADIUS,
+    // A whisper of fill and a soft luminous rim instead of a matte outline. No
+    // outer drop shadow — the depth comes from the inner shadow layered inside,
+    // so the pill reads as recessed lit glass rather than a raised chip. The
+    // inner-shadow layer clips to the radius, so the pill clips too.
+    backgroundColor: 'rgba(214, 226, 250, 0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(165, 184, 213, 0.18)',
-    shadowColor: 'hsl(220, 70%, 74%)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 13,
+    borderColor: 'rgba(220, 230, 252, 0.22)',
+    overflow: 'hidden',
+  },
+  pillInnerShadow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: PILL_RADIUS,
   },
   pillTint: {
     position: 'absolute',
@@ -291,8 +370,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: PILL_HEIGHT / 2,
-    backgroundColor: 'rgba(165, 184, 213, 0.11)',
+    borderRadius: PILL_RADIUS,
+    // A pale, airy wash rather than a solid grey fill — lighter and more
+    // transparent so content still glows through it.
+    backgroundColor: 'rgba(216, 228, 250, 0.07)',
   },
   pillGlass: {
     position: 'absolute',
@@ -300,25 +381,28 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: PILL_HEIGHT / 2,
+    borderRadius: PILL_RADIUS,
     overflow: 'hidden',
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    height: BAR_CONTENT_HEIGHT - BAR_PAD_TOP,
+    // Just the body (icon + label); the row supplies the top and bottom air.
+    // (Previously this pulled in BAR_PAD_BOTTOM twice and left a dead gap below
+    // each label, inflating the whole bar.)
+    height: TAB_BODY,
   },
   iconSlot: {
     width: 64,
-    height: 28,
+    height: ICON_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     fontFamily: 'Poppins-Medium',
     fontSize: 10,
-    lineHeight: 13,
-    marginTop: 2,
+    lineHeight: LABEL_LINE,
+    marginTop: LABEL_GAP,
     letterSpacing: 0.4,
     color: 'rgba(255, 255, 255, 0.88)',
   },

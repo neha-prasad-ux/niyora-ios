@@ -29,20 +29,30 @@ export interface Beat {
   scene: Scene;
 }
 
-// A reflect option. Exactly one option per question is `correct`. Nothing here
-// can fail her — a wrong tap shows the warm redirect and reveals the true answer,
-// it never blocks or scolds.
+// A reflect option. Nothing here can fail her.
+//   pick-one: exactly one option is `correct`; a wrong tap shows its `redirect`
+//     (or the shared takeaway) and reveals the true answer.
+//   tap-each: every option is `correct` (all valid), and each teaches its own
+//     `detail` line when tapped.
 export interface ReflectOption {
   label: string;
   correct: boolean;
+  // The one-line learning shown when this option is tapped. Required on tap-each
+  // options; optional on a pick-one correct option (it can stand in for takeaway).
+  detail?: string;
+  // A softer line for a wrong pick-one option, revealed with the true answer.
+  redirect?: string;
 }
 
 export interface ReflectQuestion {
   prompt: string;
   options: readonly ReflectOption[];
-  // The one-line learning revealed after she answers (right or wrong). The
-  // question stays short; this is where the richness lives. Never a scold.
-  takeaway: string;
+  // 'pick-one' (default): choose the right answer, a wrong tap is met warmly.
+  // 'tap-each': explore every option, all valid, each teaching its own line.
+  mode?: 'pick-one' | 'tap-each';
+  // The shared one-line learning for pick-one questions whose options do not each
+  // carry a line (Story 1). Optional now that options can carry their own detail.
+  takeaway?: string;
 }
 
 // A build-your-kit item. Correct items become her checklist and tick the prep
@@ -166,11 +176,138 @@ const STORY1: Chapter = {
   ],
 };
 
+// --- Story 2 · The callback -------------------------------------------------
+// The refined Story 2 (Neha's copy), in first person to match Story 1. Four
+// beats, ending on a cliffhanger ("To be continued"). Beat 3's yogurt / humming
+// / writing-strengths are exactly the moves Reflect Q1 teaches, and the kit is
+// built from those same takeaways. Scenes wire assets/images/stories/story-2
+// (the cold meeting-room scene, s2-room, is now unused).
+
+const STORY2: Chapter = {
+  id: 'story-2',
+  title: 'The callback',
+  intro: 'A story about a second shot at something she wanted.',
+  beats: [
+    {
+      text: `A few months into a new country, I crushed the first interview for a job I really wanted. They called me back for round two. What if they don't like me this time.`,
+      scene: {
+        image: 's2-boxes',
+        moon: true,
+        alt: 'A small new apartment at night, a couple of moving boxes still stacked in a corner, a laptop open on a desk, a mug beside it, the moon in the window.',
+      },
+    },
+    {
+      text: `The interview was in the morning, and of course I couldn't sleep. What if the first one was a fluke. I knew this spiral. Alright, drama queen. I got the callback. And that thesis a classmate called the best thing he saw all year. Yeah, I'm kind of great. I drifted off in the good memories.`,
+      scene: {
+        image: 's2-bed',
+        moon: true,
+        alt: 'A bed in a new apartment at night, sheets rumpled, a phone face-down on the nightstand, city lights and a large moon out the window.',
+      },
+    },
+    {
+      text: `Morning of, still shaky. So I gave myself twenty minutes. Yogurt, a handful of nuts, and long humming. My mom always swore it helps. Annoyingly, it did. Then something new. I wrote down three things I'd actually pulled off. The project I shipped. The team I led. The interview I nailed. Reading it back, I landed. Right. I'm good at this.`,
+      scene: {
+        image: 's2-desk',
+        moon: true,
+        alt: 'A desk by a window in soft early light, an open notebook and a pen, yogurt and a small bowl of nuts, the pale moon fading into morning.',
+      },
+    },
+    {
+      text: `The interview didn't go great. I walked home sad, and my husband took one look at me. "Hey. You'll get the next call." "That's a lot of pressure right now. I would never do that to you." It came out sharp. "You did, though," he said. "Four years back, when I wanted to leave for the startup. You said I could only go if I lined up another job first." And there it went. Every unspoken thing from the years between, out on the table. We went at it a while. Then my phone buzzed. An email. Subject line: we'd love to have you. To be continued.`,
+      scene: {
+        image: 's2-couch',
+        moon: true,
+        warm: true,
+        alt: 'A cozy couch corner late at night, a mug of tea, a soft lamp glow, a phone on the cushion lit with a message, warm light with the moon just visible in the window.',
+      },
+    },
+  ],
+  reflect: [
+    {
+      // tap-each: all three helped, each teaches its own line. No wrong answer.
+      // These three moves (yogurt, humming, writing strengths) are what beat 3
+      // shows. Each detail still needs a source link, same bar as Understand.
+      prompt: 'Neha did a few things to steady herself. Which ones actually work?',
+      mode: 'tap-each',
+      options: [
+        {
+          label: 'Yogurt and nuts for breakfast',
+          correct: true,
+          detail: 'Calcium and magnesium take the edge off and steady your mood.',
+        },
+        {
+          label: 'Humming',
+          correct: true,
+          detail: "Humming lengthens your exhale and tells your body it's safe to calm down.",
+        },
+        {
+          label: 'Writing down her strengths',
+          correct: true,
+          detail:
+            'Reading back real wins is a self-affirmation trick that quiets the stress response.',
+        },
+      ],
+    },
+    {
+      // pick-one myth-bust. The premise is the myth; only the reframe is right.
+      prompt:
+        '"She\'s always overthinking. She should just be quiet and let it go." Fair?',
+      options: [
+        {
+          label: 'Yeah, she needs to quiet down',
+          correct: false,
+          redirect:
+            "Telling yourself to just stop rarely works. Some days the volume's turned all the way up.",
+        },
+        {
+          label:
+            "The days before her period crank the volume on everything. The move isn't to silence it, it's to notice it and let it pass.",
+          correct: true,
+        },
+        {
+          label: "She should keep it in so she doesn't snap",
+          correct: false,
+          redirect: 'Bottling tends to come out sideways.',
+        },
+      ],
+    },
+  ],
+  kit: [
+    {
+      id: 'strengths',
+      label: "Write down three real things you've pulled off, and read them back.",
+      correct: true,
+    },
+    {
+      id: 'hum',
+      label: "Hum, or breathe out long and slow, to tell your body it's safe.",
+      correct: true,
+      live: 'steady',
+    },
+    {
+      id: 'eat',
+      label: 'Eat something with calcium and magnesium, like yogurt and nuts.',
+      correct: true,
+    },
+    {
+      id: 'recall',
+      label: 'When the spiral starts, pull up a real win to land on.',
+      correct: true,
+    },
+    {
+      id: 'push-down',
+      label: 'Tell yourself to stop overthinking and push it down.',
+      correct: false,
+      redirect: 'Telling yourself to stop rarely works, and pushing it down tends to come out sideways.',
+    },
+  ],
+};
+
 // --- The serial -------------------------------------------------------------
 
 // Ordered chapters. Story 1 ships now (the install AHA moment); Story 2+ append
 // here as data, no engine changes. The reader defaults to the first chapter.
-export const CHAPTERS: readonly Chapter[] = [STORY1];
+export const CHAPTERS: readonly Chapter[] = [STORY1, STORY2];
 
 export const FIRST_CHAPTER_ID = CHAPTERS[0].id;
 
