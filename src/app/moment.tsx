@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { resetActivities, useActivitiesDone } from '@/lib/hold-activities';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
@@ -52,8 +53,6 @@ import { BeginButton } from '@/components/begin-button';
 import { CloseButton } from '@/components/CloseButton';
 import { GlassSurface } from '@/components/glass-surface';
 import { Aurora } from '@/components/moment/aurora';
-import { ActivityCard } from '@/components/moment/activity-card';
-import { HoldTimer } from '@/components/moment/hold-timer';
 import { PhaseProgress, phaseTint } from '@/components/moment/phase-progress';
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
@@ -97,11 +96,6 @@ const ACCESSORY_ID = 'moment-entry-done';
  */
 const ADVANCE_MS = 260;
 
-/** The hold. Twenty real minutes: the wait is the intervention, not a loading
- *  bar, so it is not shortened. The un-shamed "i'm ready now" is the way out for
- *  anyone who does not want the full twenty, and the way past it in a demo. */
-const HOLD_MS = 20 * 60 * 1000;
-
 /** The breath: in for four, out for six, so the exhale is the longer half. The
  *  app's calm 4:6, the same one steady-break and the home orb pace. */
 const BREATH_IN = 4;
@@ -133,9 +127,6 @@ export default function Moment() {
   const [echoFixing, setEchoFixing] = useState(false);
   /** The reading she chose at the reframe, before we ask whether it helped. */
   const [reframePick, setReframePick] = useState<string | null>(null);
-  /** The thing she picked to do during the hold, kept so the timer screen can
-   *  name it back to her. */
-  const [activity, setActivity] = useState<string | null>(null);
   /** Index into BREATH_SCRIPT. The guided breath walks it while she is on the
    *  breathe beat; past the end, the flow moves on. */
   const [breathStep, setBreathStep] = useState(0);
@@ -150,6 +141,9 @@ export default function Moment() {
    *  line shows before the act menu. It never blocks her: the menu still
    *  follows, with "none of these feel possible" as the honest way out. */
   const [readyLow, setReadyLow] = useState(false);
+  // Which settling activities she has finished, so the menu can show the checks
+  // and re-render the instant an activity marks itself done.
+  const activitiesDone = useActivitiesDone();
 
   // Her moon, exactly as she has grown it.
   const [moon, setMoon] = useState<MoonState | null>(null);
@@ -262,11 +256,6 @@ export default function Moment() {
     setDraft('');
     setCurrent(prev);
   };
-
-  // Off the timer. Both the timer completing and her tapping "i'm ready now"
-  // land here, so it is one stable callback: passing an inline function as the
-  // timer's onComplete would re-arm the interval on every countdown tick.
-  const goTimerEnd = useCallback(() => go('high_activity_context'), [go]);
 
   /** Arm the echo beat: fresh, unconfirmed, and "typing". Called whenever she
    *  arrives at acknowledge (or re-submits a correction). */
@@ -877,19 +866,28 @@ export default function Moment() {
               {head(COPY.make_safe_intro)}
               <Text style={styles.settles}>{COPY.make_safe_why}</Text>
               <View style={styles.stack}>
-                <OptionRow
-                  label={COPY.make_safe_wait}
-                  index={0}
-                  tint={selTint}
-                  onPress={() => go('make_safe', 'wait')}
-                />
+                {/* The skip sits FIRST and quiet; the in-app calming action sits
+                    LAST as the recommended primary, so the eye lands on it as the
+                    place to go, not the first thing to tap past (Neha, 2026-07-29). */}
                 <OptionRow
                   label={COPY.make_safe_now}
-                  index={1}
+                  index={0}
                   tint={selTint}
                   onPress={() => {
                     setSkippedHold(true);
                     go('make_safe', 'now');
+                  }}
+                />
+                <OptionRow
+                  label={COPY.make_safe_wait}
+                  index={1}
+                  recommended
+                  tint={selTint}
+                  onPress={() => {
+                    // Land on the settling menu (colour / story / move / breath).
+                    // Fresh done-marks each hold.
+                    resetActivities();
+                    go('make_safe', 'wait');
                   }}
                 />
               </View>
@@ -909,10 +907,13 @@ export default function Moment() {
           return {
             body: (
               <>
-                {/* One prompt, not two: the old "sometimes a different
-                    perspective helps" framing was dropped — the question plus
-                    the moon's-read label already carry it. */}
-                {head(COPY.reframe_small_ask)}
+                {/* "Wait, let's think. Is any of this true?" plus a quiet label
+                    naming the readings as angles to weigh, not claims (Neha,
+                    2026-07-29). The word "true" in the ask keeps her the judge. */}
+                <View style={styles.askGroup}>
+                  {head(COPY.reframe_small_ask)}
+                  <Text style={styles.settles}>{COPY.reframe_small_angles}</Text>
+                </View>
                 {/* The AI-written readings. The "the moon's read" label was
                     pulled 2026-07-28 (it did not sit well); the signal now rides
                     the stream-in and the per-option "suggested by the moon"
@@ -946,12 +947,21 @@ export default function Moment() {
           };
         }
 
-        // After she picks: the line she chose, then whether it helped.
+        // After she picks: the line she chose, then whether it helped. Three
+        // answers (Neha, 2026-07-29): "a little bit" is the middle so she is never
+        // cornered into claiming it helped or that it did nothing. "yes" and "a
+        // little" both land (the closing rating reads the delta); "not really"
+        // takes the breath. The old "it's bigger than that" exit was dropped: it
+        // routed to the same breath as "not really", and page one's "none of these
+        // are true" already carries the honest out.
         return {
           body: (
             <>
               {head(reframePick, { tone: 'said' })}
-              <Text style={styles.feelingsAsk}>{COPY.reframe_small_check}</Text>
+              <View style={styles.askGroup}>
+                <Text style={styles.feelingsAsk}>{COPY.reframe_small_check}</Text>
+                <Text style={styles.settles}>{COPY.reframe_small_why}</Text>
+              </View>
               <View style={styles.stack}>
                 <OptionRow
                   label={COPY.reframe_small_yes}
@@ -960,16 +970,16 @@ export default function Moment() {
                   onPress={() => go('reframe_small', 'small_lands')}
                 />
                 <OptionRow
-                  label={COPY.reframe_small_no}
+                  label={COPY.reframe_small_little}
                   index={1}
                   tint={selTint}
-                  onPress={() => go('reframe_small', 'small_no')}
+                  onPress={() => go('reframe_small', 'small_lands')}
                 />
                 <OptionRow
-                  label={COPY.reframe_small_bigger}
+                  label={COPY.reframe_small_no}
                   index={2}
                   tint={selTint}
-                  onPress={() => go('reframe_small', 'big')}
+                  onPress={() => go('reframe_small', 'small_no')}
                 />
               </View>
             </>
@@ -1082,8 +1092,10 @@ export default function Moment() {
                     tint={selTint}
                     onPress={() => {
                       // She is no longer skipping it, so the offer does not
-                      // follow her back here after the hold loops round.
+                      // follow her back here after the hold loops round. Same
+                      // entry as "wait": the settling menu.
                       setSkippedHold(false);
+                      resetActivities();
                       go('options', 'take_hold');
                     }}
                   />
@@ -1129,100 +1141,52 @@ export default function Moment() {
         };
       }
 
-      // The hold, part one: she picks a thing to do with the twenty minutes.
-      // An empty wait is rehearsal, so the wait is filled, not endured. Twelve
-      // authored options; the model has no job here.
-      case 'high_pick_activity':
+      // The settling menu (Neha 2026-07-29): four ways to fill the wait, each a
+      // full-screen route she does and marks done; she can do as many as she
+      // likes. Colour is the flagship (recommended). "I am ready to respond" is
+      // the cta — always there, un-shamed, and it is what advances the flow.
+      case 'activities':
         return {
           body: (
             <>
-              {head(COPY.high_pick_activity)}
-              <WhyLine>{COPY.high_pick_activity_why}</WhyLine>
-              <View style={styles.grid}>
-                {SETS.activities.map((a, i) => (
-                  <ActivityCard
-                    key={a.id}
-                    icon={a.icon}
-                    label={a.label}
-                    index={i}
-                    hue={bodyHue(lifetimeLight)}
-                    tint={selTint}
-                    onPress={() => {
-                      setActivity(a.id);
-                      // Straight edge in the graph: let the table advance it,
-                      // never a hardcoded next-beat.
-                      go('high_pick_activity');
-                    }}
-                  />
-                ))}
-                {/* Rung 1: in-app calm activities for when moving out is too
-                    much — colour a picture, or photograph the sky to fill one. */}
-                <ActivityCard
-                  icon="paintbrush.pointed.fill"
-                  label="Colour"
-                  index={SETS.activities.length}
-                  hue={bodyHue(lifetimeLight)}
+              {head(COPY.activities_intro)}
+              <View style={styles.stack}>
+                <OptionRow
+                  label={COPY.activities_colour}
+                  index={0}
+                  recommended
+                  done={activitiesDone.has('colour')}
                   tint={selTint}
                   onPress={() => router.push('/paint')}
                 />
-                <ActivityCard
-                  icon="camera.fill"
-                  label="Sky"
-                  index={SETS.activities.length + 1}
-                  hue={bodyHue(lifetimeLight)}
+                <OptionRow
+                  label={COPY.activities_story}
+                  index={1}
+                  done={activitiesDone.has('story')}
                   tint={selTint}
-                  onPress={() => router.push('/capture')}
+                  onPress={() => router.push('/story')}
+                />
+                <OptionRow
+                  label={COPY.activities_move}
+                  index={2}
+                  done={activitiesDone.has('move')}
+                  tint={selTint}
+                  onPress={() => router.push('/move')}
+                />
+                <OptionRow
+                  label={COPY.activities_breath}
+                  index={3}
+                  done={activitiesDone.has('breath')}
+                  tint={selTint}
+                  onPress={() => router.push('/breathe')}
                 />
               </View>
             </>
           ),
-          cta: null,
-        };
-
-      // The hold, part two: the timer runs. The safety guard sits where the
-      // question goes, because it is the one instruction that matters here; her
-      // chosen thing is named back underneath so the screen is about doing that,
-      // not about watching a clock. "i'm ready now" is never greyed and never
-      // argued with: the wait is offered, not enforced.
-      case 'high_activity_context': {
-        const chosen = SETS.activities.find((a) => a.id === activity);
-        return {
-          body: (
-            <>
-              <View style={styles.holdGuardBlock}>
-                <Text style={styles.holdGuard}>{COPY.hold_guard}</Text>
-                <Text style={styles.holdGuardBenefit}>
-                  {COPY.hold_guard_benefit}
-                </Text>
-              </View>
-              <HoldTimer
-                durationMs={HOLD_MS}
-                onComplete={goTimerEnd}
-                hue={bodyHue(lifetimeLight)}
-                material={moon?.material ?? 'moonstone'}
-                brightness={moon?.fullness ?? 1}
-              />
-              {/* Her chosen thing, as its own card — image slot is a later
-                  asset pass; for now a clean title + line. */}
-              {chosen && (
-                <View style={styles.holdCard}>
-                  <Text style={styles.holdCardTitle}>{chosen.label}</Text>
-                  <Text style={styles.holdCardDesc}>{chosen.why}</Text>
-                </View>
-              )}
-              <Pressable
-                onPress={goTimerEnd}
-                hitSlop={10}
-                accessibilityRole="button"
-                style={styles.breathSkip}
-              >
-                <Text style={styles.breathSkipText}>{COPY.hold_ready}</Text>
-              </Pressable>
-            </>
+          cta: (
+            <BeginButton fullWidth label={COPY.activities_ready} onPress={() => go('activities')} />
           ),
-          cta: null,
         };
-      }
 
       // The hold is done. The one celebration in the app, and it is for a hard
       // act she completed — waiting — never for a feeling or a score.
@@ -1605,6 +1569,11 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   stack: { gap: 10 },
+  // A question and its one-line description are ONE group: they sit tight (6),
+  // while the card's 18 gap falls between groups (the description and the
+  // options below). Proximity, so the line reads as belonging to the question
+  // above it, not floating between it and the answers.
+  askGroup: { gap: 6 },
   // Two-up card grid for the hold activities: 48%-wide cards, space-between
   // gives the column gutter, rowGap the space between rows.
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },

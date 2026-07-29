@@ -3,6 +3,9 @@
 // colouring is drawn under, stroked on top so her colour shows through.
 
 export const FLOWER = {
+  // The caption shown under the drawing and sent with it. Each diagram carries
+  // its own message so art and words travel together (Neha's set, 2026-07-29).
+  message: "You're why I bloom.",
   vb: 241.35,
   cx: 120.67,
   cy: 120.5,

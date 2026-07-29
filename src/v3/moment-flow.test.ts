@@ -140,7 +140,12 @@ describe('the beats the evidence turns on', () => {
     // Was gated on the opening rating; now every path from the feeling lands
     // here, so it cannot be reached by only half the women who arrive.
     const r = node('reframe_small');
-    expect(r.branches?.map((b) => b.when).sort()).toEqual(['big', 'small_lands', 'small_no']);
+    // Two destinations since 2026-07-29: "yes"/"a little bit" (small_lands) go
+    // straight to the challenge, "not really" (small_no) takes the breath first.
+    // Both converge on make_safe; a better feeling no longer dead-ends the flow
+    // on the closing rating. The old "it's bigger than that" ('big') exit was
+    // dropped because it routed to the same breath as small_no.
+    expect(r.branches?.map((b) => b.when).sort()).toEqual(['small_lands', 'small_no']);
     expect(r.note ?? '').toMatch(/everyone/i);
   });
 

@@ -80,6 +80,8 @@ export function OptionRow({
   index,
   hint,
   tint,
+  recommended = false,
+  done = false,
 }: {
   label: string;
   onPress: () => void;
@@ -89,6 +91,14 @@ export function OptionRow({
   index?: number;
   hint?: string;
   tint?: StyleProp<ViewStyle>;
+  /** The one option we gently steer her toward: the in-app calming action (take
+   *  the hold, colour, breathe). Renders as a filled primary row with a
+   *  "Recommended" chip, and is meant to sit LAST in the stack so it reads as
+   *  the place to land, not the first thing to skip past. */
+  recommended?: boolean;
+  /** She has finished this one (a settling activity). Shows a quiet check; the
+   *  row stays tappable so she can do it again. */
+  done?: boolean;
 }) {
   const reduce = useReducedMotion();
   const press = useSharedValue(0);
@@ -119,7 +129,8 @@ export function OptionRow({
       <AnimatedPressable
         style={[
           styles.row,
-          active && (tint ?? styles.rowOn),
+          recommended && styles.rowRecommended,
+          active && (recommended ? styles.rowRecommendedOn : (tint ?? styles.rowOn)),
           disabled && styles.rowOff,
           style,
           pressStyle,
@@ -146,11 +157,21 @@ export function OptionRow({
         }}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={recommended ? `${label}, recommended` : label}
         accessibilityHint={hint}
         accessibilityState={{ selected: active, disabled }}
       >
         <Text style={[styles.rowText, disabled && styles.rowTextOff]}>{label}</Text>
+        {done && (
+          <Text style={styles.rowDone} pointerEvents="none">
+            ✓
+          </Text>
+        )}
+        {recommended && (
+          <View style={styles.recChip} pointerEvents="none">
+            <Text style={styles.recChipText}>Recommended</Text>
+          </View>
+        )}
       </AnimatedPressable>
     </Animated.View>
   );
@@ -269,6 +290,30 @@ const styles = StyleSheet.create({
   },
   rowOn: { backgroundColor: SELECTED, borderColor: colors.beginBorder },
   rowOff: { opacity: 0.45 },
+  // The recommended option: the flat solid-purple primary (colors.primarySolid,
+  // the same fill the in-card primary buttons use), so it reads as THE button on
+  // the screen while the others stay quiet panels. A brighter shade holds during
+  // the tap.
+  rowRecommended: { backgroundColor: colors.primarySolid, borderColor: colors.beginBorder },
+  rowRecommendedOn: { backgroundColor: 'hsl(270, 50%, 53%)', borderColor: colors.beginBorder },
+  // The "Recommended" badge, poking above the top edge of the button. A white
+  // pill so it lifts off the purple; dark-purple text so the word stays legible.
+  recChip: {
+    position: 'absolute',
+    top: -9,
+    right: 14,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 9,
+  },
+  recChipText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.primarySolid,
+    letterSpacing: 0.2,
+  },
   rowText: {
     fontFamily: 'Poppins-Medium',
     fontSize: 15.5,
@@ -277,6 +322,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   rowTextOff: { color: colors.textSubtitle },
+  rowDone: {
+    position: 'absolute',
+    right: 16,
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    color: 'hsl(150, 45%, 55%)',
+  },
 
   why: {
     fontFamily: 'Poppins-Light',

@@ -58,8 +58,7 @@ export type NodeId =
   // the hold
   | 'make_safe'
   | 'lane_split'
-  | 'high_pick_activity'
-  | 'high_activity_context'
+  | 'activities'
   | 'high_timer_end'
   | 'arousal_check'
   // low and mixed lanes
@@ -200,11 +199,10 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'authored',
     phase: 'reflect',
     branches: [
-      { when: 'small_lands', next: 'intensity_out' },
+      { when: 'small_lands', next: 'make_safe' },
       { when: 'small_no', next: 'breathe' },
-      { when: 'big', next: 'breathe' },
     ],
-    note: 'EVERYONE gets this, not only small emotions (Neha, 2026-07-27, overriding the map). Authored: a gentler reading is new content however gently phrased. She PICKS which of three is true, so the app never asserts one; the model may eventually rank them and may never write one.',
+    note: 'EVERYONE gets this, not only small emotions (Neha, 2026-07-27, overriding the map). Authored: a gentler reading is new content however gently phrased. She PICKS which of three is true, so the app never asserts one; the model may eventually rank them and may never write one. Routing settled 2026-07-29 (Neha): a better FEELING does not resolve the SITUATION, so no answer dead-ends on the closing rating. "yes"/"a little bit" go STRAIGHT to the challenge (small_lands -> make_safe), skipping the breath because she just said she is calmer; "not really" takes the breath first (small_no -> breathe -> make_safe). Both converge on the challenge, then the "no one right move" action menu, and the closing rating stays at the true end where the delta means something. The earlier "big" branch was dropped because it routed to the same breath as small_no.',
   },
 
   // --- settle ---------------------------------------------------------------
@@ -239,10 +237,10 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'regulate',
     why: true,
     branches: [
-      { when: 'wait', next: 'high_pick_activity' },
+      { when: 'wait', next: 'activities' },
       { when: 'now', next: 'lane_split' },
     ],
-    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" goes STRAIGHT to picking the activity (Neha, 2026-07-28): the button already says "twenty minutes", so a "how long have you got?" question after it asks something she has just answered. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
+    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" drops STRAIGHT into the colouring page (Neha, 2026-07-29): there is no activity grid to pick from any more — colouring IS level one of the hold, and the 20-minute clock runs on that page (the sky is level two, reached from it). The screen pushes /paint and advances the graph to the celebration underneath, so leaving the colouring lands on `high_timer_end`. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
   },
   // The LANE SPLIT and the low and mixed lanes were removed 2026-07-27 at
   // Neha's call. make_safe now goes straight to the hold or straight to the
@@ -267,30 +265,23 @@ export const MOMENT_FLOW: FlowNode[] = [
     note: 'NOT A PAGE (Neha, 2026-07-27). She is never asked which lane she is in: it is derived from the feeling she already named, because asking again for something she has just told us reads as a form. High goes straight to the menu; low and mixed keep their own work first. Cycle phase is context here, never a fork.',
   },
 
-  // --- the hold ------------------------------------------------------------
+  // --- the hold: a menu of ways to settle -----------------------------------
   //
-  // The "how long have you got?" beat (high_howlong: no time / a few minutes /
-  // twenty) was removed 2026-07-28 at Neha's call, and with it the two short
-  // fillers it routed to (high_onebreath, high_stepaway). The button that
-  // reaches here already says "twenty minutes", so asking how long afterwards
-  // asks something she has just answered, and the flat 1-vs-5-minute fork was
-  // work in front of the thing that helps. "Wait" now lands straight on the
-  // pick; anyone who does not want the full twenty leaves it with "i'm ready
-  // now", which is un-shamed and always there.
+  // After "Yey, I'm ready" she lands on `activities` (Neha 2026-07-29): a small
+  // menu of ways to settle — colour & share (the Polaroid card, /paint), a
+  // wholesome real-life story (/story), move your body (/move: go out of the
+  // room, breathe, come back), and a breath (/breathe). Each is a full-screen
+  // route she does and marks done (src/lib/hold-activities.ts); she can do as
+  // many as she likes. "I'm ready to respond" is ALWAYS there, un-shamed, and it
+  // is what advances the flow. This replaced the direct-to-colouring hold and the
+  // 20-minute timer (a countdown over a make-something-nice task read as
+  // pressure). make_safe "wait" and options "take_hold" both enter here.
   {
-    id: 'high_pick_activity',
-    owner: 'authored',
-    phase: 'regulate',
-    next: 'high_activity_context',
-    why: true,
-    note: 'The 20 minute hold with a timer. An empty wait is rehearsal, so she picks something to do.',
-  },
-  {
-    id: 'high_activity_context',
+    id: 'activities',
     owner: 'authored',
     phase: 'regulate',
     next: 'high_timer_end',
-    note: 'Twelve activities, twelve lines. The model has no job here. It is also the beat where the fine-tune broke the no-mechanism rule in 36% of its training targets.',
+    note: 'The settling menu. Four ways to fill the wait, done in any order, none required; "I am ready to respond" is the un-shamed exit that moves the flow on. Not a timer, not a single forced task.',
   },
   { id: 'high_timer_end', owner: 'reward', phase: 'regulate', next: 'arousal_check' },
   // The CBT stem + matched reframe (high_cbt_stem / high_cbt_reframe) were CUT
@@ -383,7 +374,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     branches: [
       { when: 'picks', next: 'act' },
       { when: 'show_others', next: 'options' },
-      { when: 'take_hold', next: 'high_pick_activity' },
+      { when: 'take_hold', next: 'activities' },
       { when: 'none_possible', next: 'unctrl_honor' },
     ],
     note: 'Three acts from the closed set of 13, always one direct, one preparatory, one self-directed, her nouns filled in. A menu, not a diagnosis: we stopped assessing whether her situation is fixable and started asking what she wants to do. The DV screen removes confrontational acts from the candidate array BEFORE ranking, and the universal line ships with "say it to them" for everyone, not only on a screen hit. `take_hold` is the offer shown ONLY when she rated it high AND chose to act now without the twenty-minute hold: a real path back into the hold, never a wall in front of the acts (Neha, 2026-07-28).',

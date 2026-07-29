@@ -33,16 +33,16 @@ export const SETS = {
    * Five are from the spec's worked example; five are mine and need review.
    */
   stems: [
-    "he doesn't want me around anymore", // [MAP]
-    "i did something wrong and i don't know what", // [MAP]
+    "He doesn't want me around anymore", // [MAP]
+    "I did something wrong and I don't know what", // [MAP]
     'This is going to keep happening', // [MAP]
-    "i'm too much for people", // [MAP]
+    "I'm too much for people", // [MAP]
     'Nobody actually chooses me', // [MAP]
-    "i'm the only one trying here", // [DRAFT]
+    "I'm the only one trying here", // [DRAFT]
     "Everyone can see it except me", // [DRAFT]
     "I should be over this by now", // [DRAFT]
-    "If i say something it gets worse", // [DRAFT]
-    "there's something wrong with me", // [DRAFT]
+    "If I say something it gets worse", // [DRAFT]
+    "There's something wrong with me", // [DRAFT]
   ],
 
   /**
@@ -179,7 +179,7 @@ export const ACTS: readonly Act[] = [
   { id: 'F', rung: 'prep', label: 'Get it ready', evidence: null },
   { id: 'G', rung: 'prep', label: 'Tell one person', evidence: 'listener_dependent' },
   { id: 'H', rung: 'prep', label: 'Get someone whose job it is', evidence: null },
-  { id: 'I', rung: 'prep', label: 'Work out what i want', evidence: null },
+  { id: 'I', rung: 'prep', label: 'Work out what I want', evidence: null },
   { id: 'J', rung: 'self', label: 'Take something off my plate', evidence: null },
   { id: 'K', rung: 'self', label: 'Let it be', evidence: null },
   { id: 'L', rung: 'self', label: 'Look after myself', evidence: null },
@@ -214,9 +214,9 @@ export function threeRungs(from: Act[]): Act[] {
  */
 export const OUTCOME = {
   // [MAP] verbatim
-  G: "this helps most when they actually think it through with you. If they just agree with you, you'll feel better without much changing.",
+  G: "This helps most when they actually think it through with you. If they just agree with you, you'll feel better without much changing.",
   // [MAP] verbatim
-  D: "this usually lands well with the person you hurt. It's less reliable at making you feel better, at least not straight away.",
+  D: "This usually lands well with the person you hurt. It's less reliable at making you feel better, at least not straight away.",
 } as const;
 
 /**
@@ -292,15 +292,23 @@ export const COPY = {
   // The group marker over the AI-written readings (the "moon voice" token).
   reframe_moon_label: "The moon's read", // [DRAFT]
   reframe_small_intro: 'Sometimes a different perspective helps.', // [NEHA]
-  reframe_small_ask: 'Do you think any of these is true?', // [NEHA]
+  reframe_small_ask: "Wait, let's think. Is any of this true?", // [NEHA] 2026-07-29
+  // A quiet label under the ask: these are angles to weigh, not claims. The word
+  // "true" in the ask already carries that she is the one judging them.
+  reframe_small_angles: 'The same situation, from a few angles:', // [NEHA] 2026-07-29
   // The way out of the pick. Without it the only way forward is to endorse one
   // of three readings, and a woman who believes none of them either picks the
   // least wrong one, which corrupts the answer, or leaves.
-  reframe_small_none: 'No, not really', // [NEHA]
-  reframe_small_check: 'Does this help?', // [NEHA]
-  reframe_small_yes: 'That helps', // [NEHA] approved 2026-07-28
-  reframe_small_no: 'Not really', // [NEHA] approved 2026-07-28
-  reframe_small_bigger: "It's bigger than that", // [NEHA] approved 2026-07-28
+  reframe_small_none: 'None of these are true', // [NEHA] 2026-07-29
+  reframe_small_check: 'Are you feeling any better?', // [NEHA] 2026-07-29
+  // Not "reframe" (our word, not hers) and not a claim about her body: a soft,
+  // hedged reason for asking her to try another angle at all.
+  reframe_small_why: 'Sometimes we lock onto one version of it, and seeing another angle helps.', // [NEHA] 2026-07-29
+  reframe_small_yes: 'Yes, I am', // [NEHA] 2026-07-29
+  // The middle answer, so she is never cornered into claiming it helped or that
+  // it did nothing. It lands the same as "yes": the closing rating reads the delta.
+  reframe_small_little: 'A little bit', // [NEHA] 2026-07-29
+  reframe_small_no: 'Not really', // [NEHA] 2026-07-29
   feelings_why: 'Naming it is the part that takes the edge off. Picking roughly right is enough.', // [DRAFT]
 
   // --- body --------------------------------------------------------------
@@ -332,14 +340,22 @@ export const COPY = {
    */
   // Reframed as a challenge 2026-07-28 (Neha): a game to beat, not a warning to
   // heed. The stakes are hers, the win is holding off.
-  make_safe_intro: '20-Minute Challenge', // [NEHA]
-  make_safe_why: 'Beat the urge to react immediately.', // [NEHA]
+  make_safe_intro: 'Beat the urge to react challenge', // [NEHA] 2026-07-29
+  make_safe_why: "Let's distract ourselves, then respond to the situation.", // [NEHA] 2026-07-29
   make_safe_ask: 'Do you want to react now?', // [NEHA] (unused since the challenge reframe)
-  // Both un-shamed. "I am not" stays a real option, not a lesser one: an app
-  // that makes the impatient answer feel like a failure is one she stops being
-  // honest with.
-  make_safe_wait: 'I am ready', // [NEHA]
-  make_safe_now: 'I am not', // [NEHA]
+  // Both un-shamed, and the skip is now framed as a valid state rather than a
+  // failure: "I am calm to respond now" (Neha, 2026-07-29) says she is ready to
+  // respond, not that she failed to wait. It still routes past the hold.
+  make_safe_wait: 'Yey! I am ready', // [NEHA] 2026-07-29
+  make_safe_now: 'I am calm to respond now', // [NEHA] 2026-07-29
+  // The settling menu (Neha 2026-07-29): four ways to fill the wait, done in any
+  // order, none required. "I am ready to respond" is the un-shamed exit.
+  activities_intro: "Let's settle first. Do as many as you like.", // [NEHA] 2026-07-29
+  activities_colour: 'Colour & share', // [NEHA] 2026-07-29
+  activities_story: 'A story', // [NEHA] 2026-07-29
+  activities_move: 'Move your body', // [NEHA] 2026-07-29
+  activities_breath: 'Breathe', // [NEHA] 2026-07-29
+  activities_ready: 'I am ready to respond', // [NEHA] 2026-07-29
 
   // --- high lane ---------------------------------------------------------
   // One long exhale, for everyone, before the hold. Count only: the map's rule
@@ -385,7 +401,7 @@ export const COPY = {
    * available, never greyed, never argued with.
    */
   hold_early: "You've got {left} left. Here's something to do with them.",
-  hold_ready: "i'm ready now", // [MAP]
+  hold_ready: "I'm ready now", // [MAP]
 
   // high_cbt_stem and high_ladder were CUT 2026-07-28 (see moment-flow's hold
   // section): the stuck-thought menu and the "other practices" loop went with
