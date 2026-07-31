@@ -10,6 +10,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { PILLAR_HUE, type PrepItem, type PrepItemKey } from '@/lib/prep-items';
 
 export function PrepSheet({
@@ -82,12 +85,12 @@ export function PrepSheet({
                 </View>
                 {it.done ? (
                   <View style={[styles.check, { backgroundColor: PILLAR_HUE[it.pillar] }]}>
-                    <SymbolView name="checkmark" tintColor="#ffffff" size={12} weight="bold" />
+                    <SymbolView name="checkmark" tintColor={colors.textOnDark.primary} size={12} weight="bold" />
                   </View>
                 ) : (
                   <SymbolView
                     name="chevron.right"
-                    tintColor="rgba(255,255,255,0.4)"
+                    tintColor={colors.textOnDark.faint}
                     size={14}
                     weight="regular"
                   />
@@ -104,19 +107,19 @@ export function PrepSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
     maxHeight: '80%',
     backgroundColor: colors.backgroundTop,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingTop: 12,
-    paddingHorizontal: 22,
-    paddingBottom: 34,
+    borderColor: colors.border.base,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxxl,
     overflow: 'hidden',
   },
   handle: {
@@ -124,12 +127,12 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    marginBottom: 18,
+    marginBottom: spacing.lg,
     alignSelf: 'center',
   },
   kicker: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     color: colors.textTagline,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
@@ -138,59 +141,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    gap: 10,
-    marginTop: 6,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 19,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     letterSpacing: 0.2,
     flexShrink: 1,
   },
   band: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 15,
-    color: '#ffffff',
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.body,
+    color: colors.textOnDark.primary,
     letterSpacing: 0.3,
     flexShrink: 0,
   },
   subtitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13.5,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
-  list: { marginTop: 16 },
-  listContent: { gap: 12, paddingBottom: 4 },
+  list: { marginTop: spacing.lg },
+  listContent: { gap: spacing.md, paddingBottom: spacing.xs },
   node: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    gap: spacing.md,
+    backgroundColor: colors.fill.faint,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
+    borderColor: colors.border.faint,
+    borderRadius: radius.button,
     borderCurve: 'continuous',
-    padding: 14,
+    padding: spacing.md,
   },
   swatch: { width: 4, alignSelf: 'stretch', borderRadius: 3 },
   textCol: { flex: 1, minWidth: 0 },
   itemTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.1,
   },
   itemSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12.5,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     lineHeight: 17,
     color: colors.textSubtitle,
     letterSpacing: 0.1,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   check: {
     width: 22,

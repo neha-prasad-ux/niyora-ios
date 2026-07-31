@@ -15,6 +15,9 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { COUPLES_TEXTS } from '@/models/couples-content';
 import { recordLight } from '@/store/light-ledger';
 
@@ -22,7 +25,7 @@ import { recordLight } from '@/store/light-ledger';
 // (moon-reward-spec: apply). Also lets the PMS checklist read "done today".
 const COUPLES_MESSAGE_REF = 'couples-message';
 
-const HEART = 'hsl(345, 78%, 70%)'; // rose, used only as the group-label accent
+const HEART = colors.accentRose; // rose, used only as the group-label accent
 
 export default function CouplesTextsScreen() {
   const [stage, setStage] = useState<'list' | 'finale'>('list');
@@ -79,7 +82,7 @@ export default function CouplesTextsScreen() {
                     >
                       <View style={styles.cardHead}>
                         <Text style={styles.tone}>{it.tone}</Text>
-                        <SymbolView name="square.and.arrow.up" tintColor="rgba(255, 255, 255, 0.55)" size={15} weight="semibold" />
+                        <SymbolView name="square.and.arrow.up" tintColor={colors.textOnDark.tertiary} size={15} weight="semibold" />
                       </View>
                       <Text style={styles.cardText}>{it.text}</Text>
                     </Pressable>
@@ -98,56 +101,56 @@ export default function CouplesTextsScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
-  topBar: { minHeight: 34, justifyContent: 'center', marginTop: 4 },
-  head: { alignItems: 'center', gap: 8, paddingTop: 4, paddingBottom: 16 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  back: { fontFamily: fonts.light, fontSize: fontScale.pageTitle, lineHeight: 34, color: colors.textSubtitle },
+  topBar: { minHeight: 34, justifyContent: 'center', marginTop: spacing.xs },
+  head: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.xs, paddingBottom: spacing.lg },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 24,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.technique,
     lineHeight: 31,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
   subhead: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
   list: { flex: 1 },
-  scroll: { paddingBottom: 20 },
-  group: { marginBottom: 22 },
+  scroll: { paddingBottom: spacing.xl },
+  group: { marginBottom: spacing.xl },
   groupTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: HEART,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   card: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    marginBottom: 10,
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
+    marginBottom: spacing.sm,
   },
-  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   tone: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     color: colors.textSubtitle,
     letterSpacing: 0.4,
   },
   cardText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,

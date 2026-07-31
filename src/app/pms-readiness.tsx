@@ -20,7 +20,9 @@ import { WhySheet } from '@/components/why-sheet';
 import { RelationshipCard } from '@/components/relationship-card';
 import { LifeStyleCard } from '@/components/lifestyle-card';
 import { colors } from '@/theme/colors';
-import { radius } from '@/theme/spacing';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { tileSurface } from '@/theme/controls';
 import {
   getReadiness,
@@ -140,82 +142,82 @@ export default function PmsReadinessScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
   topBar: { height: 32, justifyContent: 'center' },
-  orbHeader: { alignItems: 'center', paddingTop: 6, paddingBottom: 8 },
+  orbHeader: { alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.sm },
   header: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 23,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     lineHeight: 31,
     color: colors.textPrimary,
     letterSpacing: 0.2,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
   subhead: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
     textAlign: 'center',
-    marginTop: 10,
-    paddingHorizontal: 8,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
-  scroll: { paddingBottom: 28 },
+  scroll: { paddingBottom: spacing.xxxl },
 
-  sectionHead: { marginTop: 28, marginBottom: 12 },
+  sectionHead: { marginTop: spacing.xxxl, marginBottom: spacing.md },
   sectionTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   sectionHint: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 18,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: colors.textOnDark.tertiary,
     letterSpacing: 0.2,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
 
-  know: { marginTop: 36 },
+  know: { marginTop: spacing.xxxl },
   knowHeader: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textSubtitle,
     letterSpacing: 0.3,
-    marginBottom: 14,
+    marginBottom: spacing.md,
   },
   whyGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
+    rowGap: spacing.md,
   },
   whyCell: {
     width: '48%',
     minHeight: 84,
     justifyContent: 'flex-end',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.control,
     borderCurve: 'continuous',
     ...tileSurface,
   },
   whyName: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     lineHeight: 20,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   whyTeaser: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.55)',
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.tertiary,
     letterSpacing: 0.2,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
 });

@@ -15,11 +15,14 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { PREP_MESSAGE, PREP_QUESTIONS, buildPrepChecklist, buildPrepMessage } from '@/models/couples-content';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
 
-const HEART = 'hsl(275, 55%, 70%)'; // violet, the prep heart
+const HEART = colors.accentViolet; // violet, the prep heart
 const YES_BG = 'hsla(8, 72%, 68%, 0.92)';
 const NO_BG = 'hsla(330, 68%, 72%, 0.9)';
 
@@ -156,113 +159,113 @@ export default function CouplesPrepScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  back: { fontFamily: fonts.light, fontSize: fontScale.pageTitle, lineHeight: 34, color: colors.textSubtitle },
 
-  topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12, marginTop: 4 },
-  segments: { flex: 1, flexDirection: 'row', gap: 6 },
-  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)' },
+  topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: spacing.md, marginTop: spacing.xs },
+  segments: { flex: 1, flexDirection: 'row', gap: spacing.sm },
+  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.fill.strong },
   segOn: { backgroundColor: HEART },
 
-  body: { flex: 1, paddingBottom: 12 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  body: { flex: 1, paddingBottom: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   kicker: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 27,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   subtitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   statement: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 23,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     lineHeight: 32,
     color: colors.textPrimary,
     textAlign: 'center',
   },
 
-  bottom: { gap: 12 },
-  choices: { flexDirection: 'row', gap: 12 },
+  bottom: { gap: spacing.md },
+  choices: { flexDirection: 'row', gap: spacing.md },
   choice: {
     flex: 1,
     height: 96,
-    borderRadius: 18,
+    borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
   },
-  choiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 22, color: '#1a1526' },
+  choiceLabel: { fontFamily: fonts.medium, fontSize: fontScale.technique, color: '#1a1526' },
 
   // Note (result) page.
-  noteHead: { alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 14 },
+  noteHead: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.md },
   noteTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 24,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.technique,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
   noteSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
-  noteScroll: { paddingVertical: 6 },
+  noteScroll: { paddingVertical: spacing.sm },
   messageCard: {
-    padding: 20,
-    borderRadius: 18,
+    padding: spacing.xl,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   msgGreeting: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   msgIntro: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
-  msgRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 },
+  msgRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md },
   msgNum: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: HEART,
     width: 20,
   },
   msgText: {
     flex: 1,
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   msgSignoff: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
-  restartWrap: { alignItems: 'center', marginTop: 14 },
-  restart: { fontFamily: 'Poppins-Regular', fontSize: 14, color: colors.textTagline, letterSpacing: 0.3 },
+  restartWrap: { alignItems: 'center', marginTop: spacing.md },
+  restart: { fontFamily: fonts.regular, fontSize: fontScale.body, color: colors.textTagline, letterSpacing: 0.3 },
 });

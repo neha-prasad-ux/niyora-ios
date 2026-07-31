@@ -14,6 +14,9 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { Checklist, type ChecklistItem } from '@/components/checklist';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, pageGutter } from '@/theme/spacing';
 import { RECONNECT_STEPS } from '@/models/couples-content';
 import { recordLight } from '@/store/light-ledger';
 
@@ -83,24 +86,24 @@ export default function CouplesReconnectScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
-  topBar: { minHeight: 34, justifyContent: 'center', marginTop: 4 },
-  head: { alignItems: 'center', gap: 8, paddingTop: 4, paddingBottom: 16 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  back: { fontFamily: fonts.light, fontSize: fontScale.pageTitle, lineHeight: 34, color: colors.textSubtitle },
+  topBar: { minHeight: 34, justifyContent: 'center', marginTop: spacing.xs },
+  head: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.xs, paddingBottom: spacing.lg },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 24,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.technique,
     lineHeight: 31,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
   subhead: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
-  scroll: { paddingBottom: 28 },
+  scroll: { paddingBottom: spacing.xxxl },
 });

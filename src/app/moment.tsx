@@ -24,22 +24,27 @@ import {
   InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { resetActivities, useActivitiesDone } from '@/lib/hold-activities';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
   FadeIn,
+  FadeInDown,
   FadeOut,
+  LinearTransition,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -50,31 +55,47 @@ import Animated, {
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BackButton } from '@/components/BackButton';
 import { BeginButton } from '@/components/begin-button';
+import { Checklist } from '@/components/checklist';
 import { CloseButton } from '@/components/CloseButton';
 import { GlassSurface } from '@/components/glass-surface';
 import { Aurora } from '@/components/moment/aurora';
-import { PhaseProgress, phaseTint } from '@/components/moment/phase-progress';
+import {
+  PhaseProgress,
+  PHASE_STEPS,
+  phaseHue,
+  phaseTint,
+} from '@/components/moment/phase-progress';
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, WhyLine } from '@/components/moment/controls';
+import { ScratchCard } from '@/components/moment/scratch-card';
+import { addPlannedAction } from '@/store/moment-plan';
 import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
 import {
   analyse,
+  FEELING_SET,
   laneFor,
   offerFeelings,
   type Verdict,
 } from '@/v3/moment-analyse';
+import { echo, pick, composeReadings, draftAct, revise } from '@/v3/moment-ai';
+import { getMomentProvider } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
 import type { MoonState } from '@/lib/moon-light';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import { advance, ENTRY, node, type NodeId, type Phase } from '@/v3/moment-flow';
 import {
+  type Act,
   BREATH_SCRIPT,
   COPY,
+  MAKE_SAFE_BODY,
   offerableActs,
   SETS,
   threeRungs,
@@ -103,6 +124,10 @@ const BREATH_OUT = 6;
 
 export default function Moment() {
   const reduceMotion = useReducedMotion();
+  // The card's inner content width: window less the card's side margins (12
+  // each) and the body padding (22 each). The scratch card fills it.
+  const { width: winW } = useWindowDimensions();
+  const cardInnerW = winW - 12 * 2 - 22 * 2;
 
   const [current, setCurrent] = useState<NodeId>(ENTRY);
   /** The beats she has passed through, so the back button can walk them in
@@ -125,11 +150,28 @@ export default function Moment() {
   const [streamLen, setStreamLen] = useState(0);
   const [echoOk, setEchoOk] = useState(false);
   const [echoFixing, setEchoFixing] = useState(false);
+  /** The Gemini provider, resolved once. NO_PROVIDER (authored fallback) unless
+   *  the flag and a key are set, so the store build behaves exactly as before. */
+  const [provider] = useState(getMomentProvider);
+  const aiOn = provider.name !== 'none';
+  /** The model's echo line when it earns one (grounded, not blocked); null falls
+   *  back to the mechanical carve. `echoResolving` holds the stream while the
+   *  request is in flight, so the moon "types" instead of flashing the carve. */
+  const [modelEcho, setModelEcho] = useState<string | null>(null);
+  const [echoResolving, setEchoResolving] = useState(false);
+  /** Model orderings/readings per beat. Each defaults to null → the deterministic
+   *  authored value, so nothing here can leave a beat empty. */
+  const [feelingOrder, setFeelingOrder] = useState<string[] | null>(null);
+  const [reframeReadings, setReframeReadings] = useState<string[] | null>(null);
+  const [actOrder, setActOrder] = useState<Act[] | null>(null);
   /** The reading she chose at the reframe, before we ask whether it helped. */
   const [reframePick, setReframePick] = useState<string | null>(null);
   /** Index into BREATH_SCRIPT. The guided breath walks it while she is on the
    *  breathe beat; past the end, the flow moves on. */
   const [breathStep, setBreathStep] = useState(0);
+  /** Body-prep checklist on the challenge screen: which items she has ticked.
+   *  A soft self-check, it does not gate the buttons below. */
+  const [bodyChecks, setBodyChecks] = useState<Record<string, boolean>>({});
   /** She chose to act now instead of taking the twenty-minute hold. Gates the
    *  gentle "still worth twenty minutes" offer on the act menu, and only when
    *  the opening rating was high. */
@@ -144,6 +186,30 @@ export default function Moment() {
   // Which settling activities she has finished, so the menu can show the checks
   // and re-render the instant an activity marks itself done.
   const activitiesDone = useActivitiesDone();
+  /** The act she picked from the menu, carried to the "when" page (its label and
+   *  whether "now" opens Messages). */
+  const [chosenAct, setChosenAct] = useState<Act | null>(null);
+  /** The draft step on the "when" page: the moon writes a start she can edit or
+   *  ask to change, then sends (message act) or carries out. `actDrafting` shows
+   *  the view; `actDraft` is the current, editable text; loading/revising gate
+   *  the two model calls. Empty draft with no provider just never opens. */
+  const [actDrafting, setActDrafting] = useState(false);
+  const [actDraft, setActDraft] = useState('');
+  const [actDraftLoading, setActDraftLoading] = useState(false);
+  const [reviseNote, setReviseNote] = useState('');
+  const [revising, setRevising] = useState(false);
+  /** The close celebration's two stages: the wrapped gift, then the scratch
+   *  card. `giftOpened` reveals the card; `revealed` is set once she has
+   *  scratched enough, which surfaces the "saved to your Soul" line and Done. */
+  const [giftOpened, setGiftOpened] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  /** A brief bottom toast ("Added to today"), floated over the flow. */
+  const [snack, setSnack] = useState<string | null>(null);
+  useEffect(() => {
+    if (!snack) return;
+    const id = setTimeout(() => setSnack(null), 1900);
+    return () => clearTimeout(id);
+  }, [snack]);
 
   // Her moon, exactly as she has grown it.
   const [moon, setMoon] = useState<MoonState | null>(null);
@@ -187,8 +253,9 @@ export default function Moment() {
   // The moon's reply on the echo beat: her words carved and person-flipped when
   // the read was clear, an authored line otherwise. Derived here so the stream
   // effect and the render share one source.
-  const echoText = verdict?.kind === 'clear' ? verdict.echo : COPY.together;
-  const echoAi = verdict?.kind === 'clear';
+  const carveEcho = verdict?.kind === 'clear' ? verdict.echo : COPY.together;
+  const echoText = modelEcho ?? carveEcho;
+  const echoAi = echoText !== COPY.together;
 
   const go = useCallback((from: NodeId, key?: string) => {
     const next = advance(from, key);
@@ -221,6 +288,13 @@ export default function Moment() {
       setReadyLow(false);
       return;
     }
+    // The celebration's stages are second screens on the close beat: back
+    // unwinds the scratch card to the gift before leaving the beat.
+    if (current === 'close' && giftOpened) {
+      setRevealed(false);
+      setGiftOpened(false);
+      return;
+    }
     // Inside the echo beat: unwind the correction, then the naming, then the
     // confirm, each in place, before stepping to the previous beat.
     if (echoFixing) {
@@ -250,8 +324,15 @@ export default function Moment() {
     const prev = history[history.length - 1];
     setHistory(history.slice(0, -1));
     // Sub-state that belongs to a particular beat, cleared so returning to an
-    // earlier one never shows a stale pick or a half-open field.
+    // earlier one never shows a stale pick or a half-open field. The model
+    // orderings clear too, so re-entering a beat re-asks rather than reusing a
+    // ranking made against different text.
     setReframePick(null);
+    setReframeReadings(null);
+    setActOrder(null);
+    setActDrafting(false);
+    setActDraft('');
+    setReviseNote('');
     setOtherOpen(false);
     setDraft('');
     setCurrent(prev);
@@ -263,6 +344,67 @@ export default function Moment() {
     setEchoOk(false);
     setEchoFixing(false);
     setStreamLen(0);
+    setModelEcho(null);
+    setFeelingOrder(null);
+    if (!aiOn) return;
+    const her = herText.current.trim();
+    if (!her) return;
+    // Ask the model to say her words back. echo() vets the reply (grounded, not
+    // a self-attack) and returns via 'model' only when it earns the screen;
+    // anything else keeps the carve. The stream holds until this settles.
+    setEchoResolving(true);
+    echo(provider, 'acknowledge', her)
+      .then((r) => setModelEcho(r.via === 'model' ? r.text : null))
+      .catch(() => {})
+      .finally(() => setEchoResolving(false));
+  }, [aiOn, provider]);
+
+  /** Whether the "now" tap should open a draft rather than act straight away.
+   *  Only where there are words to help with: a message to send, or a direct or
+   *  preparatory move she has to say or do. A pure self-soothing act gets no
+   *  draft, and neither does anything when the provider is off. */
+  const wantsDraft = useCallback(
+    (a: Act | null) =>
+      aiOn && a != null && (a.channel === 'message' || a.rung === 'direct' || a.rung === 'prep'),
+    [aiOn],
+  );
+
+  /** Open the draft view and ask the moon for a start. Null (or no provider)
+   *  leaves the field empty, which reads as "write your own". */
+  const openActDraft = useCallback(
+    (a: Act) => {
+      setActDrafting(true);
+      setActDraft('');
+      setReviseNote('');
+      setActDraftLoading(true);
+      draftAct(provider, herText.current.trim(), chosenFeeling.current, a.label)
+        .then((t) => setActDraft(t ?? ''))
+        .catch(() => {})
+        .finally(() => setActDraftLoading(false));
+    },
+    [provider],
+  );
+
+  /** "Change it": hand the current draft and her note back for a rewrite. */
+  const reviseActDraft = useCallback(() => {
+    const note = reviseNote.trim();
+    if (!note || !actDraft.trim() || revising) return;
+    tap();
+    setRevising(true);
+    revise(provider, actDraft, note)
+      .then((t) => {
+        if (t) setActDraft(t);
+        setReviseNote('');
+      })
+      .catch(() => {})
+      .finally(() => setRevising(false));
+  }, [provider, reviseNote, actDraft, revising]);
+
+  /** Leave the draft view, clearing its state, without advancing the beat. */
+  const closeActDraft = useCallback(() => {
+    setActDrafting(false);
+    setActDraft('');
+    setReviseNote('');
   }, []);
 
   const send = useCallback(() => {
@@ -387,6 +529,9 @@ export default function Moment() {
   // (async), so it does not trip the in-effect rule.
   useEffect(() => {
     if (current !== 'acknowledge' || echoOk || echoFixing || reduceMotion) return;
+    // Hold at zero while the model is still answering, so she sees the moon
+    // gathering rather than the carve streaming and then being replaced.
+    if (echoResolving) return;
     if (streamLen >= echoText.length) return;
     const first = streamLen === 0;
     const id = setTimeout(
@@ -394,7 +539,66 @@ export default function Moment() {
       first ? 350 : 22,
     );
     return () => clearTimeout(id);
-  }, [current, echoOk, echoFixing, reduceMotion, streamLen, echoText]);
+  }, [current, echoOk, echoFixing, reduceMotion, streamLen, echoText, echoResolving]);
+
+  // Feelings PICK: once the echo is confirmed and the naming shows, ask the
+  // model to reorder the closed feeling set. Null keeps the deterministic order.
+  useEffect(() => {
+    if (!aiOn || !echoOk || current !== 'acknowledge' || feelingOrder) return;
+    const her = herText.current.trim();
+    if (!her) return;
+    let alive = true;
+    pick(provider, 'feelings', her, FEELING_SET, 3, (f) => f.label)
+      .then((r) => {
+        if (alive) setFeelingOrder(r.items.map((f) => f.label));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [aiOn, echoOk, current, feelingOrder, provider]);
+
+  // Reframe COMPOSE: gentle readings of the same situation. Null → authored
+  // smallReframes. This is a draft she rules true or false, so it may add words.
+  useEffect(() => {
+    if (!aiOn || current !== 'reframe_small' || reframeReadings) return;
+    const her = herText.current.trim();
+    if (!her) return;
+    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}`;
+    let alive = true;
+    composeReadings(provider, user)
+      .then((r) => {
+        if (alive && r) setReframeReadings(r);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [aiOn, current, reframeReadings, provider]);
+
+  // Options PICK: rank the acts, but keep the safety invariant that one direct,
+  // one prep and one self are always offered together. The model only sets which
+  // act wins each rung and their order; it never removes a rung.
+  useEffect(() => {
+    if (!aiOn || current !== 'options' || actOrder) return;
+    const her = herText.current.trim();
+    if (!her) return;
+    const pool = offerableActs(false);
+    let alive = true;
+    pick(provider, 'options', `${her}\nshe feels: ${chosenFeeling.current}`, pool, pool.length, (a) => a.label)
+      .then((r) => {
+        if (!alive) return;
+        const firstOf = (rung: Act['rung']) => r.items.find((a) => a.rung === rung);
+        const three = [firstOf('direct'), firstOf('prep'), firstOf('self')].filter(
+          (a): a is Act => a != null,
+        );
+        if (three.length === 3) setActOrder(three);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [aiOn, current, actOrder, provider]);
 
   /**
    * The head of every card: her moon beside the phase and the question, on one
@@ -489,20 +693,21 @@ export default function Moment() {
         >
           <View style={styles.spacer} />
 
-          {/* The card. One question, and only the current one. */}
+          {/* The card is ONE persistent surface. The glass panel and the
+              progress header never remount as the beat changes, so they hold
+              steady instead of blinking, and the bar fills continuously rather
+              than resetting. `layout` eases the card's height and position as
+              the content grows or shrinks, so pages resize INTO each other
+              instead of snapping. Only the body and the button crossfade
+              (below) — a dissolve, not a slide: the card is continuous and only
+              what it says changes. */}
           <Animated.View
-            key={crisis ? 'crisis' : current}
-            // Direction rule: entrances ease-out (~300ms, sheet-sized), exits
-            // ease-in and faster (~150ms). A crossfade, not a slide: the card is
-            // one persistent surface and the beat inside it changes — continuity,
-            // not travel — so a horizontal slide would imply movement that isn't.
-            entering={
-              reduceMotion ? undefined : FadeIn.duration(300).easing(Easing.out(Easing.quad))
-            }
-            exiting={
-              reduceMotion ? undefined : FadeOut.duration(150).easing(Easing.in(Easing.quad))
-            }
             style={styles.card}
+            layout={
+              reduceMotion
+                ? undefined
+                : LinearTransition.duration(300).easing(Easing.inOut(Easing.quad))
+            }
           >
             {/* Glass, three tiers deep: liquid glass where the OS has it, an
                 expo-blur fallback, then a flat wash. Sits behind the content
@@ -518,8 +723,10 @@ export default function Moment() {
                 only when there is somewhere to go back to; a spacer holds the
                 map's position steady when it does not. Hidden on the crisis
                 screen, which has its own single way out. Pinned above the scroll
-                so it stays put as the body scrolls. */}
-            {!crisis && (
+                so it stays put as the body scrolls. Hidden on the intro too:
+                the three preview cards ARE the phase map there, so the thin bar
+                would only repeat them. */}
+            {!crisis && current !== 'intro' && (
               <View style={styles.cardHeader}>
                 {history.length > 0 ? (
                   <BackButton onPress={back} />
@@ -536,20 +743,142 @@ export default function Moment() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {ui.body}
+              {/* Only the beat's own content crossfades. Keyed on the beat, so
+                  the old words dissolve out as the new ones dissolve in over the
+                  same, still panel. */}
+              <Animated.View
+                key={crisis ? 'crisis' : current}
+                // The card body's gap lives HERE now, not on the scroll
+                // container: this wrapper is the scroll's only child, so the
+                // gap between the moon/question, the why line and the options
+                // has to be on the wrapper or every block collapses together.
+                style={styles.beatBody}
+                entering={
+                  reduceMotion ? undefined : FadeIn.duration(240).easing(Easing.out(Easing.quad))
+                }
+                exiting={
+                  reduceMotion ? undefined : FadeOut.duration(160).easing(Easing.in(Easing.quad))
+                }
+              >
+                {ui.body}
+              </Animated.View>
             </ScrollView>
             {/* Pinned, never inside the scroll. It was scrolling out of reach
                 under the keyboard, which on the entry card meant the only way
-                forward was hidden. */}
-            <View style={styles.cta}>{ui.cta}</View>
+                forward was hidden. Crossfades with the body so the button does
+                not pop while the words dissolve. */}
+            <View style={styles.cta}>
+              <Animated.View
+                key={(crisis ? 'crisis' : current) + '-cta'}
+                entering={
+                  reduceMotion ? undefined : FadeIn.duration(240).easing(Easing.out(Easing.quad))
+                }
+              >
+                {ui.cta}
+              </Animated.View>
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* A brief confirmation toast, floated at the bottom over the flow. Non-
+          interactive: it says what happened, it is not a control. */}
+      {snack && (
+        <Animated.View
+          style={styles.snackbarWrap}
+          pointerEvents="none"
+          entering={reduceMotion ? undefined : FadeInDown.duration(220)}
+          exiting={reduceMotion ? undefined : FadeOut.duration(260)}
+        >
+          <View style={styles.snackbar}>
+            <SymbolView name="checkmark.circle.fill" size={17} tintColor={v3.accent} />
+            <Text style={styles.snackText}>{snack}</Text>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 
   function Beat() {
+    // Body-prep gate: all three self-checks ticked before the challenge proceeds.
+    const bodyReady = MAKE_SAFE_BODY.every((it) => bodyChecks[it.id]);
     switch (current) {
+      // The welcome: the three states as cards in their own flow colours, so she
+      // sees the shape before the first question — three known chapters, not an
+      // open-ended chat. Signed "with Moon AI"; "Think with me" opens the flow.
+      case 'intro':
+        return {
+          body: (
+            <View style={styles.introWrap}>
+              <View style={styles.introLead}>
+                <Text style={styles.introHead}>{COPY.intro_head}</Text>
+                <Text style={styles.introSub}>{COPY.intro_lead}</Text>
+              </View>
+
+              {/* The three states as a connected stepper. A faint spine runs
+                  behind the nodes; each step drops in one after another, so the
+                  path appears to build rather than arrive all at once. Colours
+                  are the flow's own — the same three the progress bar uses. */}
+              <View style={styles.introSteps}>
+                <View style={styles.introSpine} pointerEvents="none" />
+                {PHASE_STEPS.map((s, i) => {
+                  const tint = phaseTint(s.phase);
+                  const hue = phaseHue(s.phase);
+                  return (
+                    <Animated.View
+                      key={s.phase}
+                      style={styles.introRow}
+                      entering={
+                        reduceMotion
+                          ? undefined
+                          : FadeInDown.delay(140 + i * 160)
+                              .duration(360)
+                              .easing(Easing.out(Easing.quad))
+                      }
+                    >
+                      <View style={styles.introRail}>
+                        <View
+                          style={[styles.introDot, { backgroundColor: hue, borderColor: hue }]}
+                        >
+                          <SymbolView name={INTRO_ICON[i]} size={14} tintColor="#FFFFFF" />
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.introStep,
+                          {
+                            backgroundColor: tint.backgroundColor,
+                            borderColor: tint.borderColor,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.introStepTitle, { color: hue }]}>{s.label}</Text>
+                        <Text style={styles.introStepSub}>{INTRO_SUB[i]}</Text>
+                      </View>
+                    </Animated.View>
+                  );
+                })}
+              </View>
+
+              <View style={styles.introBrand}>
+                <Orb
+                  size={16}
+                  tierRingCount={0}
+                  still
+                  hue={bodyHue(lifetimeLight)}
+                  brightness={moon?.fullness ?? 1}
+                  material={moon?.material ?? 'moonstone'}
+                  illum={1}
+                />
+                <Text style={styles.introBrandText}>{COPY.intro_brand}</Text>
+              </View>
+            </View>
+          ),
+          cta: (
+            <BeginButton fullWidth label={COPY.intro_cta} onPress={() => go('intro')} />
+          ),
+        };
+
       // The entry and the baseline rating share a card. The rating has to be
       // taken BEFORE the echo and the feeling word, because both of those are
       // interventions and the in-to-out delta is the only evidence the flow
@@ -743,7 +1072,7 @@ export default function Moment() {
               {head(COPY.feelings_ask)}
               <WhyLine>{COPY.feelings_why}</WhyLine>
               <View style={styles.stack}>
-                {offerFeelings(herText.current).map((f, i) => (
+                {(feelingOrder ?? offerFeelings(herText.current)).map((f, i) => (
                   <OptionRow
                     key={f}
                     label={f}
@@ -763,7 +1092,7 @@ export default function Moment() {
                 {!otherOpen ? (
                   <OptionRow
                     label={COPY.feelings_other}
-                    index={offerFeelings(herText.current).length}
+                    index={(feelingOrder ?? offerFeelings(herText.current)).length}
                     onPress={() => setOtherOpen(true)}
                   />
                 ) : (
@@ -864,6 +1193,17 @@ export default function Moment() {
           body: (
             <>
               {head(COPY.make_safe_intro)}
+              {/* Body prep: she confirms all three are true before the hold.
+                  The proceed buttons are gated until then; if her body is not
+                  ready, "come back later" is the honest exit (Neha 2026-07-30). */}
+              <Text style={styles.settlesStrong}>{COPY.make_safe_care_intro}</Text>
+              <Text style={styles.settles}>{COPY.make_safe_care_ask}</Text>
+              <Checklist
+                items={MAKE_SAFE_BODY}
+                isChecked={(id) => !!bodyChecks[id]}
+                onToggle={(id) => setBodyChecks((c) => ({ ...c, [id]: !c[id] }))}
+                emphasizeTitle
+              />
               <Text style={styles.settles}>{COPY.make_safe_why}</Text>
               <View style={styles.stack}>
                 {/* The skip sits FIRST and quiet; the in-app calming action sits
@@ -873,6 +1213,7 @@ export default function Moment() {
                   label={COPY.make_safe_now}
                   index={0}
                   tint={selTint}
+                  disabled={!bodyReady}
                   onPress={() => {
                     setSkippedHold(true);
                     go('make_safe', 'now');
@@ -883,6 +1224,7 @@ export default function Moment() {
                   index={1}
                   recommended
                   tint={selTint}
+                  disabled={!bodyReady}
                   onPress={() => {
                     // Land on the settling menu (colour / story / move / breath).
                     // Fresh done-marks each hold.
@@ -890,6 +1232,16 @@ export default function Moment() {
                     go('make_safe', 'wait');
                   }}
                 />
+                {/* Only while she cannot honestly tick all three: the way out. */}
+                {!bodyReady && (
+                  <Pressable
+                    onPress={leave}
+                    accessibilityRole="button"
+                    style={styles.breathSkip}
+                  >
+                    <Text style={styles.breathSkipText}>{COPY.make_safe_care_defer}</Text>
+                  </Pressable>
+                )}
               </View>
             </>
           ),
@@ -920,7 +1272,7 @@ export default function Moment() {
                     VoiceOver hint. Authored placeholders today, Gemini-written
                     soon. */}
                 <View style={styles.stack}>
-                  {SETS.smallReframes.map((r, i) => (
+                  {(reframeReadings ?? SETS.smallReframes).map((r, i) => (
                     <OptionRow
                       key={r}
                       label={r}
@@ -937,7 +1289,7 @@ export default function Moment() {
                     it helped. */}
                 <OptionRow
                   label={COPY.reframe_small_none}
-                  index={SETS.smallReframes.length}
+                  index={(reframeReadings ?? SETS.smallReframes).length}
                   tint={selTint}
                   onPress={() => go('reframe_small', 'small_no')}
                 />
@@ -1106,13 +1458,14 @@ export default function Moment() {
                     is ranked or rendered, never a caveat added afterwards. The
                     universal DV line no longer rides under the option; picking
                     "say it to them" opens it on its own screen (above). */}
-                {threeRungs(offerableActs(false)).map((a, i) => (
+                {(actOrder ?? threeRungs(offerableActs(false))).map((a, i) => (
                   <OptionRow
                     key={a.id}
                     label={a.label}
                     index={i}
                     tint={selTint}
                     onPress={() => {
+                      setChosenAct(a);
                       if (a.universalLine) {
                         setDvConfirm(true);
                         return;
@@ -1178,27 +1531,21 @@ export default function Moment() {
                   index={3}
                   done={activitiesDone.has('breath')}
                   tint={selTint}
-                  onPress={() => router.push('/breathe')}
+                  // The real guided Wind Down (voice + captions), the same
+                  // /session exercise as in the calm library; `hold` tells it to
+                  // mark this activity done when she finishes.
+                  onPress={() =>
+                    router.push({
+                      pathname: '/session',
+                      params: { id: 'wind-down', hold: 'breath' },
+                    })
+                  }
                 />
               </View>
             </>
           ),
           cta: (
             <BeginButton fullWidth label={COPY.activities_ready} onPress={() => go('activities')} />
-          ),
-        };
-
-      // The hold is done. The one celebration in the app, and it is for a hard
-      // act she completed — waiting — never for a feeling or a score.
-      case 'high_timer_end':
-        return {
-          body: <>{head(COPY.hold_done)}</>,
-          cta: (
-            <BeginButton
-              fullWidth
-              label="Continue"
-              onPress={() => go('high_timer_end')}
-            />
           ),
         };
 
@@ -1248,6 +1595,245 @@ export default function Moment() {
             </>
           ),
           cta: null,
+        };
+      }
+
+      // The "when" page: her chosen move at the head, then when to do it. "Now"
+      // opens a draft the moon writes for the moves that have words to say (a
+      // message, a direct or prep move); she edits it or asks to change it, then
+      // sends or does it. For a pure self act, or with AI off, "now" carries it
+      // out directly (a message act opens the blank iOS Messages compose). Then
+      // the if-then. "Later" steps out to Today. "Another" reopens the menu.
+      case 'act': {
+        const a = chosenAct;
+
+        // The draft sub-view: a start she can edit, a "change it" line that
+        // hands the draft plus her note back for a rewrite, then send or do.
+        if (actDrafting) {
+          return {
+            body: (
+              <>
+                {head(a?.label ?? COPY.options)}
+                <Text style={styles.settles}>{COPY.act_draft_hint}</Text>
+                <TextInput
+                  style={styles.input}
+                  value={actDraftLoading ? '' : actDraft}
+                  onChangeText={setActDraft}
+                  editable={!actDraftLoading}
+                  placeholder={actDraftLoading ? COPY.act_draft_loading : ''}
+                  placeholderTextColor="rgba(255,255,255,0.30)"
+                  selectionColor="rgba(196, 178, 255, 0.9)"
+                  multiline
+                  textAlignVertical="top"
+                  inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
+                  accessibilityLabel="Your draft"
+                />
+                <View style={styles.askGroup}>
+                  <TextInput
+                    style={styles.inputSmall}
+                    value={reviseNote}
+                    onChangeText={setReviseNote}
+                    placeholder={COPY.act_draft_change_ph}
+                    placeholderTextColor="rgba(255,255,255,0.30)"
+                    selectionColor="rgba(196, 178, 255, 0.9)"
+                    editable={!revising}
+                    returnKeyType="send"
+                    onSubmitEditing={reviseActDraft}
+                    inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
+                    accessibilityLabel="Tell the moon what to change"
+                  />
+                  <Pressable
+                    onPress={reviseActDraft}
+                    disabled={!reviseNote.trim() || revising || !actDraft.trim()}
+                    style={styles.changeLink}
+                  >
+                    <Text style={styles.changeLinkText}>{COPY.act_draft_change}</Text>
+                  </Pressable>
+                </View>
+                <Pressable onPress={closeActDraft} style={styles.skipLink}>
+                  <Text style={styles.skipLinkText}>{COPY.act_draft_skip}</Text>
+                </Pressable>
+              </>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label={a?.channel === 'message' ? COPY.act_draft_send : COPY.act_draft_do}
+                disabled={actDraftLoading}
+                onPress={() => {
+                  const text = actDraft.trim();
+                  // Prefill Messages with her draft (no recipient); she still
+                  // reads it and taps send herself. Non-message acts just proceed.
+                  if (a?.channel === 'message') {
+                    const url = text ? `sms:&body=${encodeURIComponent(text)}` : 'sms:';
+                    Linking.openURL(url).catch(() => {});
+                  }
+                  closeActDraft();
+                  go('act', 'now');
+                }}
+              />
+            ),
+          };
+        }
+
+        return {
+          body: (
+            <>
+              {head(a?.label ?? COPY.options)}
+              <View style={styles.stack}>
+                <OptionRow
+                  label={COPY.act_now}
+                  index={0}
+                  tint={selTint}
+                  onPress={() => {
+                    // A move with words to say opens the draft; otherwise it acts
+                    // straight away (a message act to the blank Messages compose).
+                    if (wantsDraft(a) && a) {
+                      openActDraft(a);
+                      return;
+                    }
+                    if (a?.channel === 'message') {
+                      Linking.openURL('sms:').catch(() => {});
+                    }
+                    go('act', 'now');
+                  }}
+                />
+                <OptionRow
+                  label={COPY.act_later}
+                  index={1}
+                  tint={selTint}
+                  // Parks the move on Today and keeps her in the flow: an "Added
+                  // to today" snackbar, then straight to the closing rating. No
+                  // if-then (the plan is already on Today) and no bail-out to the
+                  // Today tab.
+                  onPress={() => {
+                    if (a) addPlannedAction(a.label).catch(() => {});
+                    setSnack(COPY.added_today);
+                    go('act', 'later');
+                  }}
+                />
+                <OptionRow
+                  label={COPY.act_another}
+                  index={2}
+                  tint={selTint}
+                  onPress={() => go('act', 'another')}
+                />
+              </View>
+            </>
+          ),
+          cta: null,
+        };
+      }
+
+      // Fill in to remember: a coping if-then she keeps for next time, seeded
+      // with the move she just chose. She fills only the response; the trigger
+      // ("if I feel anxious for this reason") is fixed, never an invented detail.
+      case 'today_action':
+        return {
+          body: (
+            <>
+              {head(COPY.today_action_head)}
+              <WhyLine>{COPY.today_action_why}</WhyLine>
+              <View style={styles.askGroup}>
+                <Text style={styles.settles}>{COPY.today_action_if}</Text>
+                <TextInput
+                  style={styles.inputSmall}
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder={chosenAct?.label ?? COPY.today_action_hint}
+                  placeholderTextColor="rgba(255,255,255,0.30)"
+                  selectionColor="rgba(196, 178, 255, 0.9)"
+                  inputAccessoryViewID={
+                    Platform.OS === 'ios' ? ACCESSORY_ID : undefined
+                  }
+                  accessibilityLabel="What you will do"
+                />
+              </View>
+            </>
+          ),
+          cta: (
+            <BeginButton
+              fullWidth
+              label="Continue"
+              onPress={() => {
+                setDraft('');
+                go('today_action');
+              }}
+            />
+          ),
+        };
+
+      // The one celebration in the app, and it is for a hard act she completed.
+      // A wrapped gift opens into a scratch card she rubs to reveal an earned
+      // character, saved to her Soul. Two stages: the gift, then the card.
+      case 'close': {
+        if (!giftOpened) {
+          return {
+            body: (
+              <View style={styles.celebrate}>
+                <Text style={styles.congrats}>{COPY.close_congrats}</Text>
+                <Text style={styles.giftSub}>{COPY.close_gift}</Text>
+                <Pressable
+                  onPress={() => {
+                    tap();
+                    setGiftOpened(true);
+                  }}
+                  style={styles.gift}
+                  accessibilityRole="button"
+                  accessibilityLabel={COPY.close_gift_cta}
+                >
+                  <Text style={styles.giftGlyph}>🎁</Text>
+                </Pressable>
+              </View>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label={COPY.close_gift_cta}
+                onPress={() => {
+                  tap();
+                  setGiftOpened(true);
+                }}
+              />
+            ),
+          };
+        }
+        return {
+          body: (
+            <View style={styles.celebrate}>
+              <ScratchCard
+                width={cardInnerW}
+                height={190}
+                hint={COPY.close_scratch}
+                onReveal={() => setRevealed(true)}
+              >
+                <View style={styles.prize}>
+                  <Orb
+                    size={76}
+                    tierRingCount={0}
+                    still
+                    hue={bodyHue(lifetimeLight)}
+                    brightness={moon?.fullness ?? 1}
+                    material={moon?.material ?? 'moonstone'}
+                    illum={1}
+                  />
+                  <Text style={styles.badgeName}>{COPY.close_badge_name}</Text>
+                </View>
+              </ScratchCard>
+              {revealed && (
+                <Animated.View
+                  entering={reduceMotion ? undefined : FadeIn.duration(400)}
+                  style={styles.reveal}
+                >
+                  <Text style={styles.badgeWhy}>{COPY.close_badge_why}</Text>
+                  <Text style={styles.saved}>{COPY.close_saved}</Text>
+                </Animated.View>
+              )}
+            </View>
+          ),
+          cta: revealed ? (
+            <BeginButton fullWidth label={COPY.close_done} onPress={leave} />
+          ) : null,
         };
       }
 
@@ -1322,15 +1908,17 @@ export default function Moment() {
 
 /** What each beat asks. Beats not listed fall back to their id, which is a
  *  visible reminder that the copy is not written yet. */
+// The intro cards' sub-lines and node icons, in PHASE_STEPS order (reflect,
+// regulate, react). Icons are SF Symbols: notice, settle, respond.
+const INTRO_SUB = [COPY.intro_reflect, COPY.intro_regulate, COPY.intro_respond];
+const INTRO_ICON = ['sparkles', 'wind', 'paperplane.fill'] as const;
+
 const SPOKEN: Partial<Record<NodeId, string>> = {
   together: COPY.together,
   naming_science: COPY.naming_science,
   feelings: COPY.feelings_ask,
   ready_reward: COPY.ready_reward,
   unctrl_honor: COPY.unctrl_honor,
-  time_it: COPY.time_it,
-  today_action: COPY.today_action,
-  close: COPY.close,
 };
 
 /**
@@ -1410,31 +1998,31 @@ const styles = StyleSheet.create({
   },
   // "The situation" is a label sitting above; the moon and the question below
   // it are one unit, so the gap here is what separates label from speech.
-  head: { gap: 8 },
+  head: { gap: spacing.sm },
   // The moon sits ON the question's first line, not above the whole block, so
   // it stays put when the question wraps to two lines.
   askRow: { flexDirection: 'row', alignItems: 'flex-start' },
   // The Orb's box is 1.8x its sphere, so it carries ~6pt of empty halo on each
   // side. The left margin pulls that back so the sphere lines up with the
   // card's text edge; the right leaves a real gap between moon and words.
-  moonMark: { marginLeft: -6, marginRight: 3 },
+  moonMark: { marginLeft: -6, marginRight: spacing.xs },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 6,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   // Card header: back (or its spacer) and the three-state map on one row, above
   // the scroll so they hold their place as the beat scrolls.
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingTop: 16,
-    paddingHorizontal: 16,
+    gap: spacing.md,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   backSpacer: { width: 32, height: 32 },
   headerProgress: { flex: 1 },
@@ -1446,16 +2034,16 @@ const styles = StyleSheet.create({
   // there is no point where an edge starts or stops mid-curve — which is what
   // was reading as broken when the outline only covered the top.
   card: {
-    marginHorizontal: 12,
-    marginBottom: 8,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
     borderRadius: 28,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: colors.border.base,
     // A real surface under the glass, so the card reads as a panel floating on
     // the aurora instead of blending into it. This is the "break" the page was
     // missing — the sky above, a defined card below.
-    backgroundColor: 'rgba(10, 9, 17, 0.62)',
+    backgroundColor: colors.surfaceOverlay,
     overflow: 'hidden',
     // A CAP, not a height: the card is only as tall as its content, so short
     // beats still leave most of the sky showing. Raised from 78% because the
@@ -1468,8 +2056,12 @@ const styles = StyleSheet.create({
   // One spacing unit (SP) between blocks, so the rhythm is even down the card.
   // Sections breathe; things that belong together (moon + question in `head`)
   // stay tight.
-  cardBody: { padding: 22, paddingTop: 20, paddingBottom: 4, gap: 18 },
-  cta: { paddingHorizontal: 22, paddingTop: 14, paddingBottom: 20 },
+  cardBody: { padding: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.xs, gap: spacing.lg },
+  // The per-beat block rhythm. It moved off `cardBody` onto the crossfade
+  // wrapper (the scroll's single child), so the gap falls between the beat's
+  // own blocks again rather than doing nothing between one lone wrapper.
+  beatBody: { gap: spacing.lg },
+  cta: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xl },
 
   // TYPE SCALE — four roles, no more (Neha 2026-07-28). Every text on a card is
   // one of these; if a new size is tempting, it is a sign two things want to be
@@ -1487,52 +2079,52 @@ const styles = StyleSheet.create({
   // H1.
   ask: {
     flex: 1,
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 21,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
     lineHeight: 28,
     color: colors.textPrimary,
     letterSpacing: -0.2,
   },
 
   input: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
     lineHeight: 25,
-    color: 'rgba(255,255,255,0.92)',
+    color: colors.textOnDark.primary,
     backgroundColor: v3.panel,
-    borderRadius: 16,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    padding: 16,
+    padding: spacing.lg,
     minHeight: 120,
     maxHeight: 200,
   },
   todo: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
+    fontFamily: fonts.light,
+    fontSize: fontScale.tagline,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: v3.activated,
   },
   accessory: {
     alignItems: 'flex-end',
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    backgroundColor: 'rgba(20, 17, 28, 0.94)',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceOverlay,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
   },
   accessoryDone: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: v3.accent,
     letterSpacing: 0.3,
   },
   // Her own words, repeated back. Lighter than a question, and slightly
   // smaller: the app is not making a point here, it is showing it listened.
   saidLine: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
     lineHeight: 25,
     letterSpacing: 0,
     color: colors.textTertiary,
@@ -1542,48 +2134,69 @@ const styles = StyleSheet.create({
   rule: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: v3.panelBorder,
-    marginTop: 14,
+    marginTop: spacing.md,
   },
   settles: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
   },
+  // "Body prep" heading over the self-check list: same size, more weight.
+  settlesStrong: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
+    lineHeight: 22,
+    color: colors.textPrimary,
+  },
   feelingsAsk: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     lineHeight: 23,
     color: colors.textPrimary,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   inputSmall: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15.5,
-    color: 'rgba(255,255,255,0.92)',
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
+    color: colors.textOnDark.primary,
     backgroundColor: v3.panel,
-    borderRadius: 16,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     minHeight: 52,
   },
-  stack: { gap: 10 },
+  stack: { gap: spacing.sm },
   // A question and its one-line description are ONE group: they sit tight (6),
   // while the card's 18 gap falls between groups (the description and the
   // options below). Proximity, so the line reads as belonging to the question
   // above it, not floating between it and the answers.
-  askGroup: { gap: 6 },
+  askGroup: { gap: spacing.sm },
+  // The "change it" affordance under the revise field, and the quiet "skip"
+  // under the draft: a right-aligned action and a centred way out.
+  changeLink: { alignSelf: 'flex-end', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  changeLinkText: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
+    color: 'rgba(196, 178, 255, 0.9)',
+  },
+  skipLink: { alignSelf: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
+  skipLinkText: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
+    color: colors.textSubtitle,
+  },
   // Two-up card grid for the hold activities: 48%-wide cards, space-between
   // gives the column gutter, rowGap the space between rows.
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm },
 
   // The breath ball's stage: the moon grown big, centred, the changing line
   // beneath it. Generous vertical room so the ball has space to swell into.
-  breathStage: { alignItems: 'center', gap: 22, paddingVertical: 28 },
+  breathStage: { alignItems: 'center', gap: spacing.xl, paddingVertical: spacing.xxxl },
   breathLine: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
+    fontFamily: fonts.light,
+    fontSize: fontScale.technique,
     lineHeight: 30,
     color: colors.textPrimary,
     textAlign: 'center',
@@ -1592,10 +2205,10 @@ const styles = StyleSheet.create({
   },
   // The one quiet exit. Low emphasis: the breath is the point, this is just the
   // way out for anyone already steady.
-  breathSkip: { alignSelf: 'center', paddingVertical: 12, marginTop: 4 },
+  breathSkip: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
   breathSkipText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textTagline,
     letterSpacing: 0.2,
   },
@@ -1603,34 +2216,34 @@ const styles = StyleSheet.create({
   // The "still worth twenty minutes" offer above the acts. Set apart with a
   // faint fill so it reads as an aside, not a fourth option in the list.
   holdNudge: {
-    gap: 10,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.button,
+    backgroundColor: colors.fill.faint,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
   },
   holdNudgeText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
   },
 
   // The safety guard, above the timer ball. Clear and centred — the one
   // instruction that matters here — with the benefit a lighter line under it.
-  holdGuardBlock: { alignItems: 'center', gap: 4, paddingHorizontal: 8 },
+  holdGuardBlock: { alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.sm },
   holdGuard: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 20,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
     lineHeight: 27,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   holdGuardBenefit: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 19,
     color: v3.textFaint,
     textAlign: 'center',
@@ -1638,55 +2251,216 @@ const styles = StyleSheet.create({
   // Her chosen thing, as its own card under the timer: a title and a line, with
   // room for an image once those assets exist.
   holdCard: {
-    marginTop: 4,
-    padding: 16,
-    borderRadius: 18,
+    marginTop: spacing.xs,
+    padding: spacing.lg,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     backgroundColor: v3.panel,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    gap: 4,
+    gap: spacing.xs,
   },
   holdCardTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
   },
   holdCardDesc: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13.5,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 20,
     color: colors.textSubtitle,
   },
 
+  // The welcome: an encouraging lead, then the three states as a connected
+  // stepper in their own flow colours, then the "with Moon AI" signature.
+  // Generous spacing — it is the calm front door.
+  introWrap: { gap: spacing.lg, paddingVertical: spacing.xs },
+  introLead: { gap: spacing.xs, alignItems: 'center', paddingHorizontal: spacing.sm },
+  introHead: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
+    lineHeight: 28,
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+    textAlign: 'center',
+  },
+  introSub: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+  },
+  // The stepper: rows of node + card, with a faint spine behind the nodes.
+  introSteps: { position: 'relative', gap: spacing.md },
+  // The vertical line the nodes sit on, from the first node's centre to the
+  // last. Behind the dots, which are opaque, so it reads as segments between
+  // them. Approximate endpoints (rows are even height); tune if content grows.
+  introSpine: {
+    position: 'absolute',
+    left: 12,
+    top: 34,
+    bottom: 34,
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: colors.fill.strong,
+  },
+  introRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  introRail: { width: 26, alignItems: 'center' },
+  introDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  introStep: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.button,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: spacing.xs,
+  },
+  introStepTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.cardTitle,
+    lineHeight: 23,
+    letterSpacing: 0.2,
+  },
+  introStepSub: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 20,
+    color: colors.textSubtitle,
+  },
+  introBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  introBrandText: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    letterSpacing: 0.3,
+    color: colors.textTagline,
+  },
+
+  // The close celebration: the gift, then the scratch card, centred with room
+  // to breathe. This is the one page in the flow that is allowed to feel like a
+  // reward, so it is generous where the rest is spare.
+  celebrate: { alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
+  congrats: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.technique,
+    lineHeight: 29,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  giftSub: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
+    lineHeight: 22,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+  },
+  gift: { paddingVertical: spacing.md },
+  giftGlyph: { fontSize: 96, textAlign: 'center' },
+  // The prize under the foil: her moon and the earned name. Centred to fill the
+  // scratch card behind it, so wherever she rubs, something shows.
+  prize: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    backgroundColor: 'rgba(18, 15, 28, 0.55)',
+  },
+  badgeName: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
+    lineHeight: 26,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  reveal: { alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
+  badgeWhy: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 21,
+    color: colors.textSubtitle,
+    textAlign: 'center',
+  },
+  saved: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    letterSpacing: 0.3,
+    color: v3.accent,
+  },
+
+  // The "Added to today" toast: a pill at the bottom, over the flow. The wrap
+  // spans the width and centres the pill; the pill sizes to its content.
+  snackbarWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 46,
+    alignItems: 'center',
+  },
+  snackbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.card,
+    backgroundColor: colors.surfaceOverlay,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+  },
+  snackText: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+
   crisisBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 21,
     color: colors.textSubtitle,
   },
   crisisLine: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   crisisLineLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textPrimary,
   },
   crisisLineDetail: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     color: colors.textTertiary,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   crisisEmergency: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     lineHeight: 18,
     color: colors.textTertiary,
   },

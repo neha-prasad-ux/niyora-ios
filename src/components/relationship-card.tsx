@@ -8,6 +8,9 @@ import { router, type Href } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 import { RELATIONSHIP_GROUPS } from '@/models/relationship';
 
 export function RelationshipCard() {
@@ -42,32 +45,32 @@ export function RelationshipCard() {
 
 const styles = StyleSheet.create({
   card: {
-    padding: 18,
-    borderRadius: 18,
+    padding: spacing.lg,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
-  groupGap: { marginTop: 20 },
+  groupGap: { marginTop: spacing.xl },
   intro: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
   pill: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 20,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.border.strong,
+    backgroundColor: colors.fill.base,
   },
   pillText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },

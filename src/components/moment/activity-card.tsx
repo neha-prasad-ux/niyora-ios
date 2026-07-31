@@ -18,6 +18,9 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -93,20 +96,20 @@ const styles = StyleSheet.create({
   cell: { width: '48%' },
   card: {
     minHeight: 96,
-    borderRadius: 18,
+    borderRadius: radius.button,
     borderCurve: 'continuous',
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: spacing.sm,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
   },
   label: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
     lineHeight: 19,
     color: colors.textPrimary,
     textAlign: 'center',

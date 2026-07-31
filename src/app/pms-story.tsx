@@ -18,9 +18,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useLocalSearchParams } from 'expo-router';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -39,6 +38,10 @@ import { CloseButton } from '@/components/CloseButton';
 import { Orb } from '@/components/orb';
 import { StoryScene } from '@/components/story-scene';
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
+import { elevation } from '@/theme/elevation';
 import {
   chapterById,
   type Chapter,
@@ -530,11 +533,6 @@ function Payoff({
     run().catch(() => {});
   }, [chapter.id, chosenKit, cycleKeyRef]);
 
-  const openSteady = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.replace('/steady-yourself' as Href);
-  };
-
   return (
     <View style={styles.center}>
       <View style={styles.payoffMoon} pointerEvents="none">
@@ -542,15 +540,6 @@ function Payoff({
       </View>
       <Animated.View entering={FadeIn.duration(700)} style={styles.payoffBlock}>
         <Text style={styles.payoffTitle}>You've prepped for PMS.</Text>
-        <Pressable
-          onPress={openSteady}
-          accessibilityRole="button"
-          accessibilityLabel="Come back here whenever you need a hand"
-          style={styles.payoffChip}
-        >
-          <SymbolView name="wind" tintColor={colors.bandBlueText} size={15} weight="regular" />
-          <Text style={styles.payoffChipText}>Come back here whenever you need a hand</Text>
-        </Pressable>
       </Animated.View>
       <View style={styles.footer}>
         <BeginButton label="Done" onPress={onClose} fullWidth />
@@ -561,24 +550,24 @@ function Payoff({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
 
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: spacing.md,
     minHeight: 32,
-    paddingTop: 4,
+    paddingTop: spacing.xs,
   },
   backChevron: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 30,
+    fontFamily: fonts.light,
+    fontSize: fontScale.pageTitle,
     lineHeight: 32,
     color: colors.textSubtitle,
   },
   progressSpacer: { flex: 1 },
 
-  progressBar: { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center' },
+  progressBar: { flex: 1, flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
   progressSeg: {
     flex: 1,
     height: 3,
@@ -588,27 +577,27 @@ const styles = StyleSheet.create({
   progressSegOn: { backgroundColor: 'rgba(255, 255, 255, 0.85)' },
 
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  block: { alignItems: 'center', gap: 10, paddingHorizontal: 8 },
+  block: { alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
 
   eyebrow: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     color: colors.textTagline,
-    marginBottom: 6,
+    marginBottom: spacing.sm,
   },
   openingTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 27,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     lineHeight: 34,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
   },
   openingSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
     textAlign: 'center',
@@ -624,28 +613,25 @@ const styles = StyleSheet.create({
   beatWrap: { flex: 1 },
   beatTextWrap: { flex: 1 },
   beatScroll: { flex: 1 },
-  beatScrollContent: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 8 },
+  beatScrollContent: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: spacing.sm },
   beatText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 18,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
     lineHeight: 28,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  beatFooter: { paddingTop: 18, paddingBottom: 10 },
+  beatFooter: { paddingTop: spacing.lg, paddingBottom: spacing.sm },
   nextShadow: {
     alignSelf: 'stretch',
-    shadowColor: colors.beginGlow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
+    ...elevation.glow,
   },
   nextBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 17,
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
     borderRadius: 30,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -653,8 +639,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   nextLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.4,
   },
@@ -662,31 +648,31 @@ const styles = StyleSheet.create({
 
   // Reflect.
   reflectWrap: { flex: 1 },
-  reflectScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24 },
+  reflectScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.xxl },
   reflectCount: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: colors.textTagline,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   reflectPrompt: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 20,
+    fontFamily: fonts.light,
+    fontSize: fontScale.title,
     lineHeight: 30,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginBottom: 22,
+    marginBottom: spacing.xl,
   },
-  reflectOptions: { gap: 12 },
+  reflectOptions: { gap: spacing.md },
   optionChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    borderRadius: 18,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   optionCorrect: {
     borderColor: 'rgba(150, 200, 170, 0.8)',
@@ -697,55 +683,55 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(237, 147, 177, 0.10)',
   },
   optionText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 15.5,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  optionTextStrong: { fontFamily: 'Poppins-Medium' },
+  optionTextStrong: { fontFamily: fonts.medium },
   optionTextDim: { color: colors.textTagline },
   reflectTakeaway: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 23,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
-    marginTop: 20,
+    marginTop: spacing.xl,
   },
   // The per-option line revealed under a tapped tap-each option.
   optionDetail: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13.5,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
-    marginTop: 8,
-    marginBottom: 4,
-    paddingHorizontal: 6,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
 
   // Kit.
   kitWrap: { flex: 1 },
-  kitScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 24, gap: 12 },
+  kitScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.xxl, gap: spacing.md },
   kitTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 21,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
     lineHeight: 28,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   kitItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderRadius: 18,
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   kitItemOn: {
     borderColor: 'rgba(150, 200, 170, 0.7)',
@@ -756,7 +742,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 7,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: colors.border.strong,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -765,64 +751,43 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(150, 200, 170, 0.9)',
     backgroundColor: 'rgba(120, 190, 150, 0.9)',
   },
-  kitCheckMark: { fontFamily: 'Poppins-SemiBold', fontSize: 14, color: '#0b120e' },
+  kitCheckMark: { fontFamily: fonts.semibold, fontSize: fontScale.body, color: '#0b120e' },
   kitItemText: {
     flex: 1,
-    fontFamily: 'Poppins-Regular',
-    fontSize: 15,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   kitItemTextOn: { color: colors.textPrimary },
   kitRedirect: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 21,
-    color: 'rgba(244, 192, 209, 0.95)',
+    color: colors.bandRoseText,
     letterSpacing: 0.2,
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
 
   // Payoff.
   payoffMoon: { alignItems: 'center', marginBottom: -8 },
-  payoffBlock: { alignItems: 'center', gap: 16, paddingHorizontal: 12 },
+  payoffBlock: { alignItems: 'center', gap: spacing.lg, paddingHorizontal: spacing.md },
   payoffTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     lineHeight: 32,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
   },
-  payoffChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(169, 184, 232, 0.4)',
-    backgroundColor: 'rgba(169, 184, 232, 0.10)',
-    maxWidth: 320,
-  },
-  payoffChipText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: colors.bandBlueText,
-    letterSpacing: 0.2,
-    flexShrink: 1,
-  },
-
   footer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 12,
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm,
   },
 });

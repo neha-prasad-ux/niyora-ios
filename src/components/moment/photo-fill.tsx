@@ -23,6 +23,9 @@ import * as Haptics from 'expo-haptics';
 
 import { BeginButton } from '@/components/begin-button';
 import { DRESS } from '@/components/moment/art/dress';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
 const PAPER = '#FFFFFF';
 const OUTLINE = '#2B2632';
@@ -118,20 +121,20 @@ export function PhotoFill() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 22 },
+  wrap: { alignItems: 'center', gap: spacing.xl },
   title: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     lineHeight: 23,
     color: '#6B6570',
     textAlign: 'center',
     maxWidth: 300,
   },
-  actions: { alignItems: 'center', gap: 12, alignSelf: 'stretch', paddingHorizontal: 22 },
+  actions: { alignItems: 'center', gap: spacing.md, alignSelf: 'stretch', paddingHorizontal: spacing.xl },
   choose: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: '#8A8590',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
 });

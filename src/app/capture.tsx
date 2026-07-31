@@ -11,8 +11,10 @@ import * as Haptics from 'expo-haptics';
 
 import { PhotoFill } from '@/components/moment/photo-fill';
 import { HoldClockBar } from '@/components/moment/hold-clock-bar';
+import { colors } from '@/theme/colors';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
+const INK = colors.paper.ink;
 
 export default function CaptureScreen() {
   const leave = () => {
@@ -40,16 +42,16 @@ export default function CaptureScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: colors.paper.bg },
   safe: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xl, paddingTop: spacing.xs },
   close: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.paper.control,
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

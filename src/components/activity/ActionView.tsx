@@ -18,6 +18,9 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import type { Activity } from '@/models/activities';
 import { Pill } from '@/components/Pill';
 
@@ -80,46 +83,46 @@ export function ActionView({ activity, onComplete }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingVertical: 8 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.sm },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 18,
+    marginBottom: spacing.lg,
   },
   tips: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 27,
-    color: 'rgba(255,255,255,0.74)',
+    color: colors.textOnDark.secondary,
     textAlign: 'left',
-    marginBottom: 24,
+    marginBottom: spacing.xxl,
   },
   label: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.45)',
-    marginBottom: 10,
+    color: colors.textOnDark.faint,
+    marginBottom: spacing.sm,
   },
   input: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     lineHeight: 25,
-    color: 'rgba(255,255,255,0.92)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
+    color: colors.textOnDark.primary,
+    backgroundColor: colors.fill.faint,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.10)',
-    padding: 16,
+    borderColor: colors.border.faint,
+    padding: spacing.lg,
     minHeight: 130,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 16,
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
   },
 });

@@ -89,7 +89,9 @@ import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
-import { radius, spacing } from '@/theme/spacing';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing, pageGutter } from '@/theme/spacing';
 import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
@@ -623,7 +625,7 @@ function MoodTrendCard({ records }: { records: MoodRecord[] }) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Calm after practice</Text>
-      <Text style={[styles.cardCopy, { marginTop: 6, marginBottom: 14 }]}>
+      <Text style={[styles.cardCopy, { marginTop: spacing.sm, marginBottom: spacing.md }]}>
         Bluer is the calmer you.
       </Text>
       <LinearGradient
@@ -1144,9 +1146,9 @@ function ReminderCard({
   return (
     <View style={styles.card}>
       <View style={styles.toggleRow}>
-        <View style={{ flex: 1, paddingRight: 16 }}>
+        <View style={{ flex: 1, paddingRight: spacing.lg }}>
           <Text style={styles.cardTitle}>Daily reminder</Text>
-          <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+          <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
             One gentle nudge a day to take a breath.
           </Text>
         </View>
@@ -1191,9 +1193,9 @@ function ToggleCard({
   return (
     <View style={styles.card}>
       <View style={styles.toggleRow}>
-        <View style={{ flex: 1, paddingRight: 16 }}>
+        <View style={{ flex: 1, paddingRight: spacing.lg }}>
           <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={[styles.cardCopy, { marginTop: 6 }]}>{description}</Text>
+          <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>{description}</Text>
         </View>
         <Switch
           value={value}
@@ -1233,9 +1235,9 @@ function pmsStatusLine(prefs: PmsPrefs): string | null {
   }
   const days = daysUntilPmsWindow(prefs.lastPeriodStart, prefs.cycleLength, now);
   if (days == null) return null;
-  if (days <= 0) return 'Your rough week is about to start.';
-  if (days === 1) return 'Your rough week starts tomorrow.';
-  return `Your rough week is about ${days} days away.`;
+  if (days <= 0) return 'Your PMS window is about to start.';
+  if (days === 1) return 'Your PMS window starts tomorrow.';
+  return `Your PMS window is about ${days} days away.`;
 }
 
 // "Measured 10 Jun" from a stored YYYY-MM-DD.
@@ -1265,7 +1267,7 @@ function PmsReadCard({
     return (
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Your PMS level</Text>
-        <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+        <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
           Not measured yet. A few quick questions unlock your plan.
         </Text>
         <Pressable
@@ -1319,9 +1321,9 @@ function PmsCard({
   return (
     <View style={styles.card}>
       <View style={styles.toggleRow}>
-        <View style={{ flex: 1, paddingRight: 16 }}>
+        <View style={{ flex: 1, paddingRight: spacing.lg }}>
           <Text style={styles.cardTitle}>Smart PMS mode</Text>
-          <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+          <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
             Niyora tracks your cycle so it helps you with PMS
           </Text>
         </View>
@@ -1372,7 +1374,7 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
   return (
     <View style={styles.card}>
       <View style={styles.macPromoHeader}>
-        <Text style={[styles.cardTitle, { flex: 1, paddingRight: 8 }]}>
+        <Text style={[styles.cardTitle, { flex: 1, paddingRight: spacing.sm }]}>
           Niyora is calmer with your Mac
         </Text>
         <Pressable
@@ -1392,7 +1394,7 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
           />
         </Pressable>
       </View>
-      <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+      <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
         Pair with your Mac to share session data and reflect across devices.
       </Text>
       <Pressable
@@ -1420,7 +1422,7 @@ function MessageCard() {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Message the founder</Text>
-      <Text style={[styles.cardCopy, { marginTop: 6 }]}>
+      <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
         Hi, Tell Me what's working, what isn't, what you'd love next. I genuinely appreciate it
       </Text>
       <Pressable
@@ -1445,56 +1447,56 @@ const styles = StyleSheet.create({
   },
   // Header language shared with Grow: a big Poppins title over a one-line sub.
   pageHeader: {
-    paddingHorizontal: 2,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
   },
   pageTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 28,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     lineHeight: 34,
     color: colors.textPrimary,
     letterSpacing: 0.15,
   },
   pageSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.1,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   // In-page segmented control: My Soul (progress) vs Settings (config).
   segmented: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.fill.faint,
     borderRadius: radius.control,
-    padding: 4,
-    marginTop: 8,
+    padding: spacing.xs,
+    marginTop: spacing.sm,
     marginBottom: spacing.xl,
-    marginHorizontal: 2,
+    marginHorizontal: spacing.xs,
   },
   segment: {
     flex: 1,
-    paddingVertical: 9,
-    borderRadius: 10,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.control,
     alignItems: 'center',
   },
   segmentOn: {
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: colors.fill.base,
   },
   segmentLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.tertiary,
     letterSpacing: 0.2,
   },
   segmentLabelOn: {
     color: colors.textPrimary,
   },
   scrollBody: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: pageGutter,
+    paddingTop: spacing.xs,
     // The tab bar floats over the content now; padding lets the last card
     // scroll fully out from under the glass with a breath of air above it.
     paddingBottom: 120,
@@ -1503,87 +1505,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: 10,
-    marginHorizontal: 4,
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   eyebrowTitle: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.semibold,
     letterSpacing: 0.4,
     color: colors.textPrimary,
   },
   eyebrowHint: {
-    fontSize: 11,
-    fontWeight: '300',
-    color: 'rgba(255,255,255,0.34)',
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.light,
+    color: colors.textOnDark.faint,
   },
   // Scoreboard — no card box; the level line sits under the page header.
   scoreboard: {
     marginBottom: spacing.lg,
-    paddingHorizontal: 2,
+    paddingHorizontal: spacing.xs,
   },
   scoreLevel: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: fontScale.title,
+    fontFamily: fonts.semibold,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   scoreSub: {
-    fontSize: 11.5,
-    color: 'rgba(255,255,255,0.34)',
-    marginTop: 2,
+    fontSize: fontScale.tagline,
+    color: colors.textOnDark.faint,
+    marginTop: spacing.xs,
     letterSpacing: 0.2,
   },
   statsRow: {
     flexDirection: 'row',
     borderRadius: radius.control,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.fill.faint,
     gap: 1,
-    marginTop: 16,
+    marginTop: spacing.lg,
   },
   statCell: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: spacing.md,
     backgroundColor: 'rgba(255,255,255,0.02)',
   },
   statNum: {
-    fontSize: 21,
-    fontWeight: '600',
+    fontSize: fontScale.title,
+    fontFamily: fonts.semibold,
     color: colors.textPrimary,
     fontVariant: ['tabular-nums'],
     letterSpacing: 0.2,
   },
   statSuffix: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.34)',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.faint,
   },
   statLabel: {
-    fontSize: 9.5,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.34)',
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.faint,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   // Effort × impact chart
   chips: {
     flexDirection: 'row',
-    gap: 7,
-    marginBottom: 6,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   chip: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    borderRadius: 11,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.control,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.border.faint,
   },
   chipOn: {
     backgroundColor: 'rgba(255,255,255,0.065)',
@@ -1594,33 +1596,33 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   chipLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.56)',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.tertiary,
   },
   chartCaption: {
-    fontSize: 12.5,
+    fontSize: fontScale.caption,
     color: colors.textPrimary,
     lineHeight: 18,
-    marginTop: 12,
-    marginHorizontal: 4,
+    marginTop: spacing.md,
+    marginHorizontal: spacing.xs,
   },
   legend: {
     flexDirection: 'row',
-    gap: 14,
-    marginTop: 10,
-    marginHorizontal: 4,
+    gap: spacing.md,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: spacing.xs,
   },
   legendBar: {
     width: 16,
     height: 8,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.fill.strong,
   },
   legendLine: {
     width: 16,
@@ -1628,15 +1630,15 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   legendText: {
-    fontSize: 10.5,
-    color: 'rgba(255,255,255,0.34)',
+    fontSize: fontScale.tagline,
+    color: colors.textOnDark.faint,
   },
   // Cycle shelf
   shelfRow: {
     flexDirection: 'row',
-    gap: 14,
-    paddingVertical: 2,
-    paddingRight: 4,
+    gap: spacing.md,
+    paddingVertical: spacing.xs,
+    paddingRight: spacing.xs,
   },
   disc: {
     alignItems: 'center',
@@ -1656,26 +1658,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   keptCheck: {
-    fontSize: 9,
-    fontWeight: '700',
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.bold,
     color: '#3a2c08',
   },
   discMonth: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
     color: colors.textPrimary,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   discPct: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.34)',
+    fontSize: fontScale.tagline,
+    color: colors.textOnDark.faint,
     fontVariant: ['tabular-nums'],
   },
   shelfFoot: {
-    fontSize: 11.5,
-    color: 'rgba(255,255,255,0.56)',
-    marginTop: 8,
-    marginHorizontal: 4,
+    fontSize: fontScale.tagline,
+    color: colors.textOnDark.tertiary,
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   // Actionable, blurred empty state
   ghostWrap: {
@@ -1704,46 +1706,46 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 22,
+    paddingHorizontal: spacing.xl,
   },
   ghostLine: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.regular,
     color: colors.textPrimary,
     textAlign: 'center',
     lineHeight: 19,
-    marginBottom: 14,
+    marginBottom: spacing.md,
   },
   ghostBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 9,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     ...secondaryButtonSurface,
   },
   ghostBtnLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
   card: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: colors.fill.faint,
     borderRadius: radius.card,
     padding: spacing.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.07)',
+    borderColor: colors.border.faint,
     marginBottom: spacing.lg,
     overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: fontScale.bodyLg,
+    fontFamily: fonts.medium,
     color: colors.textPrimary,
   },
   cardCopy: {
-    fontSize: 12,
-    fontWeight: '300',
-    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.light,
+    color: colors.textOnDark.tertiary,
     lineHeight: 18,
   },
   // Check-in card
@@ -1751,22 +1753,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   checkInCount: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
     color: colors.textPrimary,
   },
   checkInCountLabel: {
-    fontSize: 11,
-    fontWeight: '300',
-    color: 'rgba(255,255,255,0.45)',
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.light,
+    color: colors.textOnDark.faint,
   },
   sparkline: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 18,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
     alignItems: 'center',
   },
   sparkDot: {
@@ -1776,36 +1778,36 @@ const styles = StyleSheet.create({
   },
   checkInButton: {
     alignSelf: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 9,
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     ...secondaryButtonSurface,
   },
   checkInButtonLabel: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.regular,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
   macSoulRow: {
-    fontSize: 12,
-    fontWeight: '300',
-    color: 'rgba(255, 255, 255, 0.45)',
-    marginBottom: 14,
+    fontSize: fontScale.caption,
+    fontFamily: fonts.light,
+    color: colors.textOnDark.faint,
+    marginBottom: spacing.md,
   },
   moodRibbon: {
     height: 16,
-    borderRadius: 8,
+    borderRadius: radius.control,
   },
   moodRibbonEnds: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
   moodEndLabel: {
-    fontSize: 10,
-    fontWeight: '300',
-    color: 'rgba(255,255,255,0.35)',
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.light,
+    color: colors.textOnDark.faint,
     letterSpacing: 0.3,
   },
   macPromoHeader: {
@@ -1824,18 +1826,18 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.07)',
+    borderTopColor: colors.border.faint,
   },
   readLevel: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     letterSpacing: 0.3,
-    marginTop: 8,
-    marginBottom: 2,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
   },
   pmsStatus: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 19,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
@@ -1848,66 +1850,66 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     paddingTop: spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.07)',
+    borderTopColor: colors.border.faint,
   },
   pmsDateValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.sm,
   },
   pmsDateText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   primarySmallButton: {
     alignSelf: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 9,
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
     backgroundColor: colors.primarySolid,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   // The demoted, secondary version of the small card button: same size, ghost
   // surface. Every in-card action uses this so the single solid primary (Know
   // your PMS level) stays the one emphasis on the tab.
   secondarySmallButton: {
     alignSelf: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 9,
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical: spacing.sm,
     borderRadius: radius.pill,
-    marginTop: 12,
+    marginTop: spacing.md,
     ...secondaryButtonSurface,
   },
   primarySmallButtonLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
   replayIntro: {
     alignSelf: 'center',
-    marginTop: 6,
-    paddingVertical: 8,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   replayIntroText: {
-    fontSize: 13,
-    fontWeight: '300',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.light,
     color: colors.textTertiary,
     letterSpacing: 0.2,
   },
   footer: {
-    marginTop: 18,
-    fontSize: 11,
-    fontWeight: '300',
-    color: 'rgba(255,255,255,0.4)',
+    marginTop: spacing.lg,
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.light,
+    color: colors.textOnDark.faint,
     lineHeight: 17,
     textAlign: 'center',
   },
   version: {
-    marginTop: 8,
-    fontSize: 11,
+    marginTop: spacing.sm,
+    fontSize: fontScale.tagline,
     color: 'rgba(255,255,255,0.3)',
     textAlign: 'center',
   },
@@ -1915,81 +1917,81 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 14,
-    paddingVertical: 8,
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
   },
   crisisRowText: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.regular,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
   },
   crisisBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   crisisSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingTop: 26,
+    borderColor: colors.border.base,
+    paddingTop: spacing.xxl,
     paddingBottom: 40,
-    paddingHorizontal: 22,
+    paddingHorizontal: spacing.xl,
   },
   crisisTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 19,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   crisisBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 21,
     color: colors.textSubtitle,
-    marginTop: 8,
-    marginBottom: 18,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   crisisLine: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    marginBottom: 10,
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
+    marginBottom: spacing.sm,
   },
   crisisLineLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textPrimary,
   },
   crisisLineDetail: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     color: colors.textTertiary,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   crisisEmergency: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     lineHeight: 18,
     color: colors.textTertiary,
-    marginTop: 6,
-    marginBottom: 18,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   crisisClose: {
     alignSelf: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 28,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xxxl,
   },
   crisisCloseText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textSubtitle,
   },
 });

@@ -143,3 +143,68 @@ export async function pick<T extends { toString(): string }>(
   }
   return { items: chosen.slice(0, count), via: 'model' };
 }
+
+/**
+ * compose is the one verb that writes new sentences: the reframe readings and
+ * the act draft. It is allowed ONLY where the output is a draft she reads,
+ * judges and edits, never a claim presented as fact. `reframe_small` offers
+ * readings she rules true or false; `act_help`/`revise` draft a message she
+ * sends by her own tap. There is no grounding floor here on purpose, because
+ * these beats are supposed to introduce words she did not write.
+ *
+ * The caller owns the user turn (her words plus feeling/act/note context). This
+ * only forwards it and hands back trimmed text, or null so the beat renders its
+ * authored line.
+ */
+export async function compose(
+  provider: MomentProvider,
+  slot: string,
+  userText: string,
+): Promise<string | null> {
+  const raw = userText.trim();
+  if (!raw) return null;
+  const out = await provider.generate(slot, raw, TIMEOUT_MS).catch(() => null);
+  return out ? out.trim() : null;
+}
+
+/**
+ * The reframe beat, as a list. The model returns one reading per line; this
+ * strips any bullet/number and caps at three, so the angle cards are never
+ * flooded. Returns null (authored `smallReframes`) if nothing usable comes back.
+ */
+export async function composeReadings(
+  provider: MomentProvider,
+  userText: string,
+): Promise<string[] | null> {
+  const out = await compose(provider, 'reframe_small', userText);
+  if (!out) return null;
+  const lines = out
+    .split('\n')
+    .map((s) => s.replace(/^\s*[-*\d.)]+\s*/, '').trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  return lines.length ? lines : null;
+}
+
+/** Draft a way to carry out the chosen act. Null → the authored "when" copy. */
+export async function draftAct(
+  provider: MomentProvider,
+  herText: string,
+  feeling: string,
+  actLabel: string,
+): Promise<string | null> {
+  const user = [`she wrote: "${herText.trim()}"`, feeling && `she feels: ${feeling}`, `her move: ${actLabel}`]
+    .filter(Boolean)
+    .join('\n');
+  return compose(provider, 'act_help', user);
+}
+
+/** Iterate any AI draft on her note ("softer", "shorter"). Null → keep current. */
+export async function revise(
+  provider: MomentProvider,
+  currentText: string,
+  herNote: string,
+): Promise<string | null> {
+  const user = `current: "${currentText.trim()}"\nher note: "${herNote.trim()}"`;
+  return compose(provider, 'revise', user);
+}

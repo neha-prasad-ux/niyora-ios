@@ -168,16 +168,23 @@ export type Act = {
   universalLine?: boolean;
   /** A stop and a referral. Never a chip in any topic. */
   gated?: boolean;
+  /**
+   * How "do it now" is carried out on the when-page. 'message' opens the iOS
+   * Messages compose (blank — she writes and sends; the app never drafts or
+   * sends). Absent means the act is hers to do off-app, so "now" just moves the
+   * flow on without opening anything.
+   */
+  channel?: 'message';
 };
 
 export const ACTS: readonly Act[] = [
-  { id: 'A', rung: 'direct', label: 'Say it to them', evidence: 'assertiveness', confrontational: true, universalLine: true },
-  { id: 'B', rung: 'direct', label: 'Ask for the thing', evidence: null, confrontational: true },
+  { id: 'A', rung: 'direct', label: 'Say it to them', evidence: 'assertiveness', confrontational: true, universalLine: true, channel: 'message' },
+  { id: 'B', rung: 'direct', label: 'Ask for the thing', evidence: null, confrontational: true, channel: 'message' },
   { id: 'C', rung: 'direct', label: 'Hold a line', evidence: 'refusal', confrontational: true },
   { id: 'D', rung: 'direct', label: 'Own my part', evidence: 'recipient_only' },
   { id: 'E', rung: 'prep', label: 'Find out', evidence: null },
   { id: 'F', rung: 'prep', label: 'Get it ready', evidence: null },
-  { id: 'G', rung: 'prep', label: 'Tell one person', evidence: 'listener_dependent' },
+  { id: 'G', rung: 'prep', label: 'Tell one person', evidence: 'listener_dependent', channel: 'message' },
   { id: 'H', rung: 'prep', label: 'Get someone whose job it is', evidence: null },
   { id: 'I', rung: 'prep', label: 'Work out what I want', evidence: null },
   { id: 'J', rung: 'self', label: 'Take something off my plate', evidence: null },
@@ -238,6 +245,23 @@ export const UNIVERSAL_DV_LINE =
 
 /** What the flow says, per beat. */
 export const COPY = {
+  // --- intro / welcome ---------------------------------------------------
+  // The three states previewed as cards before the first question (Neha
+  // 2026-07-29), each in its own flow colour. Titles come from the phase labels
+  // (Reflect / Regulate / Respond); these are the sub-lines.
+  // An encouraging lead over the three step cards, so the first screen invites
+  // rather than just lists. [DRAFT] awaiting Neha's voice.
+  intro_head: "Let's work through this together", // [DRAFT] 2026-07-30
+  intro_lead: "Three steps, and I'm with you for each one.", // [DRAFT] 2026-07-30
+  intro_reflect: 'Explore your emotions', // [NEHA] 2026-07-29
+  intro_regulate: 'Feel safe & stable', // [NEHA] 2026-07-29
+  intro_respond: 'Respond thoughtfully to situations', // [NEHA] 2026-07-29
+  intro_brand: 'with Moon AI', // [NEHA] 2026-07-29
+  intro_cta: 'Think with me', // [NEHA] 2026-07-29
+  // Snackbar shown when she taps "Later" on her chosen move: it is parked on
+  // Today and the flow continues to the rating, rather than dumping her out.
+  added_today: 'Added to today', // [NEHA] 2026-07-30
+
   // --- entry -------------------------------------------------------------
   raw_entry: 'Tell me what happened', // [MAP]
   // Neha 2026-07-27, shortened from "Tell the issue in your words, let us work
@@ -341,6 +365,16 @@ export const COPY = {
   // Reframed as a challenge 2026-07-28 (Neha): a game to beat, not a warning to
   // heed. The stakes are hers, the win is holding off.
   make_safe_intro: 'Beat the urge to react challenge', // [NEHA] 2026-07-29
+  // Body prep, before the challenge (Neha 2026-07-30). A self-check she ticks,
+  // not a food or blood-sugar prompt: the "why" lines are gentle self-care, they
+  // name no physiology mechanism and never say "eat now". See the note atop the
+  // make_safe block on why an unscreened food prompt was pulled; keep it a
+  // self-check. Items live in MAKE_SAFE_BODY below.
+  make_safe_care_intro: 'Body prep', // [NEHA] 2026-07-30
+  make_safe_care_ask: 'Check everything that is true.', // [NEHA] 2026-07-30
+  // Shown only while the three are not all ticked: the honest way out when her
+  // body is not ready, so the gate never traps her into ticking something false.
+  make_safe_care_defer: 'I will come back to this later', // [NEHA] 2026-07-30
   make_safe_why: "Let's distract ourselves, then respond to the situation.", // [NEHA] 2026-07-29
   make_safe_ask: 'Do you want to react now?', // [NEHA] (unused since the challenge reframe)
   // Both un-shamed, and the skip is now framed as a valid state rather than a
@@ -354,7 +388,9 @@ export const COPY = {
   activities_colour: 'Colour & share', // [NEHA] 2026-07-29
   activities_story: 'A story', // [NEHA] 2026-07-29
   activities_move: 'Move your body', // [NEHA] 2026-07-29
-  activities_breath: 'Breathe', // [NEHA] 2026-07-29
+  // Wind Down (Neha 2026-07-30): the existing guided calm exercise (voice +
+  // captions, the /session wind-down technique), not the plain paced breath.
+  activities_breath: 'Wind down', // [NEHA] 2026-07-30
   activities_ready: 'I am ready to respond', // [NEHA] 2026-07-29
 
   // --- high lane ---------------------------------------------------------
@@ -434,10 +470,29 @@ export const COPY = {
   ready_reward: 'The settling is done. Now, what you might do.', // [DRAFT]
 
   // --- the act -----------------------------------------------------------
-  options: "There's no one right move here. Does any of these sound good?", // [MAP]
-  options_why: 'Three, so you can recognise one instead of having to think one up.', // [DRAFT]
+  // Neha 2026-07-29: leads with the doing ("let's respond") and reassures with
+  // no-right-answer, which is the same sense the old line carried, reworded.
+  options: "Let's respond to the situation. Does any of these look good?", // [NEHA] 2026-07-29
+  options_why: 'There is no right or wrong move here.', // [NEHA] 2026-07-29
   options_more: 'Show me some others', // [MAP]
   options_none: 'None of these feel possible right now', // [MAP]
+
+  // The "when" page (Neha 2026-07-29): her chosen move at the top, then when to
+  // do it. "Now" carries it out (opens Messages for a message act); "later"
+  // steps out to Today; "another" reopens the menu. Order is hers.
+  act_now: 'I will do it now', // [NEHA] 2026-07-29
+  act_later: 'Later', // [NEHA] 2026-07-29
+  act_another: "Let's try another option", // [NEHA] 2026-07-29
+
+  // The draft step (Gemini): when she picks "now", the moon writes a start she
+  // can change, then send or do. All [DRAFT], awaiting Neha's voice.
+  act_draft_hint: 'A start, in your words. Change anything.', // [DRAFT]
+  act_draft_loading: 'Writing you a start', // [DRAFT]
+  act_draft_change_ph: 'Tell the moon what to change', // [DRAFT]
+  act_draft_change: 'Change it', // [DRAFT]
+  act_draft_send: 'Open in Messages', // [DRAFT]
+  act_draft_do: 'I will do this', // [DRAFT]
+  act_draft_skip: 'Skip, I have got it', // [DRAFT]
 
   // Shown ONLY when she rated it high and chose to act now without the hold.
   // An offer above the acts, never a wall in front of them: she can still pick
@@ -460,21 +515,60 @@ export const COPY = {
   unctrl_honor:
     "We're not fixing this tonight, and that's a fair call. You looked at it, which was the hard part. Do one small kind thing now, and let the rest keep.", // [DRAFT]
 
-  // --- timing and close --------------------------------------------------
-  time_it: 'When?', // [DRAFT]
-  time_now: 'Now', // [MAP]
-  time_tomorrow: 'Tomorrow', // [MAP]
-  time_unsure: 'Not sure', // [MAP]
-
-  today_action: 'If ______ happens, then I ______', // [MAP]
+  // --- the if-then -------------------------------------------------------
+  // "Fill in to remember" (Neha 2026-07-29): a coping if-then she keeps for the
+  // next time the same anxiety hits, filled with the move she just chose. The
+  // old "If ___ happens, then I ___" double-blank folded into this: the trigger
+  // is fixed ("if I feel anxious for this reason"), she fills only the response.
+  // The when-page (act_*) replaced the old time_it beat (now / tomorrow / not
+  // sure).
+  today_action_head: 'Fill in to remember', // [NEHA] 2026-07-29
+  today_action_if: 'If I feel anxious for this reason, then I will', // [NEHA] 2026-07-29
+  today_action_hint: 'what you will do', // [DRAFT]
   today_action_why: 'A plan tied to a specific moment is the kind that actually fires. Vague ones do not.', // [DRAFT]
 
+  // --- close -------------------------------------------------------------
   // `we_good` was merged into the closing rating 2026-07-28 (Neha): the number
   // she gives IS the "we good", so a separate yes/no page asked the same thing
   // twice. "Not yet" is how she asks for something she has not tried.
   intensity_out: 'And now?', // [MAP]
   intensity_out_not_yet: 'Not yet, show me something else', // [NEHA] approved 2026-07-28
-  close: 'You handled that. Go be in your evening.', // [MAP]
+
+  // The one celebration in the app (Neha 2026-07-29): a wrapped gift opens into
+  // a scratch card, she scratches it to reveal an earned character, and it is
+  // saved to her Soul. It rewards a hard act completed, never a feeling or a
+  // score. "The Space Mover" names what she did — made space between the feeling
+  // and the reaction. Name is a placeholder ("or something", Neha).
+  close_congrats: 'You handled that.', // [NEHA] 2026-07-29
+  close_gift: 'A little something for you.', // [DRAFT]
+  close_gift_cta: 'Open it', // [DRAFT]
+  close_scratch: 'Scratch to reveal', // [DRAFT]
+  close_badge_name: 'The Space Mover', // [DRAFT] placeholder name
+  close_badge_why: 'You made space between the feeling and the reaction.', // [DRAFT]
+  close_saved: 'Saved to your Soul.', // [DRAFT]
+  close_done: 'Done', // [DRAFT]
 } as const;
 
 export type CopyKey = keyof typeof COPY;
+
+// The Body prep checklist on the make_safe challenge screen (Neha 2026-07-30).
+// Three things she confirms are true before the hold. The "why" (examples) is
+// deliberately gentle self-care, not physiology: no mechanism, no "eat now", no
+// blood-sugar claim — the same guard rails that pulled the earlier food prompt.
+export const MAKE_SAFE_BODY: readonly { id: string; label: string; examples: string }[] = [
+  {
+    id: 'fed',
+    label: 'You are not hungry',
+    examples: 'It is easier to stay steady when your body is looked after.',
+  },
+  {
+    id: 'rested',
+    label: 'You are not tired',
+    examples: 'Rested, you have more room to respond, not just react.',
+  },
+  {
+    id: 'slept',
+    label: 'You had a sound sleep',
+    examples: 'Good sleep makes the day feel more manageable.',
+  },
+];

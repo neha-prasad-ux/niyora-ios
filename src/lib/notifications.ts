@@ -53,7 +53,7 @@ const BREAK_OVER_BODY = 'Your 20 minutes are up. Come back when you\'re ready.';
 const PMS_PREP_DAYS = [3, 2, 1] as const; // days before the window opens
 const PMS_PREP_BODIES: Record<(typeof PMS_PREP_DAYS)[number], string> = {
   3: 'PMS in 3 days. Your checklist\'s ready in Niyora. A few ticks now, an easier week.',
-  2: 'PMS soon. Open Niyora to give your partner a heads-up before the hard days.',
+  2: 'PMS soon. Open Niyora to give your partner a heads-up before your PMS.',
   1: 'PMS starts tomorrow. Open Niyora and get your kit set.',
 };
 

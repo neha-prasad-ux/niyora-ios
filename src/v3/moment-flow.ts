@@ -42,6 +42,7 @@ export type Owner =
 
 export type NodeId =
   // entry
+  | 'intro'
   | 'raw_entry'
   | 'safe_check'
   | 'crisis_handoff'
@@ -59,7 +60,6 @@ export type NodeId =
   | 'make_safe'
   | 'lane_split'
   | 'activities'
-  | 'high_timer_end'
   | 'arousal_check'
   // low and mixed lanes
   | 'low_activate'
@@ -80,9 +80,7 @@ export type NodeId =
   | 'unctrl_honor'
   | 'unctrl_ifthen'
   // timing and close
-  | 'time_it'
   | 'today_action'
-  | 'after_checklist'
   | 'we_good_more'
   | 'intensity_out'
   | 'close';
@@ -123,6 +121,13 @@ export type FlowNode = {
  */
 export const MOMENT_FLOW: FlowNode[] = [
   // --- entry ---------------------------------------------------------------
+  {
+    id: 'intro',
+    owner: 'authored',
+    phase: 'reflect',
+    next: 'raw_entry',
+    note: 'The welcome (Neha 2026-07-29): previews the three states as cards in their own flow colours — Reflect (explore your emotions), Regulate (feel safe & stable), Respond (respond thoughtfully) — signed "with Moon AI", with a "Think with me" button that opens the flow. Orientation before the first question, so a guided flow with no visible end reads as three known chapters rather than an open-ended chat.',
+  },
   {
     id: 'raw_entry',
     owner: 'ui',
@@ -240,7 +245,7 @@ export const MOMENT_FLOW: FlowNode[] = [
       { when: 'wait', next: 'activities' },
       { when: 'now', next: 'lane_split' },
     ],
-    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" drops STRAIGHT into the colouring page (Neha, 2026-07-29): there is no activity grid to pick from any more — colouring IS level one of the hold, and the 20-minute clock runs on that page (the sky is level two, reached from it). The screen pushes /paint and advances the graph to the celebration underneath, so leaving the colouring lands on `high_timer_end`. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
+    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" opens the settling menu (`activities`): ways to fill the wait, none forced, "I am ready to respond" the exit — then the readiness check. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
   },
   // The LANE SPLIT and the low and mixed lanes were removed 2026-07-27 at
   // Neha's call. make_safe now goes straight to the hold or straight to the
@@ -280,10 +285,9 @@ export const MOMENT_FLOW: FlowNode[] = [
     id: 'activities',
     owner: 'authored',
     phase: 'regulate',
-    next: 'high_timer_end',
-    note: 'The settling menu. Four ways to fill the wait, done in any order, none required; "I am ready to respond" is the un-shamed exit that moves the flow on. Not a timer, not a single forced task.',
+    next: 'arousal_check',
+    note: 'The settling menu. Four ways to fill the wait, done in any order, none required; "I am ready to respond" is the un-shamed exit that moves the flow on. Not a timer, not a single forced task. Goes STRAIGHT to the readiness check now (Neha 2026-07-29): the old high_timer_end "twenty minutes done" celebration was cut from here, because the one celebration in the app moved to the very end (the scratch-card reward at close). A mid-flow "yey, hard part done" competed with that and rewarded the wait rather than the whole act.',
   },
-  { id: 'high_timer_end', owner: 'reward', phase: 'regulate', next: 'arousal_check' },
   // The CBT stem + matched reframe (high_cbt_stem / high_cbt_reframe) were CUT
   // 2026-07-28 (Neha). Two reasons that compound: (1) reframing is the weak
   // tool at high arousal -- the evidence favours distance/distraction, which is
@@ -383,8 +387,12 @@ export const MOMENT_FLOW: FlowNode[] = [
     id: 'act',
     owner: 'she',
     phase: 'react',
-    next: 'time_it',
-    note: 'An authored scaffold she fills. The message she sends to a real person is the highest-stakes output in the app, and drafting it for her is the beat form measured at 26%.',
+    branches: [
+      { when: 'now', next: 'today_action' },
+      { when: 'later', next: 'intensity_out' },
+      { when: 'another', next: 'options' },
+    ],
+    note: 'The "when" page (Neha 2026-07-29): her chosen move, and three replies — do it now, later, try another. "Now" DOES the thing: for a message act it opens the iOS Messages compose (blank; the app never drafts or sends, she writes and sends, which is why the beat that drafts for her measured at 26%), then goes to the if-then. "Later" (Neha 2026-07-30) SAVES the move to Today, shows an "Added to today" snackbar, and continues to the closing rating — it no longer bails out to the Today tab, so she keeps the flow and the reward; it skips the if-then because the plan is already parked on Today. "Another" goes back to the menu. The old time_it beat (now / tomorrow / not sure) folded into this: the "when" question is answered by the three buttons here.',
   },
 
   // --- nothing feels possible ---------------------------------------------
@@ -413,29 +421,12 @@ export const MOMENT_FLOW: FlowNode[] = [
 
   // --- timing and close ----------------------------------------------------
   {
-    id: 'time_it',
-    owner: 'branch',
-    phase: 'react',
-    next: 'today_action',
-    note: 'Now, tomorrow, not sure. "Do it now anyway" stays a real un-shamed option.',
-  },
-  {
     id: 'today_action',
     owner: 'she',
     phase: 'react',
     why: true,
-    branches: [
-      { when: 'has_after', next: 'after_checklist' },
-      { when: 'no_after', next: 'intensity_out' },
-    ],
-    note: 'if ___ happens, then i ___. She fills both slots; the trigger is seeded from her own opening sentence, tense-shifted, so the facts are correct by construction and the model never invents a him or a dinner.',
-  },
-  {
-    id: 'after_checklist',
-    owner: 'authored',
-    phase: 'react',
     next: 'intensity_out',
-    note: 'Only for acts that have an after.',
+    note: 'Fill in to remember (Neha 2026-07-29): "If I feel anxious for this reason, then I will ___." A coping if-then she keeps for next time, filled with what she just chose to do. She fills the slot; the trigger is grounded in her own situation, never an invented him or dinner. Then the closing rating, then the reward. The old two-way fork (has_after / no_after -> after_checklist) folded away with the act-scaffold rewrite: the act now happens on the "when" page, not as an in-app draft, so there is no "after" checklist to gate.',
   },
   // The closing check. `we_good` and the outcome rating were MERGED here
   // 2026-07-28 (Neha): they were two taps on two pages for one question. The
@@ -465,7 +456,13 @@ export const MOMENT_FLOW: FlowNode[] = [
   // on a high-usage signal, never on emotion size -- so it belongs with the
   // reward / light / usage system, which is deliberately deferred until every
   // flow exists rather than judged one beat at a time. To be reintroduced then.
-  { id: 'close', owner: 'authored', phase: 'react', terminal: true },
+  {
+    id: 'close',
+    owner: 'reward',
+    phase: 'react',
+    terminal: true,
+    note: 'The one celebration in the app, and it is for a hard act she completed, never for a feeling or a score. A wrapped gift opens into a scratch card; she scratches it to reveal an earned character — "The Space Mover" — for making space between the feeling and the reaction. Saved to her Soul. Reward art stays opaque on the Soul page (a named badge discloses nothing about what she felt). NOTE: the Soul persistence + surfacing is still to wire; badge keying is the open question deferred with the reward system.',
+  },
 ];
 
 const BY_ID = new Map(MOMENT_FLOW.map((n) => [n.id, n]));
@@ -490,4 +487,4 @@ export function advance(id: NodeId, key?: string): NodeId | null {
 /** The beats that call the model, and the corpus slot each is sent as. */
 export const MODEL_NODES = MOMENT_FLOW.filter((n) => n.slot != null);
 
-export const ENTRY: NodeId = 'raw_entry';
+export const ENTRY: NodeId = 'intro';

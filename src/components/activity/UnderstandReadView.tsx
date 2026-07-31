@@ -10,6 +10,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 import type { UnderstandCard } from '@/models/understand';
 import { Pill } from '@/components/Pill';
 
@@ -36,25 +39,25 @@ export function UnderstandReadView({ card, onDone }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignSelf: 'stretch' },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 22,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
     lineHeight: 29,
     color: colors.textPrimary,
     textAlign: 'left',
     letterSpacing: 0.2,
-    marginTop: 6,
-    marginBottom: 14,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
   },
   scroll: { flex: 1 },
   // Top-aligned so the body sits directly under the title instead of floating in
   // the vertical centre with a dead gap between heading and text.
-  scrollContent: { justifyContent: 'flex-start', flexGrow: 1, paddingTop: 2, paddingBottom: 12 },
+  scrollContent: { justifyContent: 'flex-start', flexGrow: 1, paddingTop: spacing.xs, paddingBottom: spacing.md },
   body: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 18,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     lineHeight: 30,
-    color: 'rgba(255,255,255,0.92)',
+    color: colors.textOnDark.primary,
     textAlign: 'left',
   },
-  actions: { alignItems: 'center', paddingVertical: 16 },
+  actions: { alignItems: 'center', paddingVertical: spacing.lg },
 });

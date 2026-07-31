@@ -13,8 +13,12 @@ import * as Haptics from 'expo-haptics';
 
 import { ColorFill, type ColorFillHandle } from '@/components/moment/color-fill';
 import { markActivityDone } from '@/lib/hold-activities';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
+const INK = colors.paper.ink;
 
 export default function PaintScreen() {
   const card = useRef<ColorFillHandle>(null);
@@ -59,15 +63,15 @@ export default function PaintScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: colors.paper.bg },
   safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   close: {
     width: 32,
@@ -75,20 +79,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.paper.control,
   },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.cardTitle,
     color: INK,
   },
-  done: { paddingVertical: 6, paddingHorizontal: 8 },
+  done: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
   doneText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 15,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.bodyLg,
     color: '#7C5CBF',
   },
   // Top-aligned so the drawing starts right under the title, not floating in the
   // middle of the screen.
-  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: spacing.sm },
 });

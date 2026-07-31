@@ -2,10 +2,9 @@
 // yours, its ring closes when today's one coached action is done. Below it:
 // the phase-action card (the cycle strip fused to the single ask picked by
 // lib/today-action, with the Periods door on its right), a one-line progress
-// strip, and Calm now docked above the tab bar so the SOS is guaranteed
-// visible on every device. The only number it ever surfaces is today's prep
-// count, and only inside the window. Everything browsable lives in Grow;
-// everything reflective in You.
+// strip, and "Think with me" docked above the tab bar — the primary action,
+// opening the Moon flow, guaranteed visible on every device. Everything
+// browsable lives in Grow; everything reflective in You.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -31,13 +30,13 @@ import { Orb } from '@/components/orb';
 import { OnboardingCard } from '@/components/onboarding-card';
 import { PeriodSheet } from '@/components/period-sheet';
 import { PhaseActionCard } from '@/components/phase-action-card';
-import { RecommendSheet } from '@/components/RecommendSheet';
 import { RingCelebration } from '@/components/RingCelebration';
 import { ShootingStar } from '@/components/ShootingStar';
-import { type RecResult } from '@/models/recommend';
 import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
 import { colors } from '@/theme/colors';
-import { radius } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { tileSurface } from '@/theme/controls';
 import { bandHeadline, derivePhaseBand } from '@/lib/phase-band';
 import { cycleKeyFor, getPrep, type PrepState } from '@/store/pms-prep';
@@ -73,10 +72,7 @@ import {
 } from '@/store/period-history';
 import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
-import { getReadiness, isReadyDone, todayYmd, type ReadinessState } from '@/store/pms-readiness';
-import { preparednessScore, prepBand } from '@/lib/preparedness';
-import { prepItemsFor, type PrepItemKey } from '@/lib/prep-items';
-import { PrepSheet } from '@/components/prep-sheet';
+import { getReadiness, todayYmd, type ReadinessState } from '@/store/pms-readiness';
 import {
   answeredForCycle,
   getRemissionLog,
@@ -317,9 +313,9 @@ export default function NowScreen() {
   // The cycle strip drives the card's phase framing. Null when PMS mode is off
   // or no period is logged — the card then shows the header alone (no bar).
   const band = snapshot == null ? null : derivePhaseBand(snapshot.prefs, snapshot.now);
-  // PMS days fold the SOS into the hero: the coached action becomes the
-  // Steady-yourself flow (which opens with a breath), so the separate Calm now
-  // dock stands down for the window.
+  // PMS days fold the in-the-moment action into the hero: the coached action
+  // becomes the Steady-yourself flow (which opens with a breath), so the "Think
+  // with me" dock stands down for the window.
   const pmsDays = band != null && band.current === 'pms';
   const periodButton =
     snapshot == null ? null : periodButtonState(snapshot.prefs, snapshot.now);
@@ -388,37 +384,8 @@ export default function NowScreen() {
   // action — nothing left to open.
   const ctaDisabled = band == null && (action == null || action.kind === 'done');
 
-  // Preparedness: a readiness estimate (never 100), shown on the bar only in the
-  // build phase. Tapping the bar opens the PrepSheet with this phase's items.
-  const prepScore =
-    snapshot != null && band != null && band.current === 'build'
-      ? preparednessScore(snapshot.readiness.checks, snapshot.sessionsToday > 0)
-      : null;
-  const calmDoneToday = (snapshot?.sessionsToday ?? 0) > 0;
-  const checklistDone =
-    snapshot != null &&
-    isReadyDone(snapshot.readiness.checks, calmDoneToday, snapshot.readiness.doneForToday);
-  const prepItems =
-    band == null ? [] : prepItemsFor(band.current, { checklistDone, calmDone: calmDoneToday });
-  const prepPhaseLabel =
-    band == null
-      ? ''
-      : band.current === 'build'
-        ? 'Before PMS'
-        : band.current === 'pms'
-          ? 'Your PMS window'
-          : 'During your period';
-
-  // A prep item hands off to its screen; close the sheet first, never nest.
-  const onPrepSelect = (key: PrepItemKey) => {
-    setPrepSheetOpen(false);
-    Haptics.selectionAsync().catch(() => {});
-    if (key === 'build') router.push('/train' as Href);
-    else if (key === 'checklist') router.push('/pms-readiness' as Href);
-    else if (key === 'calm') setRecommendVisible(true);
-    else if (key === 'steady') router.push('/steady-yourself' as Href);
-    else if (key === 'care') router.push('/periods-care' as Href);
-  };
+  // Preparedness moved to Train (components/prep-card.tsx): Today stays one
+  // coached action, so the cycle bar here is the plain elapsed strip.
 
   // Remember what was asked so tomorrow's pick can rotate away from it.
   const lastRecordedId = useRef<string | null>(null);
@@ -485,8 +452,6 @@ export default function NowScreen() {
   // --- Handlers -----------------------------------------------------------
 
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
-  const [recommendVisible, setRecommendVisible] = useState(false);
-  const [prepSheetOpen, setPrepSheetOpen] = useState(false);
 
   // PMS -> the checklist (the Prep button's target), Periods -> the calendar
   // sheet (the one write path, reached from the Add periods button).
@@ -594,14 +559,6 @@ export default function NowScreen() {
       .catch(() => {});
   };
 
-  const onRecommendPick = (result: RecResult) => {
-    setRecommendVisible(false);
-    router.push({
-      pathname: '/result',
-      params: { feelings: result.feelingIds.join(','), needs: result.needIds.join(',') },
-    });
-  };
-
   // The one-line progress strip is reserved for a number worth saying. The PMS
   // readiness count moved to Grow with the checklist, so there is nothing to
   // surface here for now; with no parts the strip stays hidden rather than
@@ -691,33 +648,26 @@ export default function NowScreen() {
             actionForCard != null && (
               <>
                 {/* The one coached action: a textured phase header (why + what +
-                    the phase verb) over the cycle bar. On build days the bar
-                    carries "Your PMS preparedness · N%" and fills to this cycle's
-                    readiness (the dot still marks today). */}
-                <Animated.View entering={FadeInDown.delay(60).duration(500)}>
-                  <PhaseActionCard
-                    band={band}
-                    why={phaseWhy}
-                    title={phaseTitle}
-                    ctaLabel={phaseCtaLabel}
-                    onCta={
-                      band != null && band.current === 'period'
-                        ? openReflect
-                        : band != null && band.current === 'pms'
-                          ? openSteady
-                          : onActionPress
-                    }
-                    done={cardDone}
-                    ctaDisabled={ctaDisabled}
-                    rose={rose}
-                    periodEmphasized={periodButton?.emphasized ?? false}
-                    readiness={prepScore}
-                    onPrepPress={() => {
-                      Haptics.selectionAsync().catch(() => {});
-                      setPrepSheetOpen(true);
-                    }}
-                  />
-                </Animated.View>
+                    the phase verb). Build + PMS days only — the "Period days ·
+                    take it light" card moved to Train (components/prep-card.tsx),
+                    so period days here are just the moon and the utilities below. */}
+                {band?.current !== 'period' && (
+                  <Animated.View entering={FadeInDown.delay(60).duration(500)}>
+                    <PhaseActionCard
+                      band={band}
+                      why={phaseWhy}
+                      title={phaseTitle}
+                      ctaLabel={phaseCtaLabel}
+                      onCta={
+                        band != null && band.current === 'pms' ? openSteady : onActionPress
+                      }
+                      done={cardDone}
+                      ctaDisabled={ctaDisabled}
+                      rose={rose}
+                      periodEmphasized={periodButton?.emphasized ?? false}
+                    />
+                  </Animated.View>
+                )}
 
                 {/* The two cycle utilities: log periods (the honesty loop) and
                     reflect on the cycle just gone. */}
@@ -764,11 +714,11 @@ export default function NowScreen() {
           <View style={{ height: 12 }} />
         </ScrollView>
 
-        {/* The SOS, docked above the tab bar: same spot, same look, every
-            single day — a stressed brain finds it by muscle memory, never by
-            reading. It never scrolls away, even on an SE. During the PMS days
-            it folds into the Steady-yourself hero (which opens with a breath),
-            so the dock stands down to keep exactly one SOS on screen. */}
+        {/* The primary action, docked above the tab bar: same spot, same look,
+            every single day — found by muscle memory, never by reading. It never
+            scrolls away, even on an SE. "Think with me" opens the Moon flow (the
+            same destination as the Moon tab). During the PMS days it folds into
+            the Steady-yourself hero, so the dock stands down to keep one. */}
         {!pmsDays && (
           <Animated.View
             entering={FadeInDown.delay(220).duration(500)}
@@ -776,34 +726,16 @@ export default function NowScreen() {
             pointerEvents="box-none"
           >
             <BeginButton
-              label="Calm now"
+              label="Think with me"
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
-                setRecommendVisible(true);
+                router.push('/moment' as Href);
               }}
             />
-            <Text style={styles.calmHint}>Enjoy 30+ ways to relax</Text>
+            <Text style={styles.calmHint}>Think it through with Moon AI</Text>
           </Animated.View>
         )}
       </SafeAreaView>
-
-      {/* The same acute-calm flow as everywhere: pick a feeling, then the
-          /result deck. */}
-      <RecommendSheet
-        visible={recommendVisible}
-        onClose={() => setRecommendVisible(false)}
-        onPick={onRecommendPick}
-      />
-
-      {/* Tap the preparedness bar: this phase's prep, as a map of what helps. */}
-      <PrepSheet
-        visible={prepSheetOpen}
-        phaseLabel={prepPhaseLabel}
-        band={prepScore == null ? '' : prepBand(prepScore)}
-        items={prepItems}
-        onClose={() => setPrepSheetOpen(false)}
-        onSelect={onPrepSelect}
-      />
 
       {/* The one write path for period dates: the calendar flow built for
           onboarding, reused verbatim. */}
@@ -846,19 +778,19 @@ const styles = StyleSheet.create({
     right: 24,
     top: '42%',
     textAlign: 'center',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
-    color: '#ffffff',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
+    color: colors.textOnDark.primary,
     letterSpacing: 0.3,
   },
   // Bottom padding is set inline: it clears the floating Calm dock and the
   // tab bar glass, both of which depend on the device's bottom inset.
-  scroll: { paddingHorizontal: 20, paddingTop: 24, gap: 14 },
+  scroll: { paddingHorizontal: pageGutter, paddingTop: spacing.xxl, gap: spacing.md },
   // The orb's canvas is 1.8x the sphere (halo room), so a chunk of transparent
   // padding sits below the visible moon; a negative margin pulls the card up
   // into that gap so the moon and the ask read as one composition.
   // marginBottom is applied inline (heroPullUp) since it scales with the moon.
-  hero: { alignItems: 'center', marginTop: 4 },
+  hero: { alignItems: 'center', marginTop: spacing.xs },
   // The cue overlay centers on the orb's oversized canvas so the words sit on
   // the moon regardless of halo padding.
   cueOverlay: {
@@ -873,8 +805,8 @@ const styles = StyleSheet.create({
   // Soft slate grey, not a brand violet: quiet against the pale sphere, in the
   // greyish register of the app's muted text rather than a coloured banner.
   cueHeadline: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     lineHeight: 21,
     color: 'hsla(222, 10%, 28%, 0.82)',
     letterSpacing: 0.4,
@@ -884,8 +816,8 @@ const styles = StyleSheet.create({
     maxWidth: 188,
   },
   cueLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: 'hsla(222, 10%, 28%, 0.72)',
     letterSpacing: 3,
   },
@@ -893,69 +825,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.border.base,
   },
   stripText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.3,
   },
   stripChevron: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.35)',
+    fontFamily: fonts.regular,
+    fontSize: fontScale.bodyLg,
+    color: colors.textOnDark.faint,
     marginTop: -1,
   },
   // The two cycle utilities under the card: Add periods · Reflect.
-  actionRow: { flexDirection: 'row', gap: 10 },
+  actionRow: { flexDirection: 'row', gap: spacing.sm },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
     borderRadius: radius.control,
     ...tileSurface,
   },
   actionBtnText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.85)',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
+    color: colors.textOnDark.primary,
     letterSpacing: 0.2,
   },
-  chipRow: { alignItems: 'center', marginTop: -2, marginBottom: 2 },
+  chipRow: { alignItems: 'center', marginTop: -2, marginBottom: spacing.xs },
   periodChip: {
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderRadius: 14,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.control,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   periodChipEmphasized: {
-    borderColor: 'rgba(237, 147, 177, 0.5)',
+    borderColor: colors.bandRoseBorder,
     backgroundColor: 'rgba(237, 147, 177, 0.10)',
   },
   periodChipText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.3,
   },
   periodChipTextEmphasized: {
-    fontFamily: 'Poppins-Medium',
-    color: 'rgba(244, 192, 209, 0.95)',
+    fontFamily: fonts.medium,
+    color: colors.bandRoseText,
   },
-  calmDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: 8 },
+  calmDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: spacing.sm },
   calmHint: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     color: colors.textTertiary,
     letterSpacing: 0.2,
   },

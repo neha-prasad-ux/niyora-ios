@@ -26,6 +26,9 @@ import {
   MIN_PERIOD_LENGTH,
 } from '@/store/pms-prefs';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 
 export function PeriodSheet({
   visible,
@@ -238,18 +241,18 @@ export function PeriodSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.backgroundTop,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingTop: 12,
-    paddingHorizontal: 22,
-    paddingBottom: 32,
+    borderColor: colors.border.base,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxxl,
     alignItems: 'center',
     overflow: 'hidden',
   },
@@ -258,21 +261,21 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   title: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 20,
+    fontFamily: fonts.light,
+    fontSize: fontScale.title,
     lineHeight: 28,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   calendarWrap: {
     width: '100%',
     maxWidth: 360,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   lengthRow: {
     flexDirection: 'row',
@@ -280,11 +283,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     maxWidth: 360,
-    marginTop: 18,
+    marginTop: spacing.lg,
   },
   lengthLabel: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
   },
   stepperRow: {
@@ -296,34 +299,34 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: colors.border.strong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperValue: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
     minWidth: 72,
     textAlign: 'center',
   },
   footer: {
-    marginTop: 18,
+    marginTop: spacing.lg,
     alignSelf: 'stretch',
     alignItems: 'stretch',
   },
   removeBtn: {
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     paddingHorizontal: 44,
-    borderRadius: 28,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(214, 130, 170, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   removeLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
     color: 'rgba(232, 154, 184, 0.96)',
   },
 });

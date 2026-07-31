@@ -9,6 +9,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { getActivity, type Modality } from '@/models/activities';
 import { getUnderstandCard } from '@/models/understand';
 import { getTechnique } from '@/models/techniques';
@@ -122,14 +125,14 @@ function formatTime(seconds: number): string {
 const styles = StyleSheet.create({
   list: { flex: 1, width: '100%' },
   column: { gap: GAP },
-  content: { gap: GAP, paddingBottom: 28 },
+  content: { gap: GAP, paddingBottom: spacing.xxxl },
   cell: {
     width: CELL_W,
     height: CELL_H,
-    borderRadius: 16,
+    borderRadius: radius.card,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border.faint,
     backgroundColor: colors.backgroundBottom,
   },
   cellText: {
@@ -137,34 +140,34 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 14,
-    paddingBottom: 14,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
   },
   tag: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 10,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     letterSpacing: 1,
     color: TEAL,
     textTransform: 'uppercase',
-    marginBottom: 3,
+    marginBottom: spacing.xs,
   },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     lineHeight: 21,
     color: colors.textPrimary,
   },
   benefit: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 16,
-    color: 'rgba(255, 255, 255, 0.68)',
-    marginTop: 3,
+    color: colors.textOnDark.secondary,
+    marginTop: spacing.xs,
   },
   time: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginTop: 5,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.tertiary,
+    marginTop: spacing.xs,
   },
 });

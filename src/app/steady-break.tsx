@@ -18,6 +18,9 @@ import { BeginButton } from '@/components/begin-button';
 import { CloseButton } from '@/components/CloseButton';
 import { Orb } from '@/components/orb';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, pageGutter } from '@/theme/spacing';
 import {
   cancelBreakOver,
   ensureNotificationPermission,
@@ -156,12 +159,13 @@ export default function SteadyBreakScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 4 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  orbWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  topBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: spacing.xs },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  orbWrap: { alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
   clock: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: fonts.light,
+    // unmapped: 64pt display numeral, above the type scale (max hero 34).
     fontSize: 64,
     lineHeight: 72,
     color: colors.textPrimary,
@@ -169,8 +173,8 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   caption: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
     textAlign: 'center',
@@ -178,30 +182,30 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   captionSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 20,
     color: colors.textTagline,
     textAlign: 'center',
     letterSpacing: 0.2,
     maxWidth: 300,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
-  doneBlock: { alignItems: 'center', gap: 10 },
+  doneBlock: { alignItems: 'center', gap: spacing.sm },
   doneLead: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 24,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
   },
-  footer: { paddingBottom: 12, alignItems: 'center', minHeight: 64, justifyContent: 'center' },
+  footer: { paddingBottom: spacing.md, alignItems: 'center', minHeight: 64, justifyContent: 'center' },
   early: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textTagline,
     textDecorationLine: 'underline',
     letterSpacing: 0.2,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
   },
 });

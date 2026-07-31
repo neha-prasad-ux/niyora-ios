@@ -19,6 +19,9 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { CouplesFinale } from '@/components/couples-finale';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { COUPLES_QUIZ, QUIZ_FOOTER, QUIZ_RESULT, scoreQuiz } from '@/models/couples-content';
 import { recordLight } from '@/store/light-ledger';
 
@@ -179,98 +182,98 @@ export default function CouplesQuizScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  back: { fontFamily: fonts.light, fontSize: fontScale.pageTitle, lineHeight: 34, color: colors.textSubtitle },
 
-  topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12, marginTop: 4 },
-  segments: { flex: 1, flexDirection: 'row', gap: 6 },
-  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)' },
+  topBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: spacing.md, marginTop: spacing.xs },
+  segments: { flex: 1, flexDirection: 'row', gap: spacing.sm },
+  seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.fill.strong },
   segOn: { backgroundColor: HEART },
 
-  body: { flex: 1, paddingBottom: 12 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  body: { flex: 1, paddingBottom: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   kicker: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 27,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   subtitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   statement: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 24,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     lineHeight: 33,
     color: colors.textPrimary,
     textAlign: 'center',
   },
 
-  bottom: { gap: 12 },
-  choices: { flexDirection: 'row', gap: 12 },
+  bottom: { gap: spacing.md },
+  choices: { flexDirection: 'row', gap: spacing.md },
   choice: {
     flex: 1,
     height: 96,
-    borderRadius: 18,
+    borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
   },
-  choiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 22, color: '#1a1526' },
+  choiceLabel: { fontFamily: fonts.medium, fontSize: fontScale.technique, color: '#1a1526' },
 
   // Result: a strict ladder. Big verdict title, one-line takeaway, ONE card of
   // left-aligned skimmable moves (dot per line), then the rule as a bare caption.
-  congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 12 },
-  resultCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.md },
+  resultCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg },
   resultTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     lineHeight: 34,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   resultTakeaway: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
     lineHeight: 25,
     color: colors.textPrimary,
     textAlign: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   resultCard: {
     alignSelf: 'stretch',
-    padding: 18,
-    borderRadius: 16,
+    padding: spacing.lg,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
-  pointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  pointRowGap: { marginTop: 14 },
-  pointDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: HEART, marginTop: 8 },
+  pointRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  pointRowGap: { marginTop: spacing.md },
+  pointDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: HEART, marginTop: spacing.sm },
   pointText: {
     flex: 1,
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
   },
   resultFooter: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 19,
     color: colors.textSubtitle,
     textAlign: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
-  restartWrap: { alignItems: 'center', marginTop: 14 },
-  restart: { fontFamily: 'Poppins-Regular', fontSize: 14, color: colors.textTagline, letterSpacing: 0.3 },
+  restartWrap: { alignItems: 'center', marginTop: spacing.md },
+  restart: { fontFamily: fonts.regular, fontSize: fontScale.body, color: colors.textTagline, letterSpacing: 0.3 },
 
   // Intro heart backdrop (positions mirror the game's floating orbs).
   h1: { position: 'absolute', top: 10, left: -20, transform: [{ rotate: '-18deg' }] },

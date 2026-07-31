@@ -41,6 +41,8 @@ import Svg, {
 import { getActivity } from '@/models/activities';
 import { getTechnique } from '@/models/techniques';
 import type { RecCard } from '@/models/recommend';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
@@ -325,8 +327,8 @@ function InkScene({ reduced }: { reduced: boolean }) {
         x={64}
         y={150}
         fill="hsl(250,24%,80%)"
-        fontSize={16}
-        fontFamily="Poppins-Light"
+        fontSize={fontScale.emphasis}
+        fontFamily={fonts.light}
         opacity={0.45}
       >
         {`${shown}|`}

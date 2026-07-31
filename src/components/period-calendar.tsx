@@ -9,6 +9,9 @@ import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
 import type { CalendarDay } from 'react-native-ui-datepicker';
 
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { radius } from '@/theme/spacing';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
   pill: {
     width: 34,
     height: 34,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -122,8 +125,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   label: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
   },
   labelOutside: {
@@ -139,6 +142,6 @@ const styles = StyleSheet.create({
   },
   labelMoon: {
     color: '#1b1430',
-    fontFamily: 'Poppins-Medium',
+    fontFamily: fonts.medium,
   },
 });

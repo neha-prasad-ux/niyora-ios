@@ -9,6 +9,9 @@ import Animated, {
 
 import { appendCheckIn, type CheckInLevel } from '@/store/checkin-history';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 
 const LEVELS: { level: CheckInLevel; label: string; hue: number }[] = [
   { level: 'light', label: 'light', hue: 215 },
@@ -110,47 +113,47 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: colors.scrimSoft,
   },
   sheet: {
-    backgroundColor: '#13101a',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    backgroundColor: colors.surfaceOverlay,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderTopWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingTop: 28,
+    borderColor: colors.border.faint,
+    paddingTop: spacing.xxxl,
     paddingBottom: 56,
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xxxl,
     alignItems: 'center',
   },
   question: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
-    marginBottom: 28,
+    marginBottom: spacing.xxxl,
     letterSpacing: 0.2,
   },
   levelRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: spacing.md,
   },
   pill: {
-    paddingHorizontal: 24,
-    paddingVertical: 11,
-    borderRadius: 20,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.card,
     borderWidth: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.fill.faint,
   },
   pillLabel: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     letterSpacing: 0.3,
   },
   noted: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
   },
 });

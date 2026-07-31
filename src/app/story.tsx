@@ -14,8 +14,12 @@ import * as Haptics from 'expo-haptics';
 
 import { BeginButton } from '@/components/begin-button';
 import { markActivityDone } from '@/lib/hold-activities';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
+const INK = colors.paper.ink;
 
 const STORIES = [
   'A boy saved his pocket money for months to buy his mum flowers on a plain Tuesday. Not her birthday. Just because she had looked tired.',
@@ -63,14 +67,14 @@ export default function StoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: colors.paper.bg },
   safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
   },
   close: {
     width: 32,
@@ -78,23 +82,23 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.paper.control,
   },
-  title: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: INK },
-  center: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 30, paddingVertical: 24 },
+  title: { fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, color: INK },
+  center: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xxxl, paddingVertical: spacing.xxl },
   story: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
+    fontFamily: fonts.light,
+    fontSize: fontScale.technique,
     lineHeight: 34,
-    color: '#3E3947',
+    color: colors.paper.inkSoft,
     textAlign: 'center',
   },
-  footer: { paddingHorizontal: 22, paddingBottom: 16, gap: 14, alignItems: 'center' },
-  another: { paddingVertical: 4 },
+  footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md, alignItems: 'center' },
+  another: { paddingVertical: spacing.xs },
   anotherText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: 'rgba(43,38,50,0.55)',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
+    color: colors.paper.inkFaint,
     textDecorationLine: 'underline',
   },
 });

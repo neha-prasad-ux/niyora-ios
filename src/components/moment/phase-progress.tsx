@@ -22,6 +22,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import type { Phase } from '@/v3/moment-flow';
 
@@ -29,7 +31,9 @@ const ORDER: Phase[] = ['reflect', 'regulate', 'react'];
 const LABEL: Record<Phase, string> = {
   reflect: 'Reflect',
   regulate: 'Regulate',
-  react: 'React',
+  // Displayed as "Respond" (Neha 2026-07-29): the point is a thought-through
+  // response, not a reaction. The internal phase key stays `react`.
+  react: 'Respond',
 };
 // One calm hue per state — distinct enough to read as different chapters, muted
 // enough not to alarm someone already dysregulated. The HSL triplet is shared
@@ -52,6 +56,20 @@ const HUE: Record<Phase, string> = {
 export function phaseTint(phase: Phase): { backgroundColor: string; borderColor: string } {
   return { backgroundColor: `hsla(${HSL[phase]}, 0.22)`, borderColor: `hsl(${HSL[phase]})` };
 }
+
+/** The state's solid colour, for text and accents that want the full hue rather
+ *  than the translucent card fill. Same triplet as the progress bar, so the
+ *  intro preview and the in-flow bar read as the same three chapters. */
+export function phaseHue(phase: Phase): string {
+  return HUE[phase];
+}
+
+/** The three states, in order, for anything that wants to preview them (the
+ *  intro card). Label is the display name, not the phase key. */
+export const PHASE_STEPS: { phase: Phase; label: string }[] = ORDER.map((p) => ({
+  phase: p,
+  label: LABEL[p],
+}));
 
 /** The reward at the end: bigger, and it gives a little shake now and then — a
  *  gentle "there's something here" tug, not a nag. Still under reduce-motion. */
@@ -128,8 +146,8 @@ export function PhaseProgress({ current, fill = 0 }: { current: Phase; fill?: nu
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 8 },
-  track: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  wrap: { gap: spacing.sm },
+  track: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // The empty track, and the fill that grows inside it.
   segTrack: {
     flex: 1,
@@ -142,11 +160,11 @@ const styles = StyleSheet.create({
   // A fixed cell so the gift sits just past the last bar and the labels below
   // still line up under their own segments.
   giftCell: { width: 28, alignItems: 'center', justifyContent: 'center' },
-  labels: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  labels: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   label: {
     flex: 1,
     fontFamily: 'Poppins-Medium',
-    fontSize: 11,
+    fontSize: fontScale.caption,
     letterSpacing: 0.3,
   },
   labelDim: { color: colors.textTagline },

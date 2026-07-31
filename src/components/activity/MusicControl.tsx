@@ -12,6 +12,9 @@ import * as Haptics from 'expo-haptics';
 import { useSessionMusic } from '@/hooks/use-session-music';
 import { type MusicTrack } from '@/store/music-prefs';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 
 const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
   { id: 'serene', label: 'Serene', icon: 'music.note' },
@@ -78,29 +81,29 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 34,
     left: 0,
-    backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
-    paddingVertical: 4,
+    backgroundColor: colors.surfaceOverlay,
+    borderRadius: radius.control,
+    paddingVertical: spacing.xs,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border.faint,
     zIndex: 10,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   label: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
   },
   labelActive: {
-    fontFamily: 'Poppins-Medium',
+    fontFamily: fonts.medium,
     color: colors.textPrimary,
   },
 });

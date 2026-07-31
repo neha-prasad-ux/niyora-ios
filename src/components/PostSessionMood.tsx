@@ -25,6 +25,9 @@ import { alternate } from '@/models/recommend';
 import { TIER_RING_COUNTS, SOUL_RING_HUES, type Tier } from '@/models/tiers';
 import { getSessionCount } from '@/store/session-history';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { secondaryButtonSurface } from '@/theme/controls';
 
 type Phase = 'first' | 'asking' | 'better' | 'another' | 'ring' | 'ringClosing';
@@ -211,81 +214,81 @@ const styles = StyleSheet.create({
   },
   card: {
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
   ringCard: {
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
   ringHeading: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     letterSpacing: 0.2,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   ringTier: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 26,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.heading,
     letterSpacing: 0.4,
-    marginTop: 6,
+    marginTop: spacing.sm,
   },
   ringQuestion: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     color: colors.textSubtitle,
     letterSpacing: 0.3,
-    marginTop: 18,
-    marginBottom: 26,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xxl,
     textAlign: 'center',
   },
   ringButton: {
     minWidth: 200,
   },
   heading: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
-    marginBottom: 32,
+    marginBottom: spacing.xxxl,
     letterSpacing: 0.2,
   },
   // The first-completion congrats sits close to its sub line, not button-spaced.
   firstHeading: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   buttons: {
     alignItems: 'center',
-    gap: 14,
+    gap: spacing.md,
   },
   btn: {
-    paddingHorizontal: 28,
-    paddingVertical: 13,
-    borderRadius: 26,
+    paddingHorizontal: spacing.xxxl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
     minWidth: 200,
     alignItems: 'center',
   },
   btnPrimary: { ...secondaryButtonSurface },
   btnPrimaryText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
   btnText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
   closing: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 20,
+    fontFamily: fonts.light,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     letterSpacing: 0.3,
     textAlign: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
 });

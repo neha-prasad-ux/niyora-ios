@@ -14,6 +14,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { ChapterCard } from '@/components/chapter-card';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, pageGutter } from '@/theme/spacing';
 import { chaptersForTrack } from '@/v3/game-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 
@@ -82,23 +85,23 @@ export default function TrainScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 20 },
-  topBar: { height: 32, justifyContent: 'center', marginTop: 4 },
-  header: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 14 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  topBar: { height: 32, justifyContent: 'center', marginTop: spacing.xs },
+  header: { paddingHorizontal: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.md },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     lineHeight: 32,
     color: colors.textPrimary,
     letterSpacing: 0.15,
   },
   sub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.1,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
-  scroll: { paddingTop: 6, paddingBottom: 28, gap: 14 },
+  scroll: { paddingTop: spacing.sm, paddingBottom: spacing.xxxl, gap: spacing.md },
 });

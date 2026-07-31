@@ -23,6 +23,9 @@ import Svg, { Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import { BeginButton } from '@/components/begin-button';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { spacing } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 
 const SIZE = 220;
 // A plump, rounded heart. Same silhouette as before, but the bottom tip is lifted
@@ -111,8 +114,8 @@ export function CouplesFinale({ line, onDone }: { line: string; onDone: () => vo
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, paddingBottom: 12 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 34 },
+  wrap: { flex: 1, paddingBottom: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xxxl },
   // Soft pink halo, like the moon's glow. The View shadow follows the SVG alpha.
   glow: {
     shadowColor: 'hsl(330, 85%, 58%)',
@@ -121,11 +124,11 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
   },
   line: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.heading,
     lineHeight: 34,
     color: colors.textPrimary,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
 });

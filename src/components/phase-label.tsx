@@ -8,6 +8,9 @@ import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { spacing } from '@/theme/spacing';
 
 type PhaseLabelProps = {
   label: string;
@@ -46,13 +49,13 @@ const styles = StyleSheet.create({
   wrap: {
     alignSelf: 'stretch',
     alignItems: 'center',
-    paddingTop: 10,
+    paddingTop: spacing.sm,
   },
   chip: {
     // No pill container off-centre: the cue is just glowing text now that it no
     // longer needs to stand apart from the bloom behind it.
     minWidth: 132,
-    paddingVertical: 9,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -65,8 +68,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    fontSize: 32,
-    fontWeight: '600',
+    fontSize: fontScale.hero,
+    fontFamily: fonts.semibold,
     lineHeight: 38,
     color: colors.textPrimary,
     textAlign: 'center',
@@ -76,13 +79,13 @@ const styles = StyleSheet.create({
     textShadowRadius: 14,
   },
   nextWrap: {
-    marginTop: 12,
+    marginTop: spacing.md,
     alignItems: 'center',
   },
   nextText: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.55)',
+    fontSize: fontScale.body,
+    fontFamily: fonts.regular,
+    color: colors.textOnDark.tertiary,
     textAlign: 'center',
     letterSpacing: 0.3,
   },

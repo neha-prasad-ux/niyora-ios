@@ -17,6 +17,9 @@ import { BackgroundGradient } from '@/components/background-gradient';
 import { ResultDeck } from '@/components/ResultDeck';
 import { CloseButton } from '@/components/CloseButton';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import {
   DURATIONS,
   recommend,
@@ -214,7 +217,7 @@ export default function ResultScreen() {
         >
           <Pressable style={styles.reframeSheet} onPress={() => {}}>
             <LinearGradient
-              colors={['#1b1430', '#0e0b14', colors.backgroundBottom]}
+              colors={['#1b1430', colors.backgroundTop, colors.backgroundBottom]}
               locations={[0, 0.55, 1]}
               start={{ x: 0.5, y: 0 }}
               end={{ x: 0.5, y: 1 }}
@@ -257,7 +260,7 @@ function LengthPicker({
       >
         <Pressable style={styles.pickerSheet} onPress={() => {}}>
           <LinearGradient
-            colors={['#1b1430', '#0e0b14', colors.backgroundBottom]}
+            colors={['#1b1430', colors.backgroundTop, colors.backgroundBottom]}
             locations={[0, 0.55, 1]}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
@@ -299,19 +302,19 @@ function LengthPicker({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 22 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 2,
-    marginBottom: 14,
+    paddingTop: spacing.xs,
+    marginBottom: spacing.md,
   },
   headerSide: { width: 32, alignItems: 'flex-end' },
   headerTitle: {
     flex: 1,
-    fontFamily: 'Poppins-Medium',
-    fontSize: 20,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
@@ -319,18 +322,18 @@ const styles = StyleSheet.create({
   loaded: { flex: 1, width: '100%' },
   pickerBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   reframeSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingTop: 24,
-    paddingBottom: 40,
-    paddingHorizontal: 22,
+    borderColor: colors.border.faint,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
     // A fixed height (not maxHeight) so UnderstandReadView's flex:1 body has room
     // to fill; otherwise the sheet collapses to a sliver.
     height: '68%',
@@ -338,53 +341,53 @@ const styles = StyleSheet.create({
   },
   pickerSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingTop: 22,
-    paddingBottom: 44,
+    borderColor: colors.border.faint,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxxl,
     overflow: 'hidden',
   },
   pickerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 22,
+    paddingHorizontal: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   pickerTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   lengthRow: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingHorizontal: spacing.xxl,
+    gap: spacing.md,
   },
   lengthOption: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 16,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   lengthMinutes: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 34,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.hero,
     color: colors.textPrimary,
     lineHeight: 38,
   },
   lengthUnit: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     color: colors.textSubtitle,
     letterSpacing: 0.4,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
 });

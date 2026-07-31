@@ -32,6 +32,9 @@ import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { pageGutter, radius, spacing } from '@/theme/spacing';
 import { NiyoraSync } from 'niyora-sync';
 
 // Same track set and picker behaviour as the breathing session screen.
@@ -360,45 +363,45 @@ export function MindfulnessSession({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.backgroundBottom,
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: pageGutter,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: spacing.sm,
   },
   pickerCard: {
     position: 'absolute',
     top: 52,
     right: 0,
-    backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
-    paddingVertical: 4,
+    backgroundColor: colors.surfaceOverlay,
+    borderRadius: radius.control,
+    paddingVertical: spacing.xs,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border.faint,
   },
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   pickerLabel: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: fontScale.body,
+    fontFamily: fonts.regular,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
   },
   pickerLabelActive: {
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   center: {
     flex: 1,
@@ -406,12 +409,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   prompt: {
-    fontSize: 22,
-    fontWeight: '400',
+    fontSize: fontScale.title,
+    fontFamily: fonts.regular,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.3,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
   progressArea: {
     position: 'absolute',
@@ -424,7 +427,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 2,
     borderRadius: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: colors.fill.base,
     overflow: 'hidden',
   },
   barFill: {

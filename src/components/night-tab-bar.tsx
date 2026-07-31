@@ -30,6 +30,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { elevation } from '@/theme/elevation';
 
 // expo-router vendors react-navigation, so the bar's props type is derived
 // from the Tabs component rather than imported from a package path that may
@@ -60,7 +63,7 @@ export const MOON_CENTER_FROM_BAR_TOP = BAR_PAD_TOP + ICON_SLOT / 2;
 
 // Icons carry colour only when lit: the selected tab warms to the orb's
 // moonlit blue, the resting tabs stay a dim white.
-const INACTIVE_TINT = 'rgba(255, 255, 255, 0.40)';
+const INACTIVE_TINT = colors.textOnDark.faint;
 const ACTIVE_TINT = 'hsl(222, 82%, 84%)';
 
 // The selection highlight: a rounded-rect frost holding the whole tab — icon and
@@ -137,7 +140,7 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
   );
 
   return (
-    <View pointerEvents="box-none" style={[styles.bar, { bottom: bottomPad }]}>
+    <View pointerEvents="box-none" style={[styles.bar, elevation.level2, { bottom: bottomPad }]}>
       {/* The mist: content stays visible through it but stops competing with
           the icons. Apple's native glass where the OS has it (already in the
           dev client), expo-blur on older iOS, plain dark as the last resort.
@@ -295,10 +298,6 @@ const styles = StyleSheet.create({
     left: BAR_SIDE_INSET,
     right: BAR_SIDE_INSET,
     borderRadius: BAR_RADIUS,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
   },
   blur: {
     position: 'absolute',
@@ -318,7 +317,7 @@ const styles = StyleSheet.create({
     borderRadius: BAR_RADIUS,
     // A crisp hairline rim so the glass has a clean edge rather than a fuzzy one.
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border.faint,
     // Lighter than a slab so the pill reads as glass. With expo-blur in the
     // build this sits over a real frost; the dark bottom of the night sky keeps
     // even the no-blur fallback legible while showing content through.
@@ -399,11 +398,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   label: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 10,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     lineHeight: LABEL_LINE,
     marginTop: LABEL_GAP,
     letterSpacing: 0.4,
-    color: 'rgba(255, 255, 255, 0.88)',
+    color: colors.textOnDark.primary,
   },
 });

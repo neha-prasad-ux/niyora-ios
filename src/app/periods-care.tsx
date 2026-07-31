@@ -16,6 +16,9 @@ import { SymbolView } from 'expo-symbols';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { getActivity } from '@/models/activities';
 import { todayYmd } from '@/store/pms-readiness';
 import { getPeriodsCare, togglePeriodsCare } from '@/store/periods-care';
@@ -150,7 +153,7 @@ function CareRow({
         <Text style={styles.examples}>{item.examples}</Text>
       </Pressable>
       {canOpen && (
-        <SymbolView name="chevron.right" tintColor="rgba(255, 255, 255, 0.4)" size={14} weight="regular" />
+        <SymbolView name="chevron.right" tintColor={colors.textOnDark.faint} size={14} weight="regular" />
       )}
     </View>
   );
@@ -158,64 +161,64 @@ function CareRow({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
   topBar: { height: 32, justifyContent: 'center' },
-  head: { alignItems: 'center', paddingTop: 6, paddingBottom: 8 },
+  head: { alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.sm },
   header: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 23,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     lineHeight: 31,
     color: colors.textPrimary,
     letterSpacing: 0.2,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
   subhead: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
     textAlign: 'center',
-    marginTop: 10,
-    paddingHorizontal: 8,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
-  scroll: { paddingTop: 16, paddingBottom: 28 },
-  list: { alignSelf: 'stretch', gap: 10 },
+  scroll: { paddingTop: spacing.lg, paddingBottom: spacing.xxxl },
+  list: { alignSelf: 'stretch', gap: spacing.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   box: {
     width: 24,
     height: 24,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: colors.border.strong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   boxOn: { borderColor: '#ffffff', backgroundColor: '#ffffff' },
   text: { flex: 1 },
   label: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   examples: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.55)',
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.tertiary,
     letterSpacing: 0.2,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
 });

@@ -8,6 +8,9 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
 
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
 import { isBreathing, isMindfulness, TECHNIQUES, type Technique } from '@/models/techniques';
 
 type TechniquePickerProps = {
@@ -89,16 +92,16 @@ export function TechniquePicker({ visible, onClose, onSelect }: TechniquePickerP
 const styles = StyleSheet.create({
   pickerBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   pickerSheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingTop: 22,
+    borderColor: colors.border.faint,
+    paddingTop: spacing.xl,
     paddingBottom: 44,
     // Clip the gradient backdrop to the rounded top corners.
     overflow: 'hidden',
@@ -107,41 +110,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 22,
+    paddingHorizontal: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   pickerTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   pickerSectionLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 10,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: colors.textTertiary,
-    paddingHorizontal: 24,
-    marginBottom: 6,
+    paddingHorizontal: spacing.xxl,
+    marginBottom: spacing.sm,
   },
   pickerSectionSpaced: {
-    marginTop: 18,
+    marginTop: spacing.lg,
   },
   pickerRow: {
-    paddingHorizontal: 24,
-    paddingVertical: 13,
+    paddingHorizontal: spacing.xxl,
+    paddingVertical: spacing.md,
   },
   pickerRowName: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
   },
   pickerRowSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.35)',
-    marginTop: 2,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
+    marginTop: spacing.xs,
   },
 });

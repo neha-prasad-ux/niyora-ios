@@ -13,10 +13,14 @@ import * as Haptics from 'expo-haptics';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { Orb } from '@/components/orb';
+import { PrepCard } from '@/components/prep-card';
 import { RecommendSheet } from '@/components/RecommendSheet';
 import { type RecResult } from '@/models/recommend';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import { typography, fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { trainSummary, workSummary, type TrainSummary } from '@/v3/game-content';
 import { CHAPTERS } from '@/v3/chapter-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
@@ -135,8 +139,12 @@ export default function GrowScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <Text style={styles.pageTitle}>Train</Text>
-            <Text style={styles.pageSub}>Master emotions, PMS will get easier</Text>
+            <Text style={styles.pageSub}>Build emotional skills for softer PMS</Text>
           </View>
+
+          {/* Her PMS preparedness readout — moved here off the Today card. Shows
+              only in the build phase and self-loads; renders nothing otherwise. */}
+          <PrepCard onCalm={openCalm} />
 
           {/* The page reads top-to-bottom as the cycle does: the long build
               stretch to train skills, then prep for the PMS week, then care
@@ -433,27 +441,24 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   // The tab bar floats over the content now; padding lets the last card
   // scroll fully out from under the glass with a breath of air above it.
-  scroll: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 120, gap: 26 },
+  scroll: { paddingHorizontal: pageGutter, paddingTop: spacing.xs, paddingBottom: 120, gap: spacing.xxl },
 
-  header: { paddingHorizontal: 2, paddingTop: 8, paddingBottom: 2 },
+  header: { paddingHorizontal: spacing.xs, paddingTop: spacing.sm, paddingBottom: spacing.xs },
   pageTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 28,
-    lineHeight: 34,
+    ...typography.pageTitle,
     color: colors.textPrimary,
-    letterSpacing: 0.15,
   },
   pageSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.1,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
 
   // The three phase groups, linked by one vertical rail down the left gutter.
-  pathWrap: { position: 'relative', gap: 26 },
+  pathWrap: { position: 'relative', gap: spacing.xxl },
   rail: {
     position: 'absolute',
     left: 5.25,
@@ -465,7 +470,7 @@ const styles = StyleSheet.create({
 
   // One phase group: a node on the rail, a label, a one-line blurb, its shelves.
   // The left padding clears the gutter the rail and dot live in.
-  phaseSection: { position: 'relative', paddingLeft: 24 },
+  phaseSection: { position: 'relative', paddingLeft: spacing.xxl },
   phaseDot: {
     position: 'absolute',
     left: 1.5,
@@ -476,65 +481,65 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   phaseLabel: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.cardTitle,
     lineHeight: 22,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   phaseSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     lineHeight: 18,
     color: colors.textSubtitle,
     letterSpacing: 0.1,
-    marginTop: 2,
-    marginBottom: 12,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
   },
-  phaseCards: { gap: 14 },
+  phaseCards: { gap: spacing.md },
 
   // One card, one height for every shelf.
   shelfWrap: { marginBottom: 0 },
   tag: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.control,
+    marginLeft: spacing.sm,
     marginBottom: -10,
     zIndex: 2,
     backgroundColor: 'rgba(150, 110, 205, 0.95)',
   },
-  tagText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#ffffff', letterSpacing: 0.5 },
+  tagText: { fontFamily: fonts.medium, fontSize: fontScale.caption, color: colors.textOnDark.primary, letterSpacing: 0.5 },
   card: {
     width: '100%',
     minHeight: 112,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderRadius: 22,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: colors.border.base,
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardTextCol: { flex: 1 },
   cardChevron: { marginRight: -2 },
   cardTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.cardTitle,
     lineHeight: 23,
-    color: '#ffffff',
+    color: colors.textOnDark.primary,
     letterSpacing: 0.15,
   },
   cardSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13.5,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
     lineHeight: 19,
-    color: 'rgba(255, 255, 255, 0.72)',
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.1,
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
 
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
