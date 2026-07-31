@@ -122,13 +122,6 @@ export type FlowNode = {
 export const MOMENT_FLOW: FlowNode[] = [
   // --- entry ---------------------------------------------------------------
   {
-    id: 'intro',
-    owner: 'authored',
-    phase: 'reflect',
-    next: 'raw_entry',
-    note: 'The welcome (Neha 2026-07-29): previews the three states as cards in their own flow colours — Reflect (explore your emotions), Regulate (feel safe & stable), Respond (respond thoughtfully) — signed "with Moon AI", with a "Think with me" button that opens the flow. Orientation before the first question, so a guided flow with no visible end reads as three known chapters rather than an open-ended chat.',
-  },
-  {
     id: 'raw_entry',
     owner: 'ui',
     phase: 'reflect',
@@ -487,4 +480,7 @@ export function advance(id: NodeId, key?: string): NodeId | null {
 /** The beats that call the model, and the corpus slot each is sent as. */
 export const MODEL_NODES = MOMENT_FLOW.filter((n) => n.slot != null);
 
-export const ENTRY: NodeId = 'intro';
+// Home is the front door now (its own reflect→regulate→respond framing + feeling
+// ask), so the flow opens straight on "tell me what happened", skipping the old
+// intro preview (Neha 2026-07-31).
+export const ENTRY: NodeId = 'raw_entry';

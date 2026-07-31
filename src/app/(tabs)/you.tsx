@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -22,7 +23,9 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { GlassSurface } from '@/components/glass-surface';
 import Svg, { Circle, G, Line, Polyline, Rect, Text as SvgText } from 'react-native-svg';
 
-import { BackgroundGradient } from '@/components/background-gradient';
+import { AmbientGlow } from '@/components/ambient-glow';
+import { CosmicBackground } from '@/components/cosmic-background';
+import { GlassCardBg } from '@/components/glass-card-bg';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { SHOW_CHECKIN, SHOW_ANALYTICS, SHOW_MOOD_TREND } from '@/config/features';
 import { getLightLedger } from '@/store/light-ledger';
@@ -89,11 +92,14 @@ import { Host, DatePicker } from '@expo/ui/swift-ui';
 import { useNiyoraSync, type MacSoulState } from '@/hooks/use-niyora-sync';
 import { MacPairing } from '@/components/MacPairing';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { fonts } from '@/theme/fonts';
 import { fontScale } from '@/theme/typography';
 import { radius, spacing, pageGutter } from '@/theme/spacing';
 import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
+import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
+import { getRewardCount } from '@/store/reward-progress';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { CRISIS_COPY } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
@@ -134,6 +140,8 @@ export default function MySoulScreen() {
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [crisisOpen, setCrisisOpen] = useState(false);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
+  // How many gift-reward drawings she has earned (in order), for the Soul grid.
+  const [rewardCount, setRewardCount] = useState(0);
   const {
     isPaired,
     macSoulState,
@@ -146,6 +154,9 @@ export default function MySoulScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      getRewardCount().then((n) => {
+        if (active) setRewardCount(n);
+      }).catch(() => {});
       getMoonState().then((s) => {
         if (active) {
           setMoonMaterial(s.material);
@@ -324,7 +335,8 @@ export default function MySoulScreen() {
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient />
+      <CosmicBackground />
+      <AmbientGlow />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView
           contentContainerStyle={styles.scrollBody}
@@ -381,7 +393,9 @@ export default function MySoulScreen() {
                 streak={currentStreak}
               />
 
-              <SectionEyebrow title="Your effort vs the impact" />
+              <SectionEyebrow title="Your badges" />
+              <DrawingsCard earned={rewardCount} />
+
               <EffortImpactCard
                 series={cycleSeriesLive}
                 impacts={cycleImpacts}
@@ -618,12 +632,34 @@ const MOOD_DOT_HUES = [295, 278, 260, 240, 215] as const;
 // ribbon (purple = tense, blue = at peace), oldest on the left. Deliberately a
 // different shape from the daily check-in dot sparkline so the two read as
 // distinct, and on-brand with the app's gradients.
+// The gift-reward drawings she has uncovered, saved to her Soul. Earned one by
+// one in order; unearned slots stay dim until she reaches them (M9-14 / reward).
+function DrawingsCard({ earned }: { earned: number }) {
+  return (
+    <View style={styles.card}>
+      <GlassCardBg />
+      <View style={styles.drawGrid}>
+        {MOON_DRAWINGS.map((d, i) => (
+          <View key={i} style={styles.drawCell}>
+            {i < earned ? (
+              <Image source={d.src} style={styles.drawImg} resizeMode="contain" accessibilityIgnoresInvertColors />
+            ) : (
+              <View style={styles.drawLocked} />
+            )}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function MoodTrendCard({ records }: { records: MoodRecord[] }) {
   const recent = records.slice(-10);
   if (recent.length < 2) return null;
   const stops = recent.map((r) => `hsl(${MOOD_DOT_HUES[r.mood - 1]}, 62%, 60%)`);
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <Text style={styles.cardTitle}>Calm after practice</Text>
       <Text style={[styles.cardCopy, { marginTop: spacing.sm, marginBottom: spacing.md }]}>
         Bluer is the calmer you.
@@ -660,6 +696,7 @@ function CheckInCard({
 
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <View style={styles.checkInHeader}>
         <Text style={styles.cardTitle}>Mental health</Text>
         {count > 0 && (
@@ -770,6 +807,7 @@ function ScoreboardCard({
       </Text>
       <Text style={styles.scoreSub}>Level {level} of {MATERIAL_ORDER.length}</Text>
       <View style={styles.statsRow}>
+        <GlassCardBg radius={radius.control} />
         <StatCell n={noticed} t="Noticed" />
         <StatCell n={applied} t="Applied" />
         <StatCell n={streak} t="Streak" suffix="d" />
@@ -808,7 +846,9 @@ function GhostPreview({
   renderPreview: (width: number) => ReactNode;
   line: string;
   actionLabel: string;
-  onAction: () => void;
+  // Omit for a locked/status card: the label renders as a static chip instead
+  // of a tappable button.
+  onAction?: () => void;
 }) {
   const [width, setWidth] = useState(0);
   return (
@@ -821,21 +861,29 @@ function GhostPreview({
       >
         {renderPreview(width || 300)}
       </View>
-      <GlassSurface intensity={16} />
+      {/* Heavier frost + scrim so the preview stays a soft backdrop and the copy
+          on top reads cleanly. */}
+      <GlassSurface intensity={40} />
       <View style={styles.ghostScrim} pointerEvents="none" />
       <View style={styles.ghostOverlay}>
         <Text style={styles.ghostLine}>{line}</Text>
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync();
-            onAction();
-          }}
-          style={styles.ghostBtn}
-          accessibilityRole="button"
-          accessibilityLabel={actionLabel}
-        >
-          <Text style={styles.ghostBtnLabel}>{actionLabel}</Text>
-        </Pressable>
+        {onAction != null ? (
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              onAction();
+            }}
+            style={styles.ghostBtn}
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+          >
+            <Text style={styles.ghostBtnLabel}>{actionLabel}</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.ghostBtn} accessibilityLabel={actionLabel}>
+            <Text style={styles.ghostBtnLabel}>{actionLabel}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -968,6 +1016,7 @@ function EffortImpactCard({
   if (series.length === 0) {
     return (
       <View style={styles.card}>
+      <GlassCardBg />
         <GhostPreview
           renderPreview={(w) => (
             <EffortChart series={GHOST_SERIES} levels={GHOST_LEVELS} color={DOMAIN_COLOR.work} width={w} showLine />
@@ -1001,6 +1050,7 @@ function EffortImpactCard({
 
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       {visibleDomains.length > 0 && (
         <View style={styles.chips}>
           {visibleDomains.map((d) => {
@@ -1094,6 +1144,7 @@ function CyclesShelfCard({ shelf }: { shelf: MintedMoon[] }) {
   if (shelf.length === 0) {
     return (
       <View style={styles.card}>
+      <GlassCardBg />
         <GhostPreview
           renderPreview={() => (
             <View style={styles.shelfRow}>
@@ -1103,8 +1154,7 @@ function CyclesShelfCard({ shelf }: { shelf: MintedMoon[] }) {
             </View>
           )}
           line="Every cycle you move through becomes a moon you keep. A record of the hard weeks you got through."
-          actionLabel="Start this cycle"
-          onAction={() => router.navigate('/now' as Href)}
+          actionLabel="Unlocks in a month"
         />
       </View>
     );
@@ -1122,6 +1172,7 @@ function CyclesShelfCard({ shelf }: { shelf: MintedMoon[] }) {
         : null;
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfRow}>
         {ordered.map((m) => (
           <CycleDisc key={m.cycleEnd} moon={m} />
@@ -1145,6 +1196,7 @@ function ReminderCard({
   selection.setHours(reminder.hour, reminder.minute, 0, 0);
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: spacing.lg }}>
           <Text style={styles.cardTitle}>Daily reminder</Text>
@@ -1192,6 +1244,7 @@ function ToggleCard({
 }) {
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: spacing.lg }}>
           <Text style={styles.cardTitle}>{title}</Text>
@@ -1266,6 +1319,7 @@ function PmsReadCard({
   if (!latest) {
     return (
       <View style={styles.card}>
+      <GlassCardBg />
         <Text style={styles.cardTitle}>Your PMS level</Text>
         <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
           Not measured yet. A few quick questions unlock your plan.
@@ -1287,6 +1341,7 @@ function PmsReadCard({
   const cmp = prev ? compareReads(prev.answers, latest.answers) : null;
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <Text style={styles.cardTitle}>Your PMS level</Text>
       <Text style={[styles.readLevel, { color: levelColor }]}>
         {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -1320,6 +1375,7 @@ function PmsCard({
 }) {
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: spacing.lg }}>
           <Text style={styles.cardTitle}>Smart PMS mode</Text>
@@ -1373,6 +1429,7 @@ function MacPromoCard({ onDismiss }: { onDismiss: () => void }) {
 
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <View style={styles.macPromoHeader}>
         <Text style={[styles.cardTitle, { flex: 1, paddingRight: spacing.sm }]}>
           Niyora is calmer with your Mac
@@ -1421,6 +1478,7 @@ function MessageCard() {
 
   return (
     <View style={styles.card}>
+      <GlassCardBg />
       <Text style={styles.cardTitle}>Message the founder</Text>
       <Text style={[styles.cardCopy, { marginTop: spacing.sm }]}>
         Hi, Tell Me what's working, what isn't, what you'd love next. I genuinely appreciate it
@@ -1540,7 +1598,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: radius.control,
     overflow: 'hidden',
-    backgroundColor: colors.fill.faint,
+    backgroundColor: 'transparent',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: glass.border,
     gap: 1,
     marginTop: spacing.lg,
   },
@@ -1688,7 +1748,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ghostContent: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   ghostScrim: {
     position: 'absolute',
@@ -1696,7 +1756,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(16,13,23,0.32)',
+    backgroundColor: 'rgba(16,13,23,0.55)',
   },
   ghostOverlay: {
     position: 'absolute',
@@ -1728,12 +1788,15 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
+  // Glass card: transparent container (the frost + tint + sheen come from the
+  // <GlassCardBg /> dropped in as each card's first child, over the cosmic
+  // background) with a bright edge and a brighter top border for the glass rim.
   card: {
-    backgroundColor: colors.fill.faint,
+    backgroundColor: 'transparent',
     borderRadius: radius.card,
     padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border.faint,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: glass.border,
     marginBottom: spacing.lg,
     overflow: 'hidden',
   },
@@ -1741,6 +1804,18 @@ const styles = StyleSheet.create({
     fontSize: fontScale.bodyLg,
     fontFamily: fonts.medium,
     color: colors.textPrimary,
+  },
+  // The drawings collection grid: three per row, square cells.
+  drawGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md },
+  drawCell: { width: '30%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+  drawImg: { width: '100%', height: '100%' },
+  drawLocked: {
+    width: '82%',
+    height: '82%',
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
   },
   cardCopy: {
     fontSize: fontScale.caption,

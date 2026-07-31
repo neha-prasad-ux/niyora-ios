@@ -26,15 +26,18 @@ export default function PaintScreen() {
     Haptics.selectionAsync().catch(() => {});
     router.back();
   };
-  // Done finishes the card: open the iOS share sheet (she shares or closes it),
-  // then leave. X above leaves without sharing.
-  const onDone = async () => {
+  // M15: Share is its own button now (an icon), opening the iOS share sheet and
+  // staying on the card. Done just finishes and leaves.
+  const onShare = async () => {
     Haptics.selectionAsync().catch(() => {});
     try {
       await card.current?.share();
     } catch {
-      // Snapshot/share can fail (e.g. she cancels): leaving anyway is correct.
+      // Snapshot/share can fail or be cancelled; staying on the card is correct.
     }
+  };
+  const onDone = () => {
+    Haptics.selectionAsync().catch(() => {});
     markActivityDone('colour');
     leave();
   };
@@ -49,9 +52,14 @@ export default function PaintScreen() {
               <SymbolView name="xmark" tintColor={INK} size={15} weight="semibold" />
             </Pressable>
             <Text style={styles.title}>Colour &amp; Share</Text>
-            <Pressable onPress={onDone} hitSlop={12} style={styles.done} accessibilityRole="button" accessibilityLabel="Done and share">
-              <Text style={styles.doneText}>Done</Text>
-            </Pressable>
+            <View style={styles.actions}>
+              <Pressable onPress={onShare} hitSlop={12} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Share">
+                <SymbolView name="square.and.arrow.up" tintColor={INK} size={17} weight="semibold" />
+              </Pressable>
+              <Pressable onPress={onDone} hitSlop={12} style={styles.done} accessibilityRole="button" accessibilityLabel="Done">
+                <Text style={styles.doneText}>Done</Text>
+              </Pressable>
+            </View>
           </View>
           <View style={styles.center}>
             <ColorFill ref={card} />
@@ -86,6 +94,9 @@ const styles = StyleSheet.create({
     fontSize: fontScale.cardTitle,
     color: INK,
   },
+  // M15: Share icon + Done sit together on the right.
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  shareBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
   done: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
   doneText: {
     fontFamily: fonts.semibold,

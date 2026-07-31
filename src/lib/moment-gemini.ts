@@ -41,13 +41,18 @@ const VOICE = [
 // for pick slots the option menu); this maps the slot to the right system.
 const SLOT_INSTRUCTION: Record<string, string> = {
   acknowledge:
-    'Say her words back so she feels heard. Keep her own words. Add nothing new: no ' +
-    'reassurance, no reframe, no advice. If she wrote a lot, give the gist in her words, ' +
-    'shorter. Max 2 short lines. If she attacked herself ("I\'m too much"), reflect the ' +
-    'situation, never repeat the self-attack back.',
+    'Reflect what happened in a few of her own words, so she feels heard. One short line, the gist, ' +
+    'not her whole sentence back. Add nothing new: no reassurance, no reframe, no advice, and keep ' +
+    'her own words and facts. If she attacked herself ("I\'m too much"), reflect the situation, ' +
+    'never repeat the self-attack back.',
   clarify:
     'She wrote very little. Reflect the little she gave, then leave room for more as a soft ' +
     'invitation, not a demand. Do not guess what happened.',
+  has_event:
+    'Does her message name a concrete thing that happened, an event, something someone did or ' +
+    'said, a situation? Answer only "yes" or "no". Say "no" ONLY when it is purely a feeling or ' +
+    'mood with no event at all ("I feel awful", "today was bad"). If there is any concrete thing, ' +
+    'even small, say "yes".',
   feelings:
     'Order the feelings in the options list by fit to what she wrote, best first. Do not add, ' +
     'rename, or invent one. Return only the reordered list.',
@@ -62,12 +67,15 @@ const SLOT_INSTRUCTION: Record<string, string> = {
   act_help:
     'She decided on the move named below. Give her a short draft to carry it out. For a message, ' +
     'write what she could send, her voice, first person. For something she says out loud or does, ' +
-    'write the words or one simple first step. Use only what she wrote and how she feels. Plain, ' +
-    'no blame, no name-calling, no ultimatum. One or two lines. A starting point she edits.',
+    'write the words or one simple first step. Ground it in the specific thing she wrote, not a ' +
+    'generic line. Aim to be heard, not to win: own her own feeling ("I felt..."), never accuse, ' +
+    'label, or diagnose the other person, and nothing sarcastic, threatening, or that invites a ' +
+    'fight. Plain, calm, grown-up. One or two lines. A starting point she edits.',
   revise:
     'She wants to change what you wrote. Rewrite it to follow her note, keeping her voice and ' +
-    'everything true to what she wrote. Same rules: plain, no blame, no advice, max 2 lines. ' +
-    'Still a draft.',
+    'everything true to what she wrote. If her note asks to be more direct, make it clearer and ' +
+    'plainer, never harsher or more accusing, and never sharp enough to start a fight. Same rules: ' +
+    'plain, no blame, no advice, max 2 lines. Still a draft.',
 };
 
 // The generated text lives in the `model_output` step, whose `content` array

@@ -48,7 +48,11 @@ const cards = (science: string): OptionPlan => ({ science, composer: 'cards' });
 // Keyed by FEELING_SET label. Hot feelings (Angry, Frustrated) lead with the
 // calming acts; the relational ones lead with the fill-in, because there the
 // work is saying it in a way that lands.
+// Keyed by FEELING_SET label. Relational-wound feelings lead with the fill-in
+// (compose a measured message); hot, heavy and self-directed feelings lead with
+// the calming act cards, because there settling comes before any response.
 const PLANS: Record<string, OptionPlan> = {
+  // --- relational wounds: fill-in composer ---
   Dismissed: fill(
     'Being talked over feels bad, and that is real. Saying clearly what you needed helps you get heard next time.',
     'Dismissed',
@@ -69,21 +73,73 @@ const PLANS: Record<string, OptionPlan> = {
     'Let down',
     ['the plan was cancelled', 'it slipped again', 'I was left waiting'],
   ),
+  Betrayed: fill(
+    'Broken trust cuts deep, and that is fair. Say how it landed before you decide anything bigger.',
+    'Betrayed',
+    ['you went behind my back', 'I found out', 'a promise was broken'],
+  ),
+  Rejected: fill(
+    'A no can feel like a verdict on you. It is one moment, not the whole story of your worth.',
+    'Rejected',
+    ['I was turned down', 'I was left on read', 'I was not included'],
+  ),
+  Abandoned: fill(
+    'Being left brings up old fear. Say plainly what you need, rather than testing whether they stay.',
+    'Abandoned',
+    ['you left', 'I was on my own', 'no one showed up'],
+  ),
   Small: fill(
     'Feeling unseen makes you want to hide or to shout. A clear, simple ask sits between the two.',
     'Small',
     ['I was left out', 'no one asked me', 'I was spoken over'],
   ),
-  Embarrassed: fill(
-    'Being embarrassed in front of people feels big. Most of them will remember it far less than you do.',
-    'Embarrassed',
-    ['it happened in the meeting', 'in front of the team', 'in front of everyone'],
+  Guilty: fill(
+    'Guilt can mean you care. Own your part simply, without tearing yourself down for it.',
+    'Guilty',
+    ['I let you down', 'I said something I regret', 'I forgot'],
   ),
+  // --- hot, heavy, self-directed: calming cards ---
   Angry: cards(
     'The anger is real and it tells you something. It also fades faster than a message can be taken back, so wait a moment.',
   ),
   Frustrated: cards(
     'The "again" is the hard part. When you speak, name the pattern once, not every time it happened.',
+  ),
+  Irritable: cards(
+    'Small things feel huge when you are already worn thin. A short reset now saves the snap later.',
+  ),
+  Anxious: cards(
+    'Your body is on high alert, not seeing the future. Slow the breath first, then look at what is real.',
+  ),
+  Overwhelmed: cards(
+    'When everything feels like too much, do one thing only. The rest can wait its turn.',
+  ),
+  Scared: cards(
+    'Fear is trying to keep you safe. Name what you are afraid of, then check what is true right now.',
+  ),
+  Dreading: cards(
+    'Dread makes what is ahead look bigger than it is. Break it into the very next small step.',
+  ),
+  Sad: cards(
+    'Sadness is heavy, and it is allowed. You do not have to fix it right now, just let it move through.',
+  ),
+  Grieving: cards(
+    'Grief comes in waves, not a straight line. Be as gentle with yourself as you would with a friend.',
+  ),
+  Numb: cards(
+    'Feeling nothing is still something. One small, kind action can bring you back into the room.',
+  ),
+  Lonely: cards(
+    'Feeling alone is painful and very human. Reaching out to one person, even briefly, helps more than waiting.',
+  ),
+  Ashamed: cards(
+    'Shame says hide. The kinder truth is that you made a mistake, you are not one.',
+  ),
+  Embarrassed: cards(
+    'Being embarrassed in front of people feels big. Most of them will remember it far less than you do.',
+  ),
+  Jealous: cards(
+    'Comparing is human, and it hurts. Their win is not your loss, even when it feels that way.',
   ),
 };
 

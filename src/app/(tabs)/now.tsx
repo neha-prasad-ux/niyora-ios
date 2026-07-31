@@ -35,6 +35,7 @@ import { RingCelebration } from '@/components/RingCelebration';
 import { ShootingStar } from '@/components/ShootingStar';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { fontScale } from '@/theme/typography';
 import { fonts } from '@/theme/fonts';
 import { spacing, radius, pageGutter } from '@/theme/spacing';
@@ -65,6 +66,7 @@ import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { todayYmd } from '@/store/pms-readiness';
 import { getRemissionLog, type RemissionEntry } from '@/store/remission-log';
+import { getMomentCheckpoint } from '@/store/moment-resume';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
@@ -94,12 +96,14 @@ type Snapshot = {
   lifetimeLight: number;
   periodHistory: string[];
   remissionLog: RemissionEntry[];
+  // A Moon flow left unfinished: Home offers to pick it up where she left off.
+  hasResume: boolean;
   now: Date;
 };
 
 async function loadSnapshot(): Promise<Snapshot> {
   const now = new Date();
-  const [prefs, reads, progress, moonState, ledger, periodHistory, remissionLog] =
+  const [prefs, reads, progress, moonState, ledger, periodHistory, remissionLog, checkpoint] =
     await Promise.all([
       getPmsPrefs(),
       getPmsReads(),
@@ -108,6 +112,7 @@ async function loadSnapshot(): Promise<Snapshot> {
       getLightLedger(),
       getPeriodHistory(),
       getRemissionLog(),
+      getMomentCheckpoint().catch(() => null),
     ]);
   return {
     prefs,
@@ -117,6 +122,7 @@ async function loadSnapshot(): Promise<Snapshot> {
     lifetimeLight: foldLedger(ledger).lifetimeLight,
     periodHistory,
     remissionLog,
+    hasResume: checkpoint != null,
     now,
   };
 }
@@ -446,6 +452,22 @@ export default function NowScreen() {
                       </View>
                     </LinearGradient>
                   </Pressable>
+                  {/* A flow she left unfinished: a quiet second line under the
+                      CTA to pick it up where she left off. Never competes with
+                      the primary ask — it only shows when there is one to resume. */}
+                  {snapshot?.hasResume && (
+                    <Pressable
+                      style={styles.resumeWrap}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {});
+                        router.push('/moment?resume=1' as Href);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Continue where you left off"
+                    >
+                      <Text style={styles.resumeText}>Continue where you left off</Text>
+                    </Pressable>
+                  )}
                 </Animated.View>
               </View>
             </Animated.View>
@@ -510,7 +532,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: glass.border,
   },
   // A light frost over the blur — kept translucent so the nebula and the moon's
   // rose halo glow through the glass, then the gloss sheen adds the highlight.

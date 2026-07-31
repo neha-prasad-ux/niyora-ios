@@ -9,12 +9,13 @@ import * as Haptics from 'expo-haptics';
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
+import { GlassCardBg } from '@/components/glass-card-bg';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { fonts } from '@/theme/fonts';
 import { fontScale } from '@/theme/typography';
 import { spacing, radius, pageGutter } from '@/theme/spacing';
@@ -108,12 +109,7 @@ export default function CouplesScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${a.title}. ${a.sub}.`}
                 >
-                  <LinearGradient
-                    colors={a.gradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
+                  <GlassCardBg gradient={a.gradient} />
                   <View pointerEvents="none" style={styles.chapterBackdrop}>
                     <SymbolView
                       name="heart.fill"
@@ -207,7 +203,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
+    borderColor: glass.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },

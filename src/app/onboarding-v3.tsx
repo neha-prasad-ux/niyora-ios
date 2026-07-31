@@ -170,7 +170,8 @@ const SEQUENCE: StepId[] = [
   'result',
   'goal', // pick-up: her goal + how Niyora will help
   'reminder', // opt into one gentle daily nudge, folded in from the old onboarding
-  'pick', // "where do you want to start?" — routes into the chosen pillar
+  // The "pick" (4-card "where do you want to start?") step was removed; the flow
+  // now ends on the reminder and lands on home.
 ];
 
 // Retake ("measure your progress", entered from My Soul with mode=retake): just
@@ -569,7 +570,8 @@ function RenderStep({
       // The plan hand-off: persist her cycle + mark done, then move to the pick.
       return <Plan answers={answers} update={update} onDone={commitPlan} />;
     case 'reminder':
-      return <ReminderStep onDone={advance} />;
+      // The last step now (the 4-card pick page was removed): land on home.
+      return <ReminderStep onDone={() => router.replace('/now' as Href)} />;
     case 'pick':
       // "Where do you want to start?" — routes into the chosen pillar.
       return <Pick onPick={startWith} onBack={onBack} />;

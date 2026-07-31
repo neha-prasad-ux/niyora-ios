@@ -3,15 +3,16 @@
 // so the chapters page (src/app/train.tsx), the home summary, and the onboarding
 // plan preview all render the exact same card and stay recognisable.
 
-import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GlassCardBg } from '@/components/glass-card-bg';
 import { Orb } from '@/components/orb';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { type Chapter } from '@/v3/game-content';
 import { type TrainingState } from '@/store/training-v3';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { fonts } from '@/theme/fonts';
 import { spacing, radius } from '@/theme/spacing';
 import { fontScale } from '@/theme/typography';
@@ -174,12 +175,7 @@ export function ChapterCard({
             : `${chapter.emotion}. ${blurb}. ${statusWord}.`
         }
       >
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        <GlassCardBg gradient={gradient} />
         <CardPattern level={allDone ? levels.length : currentN} />
         <View style={styles.cardRow}>
           <View style={styles.cardTextCol}>
@@ -236,7 +232,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
+    borderColor: glass.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },

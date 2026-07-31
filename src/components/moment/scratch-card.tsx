@@ -38,10 +38,16 @@ type Pt = { x: number; y: number };
  *  band and the reveal feels generous rather than like colouring in a line. */
 const SCRATCH_WIDTH = 46;
 
-/** How much scratching before we call it revealed and lift the rest of the
- *  foil for her. Measured as total travel over the card's area, so a big card
- *  needs proportionally more. Roughly "a few good passes". */
-const REVEAL_RATIO = 0.9;
+/** How much of the card must actually be uncovered before we lift the rest of
+ *  the foil. Measured as real COVERAGE (a coarse grid of cleared cells), not
+ *  travel: rubbing the same spot piles up distance without clearing anything, so
+ *  a travel proxy popped the reveal while most of the card was still foil (M26).
+ *  0.65 leaves only the corners for the auto-lift. */
+const REVEAL_COVERAGE = 0.65;
+
+/** Grid cell size for the coverage estimate, near the scratch width so one pass
+ *  clears about one row of cells. */
+const CELL = 40;
 
 /** The foil, in brand colours: a diagonal violet-to-periwinkle wash with a hint
  *  of moonstone pink, so it reads as a holographic scratch panel rather than a
@@ -102,26 +108,39 @@ export function ScratchCard({
   // Whether any rub has landed yet, so the "scratch to reveal" hint can clear.
   const [touched, setTouched] = useState(false);
   const cleared = useRef(false);
-  // Total travelled distance, the cheap proxy for how much foil is gone.
-  const travelled = useRef(0);
-  const revealTarget = width * height * REVEAL_RATIO * 0.02;
+  // Coverage grid: the set of cleared cell indices, and the total to hit.
+  const cols = Math.max(1, Math.ceil(width / CELL));
+  const rows = Math.max(1, Math.ceil(height / CELL));
+  const totalCells = cols * rows;
+  const covered = useRef<Set<number>>(new Set());
+
+  // Mark every grid cell the brush footprint (a SCRATCH_WIDTH box at the point)
+  // touches, so overlapping passes never double-count.
+  const markCovered = (x: number, y: number) => {
+    const half = SCRATCH_WIDTH / 2;
+    const c0 = Math.max(0, Math.floor((x - half) / CELL));
+    const c1 = Math.min(cols - 1, Math.floor((x + half) / CELL));
+    const r0 = Math.max(0, Math.floor((y - half) / CELL));
+    const r1 = Math.min(rows - 1, Math.floor((y + half) / CELL));
+    for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) covered.current.add(r * cols + c);
+  };
 
   const begin = (x: number, y: number) => {
     if (gone) return;
     setTouched(true);
+    markCovered(x, y);
     setPts([{ x, y }]);
     Haptics.selectionAsync().catch(() => {});
   };
 
   const move = (x: number, y: number) => {
     if (gone) return;
+    markCovered(x, y);
     setPts((cur) => {
       if (!cur) return [{ x, y }];
-      const last = cur[cur.length - 1];
-      travelled.current += Math.hypot(x - last.x, y - last.y);
       return [...cur, { x, y }];
     });
-    if (!cleared.current && travelled.current >= revealTarget) {
+    if (!cleared.current && covered.current.size >= totalCells * REVEAL_COVERAGE) {
       cleared.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => {},

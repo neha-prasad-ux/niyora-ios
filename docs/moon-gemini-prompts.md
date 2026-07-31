@@ -24,15 +24,16 @@ Always:
 ## 1. `acknowledge` (echo, moon voice)
 
 ```
-Say her words back so she feels heard. Keep her own words. Add nothing new: no
-reassurance, no reframe, no advice. If she wrote a lot, give the gist in her
-words, shorter. Max 2 short lines. If she attacked herself ("I'm too much"),
-reflect the situation, never repeat the self-attack back.
+Reflect what happened in a few of her own words, so she feels heard. One short
+line, the gist, not her whole sentence back. Add nothing new: no reassurance, no
+reframe, no advice, and keep her own words and facts. If she attacked herself
+("I'm too much"), reflect the situation, never repeat the self-attack back.
 
 She wrote: "{{rawEntry}}"
 {{#cycle}}Context: {{cycle}}{{/cycle}}
 ```
-Output: her words, no quotes. Max 2 lines.
+Output: her words, no quotes. One short line (M5: gist, not a parrot). Still
+vetted by isGrounded; a paraphrase that drifts falls back to the carve.
 
 ## 2. `clarify` (echo, only when entry is thin)
 
@@ -43,6 +44,23 @@ a soft invitation, not a demand. Do not guess what happened.
 She wrote: "{{rawEntry}}"
 ```
 Output: max 2 sentences.
+
+## 2b. `has_event` (M6 gate, runs in background at entry)
+
+Decides whether a clear sentence still lacks a concrete event, so a vague entry
+gets one follow-up for context. Asymmetric: "no" only for pure mood, else "yes";
+anything unparseable is treated as null and never clarifies.
+
+```
+Does her message name a concrete thing that happened, an event, something someone
+did or said, a situation? Answer only "yes" or "no". Say "no" ONLY when it is
+purely a feeling or mood with no event at all ("I feel awful", "today was bad").
+If there is any concrete thing, even small, say "yes".
+
+She wrote: "{{rawEntry}}"
+```
+Output: "yes" or "no". On "no", clarify asks: "Can you give a bit more, like who
+did what, and where and how? It helps."
 
 ## 3. `feelings` (pick, chips)
 
@@ -92,26 +110,33 @@ Output: JSON array of exact strings.
 ```
 She decided to {{actLabel}}. Give her a short draft to carry it out. For a
 message, write what she could send, her voice, first person. For something she
-says out loud or does, write the words or one simple first step. Use only what
-she wrote and how she feels. Plain, no blame, no name-calling, no ultimatum. One
-or two lines. A starting point she edits.
+says out loud or does, write the words or one simple first step. Ground it in the
+specific thing she wrote, not a generic line. Aim to be heard, not to win: own
+her own feeling ("I felt..."), never accuse, label, or diagnose the other person,
+and nothing sarcastic, threatening, or that invites a fight. Plain, calm,
+grown-up. One or two lines. A starting point she edits.
 
 She wrote: "{{rawEntry}}"
 She feels: {{feeling}}
 Her move: {{actLabel}}
+{{cycleNote}}   # C2: added only while she is in her premenstrual window
 ```
 Output: the draft, no quotes. 1 to 2 lines. For message acts it lands editable in
-Messages; sending is only ever her tap.
+Messages; sending is only ever her tap. (M17: grounded in her situation; M23:
+mature, de-escalating, never fight-inviting.)
 
 ## 7. `revise` (she tells AI to change any draft, so she is never stuck)
 
 Reusable on any AI text she wants to iterate (act draft or reframe). Feed the
-current text plus her note.
+current text plus her note. M19: the note now comes from tapped buttons
+(Shorter / Longer / Softer / More direct), not free text.
 
 ```
 She wants to change what you wrote. Rewrite it to follow her note, keeping her
-voice and everything true to what she wrote. Same rules: plain, no blame, no
-advice, max 2 lines. Still a draft.
+voice and everything true to what she wrote. If her note asks to be more direct,
+make it clearer and plainer, never harsher or more accusing, and never sharp
+enough to start a fight. Same rules: plain, no blame, no advice, max 2 lines.
+Still a draft.
 
 Current: "{{currentText}}"
 Her note: "{{herNote}}"

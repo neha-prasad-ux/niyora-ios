@@ -85,31 +85,50 @@ export function analyse(raw: string): Verdict {
 }
 
 /**
- * The three feelings offered after the echo.
+ * The feelings offered after the echo, ranked by cue fit to what she wrote.
  *
- * HARDCODED for now, to one scenario, deliberately: it makes the whole screen
- * real without a model, and it is the shape the model will have to fill later.
- * When it lands its only job is to RANK this list, never to add to it, so the
- * set stays closed and a suppression stays an array filter.
+ * Aligned to the 19 constellation emotions (M7, Neha 2026-07-31): each feeling
+ * carries the `constellation` it belongs to, so naming it lights that badge on
+ * the Soul sky and drives the option plan (option-plan.ts). Situational labels
+ * are kept (Dismissed, Let down...) because the cue scorer reads her text far
+ * better with them than with broad words, and several nuanced feelings can share
+ * one constellation. The set stays CLOSED: the model may only reorder it.
  *
- * The full taxonomy is 22 words; these are the three for the worked scenario
- * ("I was interrupted again in a meeting").
+ * [DRAFT] labels + cues, awaiting Neha's pass. Constellations match
+ * docs/moon-ai-constellations.md.
  */
 export type FeelingWord = {
   label: string;
   /** Words in her text that make this one likely. Lowercase, matched loosely. */
   cues: string[];
+  /** The constellation badge this feeling belongs to. */
+  constellation: string;
 };
 
 export const FEELING_SET: readonly FeelingWord[] = [
-  { label: 'Dismissed', cues: ['interrupt', 'talked over', 'ignored', 'brush', 'cut me off'] },
-  { label: 'Not taken seriously', cues: ['interrupt', 'talked over', 'laughed', 'joke', 'credit'] },
-  { label: 'Angry', cues: ['shouted', 'yelled', 'snapped', 'rude', 'unfair', 'again'] },
-  { label: 'Hurt', cues: ['said', 'told me', 'forgot', 'left me', 'cancelled', 'without me'] },
-  { label: 'Let down', cues: ['promised', 'cancelled', 'forgot', 'late', 'never'] },
-  { label: 'Embarrassed', cues: ['front of', 'everyone', 'team', 'laughed', 'meeting'] },
-  { label: 'Small', cues: ['ignored', 'nobody', 'no one', 'invisible', 'without me'] },
-  { label: 'Frustrated', cues: ['again', 'keeps', 'always', 'every time', 'still'] },
+  { label: 'Dismissed', constellation: 'inadequacy', cues: ['interrupt', 'talked over', 'ignored', 'brush', 'cut me off', 'skipped'] },
+  { label: 'Not taken seriously', constellation: 'inadequacy', cues: ['interrupt', 'talked over', 'laughed', 'joke', 'credit'] },
+  { label: 'Angry', constellation: 'anger', cues: ['shouted', 'yelled', 'snapped', 'rude', 'unfair', 'furious', 'mad'] },
+  { label: 'Hurt', constellation: 'hurt', cues: ['said', 'told me', 'forgot', 'left me', 'cancelled', 'without me'] },
+  { label: 'Let down', constellation: 'hurt', cues: ['promised', 'cancelled', 'forgot', 'late', 'never'] },
+  { label: 'Betrayed', constellation: 'betrayal', cues: ['lied', 'behind my back', 'cheated', 'trust', 'betrayed', 'went behind'] },
+  { label: 'Rejected', constellation: 'rejection', cues: ['left on read', 'said no', 'turned down', 'not wanted', 'rejected', 'ignored'] },
+  { label: 'Abandoned', constellation: 'abandonment', cues: ['left', 'walked out', 'on my own', 'no one there', 'gone', 'abandoned'] },
+  { label: 'Small', constellation: 'inadequacy', cues: ['nobody', 'no one', 'invisible', 'without me', 'not enough'] },
+  { label: 'Embarrassed', constellation: 'shame', cues: ['front of', 'everyone', 'team', 'laughed', 'meeting', 'embarrassed'] },
+  { label: 'Ashamed', constellation: 'shame', cues: ['stupid', 'my fault', 'humiliated', 'ashamed', 'pathetic'] },
+  { label: 'Guilty', constellation: 'guilt', cues: ['my fault', 'should have', 'sorry', 'let them down', 'guilty'] },
+  { label: 'Frustrated', constellation: 'frustration', cues: ['again', 'keeps', 'always', 'every time', 'still'] },
+  { label: 'Irritable', constellation: 'irritability', cues: ['on edge', 'every little thing', 'snappy', 'irritable', 'wound up'] },
+  { label: 'Anxious', constellation: 'anxiety', cues: ['worried', 'nervous', 'what if', 'panic', 'anxious', 'on edge'] },
+  { label: 'Dreading', constellation: 'dread', cues: ['tomorrow', 'have to', 'facing', 'coming up', 'cant face', 'dreading'] },
+  { label: 'Overwhelmed', constellation: 'overwhelm', cues: ['too much', 'cant cope', 'everything', 'drowning', 'buried', 'overwhelmed'] },
+  { label: 'Scared', constellation: 'fear', cues: ['scared', 'afraid', 'terrified', 'frightened', 'threat'] },
+  { label: 'Sad', constellation: 'sadness', cues: ['cried', 'crying', 'tears', 'down', 'low', 'sad'] },
+  { label: 'Grieving', constellation: 'grief', cues: ['lost', 'gone', 'died', 'passed', 'miss'] },
+  { label: 'Numb', constellation: 'numbness', cues: ['nothing', 'empty', 'blank', 'numb', 'dont care', 'shut down'] },
+  { label: 'Lonely', constellation: 'loneliness', cues: ['alone', 'no one', 'by myself', 'nobody', 'lonely', 'left out'] },
+  { label: 'Jealous', constellation: 'jealousy', cues: ['she got', 'they have', 'why not me', 'jealous', 'envy', 'everyone else'] },
 ];
 
 /**

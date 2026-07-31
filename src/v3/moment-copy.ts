@@ -456,6 +456,7 @@ export const COPY = {
   low_activate: 'One small thing. Not a good one, just one.', // [DRAFT]
   low_why: 'Flat is the state where doing something works better than working out why. Small counts.', // [DRAFT]
   low_justone: 'Just the one, done is enough', // [MAP]
+  low_reward: 'That is one more than none. Flat lifts a little at a time.', // [DRAFT]
   low_better: 'Feeling better?', // [MAP]
 
   // --- mixed lane --------------------------------------------------------
@@ -464,6 +465,9 @@ export const COPY = {
   mixed_swing_real: 'Does this feel like the swing, or like something real?', // [DRAFT]
   mixed_swing: "The swing", // [DRAFT]
   mixed_real_label: 'Something real', // [DRAFT]
+  mixed_check_read: 'Here is what you are holding right now.', // [DRAFT]
+  mixed_real: 'If it is real, it is real. You do not have to argue yourself out of it.', // [DRAFT]
+  mixed_anchor: 'You do not have to settle it tonight. One steady thing, then rest.', // [DRAFT]
 
   // Interim line for the `ready_reward` beat: the light/celebration itself is
   // deferred with the reward system, so this just bridges settle -> what to do.

@@ -6,23 +6,24 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
-import { BackgroundGradient } from '@/components/background-gradient';
+import { AmbientGlow } from '@/components/ambient-glow';
+import { CosmicBackground } from '@/components/cosmic-background';
+import { GlassCardBg } from '@/components/glass-card-bg';
 import { Orb } from '@/components/orb';
 import { PrepCard } from '@/components/prep-card';
 import { RecommendSheet } from '@/components/RecommendSheet';
 import { type RecResult } from '@/models/recommend';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { typography, fontScale } from '@/theme/typography';
 import { fonts } from '@/theme/fonts';
 import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { trainSummary, workSummary, type TrainSummary } from '@/v3/game-content';
-import { CHAPTERS } from '@/v3/chapter-content';
 import { DEFAULT_TRAINING, getTraining, type TrainingState } from '@/store/training-v3';
 import { getPmsPrefs, type StartedWith } from '@/store/pms-prefs';
 
@@ -62,17 +63,13 @@ export default function GrowScreen() {
     Haptics.selectionAsync().catch(() => {});
     router.push('/couples');
   };
-  const openSteady = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/steady-yourself' as Href);
-  };
   const openPmsChecklist = () => {
     Haptics.selectionAsync().catch(() => {});
     router.push('/pms-readiness');
   };
-  const openStory = (chapterId: string) => {
+  const openStories = () => {
     Haptics.selectionAsync().catch(() => {});
-    router.push({ pathname: '/pms-story', params: { chapter: chapterId } } as Href);
+    router.push('/stories' as Href);
   };
   const openPeriodsCare = () => {
     Haptics.selectionAsync().catch(() => {});
@@ -134,7 +131,8 @@ export default function GrowScreen() {
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient />
+      <CosmicBackground />
+      <AmbientGlow />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
@@ -169,6 +167,16 @@ export default function GrowScreen() {
                 onOpen={c.onOpen}
               />
             ))}
+
+            {/* Neha's story serial, learned as part of Training. One card that
+                opens the /stories page listing each chapter. */}
+            <Shelf
+              title="Learn through stories"
+              sub="Neha's story, one chapter at a time"
+              gradient={STORY_GRADIENT}
+              backdrop={<StoryBackdrop />}
+              onOpen={openStories}
+            />
           </PhaseSection>
 
           <PhaseSection
@@ -176,25 +184,6 @@ export default function GrowScreen() {
             sub="The week before your period"
             hue={PMS_HUE}
           >
-            {/* One card per story in the serial (src/v3/chapter-content.ts).
-                Story 2+ appear here automatically; each opens the reader on its
-                own chapter. */}
-            {CHAPTERS.map((chapter) => (
-              <Shelf
-                key={chapter.id}
-                title={chapter.title}
-                sub={chapter.intro}
-                gradient={STORY_GRADIENT}
-                backdrop={<StoryBackdrop />}
-                onOpen={() => openStory(chapter.id)}
-              />
-            ))}
-            <Shelf
-              title="Cried, fought, or snapped?"
-              sub="Feel relax the science way"
-              gradient={STEADY_GRADIENT}
-              onOpen={openSteady}
-            />
             <Shelf
               title="PMS day checklist"
               sub="Proven ways to ease symptoms."
@@ -283,12 +272,7 @@ function Shelf({
         accessibilityRole="button"
         accessibilityLabel={`${title}. ${sub}${tag != null ? `. ${tag}` : ''}.`}
       >
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        <GlassCardBg gradient={gradient} />
         {backdrop}
         <View style={styles.cardRow}>
           <View style={styles.cardTextCol}>
@@ -381,60 +365,20 @@ function CouplesBackdrop() {
 }
 
 // --- Shelf gradients --------------------------------------------------------
-// Each shelf keeps its own colour field so they read as a set but never blur:
-// Train violet, Work teal-green, Calm blue, Couples rose.
-const TRAIN_GRADIENT: readonly [string, string, string] = [
-  'hsl(258, 44%, 28%)',
-  'hsl(276, 42%, 30%)',
-  'hsl(292, 40%, 31%)',
-];
-const WORKPLACE_GRADIENT: readonly [string, string, string] = [
-  'hsl(190, 42%, 28%)',
-  'hsl(172, 40%, 29%)',
-  'hsl(158, 40%, 30%)',
-];
-const CALM_GRADIENT: readonly [string, string, string] = [
-  'hsl(206, 48%, 30%)',
-  'hsl(232, 44%, 31%)',
-  'hsl(258, 42%, 33%)',
-];
-const COUPLES_GRADIENT: readonly [string, string, string] = [
-  'hsl(340, 44%, 30%)',
-  'hsl(352, 46%, 31%)',
-  'hsl(6, 44%, 32%)',
-];
-// PMS checklist a magenta-plum (distinct from Train violet); period care a warm
-// coral-amber (rest and warmth, set apart from the Couples rose).
-const PMS_GRADIENT: readonly [string, string, string] = [
-  'hsl(300, 40%, 29%)',
-  'hsl(316, 40%, 30%)',
-  'hsl(332, 40%, 31%)',
-];
-// Neha's story: a deep indigo-to-violet night, the storybook palette — set
-// apart from the checklist magenta and the steady rose, reads as "a story".
-const STORY_GRADIENT: readonly [string, string, string] = [
-  'hsl(250, 44%, 26%)',
-  'hsl(264, 42%, 28%)',
-  'hsl(276, 40%, 30%)',
-];
-// The in-the-moment SOS: a warm rose-to-plum, distinct from the checklist's
-// magenta and the couples rose — the "move through it" tone.
-const STEADY_GRADIENT: readonly [string, string, string] = [
-  'hsl(334, 44%, 30%)',
-  'hsl(348, 42%, 31%)',
-  'hsl(322, 40%, 32%)',
-];
-const PERIOD_GRADIENT: readonly [string, string, string] = [
-  'hsl(6, 48%, 31%)',
-  'hsl(20, 46%, 32%)',
-  'hsl(34, 44%, 33%)',
-];
+// The shelf palette + phase-dot hues live in the theme now (colors.shelfGradients
+// / colors.phaseHues), so grow and stories share one source. These are local
+// aliases onto those tokens.
+const TRAIN_GRADIENT = colors.shelfGradients.train;
+const WORKPLACE_GRADIENT = colors.shelfGradients.work;
+const CALM_GRADIENT = colors.shelfGradients.calm;
+const COUPLES_GRADIENT = colors.shelfGradients.couples;
+const PMS_GRADIENT = colors.shelfGradients.pms;
+const STORY_GRADIENT = colors.shelfGradients.story;
+const PERIOD_GRADIENT = colors.shelfGradients.period;
 
-// Phase-header dots — a brighter pull from each section's shelf hue so the
-// header ties to the cards it groups: build violet, PMS plum, period coral.
-const BUILD_HUE = 'hsl(280, 52%, 64%)';
-const PMS_HUE = 'hsl(320, 50%, 62%)';
-const PERIOD_HUE = 'hsl(22, 60%, 60%)';
+const BUILD_HUE = colors.phaseHues.build;
+const PMS_HUE = colors.phaseHues.pms;
+const PERIOD_HUE = colors.phaseHues.period;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
@@ -519,7 +463,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
+    borderColor: glass.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },

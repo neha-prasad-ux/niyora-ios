@@ -13,10 +13,19 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
+  useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
+
+// Animate the gradient by drifting its start/end points, so the violet->rose
+// band slides across the capsule. ponytail: if a device shows this static,
+// switch to a wide gradient translated on measured width.
+const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
 
 import { colors } from '@/theme/colors';
 import { elevation } from '@/theme/elevation';
@@ -32,6 +41,9 @@ type BeginButtonProps = {
   // When true the button stretches to fill its container width (a big, easy
   // tap target) instead of hugging the label.
   fullWidth?: boolean;
+  // Hero variant: an animated violet->rose gradient that slowly drifts. Reserved
+  // for rare high-value moments (paywall, big-commit CTAs), never ordinary buttons.
+  hero?: boolean;
 };
 
 type Burst = {
@@ -47,11 +59,12 @@ type Burst = {
 const BURST_COUNT = 18;
 const BURST_DELAY_MS = 360;
 
-export function BeginButton({ label = 'Begin', onPress, disabled = false, fullWidth = false }: BeginButtonProps) {
+export function BeginButton({ label = 'Begin', onPress, disabled = false, fullWidth = false, hero = false }: BeginButtonProps) {
   const pressed = useSharedValue(0);
   const [particles, setParticles] = useState<Burst[]>([]);
   const idRef = useRef(0);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const drift = useSharedValue(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +106,20 @@ export function BeginButton({ label = 'Begin', onPress, disabled = false, fullWi
       opacity,
     };
   });
+
+  // Hero gradient drift: slow, reversing sweep. Frozen when reduce motion is on.
+  useEffect(() => {
+    if (hero && !reduceMotion) {
+      drift.value = withRepeat(withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }), -1, true);
+    } else {
+      drift.value = 0;
+    }
+  }, [hero, reduceMotion, drift]);
+
+  const gradientProps = useAnimatedProps(() => ({
+    start: { x: drift.value * 0.4, y: 0 },
+    end: { x: 1 - drift.value * 0.25, y: 1 },
+  }));
 
   function handlePressIn() {
     pressed.value = withSpring(1, { damping: 20, stiffness: 400, mass: 0.8 });
@@ -144,14 +171,24 @@ export function BeginButton({ label = 'Begin', onPress, disabled = false, fullWi
         accessibilityState={{ disabled }}
       >
         <Animated.View style={[animatedStyle, fullWidth && styles.buttonFull, disabled && styles.disabled]}>
-          <LinearGradient
-            colors={[colors.beginStart, colors.beginEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.button}
-          >
-            <Text style={[typography.beginLabel, styles.label]}>{label}</Text>
-          </LinearGradient>
+          {hero ? (
+            <AnimatedGradient
+              colors={colors.heroGradient}
+              animatedProps={gradientProps}
+              style={styles.button}
+            >
+              <Text style={[typography.beginLabel, styles.label]}>{label}</Text>
+            </AnimatedGradient>
+          ) : (
+            <LinearGradient
+              colors={[colors.beginStart, colors.beginEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.button}
+            >
+              <Text style={[typography.beginLabel, styles.label]}>{label}</Text>
+            </LinearGradient>
+          )}
         </Animated.View>
       </Pressable>
 

@@ -216,6 +216,63 @@ export function Thinking() {
   );
 }
 
+/** One pulsing dot in the thinking row. Fades and lifts on a loop, staggered by
+ *  index so the three read as a wave. Still (dim) under reduce-motion. */
+function Dot({ index }: { index: number }) {
+  const reduce = useReducedMotion();
+  const v = useSharedValue(0);
+  useEffect(() => {
+    if (reduce) return;
+    v.value = withDelay(index * 180, withRepeat(withTiming(1, { duration: 620 }), -1, true));
+  }, [index, reduce, v]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.35 + v.value * 0.65,
+    transform: [{ translateY: reduce ? 0 : -3 * v.value }],
+  }));
+  return <Animated.View style={[styles.dot, style]} />;
+}
+
+/**
+ * Skeleton placeholder rows (M3), shown while the model ranks/writes the
+ * options, reframes or feelings, instead of flashing the authored fallback and
+ * then swapping it. Same height as an option row, so nothing jumps when the real
+ * content lands. The authored fallback still shows if the model actually fails.
+ */
+export function SkeletonRows({ count = 3 }: { count?: number }) {
+  const reduce = useReducedMotion();
+  const v = useSharedValue(0.5);
+  useEffect(() => {
+    if (reduce) return;
+    v.value = withRepeat(withTiming(1, { duration: 820 }), -1, true);
+  }, [reduce, v]);
+  const style = useAnimatedStyle(() => ({ opacity: reduce ? 0.5 : v.value }));
+  return (
+    <View style={styles.skelStack} accessibilityRole="progressbar" accessibilityLabel="Thinking">
+      {Array.from({ length: count }, (_, i) => (
+        <Animated.View key={i} style={[styles.skelRow, style]} />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * The AI-thinking indicator for the generation gap (M2). Three pulsing dots and
+ * an optional line ("Writing you a start"), shown where the model takes a beat
+ * to answer, so the pause reads as working, not broken.
+ */
+export function ThinkingDots({ label }: { label?: string }) {
+  return (
+    <View style={styles.thinkingRow} accessibilityRole="progressbar" accessibilityLabel={label ?? 'Thinking'}>
+      <View style={styles.dots}>
+        <Dot index={0} />
+        <Dot index={1} />
+        <Dot index={2} />
+      </View>
+      {label ? <Text style={styles.thinkingLabel}>{label}</Text> : null}
+    </View>
+  );
+}
+
 // --- 0 to 10 -----------------------------------------------------------------
 
 /**
@@ -361,6 +418,19 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: colors.textPrimary,
   },
+
+  skelStack: { gap: spacing.sm },
+  skelRow: {
+    minHeight: 56,
+    borderRadius: radius.button,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+  },
+  thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.textSubtitle },
+  thinkingLabel: { fontFamily: fonts.light, fontSize: fontScale.caption, color: v3.textFaint },
 
   scaleEnd: { fontFamily: fonts.regular, fontSize: fontScale.caption, color: colors.textTagline },
 

@@ -86,6 +86,24 @@ export async function echo(
   return { text: null, via: 'authored' };
 }
 
+/**
+ * Does her entry name a concrete event, or is it only a mood? (M6.) A vague
+ * entry gets one follow-up asking for context, so the reframe has something to
+ * work with. Deliberately asymmetric: returns false ONLY on a clear "no", and
+ * null on anything unparseable/unavailable, so a failure never over-clarifies
+ * (the flow keeps the sense of being heard rather than re-asking her).
+ */
+export async function hasConcreteEvent(provider: MomentProvider, text: string): Promise<boolean | null> {
+  const raw = text.trim();
+  if (!raw) return null;
+  const out = await provider.generate('has_event', raw, TIMEOUT_MS).catch(() => null);
+  if (!out) return null;
+  const s = out.trim().toLowerCase();
+  if (s.startsWith('no')) return false;
+  if (s.startsWith('yes')) return true;
+  return null;
+}
+
 export type PickResult<T> = {
   /** The chosen items, always a subset of `from`, in the provider's order. */
   items: T[];

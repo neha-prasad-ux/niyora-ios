@@ -149,6 +149,15 @@ export default function RootLayout() {
               gestureEnabled: true,
             }}
           />
+          {/* Learn through stories — Neha's story serial, opened from the Train
+              shelf; lists each chapter, which opens the pms-story reader. */}
+          <Stack.Screen
+            name="stories"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
           <Stack.Screen
             name="pms-readiness"
             options={{

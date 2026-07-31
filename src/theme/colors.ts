@@ -121,4 +121,29 @@ export const colors = {
     inkFaint: 'rgba(43, 38, 50, 0.55)', // muted text
     control: 'rgba(0, 0, 0, 0.05)',    // faint control fill (e.g. close button)
   },
+
+  // ── Grow shelf palette ─────────────────────────────────────────────────────
+  // One three-stop gradient per shelf (rendered as a translucent tint over the
+  // card glass). Single source so grow.tsx and stories.tsx stop each keeping
+  // their own copy. Each shelf = one hue identity.
+  shelfGradients: {
+    train: ['hsl(258, 44%, 28%)', 'hsl(276, 42%, 30%)', 'hsl(292, 40%, 31%)'],
+    work: ['hsl(190, 42%, 28%)', 'hsl(172, 40%, 29%)', 'hsl(158, 40%, 30%)'],
+    calm: ['hsl(206, 48%, 30%)', 'hsl(232, 44%, 31%)', 'hsl(258, 42%, 33%)'],
+    couples: ['hsl(340, 44%, 30%)', 'hsl(352, 46%, 31%)', 'hsl(6, 44%, 32%)'],
+    pms: ['hsl(300, 40%, 29%)', 'hsl(316, 40%, 30%)', 'hsl(332, 40%, 31%)'],
+    story: ['hsl(250, 44%, 26%)', 'hsl(264, 42%, 28%)', 'hsl(276, 40%, 30%)'],
+    period: ['hsl(6, 48%, 31%)', 'hsl(20, 46%, 32%)', 'hsl(34, 44%, 33%)'],
+  },
+  // Phase-header dots: a brighter pull from each section's shelf hue.
+  phaseHues: {
+    build: 'hsl(280, 52%, 64%)',
+    pms: 'hsl(320, 50%, 62%)',
+    period: 'hsl(22, 60%, 60%)',
+  },
+
+  // Hero CTA gradient (the rare animated button: paywall, big-commit moments).
+  // Violet -> rose, stays in the brand family (begin violet + accentRose) so it
+  // reads premium, not candy. Reserved · do not use for ordinary buttons.
+  heroGradient: ['hsl(270, 50%, 42%)', 'hsl(300, 52%, 52%)', 'hsl(342, 64%, 60%)'],
 } as const;

@@ -1448,7 +1448,9 @@ function L5Backdrop() {
   return (
     <View pointerEvents="none" style={styles.l5Backdrop}>
       <View style={styles.l5BackdropOrb}>
-        <Orb size={460} tierRingCount={4} ringHues={SOUL_RING_HUES} still />
+        {/* Ringless: the coloured rings read as a rainbow smear on the flat
+            black now the gradient is gone. Just the soft disc as a watermark. */}
+        <Orb size={460} tierRingCount={0} ringHues={SOUL_RING_HUES} still />
       </View>
     </View>
   );
@@ -1610,16 +1612,21 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   // The card flies off toward the gate it was tapped on: left gate -> left, right
   // gate -> right (basics/small/big share the same two-slot layout per card).
   const routedRight2 = routed ? shown.indexOf(routed) === 1 : false;
+  // The card's live opacity: invisible while flown out (fly=1) or not yet dealt
+  // (enter=0). The peek stack behind it rides the SAME opacity, so a card that
+  // has flown to its gate takes the empty peeks with it — the centre never shows
+  // a hollow "blank card" mid-transition, it just clears until the next deals in.
+  const cardOpacity = Animated.multiply(
+    fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+    enter.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+  );
   const flyStyle = {
     transform: [
       { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, routedRight2 ? 520 : -520] }) },
       { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) },
       { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', routedRight2 ? '16deg' : '-16deg'] }) },
     ],
-    opacity: Animated.multiply(
-      fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-      enter.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
-    ),
+    opacity: cardOpacity,
   };
 
   return (
@@ -1670,8 +1677,13 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
             <Text style={styles.l5StepLabel}>{L5_DECK.stepLabel}</Text>
             <View style={styles.deckStage}>
               <View style={styles.deckStack}>
-                <View style={[styles.deckPeek, styles.deckPeek2]} />
-                <View style={[styles.deckPeek, styles.deckPeek1]} />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[StyleSheet.absoluteFill, { opacity: cardOpacity }]}
+                >
+                  <View style={[styles.deckPeek, styles.deckPeek2]} />
+                  <View style={[styles.deckPeek, styles.deckPeek1]} />
+                </Animated.View>
                 <Animated.View style={[styles.deckCard, flyStyle]}>
                   <Text style={styles.deckCardMeta}>Moment {cardIdx + 1} of {cards.length}</Text>
                   <Text style={styles.deckCardScene}>{card.scene}</Text>
@@ -1705,7 +1717,7 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
                 </>
               ) : (
                 <>
-                  <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                  <View style={[styles.l1Reveal, styles.deckReveal]}>
                     <Text style={[styles.l1Verdict, { color: v3.regulated }]}>{ROUTE_VERDICT[card.route]}</Text>
                     <Text style={styles.l1RevealText}>{card.reveal}</Text>
                   </View>
@@ -2246,6 +2258,13 @@ const styles = StyleSheet.create({
     fontSize: fontScale.cardTitle,
     lineHeight: 26,
     color: colors.textPrimary,
+  },
+  // The routed-right reveal sits on the full-page colour flood, so it needs a
+  // solid dark fill (not the usual translucent tint) or the verdict + copy wash
+  // out against the pink.
+  deckReveal: {
+    backgroundColor: 'hsl(266, 45%, 15%)',
+    borderColor: hsla(v3.regulated, 0.6),
   },
   deckGatesRow: { flexDirection: 'row', gap: spacing.md },
   // Solid-filled answer buttons (colour = the gate's read), dark text to read

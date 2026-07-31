@@ -27,6 +27,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -35,7 +36,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { resetActivities, useActivitiesDone } from '@/lib/hold-activities';
 import * as Haptics from 'expo-haptics';
@@ -49,16 +50,17 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
-import { BackgroundGradient } from '@/components/background-gradient';
+import { CosmicBackground } from '@/components/cosmic-background';
+import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { BackButton } from '@/components/BackButton';
 import { BeginButton } from '@/components/begin-button';
 import { Checklist } from '@/components/checklist';
 import { CloseButton } from '@/components/CloseButton';
 import { GlassSurface } from '@/components/glass-surface';
-import { Aurora } from '@/components/moment/aurora';
 import {
   PhaseProgress,
   PHASE_STEPS,
@@ -67,7 +69,7 @@ import {
 } from '@/components/moment/phase-progress';
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
-import { OptionRow, ScaleButtons, WhyLine } from '@/components/moment/controls';
+import { OptionRow, ScaleButtons, SkeletonRows, ThinkingDots, WhyLine } from '@/components/moment/controls';
 import { Chip, FillInTemplate, assemble } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
@@ -79,7 +81,7 @@ import {
   offerFeelings,
   type Verdict,
 } from '@/v3/moment-analyse';
-import { echo, pick, composeReadings, draftAct, revise } from '@/v3/moment-ai';
+import { echo, pick, composeReadings, draftAct, revise, hasConcreteEvent } from '@/v3/moment-ai';
 import { optionPlanFor } from '@/v3/option-plan';
 import { getMomentProvider } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
@@ -87,6 +89,15 @@ import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
 import { getPmsPrefs } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
+import { scheduleActionReminder } from '@/lib/notifications';
+import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
+import { getRewardCount, bumpRewardCount } from '@/store/reward-progress';
+import {
+  clearMomentCheckpoint,
+  getMomentCheckpoint,
+  saveMomentCheckpoint,
+} from '@/store/moment-resume';
+import { useDictation } from '@/hooks/use-dictation';
 import type { MoonState } from '@/lib/moon-light';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
@@ -136,12 +147,38 @@ const CYCLE_NOTE =
 // Edit with Moon (M19): quick rewrites she taps instead of typing a note. Each
 // label's `note` is the instruction handed to revise(); the model rewrites the
 // current draft, she still reads and sends it herself.
+// C6: when her own words point to a fight with someone close, offer the
+// after-fight repair (couples-reconnect) as a next step. Read from what she
+// gives, never assumed. Deliberately loose: over-offering a repair path is
+// cheaper than missing it.
+const CONFLICT_CUES =
+  /\b(fight|fought|argu(e|ed|ing|ment)|yell|scream|shout|blew up|snapped at|hung up|my (husband|wife|boyfriend|girlfriend|partner|bf|gf)|with (him|her))\b/i;
+
+// C3: a small nod each step — the moon behind shines and the card gives one of
+// these. Short, so the lift is felt without cheering over her.
+const STEP_PRAISE = ['Good.', 'Nice.', 'Well done.', 'That is the work.', 'Great job.'];
+
 const EDIT_MOVES = [
   { label: 'Shorter', note: 'make it shorter' },
   { label: 'Longer', note: 'make it a little longer' },
   { label: 'Softer', note: 'make it softer and warmer, less confrontational' },
   { label: 'More direct', note: 'make it clearer and more direct' },
 ] as const;
+
+// C10: the "remind me" choices on Do-this-later. A time in the past rolls to the
+// next day so the pick always schedules a future notification.
+function atClock(hour: number, minute: number, dayOffset = 0): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(hour, minute, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d;
+}
+const REMINDER_WHENS: { label: string; at: () => Date }[] = [
+  { label: 'In 20 minutes', at: () => new Date(Date.now() + 20 * 60 * 1000) },
+  { label: 'This evening', at: () => atClock(19, 0) },
+  { label: 'Tomorrow morning', at: () => atClock(9, 0, 1) },
+];
 
 export default function Moment() {
   const reduceMotion = useReducedMotion();
@@ -156,10 +193,18 @@ export default function Moment() {
    *  actually looking at does. */
   const [history, setHistory] = useState<NodeId[]>([]);
   const [crisis, setCrisis] = useState(false);
+  // Resume: launched with ?resume=1 from Home's "Continue where you left off",
+  // she picks up the saved checkpoint. `hydrating` holds the first render blank
+  // until it loads, so the entry card never flashes before the saved beat lands.
+  const { resume } = useLocalSearchParams<{ resume?: string }>();
+  const [hydrating, setHydrating] = useState(resume === '1');
   const [draft, setDraft] = useState('');
   const [intensity, setIntensity] = useState<number | null>(null);
   /** What the app decided about her sentence. Drives clarify vs acknowledge. */
   const [verdict, setVerdict] = useState<Verdict | null>(null);
+  /** M6: the clarify was reached because her entry was a clear sentence but had
+   *  no concrete event (the model gate), so ask for context, not "what happened". */
+  const [clarifyMoreContext, setClarifyMoreContext] = useState(false);
   /** She chose to name it herself, so the field is showing. */
   const [otherOpen, setOtherOpen] = useState(false);
   /** The echo beat's sub-states. `streamLen` is how many characters of the
@@ -185,6 +230,12 @@ export default function Moment() {
   const [feelingOrder, setFeelingOrder] = useState<string[] | null>(null);
   const [reframeReadings, setReframeReadings] = useState<string[] | null>(null);
   const [actOrder, setActOrder] = useState<Act[] | null>(null);
+  // M3: while the model is ranking/writing, show a skeleton instead of the
+  // authored fallback. The fallback still shows if the call settles with nothing
+  // (a real failure), so a skeleton never sticks. AI off = no wait, no skeleton.
+  const [feelingsLoading, setFeelingsLoading] = useState(false);
+  const [reframeLoading, setReframeLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(false);
   /** The reading she chose at the reframe, before we ask whether it helped. */
   const [reframePick, setReframePick] = useState<string | null>(null);
   /** Index into BREATH_SCRIPT. The guided breath walks it while she is on the
@@ -193,6 +244,13 @@ export default function Moment() {
   /** Body-prep checklist on the challenge screen: which items she has ticked.
    *  A soft self-check, it does not gate the buttons below. */
   const [bodyChecks, setBodyChecks] = useState<Record<string, boolean>>({});
+  // M8: body-prep is no longer a gate on the make_safe choice. When she chooses
+  // to respond now, this opens the body-prep page before she goes on.
+  const [bodyPrepOpen, setBodyPrepOpen] = useState(false);
+  // M8: body-prep as one item in the 20-min settling list (the "wait" path).
+  const [bodyPrepInList, setBodyPrepInList] = useState(false);
+  // C10: "Do this later" opens a when-chooser; a pick schedules a local reminder.
+  const [reminderOpen, setReminderOpen] = useState(false);
   /** She chose to act now instead of taking the twenty-minute hold. Gates the
    *  gentle "still worth twenty minutes" offer on the act menu, and only when
    *  the opening rating was high. */
@@ -260,6 +318,22 @@ export default function Moment() {
   /** Whether today is inside her premenstrual window (C2). Loaded once on mount;
    *  gates the CYCLE_NOTE added to the reframe/ranking/draft prompts. */
   const pmsActive = useRef(false);
+  /** M6: the model's read of whether her entry named a concrete event. Kicked off
+   *  at raw_entry, read at the clarify decision. null = pending/unknown (never
+   *  over-clarifies); false = only a mood, so ask for context. */
+  const eventCheck = useRef<boolean | null>(null);
+  // C3: counts forward steps, to rotate the per-step praise line.
+  const stepN = useRef(0);
+  // M9-14 reward: the gift-scratch drawings are awarded one by one IN ORDER. The
+  // next index is loaded from the persisted count on mount; the reveal bumps it
+  // so the next session earns the next drawing. `rewardBumped` guards a single
+  // increment per session.
+  const [rewardIdx, setRewardIdx] = useState(0);
+  const rewardBumped = useRef(false);
+  // M28: on Done the sky dims and the moon behind the card blooms + confetti.
+  const [celebrating, setCelebrating] = useState(false);
+  // Speak-to-type on the entry: each finished phrase appends to the draft.
+  const dictation = useDictation((t) => setDraft((d) => (d.trim() ? d.trim() + ' ' : '') + t));
   const beat = node(current);
 
   // How far the current state's segment is filled: the distinct beats she has
@@ -297,6 +371,10 @@ export default function Moment() {
         : next;
     setHistory((h) => [...h, from]);
     setCurrent(resolved);
+    // C3: a small lift each step — the moon behind shines and the card nods.
+    stepN.current += 1;
+    moonBloom.value = withSequence(withTiming(0.45, { duration: 220 }), withTiming(0, { duration: 720 }));
+    setSnack(STEP_PRAISE[stepN.current % STEP_PRAISE.length]);
   }, []);
 
   /** Step back one beat. Not memoised: it closes over this render's `history`
@@ -355,6 +433,10 @@ export default function Moment() {
     // ranking made against different text.
     setReframePick(null);
     setReframeReadings(null);
+    setClarifyMoreContext(false);
+    setBodyPrepOpen(false);
+    setBodyPrepInList(false);
+    setReminderOpen(false);
     setActOrder(null);
     setActDrafting(false);
     setActDraft('');
@@ -384,6 +466,60 @@ export default function Moment() {
       .catch(() => {})
       .finally(() => setEchoResolving(false));
   }, [aiOn, provider]);
+
+  // Resume, once, on mount: restore the carried state and land on the saved
+  // beat. Only the narrative state is restored; per-beat UI re-arms itself (an
+  // acknowledge landing re-runs the echo). Nothing saved → just render fresh.
+  useEffect(() => {
+    if (resume !== '1') return;
+    let alive = true;
+    getMomentCheckpoint()
+      .then((cp) => {
+        if (!alive || !cp) return;
+        herText.current = cp.herText;
+        chosenFeeling.current = cp.chosenFeeling;
+        baseline.current = cp.baseline;
+        setVerdict(cp.verdict);
+        setChosenAct(cp.chosenAct);
+        setSkippedHold(cp.skippedHold);
+        setReadyLow(cp.readyLow);
+        setHistory(cp.history);
+        setCurrent(cp.current);
+        if (cp.current === 'acknowledge') startEcho();
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setHydrating(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [resume, startEcho]);
+
+  // Persist a resume checkpoint as she moves through the flow, so leaving mid-way
+  // can be picked up from Home. Entry and the ended states never save: there is
+  // nothing to resume before she has spoken, and a finished or crisis session
+  // must not offer one. This is the one thing the otherwise-ephemeral flow keeps,
+  // and only until the session ends.
+  useEffect(() => {
+    if (hydrating) return;
+    if (crisis || node(current).terminal) {
+      clearMomentCheckpoint().catch(() => {});
+      return;
+    }
+    if (current === ENTRY) return;
+    saveMomentCheckpoint({
+      current,
+      history,
+      herText: herText.current,
+      chosenFeeling: chosenFeeling.current,
+      baseline: baseline.current,
+      verdict,
+      chosenAct,
+      skippedHold,
+      readyLow,
+    }).catch(() => {});
+  }, [current, history, crisis, verdict, chosenAct, skippedHold, readyLow, hydrating]);
 
   /** Whether the "now" tap should open a draft rather than act straight away.
    *  Only where there are words to help with: a message to send, or a direct or
@@ -441,6 +577,40 @@ export default function Moment() {
     setActDraft('');
   }, []);
 
+  // M18/M25: picking a response goes straight into doing it, no Now/Later/Try-
+  // another page in between (you cannot judge now-vs-later before you see the
+  // task). A draft act opens the editor; a self act goes straight to the if-then.
+  const beginAct = (a: Act | null) => {
+    if (!a) return;
+    if (wantsDraft(a)) {
+      openActDraft(a);
+      go('options', 'picks');
+    } else {
+      if (a.channel === 'message') Linking.openURL('sms:').catch(() => {});
+      setHistory((h) => [...h, 'options']);
+      setCurrent('today_action');
+    }
+  };
+
+  // C10: park the move on Today and, if she picked a time, schedule a local
+  // reminder. A denied permission (or no time) just saves it, no reminder.
+  const saveForLater = async (date: Date | null) => {
+    const a = chosenAct;
+    if (a) addPlannedAction(a.label).catch(() => {});
+    if (date) {
+      const ok = await scheduleActionReminder(
+        a ? `You saved "${a.label}" for later.` : 'A response you saved is waiting.',
+        date,
+      );
+      setSnack(ok ? 'Saved, I will remind you' : COPY.added_today);
+    } else {
+      setSnack(COPY.added_today);
+    }
+    setReminderOpen(false);
+    closeActDraft();
+    go('act', 'later');
+  };
+
   const send = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
@@ -463,6 +633,17 @@ export default function Moment() {
     // From the entry, the rating comes next on its own card. From clarify she
     // has already rated, so she goes straight on.
     if (current === 'raw_entry') {
+      // M6: for a clear sentence, ask the model in the background whether it holds
+      // a concrete event, while she rates. If it says no, the rating card routes
+      // her to clarify for context. Null (pending/off/failed) never clarifies.
+      eventCheck.current = null;
+      if (aiOn && v.kind === 'clear') {
+        hasConcreteEvent(provider, text)
+          .then((r) => {
+            eventCheck.current = r;
+          })
+          .catch(() => {});
+      }
       setHistory((h) => [...h, 'raw_entry']);
       setCurrent('intensity_in');
       return;
@@ -475,9 +656,10 @@ export default function Moment() {
       startEcho();
       setCurrent('acknowledge');
     } else {
+      setClarifyMoreContext(false);
       setCurrent('clarify');
     }
-  }, [current, draft, startEcho]);
+  }, [current, draft, startEcho, aiOn, provider]);
 
   const leave = useCallback(() => {
     tap();
@@ -522,6 +704,14 @@ export default function Moment() {
   }, [breath, reduceMotion]);
   const breathStyle = useAnimatedStyle(() => ({
     transform: [{ scale: breath.value }],
+  }));
+
+  // M28: the moon's bloom on the finish. 0 at rest; on Done it eases to 1, a
+  // gentle swell and brighten of the moon behind the card.
+  const moonBloom = useSharedValue(0);
+  const moonBloomStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + moonBloom.value * (reduceMotion ? 0 : 0.14) }],
+    opacity: 0.8 + moonBloom.value * 0.2,
   }));
 
   // Walk the guided breath. Each step holds for its own length — a breath in
@@ -582,15 +772,32 @@ export default function Moment() {
     const her = herText.current.trim();
     if (!her) return;
     let alive = true;
+    setFeelingsLoading(true);
     pick(provider, 'feelings', her, FEELING_SET, 3, (f) => f.label)
       .then((r) => {
         if (alive) setFeelingOrder(r.items.map((f) => f.label));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setFeelingsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [aiOn, echoOk, current, feelingOrder, provider]);
+
+  // M9-14: load which reward drawing is next (persisted order) on mount.
+  useEffect(() => {
+    let alive = true;
+    getRewardCount()
+      .then((n) => {
+        if (alive) setRewardIdx(n);
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [aiOn, echoOk, current, feelingOrder, provider]);
+  }, []);
 
   // Cycle context (C2): read her PMS window once on mount. A gentler reframe and
   // lower-stakes options fit while she is premenstrual; off otherwise.
@@ -617,11 +824,15 @@ export default function Moment() {
     const cycle = pmsActive.current ? `\n${CYCLE_NOTE}` : '';
     const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}`;
     let alive = true;
+    setReframeLoading(true);
     composeReadings(provider, user)
       .then((r) => {
         if (alive && r) setReframeReadings(r);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setReframeLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -637,6 +848,7 @@ export default function Moment() {
     const pool = offerableActs(false);
     const cycle = pmsActive.current ? `\n${CYCLE_NOTE}` : '';
     let alive = true;
+    setOptionsLoading(true);
     pick(provider, 'options', `${her}\nshe feels: ${chosenFeeling.current}${cycle}`, pool, pool.length, (a) => a.label)
       .then((r) => {
         if (!alive) return;
@@ -646,7 +858,10 @@ export default function Moment() {
         );
         if (three.length === 3) setActOrder(three);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setOptionsLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -713,20 +928,29 @@ export default function Moment() {
   // remounts the whole subtree on each state change — which with a TextInput
   // inside meant every keystroke tore down the field and dismissed the
   // keyboard. Calling it inlines the JSX with no component boundary.
-  const ui = crisis ? Crisis() : Beat();
+  const ui = crisis ? Crisis() : hydrating ? { body: null, cta: null } : Beat();
 
   return (
     <View style={styles.root}>
-      <BackgroundGradient />
-      {/* The sky: three soft ribbons drifting on 50-90 second cycles. Slow
-          enough to read as almost still, because for someone dysregulated
-          drifting light settles and anything that pulses does the opposite. */}
-      <Aurora />
-      {/* A light knock-back only. It was at 0.42, which together with the
-          near-black backdrop left the aurora at roughly a tenth of its
-          intended strength. The card carries its own glass, so the sky does
-          not need dimming for the text to hold. */}
-      <View style={styles.scrim} pointerEvents="none" />
+      {/* The flow now happens in FRONT of Home: same cosmic sky, and the moon
+          behind the card (M28), instead of the old aurora. */}
+      <CosmicBackground />
+      <View style={styles.moonLayer} pointerEvents="none">
+        <Animated.View style={moonBloomStyle}>
+          <Orb
+            size={260}
+            still
+            warmHalo
+            hue={bodyHue(lifetimeLight)}
+            brightness={moon?.fullness ?? 1}
+            illum={moon?.fullness ?? 1}
+            material={moon?.material ?? 'moonstone'}
+          />
+        </Animated.View>
+      </View>
+      {/* On the finish the sky dims so the moon and confetti carry the moment. */}
+      <View style={[styles.scrim, celebrating && styles.scrimDim]} pointerEvents="none" />
+      {celebrating && <CelebrationParticles style={styles.confetti} />}
 
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         {/* Close only. Back lives inside the card, next to the beat it steps
@@ -743,8 +967,6 @@ export default function Moment() {
           // notch-height clear of the keyboard.
           keyboardVerticalOffset={0}
         >
-          <View style={styles.spacer} />
-
           {/* The card is ONE persistent surface. The glass panel and the
               progress header never remount as the beat changes, so they hold
               steady instead of blinking, and the bar fills continuously rather
@@ -791,6 +1013,7 @@ export default function Moment() {
               </View>
             )}
             <ScrollView
+              style={styles.scroll}
               contentContainerStyle={styles.cardBody}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -830,6 +1053,9 @@ export default function Moment() {
               </Animated.View>
             </View>
           </Animated.View>
+          {/* M1/#3: the card is top-anchored and hugs its content; this spacer
+              takes the rest, so the top stays put and the bottom fits the beat. */}
+          <View style={styles.spacer} />
         </KeyboardAvoidingView>
       </SafeAreaView>
 
@@ -957,6 +1183,23 @@ export default function Moment() {
                 }
                 accessibilityLabel="What happened"
               />
+              {/* Speak instead of type: dictation appends each finished phrase. */}
+              <Pressable
+                onPress={() => {
+                  tap();
+                  dictation.toggle();
+                }}
+                style={styles.micBtn}
+                accessibilityRole="button"
+                accessibilityLabel={dictation.listening ? 'Stop dictation' : 'Speak instead of typing'}
+              >
+                <SymbolView
+                  name={dictation.listening ? 'mic.fill' : 'mic'}
+                  size={18}
+                  tintColor={dictation.listening ? '#F2A2C0' : 'rgba(255,255,255,0.55)'}
+                />
+                <Text style={styles.micText}>{dictation.listening ? 'Listening…' : 'Speak instead'}</Text>
+              </Pressable>
               {Platform.OS === 'ios' && (
                 <InputAccessoryView nativeID={ACCESSORY_ID}>
                   <View style={styles.accessory}>
@@ -989,8 +1232,11 @@ export default function Moment() {
       // She wrote something, but not a thing that happened. Ask for the event,
       // and say which part is missing rather than just asking again.
       case 'clarify': {
-        const reason: ClarifyReason =
-          verdict?.kind === 'unclear' ? verdict.reason : 'no-event';
+        const reason: ClarifyReason = clarifyMoreContext
+          ? 'more-context'
+          : verdict?.kind === 'unclear'
+            ? verdict.reason
+            : 'no-event';
         return {
           body: (
             <>
@@ -1124,6 +1370,10 @@ export default function Moment() {
               {head(COPY.feelings_ask)}
               <WhyLine>{COPY.feelings_why}</WhyLine>
               <View style={styles.stack}>
+                {aiOn && feelingsLoading && !feelingOrder ? (
+                  <SkeletonRows count={4} />
+                ) : (
+                  <>
                 {(feelingOrder ?? offerFeelings(herText.current)).map((f, i) => (
                   <OptionRow
                     key={f}
@@ -1161,6 +1411,8 @@ export default function Moment() {
                     }
                     accessibilityLabel="Your own word for it"
                   />
+                )}
+                  </>
                 )}
               </View>
             </>
@@ -1240,65 +1492,75 @@ export default function Moment() {
       // The hold, framed as a challenge (Neha 2026-07-28): "20-Minute Challenge
       // — beat the urge to react immediately", she is ready or not. Names no
       // person: the app does not know who she is upset with unless she said so.
-      case 'make_safe':
+      case 'make_safe': {
+        // M8 (Neha's rule a): body-prep is no longer a gate on this choice. She
+        // picks wait or now; choosing "now" opens a dedicated body-prep page
+        // before she responds. On "wait", body-prep rides the 20-min list.
+        if (bodyPrepOpen) {
+          return {
+            body: (
+              <>
+                <Text style={styles.settlesStrong}>{COPY.make_safe_care_intro}</Text>
+                <Text style={styles.settles}>{COPY.make_safe_care_ask}</Text>
+                <Checklist
+                  items={MAKE_SAFE_BODY}
+                  isChecked={(id) => !!bodyChecks[id]}
+                  onToggle={(id) => setBodyChecks((c) => ({ ...c, [id]: !c[id] }))}
+                  emphasizeTitle
+                />
+                <Text style={styles.settles}>{COPY.make_safe_why}</Text>
+                {/* Only while she cannot honestly tick all three: the honest way out. */}
+                {!bodyReady && (
+                  <Pressable onPress={leave} accessibilityRole="button" style={styles.breathSkip}>
+                    <Text style={styles.breathSkipText}>{COPY.make_safe_care_defer}</Text>
+                  </Pressable>
+                )}
+              </>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label={COPY.make_safe_now}
+                disabled={!bodyReady}
+                onPress={() => {
+                  setBodyPrepOpen(false);
+                  setSkippedHold(true);
+                  go('make_safe', 'now');
+                }}
+              />
+            ),
+          };
+        }
         return {
           body: (
             <>
               {head(COPY.make_safe_intro)}
-              {/* Body prep: she confirms all three are true before the hold.
-                  The proceed buttons are gated until then; if her body is not
-                  ready, "come back later" is the honest exit (Neha 2026-07-30). */}
-              <Text style={styles.settlesStrong}>{COPY.make_safe_care_intro}</Text>
-              <Text style={styles.settles}>{COPY.make_safe_care_ask}</Text>
-              <Checklist
-                items={MAKE_SAFE_BODY}
-                isChecked={(id) => !!bodyChecks[id]}
-                onToggle={(id) => setBodyChecks((c) => ({ ...c, [id]: !c[id] }))}
-                emphasizeTitle
-              />
               <Text style={styles.settles}>{COPY.make_safe_why}</Text>
               <View style={styles.stack}>
-                {/* The skip sits FIRST and quiet; the in-app calming action sits
-                    LAST as the recommended primary, so the eye lands on it as the
-                    place to go, not the first thing to tap past (Neha, 2026-07-29). */}
+                {/* "Now" opens the body-prep page (no tint: it opens a page in
+                    place, it does not advance the beat). "Wait" is the recommended
+                    hold and advances to the settling menu. */}
                 <OptionRow
                   label={COPY.make_safe_now}
                   index={0}
-                  tint={selTint}
-                  disabled={!bodyReady}
-                  onPress={() => {
-                    setSkippedHold(true);
-                    go('make_safe', 'now');
-                  }}
+                  onPress={() => setBodyPrepOpen(true)}
                 />
                 <OptionRow
                   label={COPY.make_safe_wait}
                   index={1}
                   recommended
                   tint={selTint}
-                  disabled={!bodyReady}
                   onPress={() => {
-                    // Land on the settling menu (colour / story / move / breath).
-                    // Fresh done-marks each hold.
                     resetActivities();
                     go('make_safe', 'wait');
                   }}
                 />
-                {/* Only while she cannot honestly tick all three: the way out. */}
-                {!bodyReady && (
-                  <Pressable
-                    onPress={leave}
-                    accessibilityRole="button"
-                    style={styles.breathSkip}
-                  >
-                    <Text style={styles.breathSkipText}>{COPY.make_safe_care_defer}</Text>
-                  </Pressable>
-                )}
               </View>
             </>
           ),
           cta: null,
         };
+      }
 
       // The reframe, small moments only. Big ones never reach here: a gentler
       // reading lands on a clear head and fails on a flooded one, so they go
@@ -1324,16 +1586,20 @@ export default function Moment() {
                     VoiceOver hint. Authored placeholders today, Gemini-written
                     soon. */}
                 <View style={styles.stack}>
-                  {(reframeReadings ?? SETS.smallReframes).map((r, i) => (
-                    <OptionRow
-                      key={r}
-                      label={r}
-                      index={i}
-                      hint="Suggested by the moon"
-                      tint={selTint}
-                      onPress={() => setReframePick(r)}
-                    />
-                  ))}
+                  {aiOn && reframeLoading && !reframeReadings ? (
+                    <SkeletonRows count={3} />
+                  ) : (
+                    (reframeReadings ?? SETS.smallReframes).map((r, i) => (
+                      <OptionRow
+                        key={r}
+                        label={r}
+                        index={i}
+                        hint="Suggested by the moon"
+                        tint={selTint}
+                        onPress={() => setReframePick(r)}
+                      />
+                    ))
+                  )}
                 </View>
                 {/* Her own answer, apart from the moon's readings and plainly
                     authored: "none of them are true" is a real answer, and it
@@ -1407,12 +1673,15 @@ export default function Moment() {
                   pickThenGo(() => {
                     setIntensity(null);
                     baseline.current = n;
-                    // clarify only exists for a thin entry; a clear one skips it.
+                    // clarify fires for a thin entry, or (M6) when her sentence was
+                    // clear but the model found no concrete event: ask for context.
                     setHistory((h) => [...h, 'intensity_in']);
-                    if (verdict?.kind === 'clear') {
+                    const vague = verdict?.kind === 'clear' && eventCheck.current === false;
+                    if (verdict?.kind === 'clear' && !vague) {
                       startEcho();
                       setCurrent('acknowledge');
                     } else {
+                      setClarifyMoreContext(vague);
                       setCurrent('clarify');
                     }
                   });
@@ -1471,7 +1740,7 @@ export default function Moment() {
                 label="Continue"
                 onPress={() => {
                   setDvConfirm(false);
-                  go('options', 'picks');
+                  beginAct(chosenAct);
                 }}
               />
             ),
@@ -1556,19 +1825,26 @@ export default function Moment() {
                     is ranked or rendered, never a caveat added afterwards. The
                     universal DV line no longer rides under the option; picking
                     "say it to them" opens it on its own screen (above). */}
+                {aiOn && optionsLoading && !actOrder ? (
+                  <SkeletonRows count={3} />
+                ) : (
+                  <>
                 {(actOrder ?? threeRungs(offerableActs(false))).map((a, i) => (
                   <OptionRow
                     key={a.id}
                     label={a.label}
                     index={i}
                     tint={selTint}
+                    // C7: gently steer to the self-directed calming move (it sits
+                    // last), so the eye lands there rather than on confronting first.
+                    recommended={a.rung === 'self'}
                     onPress={() => {
                       setChosenAct(a);
                       if (a.universalLine) {
                         setDvConfirm(true);
                         return;
                       }
-                      go('options', 'picks');
+                      beginAct(a);
                     }}
                   />
                 ))}
@@ -1584,6 +1860,17 @@ export default function Moment() {
                   tint={selTint}
                   onPress={() => go('options', 'none_possible')}
                 />
+                {/* C6: after-fight repair, only when her words point to a conflict. */}
+                {CONFLICT_CUES.test(herText.current) && (
+                  <OptionRow
+                    label="Make up after the fight"
+                    index={5}
+                    tint={selTint}
+                    onPress={() => router.push('/couples-reconnect')}
+                  />
+                )}
+                  </>
+                )}
               </View>
             </>
           ),
@@ -1596,7 +1883,27 @@ export default function Moment() {
       // full-screen route she does and marks done; she can do as many as she
       // likes. Colour is the flagship (recommended). "I am ready to respond" is
       // the cta — always there, un-shamed, and it is what advances the flow.
-      case 'activities':
+      case 'activities': {
+        // M8 (wait path): body-prep as one item in the settling list. Tapping it
+        // opens the same checklist; Done returns to the list.
+        if (bodyPrepInList) {
+          return {
+            body: (
+              <>
+                <Text style={styles.settlesStrong}>{COPY.make_safe_care_intro}</Text>
+                <Text style={styles.settles}>{COPY.make_safe_care_ask}</Text>
+                <Checklist
+                  items={MAKE_SAFE_BODY}
+                  isChecked={(id) => !!bodyChecks[id]}
+                  onToggle={(id) => setBodyChecks((c) => ({ ...c, [id]: !c[id] }))}
+                  emphasizeTitle
+                />
+                <Text style={styles.settles}>{COPY.make_safe_why}</Text>
+              </>
+            ),
+            cta: <BeginButton fullWidth label="Done" onPress={() => setBodyPrepInList(false)} />,
+          };
+        }
         return {
           body: (
             <>
@@ -1639,6 +1946,26 @@ export default function Moment() {
                     })
                   }
                 />
+                {/* C5: quick regulation, the fast body resets. No tint: they show
+                    a how-to line in place, they do not advance the beat. */}
+                <OptionRow
+                  label="Cold water"
+                  index={4}
+                  onPress={() => setSnack('Run cold water over your wrists, or splash your face. About 30 seconds.')}
+                />
+                <OptionRow
+                  label="Relax your shoulders"
+                  index={5}
+                  onPress={() => setSnack('Drop your shoulders down. Unclench your jaw. Three slow breaths.')}
+                />
+                {/* M8 (wait path): body-prep as a settling item. No tint: it opens
+                    the checklist in place rather than advancing the beat. */}
+                <OptionRow
+                  label={COPY.make_safe_care_intro}
+                  index={6}
+                  done={bodyReady}
+                  onPress={() => setBodyPrepInList(true)}
+                />
               </View>
             </>
           ),
@@ -1646,6 +1973,7 @@ export default function Moment() {
             <BeginButton fullWidth label={COPY.activities_ready} onPress={() => go('activities')} />
           ),
         };
+      }
 
       // After the hold: she rates whether she is in a better place to react.
       // The hold was the intervention; this reads whether it landed, then goes
@@ -1705,41 +2033,69 @@ export default function Moment() {
       case 'act': {
         const a = chosenAct;
 
-        // The draft sub-view: a start she can edit, a "change it" line that
-        // hands the draft plus her note back for a rewrite, then send or do.
-        if (actDrafting) {
+        // C10: the "when should I remind you" chooser, opened from Do-this-later.
+        if (reminderOpen) {
           return {
             body: (
               <>
                 {head(a?.label ?? COPY.options)}
-                <Text style={styles.settles}>{COPY.act_draft_hint}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={actDraftLoading ? '' : actDraft}
-                  onChangeText={setActDraft}
-                  editable={!actDraftLoading}
-                  placeholder={actDraftLoading ? COPY.act_draft_loading : ''}
-                  placeholderTextColor="rgba(255,255,255,0.30)"
-                  selectionColor="rgba(196, 178, 255, 0.9)"
-                  multiline
-                  textAlignVertical="top"
-                  inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
-                  accessibilityLabel="Your draft"
-                />
-                <View style={styles.editWithMoon}>
-                  <Text style={styles.editWithMoonLabel}>{COPY.act_draft_change}</Text>
-                  <View style={styles.editWithMoonChips}>
-                    {EDIT_MOVES.map((m) => (
-                      <Chip
-                        key={m.label}
-                        label={m.label}
-                        onPress={() => reviseActDraft(m.note)}
-                      />
-                    ))}
-                  </View>
+                <Text style={styles.settles}>When should I remind you?</Text>
+                <View style={styles.stack}>
+                  {REMINDER_WHENS.map((w, i) => (
+                    <OptionRow key={w.label} label={w.label} index={i} onPress={() => saveForLater(w.at())} />
+                  ))}
+                  <OptionRow
+                    label="Just save it, no reminder"
+                    index={REMINDER_WHENS.length}
+                    onPress={() => saveForLater(null)}
+                  />
                 </View>
-                <Pressable onPress={closeActDraft} style={styles.skipLink}>
-                  <Text style={styles.skipLinkText}>{COPY.act_draft_skip}</Text>
+              </>
+            ),
+            cta: null,
+          };
+        }
+
+        // The draft editor: her chosen response as a start she edits, quick
+        // rewrites (Edit with Moon), then send or do. Reached directly now that
+        // picking a response opens it, with no Now/Later page first (M18).
+        return {
+            body: (
+              <>
+                {head(a?.label ?? COPY.options)}
+                <Text style={styles.settles}>{COPY.act_draft_hint}</Text>
+                {actDraftLoading ? (
+                  // M2: the generation gap reads as working, not broken.
+                  <View style={styles.input}>
+                    <ThinkingDots label={COPY.act_draft_loading} />
+                  </View>
+                ) : (
+                  <TextInput
+                    style={styles.input}
+                    value={actDraft}
+                    onChangeText={setActDraft}
+                    placeholderTextColor="rgba(255,255,255,0.30)"
+                    selectionColor="rgba(196, 178, 255, 0.9)"
+                    multiline
+                    textAlignVertical="top"
+                    inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
+                    accessibilityLabel="Your draft"
+                  />
+                )}
+                {!actDraftLoading && (
+                  <View style={styles.editWithMoon}>
+                    <Text style={styles.editWithMoonLabel}>{COPY.act_draft_change}</Text>
+                    <View style={styles.editWithMoonChips}>
+                      {EDIT_MOVES.map((m) => (
+                        <Chip key={m.label} label={m.label} onPress={() => reviseActDraft(m.note)} />
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {/* M20: no "skip", just Done. "Do this later" opens the C10
+                    when-chooser (park on Today, optionally set a reminder). */}
+                <Pressable onPress={() => setReminderOpen(true)} style={styles.skipLink}>
+                  <Text style={styles.skipLinkText}>{COPY.act_later}</Text>
                 </Pressable>
               </>
             ),
@@ -1762,55 +2118,6 @@ export default function Moment() {
               />
             ),
           };
-        }
-
-        return {
-          body: (
-            <>
-              {head(a?.label ?? COPY.options)}
-              <View style={styles.stack}>
-                <OptionRow
-                  label={COPY.act_now}
-                  index={0}
-                  tint={selTint}
-                  onPress={() => {
-                    // A move with words to say opens the draft; otherwise it acts
-                    // straight away (a message act to the blank Messages compose).
-                    if (wantsDraft(a) && a) {
-                      openActDraft(a);
-                      return;
-                    }
-                    if (a?.channel === 'message') {
-                      Linking.openURL('sms:').catch(() => {});
-                    }
-                    go('act', 'now');
-                  }}
-                />
-                <OptionRow
-                  label={COPY.act_later}
-                  index={1}
-                  tint={selTint}
-                  // Parks the move on Today and keeps her in the flow: an "Added
-                  // to today" snackbar, then straight to the closing rating. No
-                  // if-then (the plan is already on Today) and no bail-out to the
-                  // Today tab.
-                  onPress={() => {
-                    if (a) addPlannedAction(a.label).catch(() => {});
-                    setSnack(COPY.added_today);
-                    go('act', 'later');
-                  }}
-                />
-                <OptionRow
-                  label={COPY.act_another}
-                  index={2}
-                  tint={selTint}
-                  onPress={() => go('act', 'another')}
-                />
-              </View>
-            </>
-          ),
-          cta: null,
-        };
       }
 
       // Fill in to remember: a coping if-then she keeps for next time, seeded
@@ -1889,19 +2196,25 @@ export default function Moment() {
                 width={cardInnerW}
                 height={190}
                 hint={COPY.close_scratch}
-                onReveal={() => setRevealed(true)}
+                onReveal={() => {
+                  setRevealed(true);
+                  // Earned: advance the order so the next session gets the next.
+                  if (!rewardBumped.current) {
+                    rewardBumped.current = true;
+                    bumpRewardCount().catch(() => {});
+                  }
+                }}
               >
                 <View style={styles.prize}>
-                  <Orb
-                    size={76}
-                    tierRingCount={0}
-                    still
-                    hue={bodyHue(lifetimeLight)}
-                    brightness={moon?.fullness ?? 1}
-                    material={moon?.material ?? 'moonstone'}
-                    illum={1}
+                  <Image
+                    source={MOON_DRAWINGS[rewardIdx % MOON_DRAWINGS.length].src}
+                    style={styles.prizeImage}
+                    resizeMode="contain"
+                    accessibilityIgnoresInvertColors
                   />
-                  <Text style={styles.badgeName}>{COPY.close_badge_name}</Text>
+                  <Text style={styles.badgeName}>
+                    {MOON_DRAWINGS[rewardIdx % MOON_DRAWINGS.length].caption}
+                  </Text>
                 </View>
               </ScratchCard>
               {revealed && (
@@ -1916,7 +2229,17 @@ export default function Moment() {
             </View>
           ),
           cta: revealed ? (
-            <BeginButton fullWidth label={COPY.close_done} onPress={leave} />
+            <BeginButton
+              fullWidth
+              label={COPY.close_done}
+              onPress={() => {
+                // M28: the sky dims, the moon blooms and confetti falls, then out.
+                tap();
+                setCelebrating(true);
+                moonBloom.value = withTiming(1, { duration: 900 });
+                setTimeout(leave, 1600);
+              }}
+            />
           ) : null,
         };
       }
@@ -2003,6 +2326,17 @@ const SPOKEN: Partial<Record<NodeId, string>> = {
   feelings: COPY.feelings_ask,
   ready_reward: COPY.ready_reward,
   unctrl_honor: COPY.unctrl_honor,
+  // C4: the low + mixed lanes render generically, so they read from here.
+  low_activate: COPY.low_activate,
+  low_justone: COPY.low_justone,
+  low_reward: COPY.low_reward,
+  low_better: COPY.low_better,
+  mixed_name_swing: COPY.mixed_name_swing,
+  mixed_validate: COPY.mixed_validate,
+  mixed_check_read: COPY.mixed_check_read,
+  mixed_swing_real: COPY.mixed_swing_real,
+  mixed_real: COPY.mixed_real,
+  mixed_anchor: COPY.mixed_anchor,
 };
 
 /**
@@ -2010,7 +2344,7 @@ const SPOKEN: Partial<Record<NodeId, string>> = {
  * part matters: asking the same question again reads as the app not having
  * listened, which is the opposite of what this beat is for.
  */
-type ClarifyReason = 'too-short' | 'no-event' | 'nothing-to-echo';
+type ClarifyReason = 'too-short' | 'no-event' | 'nothing-to-echo' | 'more-context';
 
 const CLARIFY_ASK: Record<ClarifyReason, string> = {
   'too-short': 'A bit more. What actually happened?',
@@ -2018,6 +2352,9 @@ const CLARIFY_ASK: Record<ClarifyReason, string> = {
   // She wrote what she thinks he meant, or something hard about herself.
   // Neither can be said back to her, so ask for the event underneath it.
   'nothing-to-echo': 'What happened, just the part you saw or heard?',
+  // M6: a clear sentence with no concrete event. Ask for the details that make
+  // the reframe and the response actually fit.
+  'more-context': 'Can you give a bit more, like who did what, and where and how? It helps.',
 };
 
 /**
@@ -2035,6 +2372,7 @@ const CLARIFY_HINT: Record<ClarifyReason, string> = {
   'too-short': 'One sentence is plenty. What was said or done, and by whom.',
   'no-event': 'The thing that set it off. What happened just before.',
   'nothing-to-echo': 'Just what was said or done, not what you think it meant.',
+  'more-context': 'Who was there, what they did, where and how it happened.',
 };
 
 /** Her side of a branch, in her words rather than the graph's keys. */
@@ -2080,6 +2418,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(8, 6, 14, 0.06)',
   },
+  // M28: the finish dims the sky so the moon and confetti carry the moment.
+  scrimDim: { backgroundColor: 'rgba(4, 3, 10, 0.78)' },
+  // The moon behind the card: centred, upper third, behind everything.
+  moonLayer: {
+    position: 'absolute',
+    top: '18%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confetti: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // "The situation" is a label sitting above; the moon and the question below
   // it are one unit, so the gap here is what separates label from speech.
   head: { gap: spacing.sm },
@@ -2136,6 +2486,17 @@ const styles = StyleSheet.create({
     // and removes the scroll on nearly every one.
     maxHeight: '92%',
   },
+  // M1: the flow beats share one height so the card and its Continue button stop
+  // jumping as content length changes between beats. The extra room falls below
+  // the content (short beats just leave space); intro and crisis keep their own
+  // content-sized layout (they are exempted at the call site).
+  cardFixed: { height: '92%' },
+  // With cardFixed giving the card a set height, the scroll fills the space
+  // between header and the pinned CTA, so the button sits at the same spot every
+  // beat. On the content-sized cards (intro/crisis) it collapses to content.
+  // flexShrink (not flex:1): the scroll hugs short content, but still shrinks to
+  // scroll inside the card's maxHeight cap on a long beat.
+  scroll: { flexShrink: 1 },
   glass: { borderRadius: 28, borderCurve: 'continuous' },
   // One spacing unit (SP) between blocks, so the rhythm is even down the card.
   // Sections breathe; things that belong together (moon + question in `head`)
@@ -2183,6 +2544,9 @@ const styles = StyleSheet.create({
     minHeight: 120,
     maxHeight: 200,
   },
+  // Speak-instead: a quiet mic row under the entry field.
+  micBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', paddingVertical: spacing.sm },
+  micText: { fontFamily: fonts.light, fontSize: fontScale.caption, color: colors.textSubtitle },
   todo: {
     fontFamily: fonts.light,
     fontSize: fontScale.tagline,
@@ -2479,6 +2843,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: 'rgba(18, 15, 28, 0.55)',
   },
+  // The uncovered drawing. Fits inside the 190-tall card with room for the name.
+  prizeImage: { width: 132, height: 132 },
   badgeName: {
     fontFamily: fonts.semibold,
     fontSize: fontScale.title,
