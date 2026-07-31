@@ -18,6 +18,9 @@ import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { Orb } from '@/components/orb';
 import { RingCelebration } from '@/components/RingCelebration';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import {
   getChapter,
@@ -340,10 +343,13 @@ function LevelOne({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
 
         {stage === 'play' && (
           <View style={styles.l1Body}>
-            <View style={styles.l1Center}>
+            {/* The question centres in a fixed area with the footer reserved
+                below, so the reveal (taller than the two choices) grows into
+                that reserved space instead of shifting the question up. */}
+            <View style={styles.l1PlayCenter}>
               <Text style={styles.l1Statement}>{card.statement}</Text>
             </View>
-            <View style={styles.l1Bottom}>
+            <View style={styles.l1PlayFooter}>
               {!answered ? (
                 <View style={styles.l1Choices}>
                   <Pressable
@@ -672,7 +678,7 @@ function LevelTwo({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; onE
               ) : (
                 <Animated.View
                   style={{
-                    gap: 12,
+                    gap: spacing.md,
                     opacity: revealIn,
                     transform: [{ translateY: revealIn.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
                   }}
@@ -1186,16 +1192,16 @@ function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => vo
             <View style={styles.l2CheatCenter}>
               <Text style={styles.l2CheatKicker}>{teach.kicker}</Text>
               <Text style={styles.l2CheatTitle}>{teach.title}</Text>
-              <View style={{ gap: 14, marginTop: 10 }}>
+              <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
                 {teach.beats.map((b, i) => (
-                  <View key={i} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                  <View key={i} style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
                     <Text style={[styles.l5SlotNum, { color: v3.regulated }]}>{i + 1}</Text>
                     <Text style={[styles.l4TeachRule, { flex: 1, textAlign: 'left', marginTop: 0 }]}>{b}</Text>
                   </View>
                 ))}
               </View>
               {teach.foot && (
-                <Text style={[styles.l2Subtitle, { marginTop: 16 }]}>{teach.foot}</Text>
+                <Text style={[styles.l2Subtitle, { marginTop: spacing.lg }]}>{teach.foot}</Text>
               )}
             </View>
             <BeginButton fullWidth label="Let's do it" onPress={() => { tap(); setStage('practice'); }} />
@@ -1207,7 +1213,7 @@ function LevelCompassion({ ch, onDone, onExit }: { ch: Chapter; onDone: () => vo
             <View style={styles.l4BreatheCenter}>
               <Orb size={200} still />
               <Text style={styles.l4PhaseLabel}>{practice[beat].label}</Text>
-              <Text style={[styles.l2Scene, { marginTop: 6, paddingHorizontal: 12 }]}>{practice[beat].line}</Text>
+              <Text style={[styles.l2Scene, { marginTop: spacing.sm, paddingHorizontal: spacing.md }]}>{practice[beat].line}</Text>
             </View>
             <BeginButton fullWidth label={practice[beat].cue} onPress={() => { tap(); setBeat(beat + 1); }} />
           </View>
@@ -1365,11 +1371,11 @@ function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; 
               <>
                 <Text style={styles.l5StepLabel}>{`Part ${step + 1} of ${steps.length}`}</Text>
                 <Text style={styles.l3Prompt}>{scenario}</Text>
-                <View style={{ alignItems: 'center', gap: 2, marginBottom: 16 }}>
+                <View style={{ alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
                   <Text style={styles.l1Eyebrow}>{cur.part}</Text>
                   <Text style={styles.l2Subtitle}>{cur.hint}</Text>
                 </View>
-                <View style={{ gap: 10 }}>
+                <View style={{ gap: spacing.sm }}>
                   {options.map((o, j) => (
                     <Pressable
                       key={j}
@@ -1388,12 +1394,12 @@ function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; 
                       {wrongIdx === j && (
                         <Text
                           style={{
-                            fontFamily: 'Poppins-Regular',
-                            fontSize: 13,
+                            fontFamily: fonts.regular,
+                            fontSize: fontScale.caption,
                             lineHeight: 18,
                             color: colors.textSubtitle,
                             textAlign: 'center',
-                            marginTop: 8,
+                            marginTop: spacing.sm,
                           }}
                         >
                           {cur.why}
@@ -1406,7 +1412,7 @@ function LevelScript({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; 
             ) : (
               <>
                 <Text style={styles.l5StepLabel}>Your line</Text>
-                <View style={{ flex: 1, justifyContent: 'center', gap: 14 }}>
+                <View style={{ flex: 1, justifyContent: 'center', gap: spacing.md }}>
                   <View style={[styles.l1Reveal, styles.l1RevealRight]}>
                     <Text style={[styles.l1Verdict, { color: v3.regulated }]}>This is how you would sound</Text>
                     <Text style={styles.l1RevealText}>{fullLine}</Text>
@@ -1442,7 +1448,9 @@ function L5Backdrop() {
   return (
     <View pointerEvents="none" style={styles.l5Backdrop}>
       <View style={styles.l5BackdropOrb}>
-        <Orb size={460} tierRingCount={4} ringHues={SOUL_RING_HUES} still />
+        {/* Ringless: the coloured rings read as a rainbow smear on the flat
+            black now the gradient is gone. Just the soft disc as a watermark. */}
+        <Orb size={460} tierRingCount={0} ringHues={SOUL_RING_HUES} still />
       </View>
     </View>
   );
@@ -1604,16 +1612,21 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   // The card flies off toward the gate it was tapped on: left gate -> left, right
   // gate -> right (basics/small/big share the same two-slot layout per card).
   const routedRight2 = routed ? shown.indexOf(routed) === 1 : false;
+  // The card's live opacity: invisible while flown out (fly=1) or not yet dealt
+  // (enter=0). The peek stack behind it rides the SAME opacity, so a card that
+  // has flown to its gate takes the empty peeks with it — the centre never shows
+  // a hollow "blank card" mid-transition, it just clears until the next deals in.
+  const cardOpacity = Animated.multiply(
+    fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+    enter.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+  );
   const flyStyle = {
     transform: [
       { translateX: fly.interpolate({ inputRange: [0, 1], outputRange: [0, routedRight2 ? 520 : -520] }) },
       { translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) },
       { rotate: fly.interpolate({ inputRange: [0, 1], outputRange: ['0deg', routedRight2 ? '16deg' : '-16deg'] }) },
     ],
-    opacity: Animated.multiply(
-      fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
-      enter.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
-    ),
+    opacity: cardOpacity,
   };
 
   return (
@@ -1664,8 +1677,13 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
             <Text style={styles.l5StepLabel}>{L5_DECK.stepLabel}</Text>
             <View style={styles.deckStage}>
               <View style={styles.deckStack}>
-                <View style={[styles.deckPeek, styles.deckPeek2]} />
-                <View style={[styles.deckPeek, styles.deckPeek1]} />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[StyleSheet.absoluteFill, { opacity: cardOpacity }]}
+                >
+                  <View style={[styles.deckPeek, styles.deckPeek2]} />
+                  <View style={[styles.deckPeek, styles.deckPeek1]} />
+                </Animated.View>
                 <Animated.View style={[styles.deckCard, flyStyle]}>
                   <Text style={styles.deckCardMeta}>Moment {cardIdx + 1} of {cards.length}</Text>
                   <Text style={styles.deckCardScene}>{card.scene}</Text>
@@ -1699,7 +1717,7 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
                 </>
               ) : (
                 <>
-                  <View style={[styles.l1Reveal, styles.l1RevealRight]}>
+                  <View style={[styles.l1Reveal, styles.deckReveal]}>
                     <Text style={[styles.l1Verdict, { color: v3.regulated }]}>{ROUTE_VERDICT[card.route]}</Text>
                     <Text style={styles.l1RevealText}>{card.reveal}</Text>
                   </View>
@@ -1812,42 +1830,42 @@ function hsla(color: string, alpha: number): string {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  back: { fontFamily: 'Poppins-Light', fontSize: 30, lineHeight: 34, color: colors.textSubtitle },
+  back: { fontFamily: fonts.light, fontSize: fontScale.pageTitle, lineHeight: 34, color: colors.textSubtitle },
 
   // Level 1 (Truth/Myth) arc.
-  l1Safe: { flex: 1, paddingHorizontal: 24 },
-  l1TopBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 12, marginTop: 4 },
-  l1Segments: { flex: 1, flexDirection: 'row', gap: 6 },
-  l1Seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)' },
+  l1Safe: { flex: 1, paddingHorizontal: pageGutter },
+  l1TopBar: { flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: spacing.md, marginTop: spacing.xs },
+  l1Segments: { flex: 1, flexDirection: 'row', gap: spacing.sm },
+  l1Seg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.fill.strong },
   l1SegOn: { backgroundColor: v3.accent },
-  l1Body: { flex: 1, paddingBottom: 12 },
-  l1Center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  l1Body: { flex: 1, paddingBottom: spacing.md },
+  l1Center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   l1Kicker: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 27,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   l1Subtitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   l1EmotionChip: {
-    marginTop: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 999,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
     backgroundColor: hsla(v3.accent, 0.42),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: hsla(v3.accent, 0.85),
   },
   l1EmotionChipText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
@@ -1855,101 +1873,106 @@ const styles = StyleSheet.create({
   l1Orb2: { position: 'absolute', top: -12, right: -14, opacity: 0.32, transform: [{ rotate: '22deg' }] },
   l1Orb3: { position: 'absolute', top: '46%', right: 8, opacity: 0.1, transform: [{ rotate: '-9deg' }] },
   l1Orb4: { position: 'absolute', bottom: 96, left: -24, opacity: 0.3, transform: [{ rotate: '14deg' }] },
-  l1Level: { fontFamily: 'Poppins-SemiBold', fontSize: 30, color: colors.textPrimary, textAlign: 'center' },
+  l1Level: { fontFamily: fonts.semibold, fontSize: fontScale.pageTitle, color: colors.textPrimary, textAlign: 'center' },
   // Small eyebrow above a level's name, for clear hierarchy (LEVEL 3 > the name).
   l1Eyebrow: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: colors.textSubtitle,
     textAlign: 'center',
   },
   l1RoundBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
     backgroundColor: hsla(v3.accent, 0.2),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: hsla(v3.accent, 0.5),
   },
-  l1RoundText: { fontFamily: 'Poppins-Medium', fontSize: 13, color: colors.textPrimary, letterSpacing: 0.3 },
-  l1CardsHero: { flexDirection: 'row', marginTop: 20, height: 150, alignItems: 'center', justifyContent: 'center' },
-  l1HeroCard: { width: 120, height: 120, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  l1RoundText: { fontFamily: fonts.medium, fontSize: fontScale.caption, color: colors.textPrimary, letterSpacing: 0.3 },
+  l1CardsHero: { flexDirection: 'row', marginTop: spacing.xl, height: 150, alignItems: 'center', justifyContent: 'center' },
+  l1HeroCard: { width: 120, height: 120, borderRadius: radius.card, alignItems: 'center', justifyContent: 'center' },
   l1HeroTruth: { backgroundColor: hsla(TRUTH_BLUE, 0.9), transform: [{ rotate: '-8deg' }], marginRight: -18, zIndex: 2 },
   l1HeroMyth: { backgroundColor: hsla(MYTH_PINK, 0.85), transform: [{ rotate: '7deg' }] },
-  l1HeroCardText: { fontFamily: 'Poppins-Medium', fontSize: 20, color: '#1a1526' },
+  l1HeroCardText: { fontFamily: fonts.medium, fontSize: fontScale.title, color: '#1a1526' },
   l1Statement: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 24,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     lineHeight: 33,
     color: colors.textPrimary,
     textAlign: 'center',
   },
-  l1Bottom: { gap: 12 },
-  l1Choices: { flexDirection: 'row', gap: 12 },
+  l1Bottom: { gap: spacing.md },
+  // Play stage: the question centres above a reserved footer band so answering
+  // (choices -> taller reveal) never moves it. The footer is pinned to the
+  // bottom and grows upward into the reserved space.
+  l1PlayCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingBottom: 230 },
+  l1PlayFooter: { position: 'absolute', left: 0, right: 0, bottom: 0, gap: spacing.md },
+  l1Choices: { flexDirection: 'row', gap: spacing.md },
   l1Choice: {
     flex: 1,
     height: 96,
-    borderRadius: 18,
+    borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
   },
   l1ChoiceTruth: { backgroundColor: hsla(TRUTH_BLUE, 0.9), borderColor: TRUTH_BLUE },
   l1ChoiceMyth: { backgroundColor: hsla(MYTH_PINK, 0.88), borderColor: MYTH_PINK },
-  l1ChoiceLabel: { fontFamily: 'Poppins-Medium', fontSize: 22, color: '#1a1526' },
-  l1Reveal: { padding: 16, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth },
+  l1ChoiceLabel: { fontFamily: fonts.medium, fontSize: fontScale.technique, color: '#1a1526' },
+  l1Reveal: { padding: spacing.lg, borderRadius: radius.card, borderWidth: StyleSheet.hairlineWidth },
   l1RevealRight: { backgroundColor: hsla(v3.regulated, 0.16), borderColor: hsla(v3.regulated, 0.5) },
   l1RevealWrong: { backgroundColor: hsla(v3.activated, 0.16), borderColor: hsla(v3.activated, 0.5) },
-  l1Verdict: { fontFamily: 'Poppins-SemiBold', fontSize: 18, marginBottom: 6 },
-  l1RevealText: { fontFamily: 'Poppins-Light', fontSize: 15, lineHeight: 22, color: colors.textPrimary },
+  l1Verdict: { fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, marginBottom: spacing.sm },
+  l1RevealText: { fontFamily: fonts.light, fontSize: fontScale.bodyLg, lineHeight: 22, color: colors.textPrimary },
   l1CongratsTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 18,
+    marginTop: spacing.lg,
   },
   l1CongratsSub: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     color: colors.textSubtitle,
     textAlign: 'center',
     letterSpacing: 0.3,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   l1CongratsCard: {
-    marginTop: 12,
-    padding: 18,
-    borderRadius: 16,
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
   },
   l1CongratsBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
     lineHeight: 24,
     color: colors.textPrimary,
     textAlign: 'center',
   },
 
   // Level 2 (Big vs Small) extras.
-  l2Title: { fontFamily: 'Poppins-SemiBold', fontSize: 31, lineHeight: 38, color: colors.textPrimary, textAlign: 'center' },
+  l2Title: { fontFamily: fonts.semibold, fontSize: fontScale.pageTitle, lineHeight: 38, color: colors.textPrimary, textAlign: 'center' },
   // L3 intro, point-wise: a lead line, then the two solutions highlighted, "or" between.
-  l3Points: { alignSelf: 'stretch', gap: 9, paddingHorizontal: 8, marginTop: 2 },
-  l3IntroLead: { fontFamily: 'Poppins-Light', fontSize: 15, color: colors.textSubtitle, textAlign: 'center', marginBottom: 2 },
-  l3Point: { fontFamily: 'Poppins-Light', fontSize: 16, lineHeight: 23, color: colors.textPrimary, textAlign: 'center' },
-  l3PointTerm: { fontFamily: 'Poppins-SemiBold' },
-  l3PointOr: { fontFamily: 'Poppins-Light', fontSize: 13, color: colors.textSubtitle, textAlign: 'center' },
+  l3Points: { alignSelf: 'stretch', gap: spacing.sm, paddingHorizontal: spacing.sm, marginTop: spacing.xs },
+  l3IntroLead: { fontFamily: fonts.light, fontSize: fontScale.bodyLg, color: colors.textSubtitle, textAlign: 'center', marginBottom: spacing.xs },
+  l3Point: { fontFamily: fonts.light, fontSize: fontScale.cardTitle, lineHeight: 23, color: colors.textPrimary, textAlign: 'center' },
+  l3PointTerm: { fontFamily: fonts.semibold },
+  l3PointOr: { fontFamily: fonts.light, fontSize: fontScale.caption, color: colors.textSubtitle, textAlign: 'center' },
   l2Subtitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textSubtitle,
     textAlign: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: spacing.lg,
   },
   // The two hero moons say the level's whole idea by their size: Small is a
   // small moon, Big a big one. They overlap so it reads as one motif.
@@ -1967,58 +1990,58 @@ const styles = StyleSheet.create({
     borderRadius: 70,
     backgroundColor: hsla(BIG_CORAL, 0.85),
   },
-  l2HeroTextSmall: { fontFamily: 'Poppins-Medium', fontSize: 16, color: '#1a1526' },
-  l2HeroTextBig: { fontFamily: 'Poppins-SemiBold', fontSize: 26, color: '#1a1526' },
+  l2HeroTextSmall: { fontFamily: fonts.medium, fontSize: fontScale.cardTitle, color: '#1a1526' },
+  l2HeroTextBig: { fontFamily: fonts.semibold, fontSize: fontScale.pageTitle, color: '#1a1526' },
   l2Scene: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     lineHeight: 31,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   // Cheat page: top-aligned like the rest, roomy table, bigger text to skim.
-  l2CheatCenter: { flex: 1, gap: 14, paddingTop: 8 },
+  l2CheatCenter: { flex: 1, gap: spacing.md, paddingTop: spacing.sm },
   l2CheatKicker: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: v3.accent,
     textAlign: 'center',
   },
-  l2CheatTitle: { fontFamily: 'Poppins-SemiBold', fontSize: 25, lineHeight: 32, color: colors.textPrimary, textAlign: 'center' },
+  l2CheatTitle: { fontFamily: fonts.semibold, fontSize: fontScale.technique, lineHeight: 32, color: colors.textPrimary, textAlign: 'center' },
   l2Table: {
-    borderRadius: 16,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
     overflow: 'hidden',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   l2TableHead: {
     flexDirection: 'row',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
   },
-  l2TableHeadCell: { flex: 1, fontFamily: 'Poppins-SemiBold', fontSize: 16, letterSpacing: 0.3 },
+  l2TableHeadCell: { flex: 1, fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, letterSpacing: 0.3 },
   l2TableRow: {
     flexDirection: 'row',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    gap: 10,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  l2RowLabel: { width: 76, fontFamily: 'Poppins-Medium', fontSize: 15, color: colors.textSubtitle },
-  l2RowCell: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
+  l2RowLabel: { width: 76, fontFamily: fonts.medium, fontSize: fontScale.bodyLg, color: colors.textSubtitle },
+  l2RowCell: { flex: 1, fontFamily: fonts.light, fontSize: fontScale.bodyLg, lineHeight: 21, color: colors.textPrimary },
   l2TableRowBad: { backgroundColor: hsla(SUPPRESS_RED, 0.16) },
   l2RowCellBad: { color: SUPPRESS_RED },
   // The two taps ARE the lesson: two moons, the Small choice a small circle, the
   // Big choice a big one. Bottom-aligned and centred so the size gap reads clean.
-  l2Choices: { flexDirection: 'row', gap: 22, alignItems: 'flex-end', justifyContent: 'center' },
+  l2Choices: { flexDirection: 'row', gap: spacing.xl, alignItems: 'flex-end', justifyContent: 'center' },
   l2Choice: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2026,51 +2049,51 @@ const styles = StyleSheet.create({
   },
   l2ChoiceSmall: { width: 108, height: 108, borderRadius: 54, backgroundColor: hsla(SMALL_PINK, 0.9), borderColor: SMALL_PINK },
   l2ChoiceBig: { width: 156, height: 156, borderRadius: 78, backgroundColor: hsla(BIG_CORAL, 0.9), borderColor: BIG_CORAL },
-  l2ChoiceLabelSmall: { fontFamily: 'Poppins-Medium', fontSize: 18, color: '#1a1526' },
-  l2ChoiceLabelBig: { fontFamily: 'Poppins-SemiBold', fontSize: 27, color: '#1a1526' },
-  l2Ripple: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 999, borderWidth: 2 },
+  l2ChoiceLabelSmall: { fontFamily: fonts.medium, fontSize: fontScale.cardTitle, color: '#1a1526' },
+  l2ChoiceLabelBig: { fontFamily: fonts.semibold, fontSize: fontScale.pageTitle, color: '#1a1526' },
+  l2Ripple: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.pill, borderWidth: 2 },
 
   // Level 3 (What helps most) extras.
   l3Prompt: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 21,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     lineHeight: 29,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 8,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  l3PlayBottom: { flex: 1, justifyContent: 'flex-end', gap: 12 },
-  l3Solutions: { gap: 10 },
+  l3PlayBottom: { flex: 1, justifyContent: 'flex-end', gap: spacing.md },
+  l3Solutions: { gap: spacing.sm },
   l3Solution: {
     minHeight: 56,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: radius.button,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: colors.fill.faint,
   },
   l3SolutionText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
     lineHeight: 21,
     color: colors.textPrimary,
     textAlign: 'center',
   },
 
   // Congrats page: clean-run gold tag + centering scroll wrapper.
-  congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: 12 },
+  congratsScroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.md },
   cleanRunTag: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
     backgroundColor: `hsl(${GOLD_HUE}, 78%, 62%)`,
   },
   cleanRunText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.caption,
     color: '#2a2010',
     letterSpacing: 0.5,
   },
@@ -2087,87 +2110,87 @@ const styles = StyleSheet.create({
     opacity: 0.12,
   },
   l4TeachRule: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 17,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
     lineHeight: 25,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 6,
-    paddingHorizontal: 8,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   l4DoseTable: {
-    marginTop: 18,
-    borderRadius: 16,
+    marginTop: spacing.lg,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
     overflow: 'hidden',
   },
-  l4DoseRow: { paddingVertical: 16, paddingHorizontal: 18, gap: 4 },
+  l4DoseRow: { paddingVertical: spacing.lg, paddingHorizontal: spacing.lg, gap: spacing.xs },
   l4DoseRowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.06)' },
-  l4DoseSize: { fontFamily: 'Poppins-SemiBold', fontSize: 16, letterSpacing: 0.3 },
-  l4DoseAmount: { fontFamily: 'Poppins-Light', fontSize: 16, lineHeight: 22, color: colors.textPrimary },
-  l4BreatheCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  l4DoseSize: { fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, letterSpacing: 0.3 },
+  l4DoseAmount: { fontFamily: fonts.light, fontSize: fontScale.cardTitle, lineHeight: 22, color: colors.textPrimary },
+  l4BreatheCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   l4PhaseLabel: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 24,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.technique,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 28,
+    marginTop: spacing.xxxl,
   },
-  l4RoundLabel: { fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle, textAlign: 'center' },
+  l4RoundLabel: { fontFamily: fonts.light, fontSize: fontScale.body, color: colors.textSubtitle, textAlign: 'center' },
   l4Spacer: { height: 52 },
 
   // Level 5 · The last test (step label above each reused beat + the reorder).
   l5StepLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     color: v3.accent,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
-  l5ReorderScroll: { paddingTop: 4, paddingBottom: 16, gap: 16 },
-  l5Slots: { gap: 8 },
+  l5ReorderScroll: { paddingTop: spacing.xs, paddingBottom: spacing.lg, gap: spacing.lg },
+  l5Slots: { gap: spacing.sm },
   l5Slot: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 14,
+    gap: spacing.md,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: hsla(v3.accent, 0.5),
     backgroundColor: hsla(v3.accent, 0.12),
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
-  l5SlotNum: { fontFamily: 'Poppins-SemiBold', fontSize: 15, color: v3.accent, width: 18, textAlign: 'center' },
-  l5SlotText: { flex: 1, fontFamily: 'Poppins-Medium', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
+  l5SlotNum: { fontFamily: fonts.semibold, fontSize: fontScale.bodyLg, color: v3.accent, width: 18, textAlign: 'center' },
+  l5SlotText: { flex: 1, fontFamily: fonts.medium, fontSize: fontScale.bodyLg, lineHeight: 21, color: colors.textPrimary },
   l5SlotEmpty: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 14,
+    gap: spacing.md,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
     borderStyle: 'dashed',
     borderColor: v3.panelBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
-  l5SlotEmptyText: { flex: 1, fontFamily: 'Poppins-Light', fontSize: 14, color: colors.textSubtitle },
-  l5Pool: { gap: 8 },
+  l5SlotEmptyText: { flex: 1, fontFamily: fonts.light, fontSize: fontScale.body, color: colors.textSubtitle },
+  l5Pool: { gap: spacing.sm },
   l5PoolCard: {
-    borderRadius: 14,
+    borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    backgroundColor: colors.fill.faint,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
-  l5PoolText: { fontFamily: 'Poppins-Medium', fontSize: 15, lineHeight: 21, color: colors.textPrimary },
+  l5PoolText: { fontFamily: fonts.medium, fontSize: fontScale.bodyLg, lineHeight: 21, color: colors.textPrimary },
   l5Nudge: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: v3.activated,
     textAlign: 'center',
@@ -2183,20 +2206,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   l5BackdropOrb: {
+    // Offset into the corner so the ring detail sits toward the edge and the
+    // centred intro copy stays on clear ground (centring it put rings behind
+    // the text and hurt readability).
     opacity: 0.14,
     transform: [{ rotate: '-18deg' }, { translateX: 46 }, { translateY: -34 }],
   },
 
   // Level 5 · the routing deck. A single card she reads, with two peek cards
   // behind for the deck feel; it flies to the tapped gate on commit.
-  deckStage: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  deckStage: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: spacing.sm },
   deckStack: { width: '86%', justifyContent: 'center' },
   deckCard: {
     width: '100%',
     minHeight: 188,
-    borderRadius: 22,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
     backgroundColor: DECK_CARD_FILL,
     justifyContent: 'center',
   },
@@ -2209,7 +2235,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: 22,
+    borderRadius: radius.card,
   },
   deckPeek1: {
     backgroundColor: 'hsl(266, 40%, 19%)',
@@ -2220,70 +2246,77 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-4deg' }, { translateY: 14 }],
   },
   deckCardMeta: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.tagline,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textSubtitle,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   deckCardScene: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 18,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     lineHeight: 26,
     color: colors.textPrimary,
   },
-  deckGatesRow: { flexDirection: 'row', gap: 12 },
+  // The routed-right reveal sits on the full-page colour flood, so it needs a
+  // solid dark fill (not the usual translucent tint) or the verdict + copy wash
+  // out against the pink.
+  deckReveal: {
+    backgroundColor: 'hsl(266, 45%, 15%)',
+    borderColor: hsla(v3.regulated, 0.6),
+  },
+  deckGatesRow: { flexDirection: 'row', gap: spacing.md },
   // Solid-filled answer buttons (colour = the gate's read), dark text to read
   // against the bright fill. The border is the same hue, just a crisp edge.
   deckGate: {
     flex: 1,
     minHeight: 78,
-    borderRadius: 16,
+    borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deckGateLead: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: '#1a1526', textAlign: 'center' },
+  deckGateLead: { fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, color: '#1a1526', textAlign: 'center' },
   deckGateMove: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     lineHeight: 18,
     color: 'rgba(26,21,38,0.72)',
-    marginTop: 2,
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
 
   // The keepsake fork on the finale congrats: the method she carries out.
   keepCard: {
-    marginTop: 18,
+    marginTop: spacing.lg,
     width: '100%',
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: radius.card,
+    padding: spacing.lg,
     backgroundColor: hsla(v3.accent, 0.1),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: hsla(v3.accent, 0.4),
-    gap: 8,
+    gap: spacing.sm,
   },
   keepTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: v3.accent,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
-  keepNode: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  keepNode: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   keepDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: v3.accent },
-  keepNodeText: { flex: 1, fontFamily: 'Poppins-Medium', fontSize: 14, lineHeight: 19, color: colors.textPrimary },
-  keepLine: { width: StyleSheet.hairlineWidth, height: 12, backgroundColor: hsla(v3.accent, 0.6), marginLeft: 6 },
-  keepFork: { flexDirection: 'row', gap: 10, marginTop: 2 },
-  keepBranch: { flex: 1, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, paddingVertical: 10, paddingHorizontal: 11 },
+  keepNodeText: { flex: 1, fontFamily: fonts.medium, fontSize: fontScale.body, lineHeight: 19, color: colors.textPrimary },
+  keepLine: { width: StyleSheet.hairlineWidth, height: 12, backgroundColor: hsla(v3.accent, 0.6), marginLeft: spacing.sm },
+  keepFork: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  keepBranch: { flex: 1, borderRadius: radius.control, borderWidth: StyleSheet.hairlineWidth, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   keepBranchSmall: { backgroundColor: hsla(SMALL_PINK, 0.12), borderColor: hsla(SMALL_PINK, 0.45) },
   keepBranchBig: { backgroundColor: hsla(BIG_CORAL, 0.12), borderColor: hsla(BIG_CORAL, 0.45) },
-  keepGate: { fontFamily: 'Poppins-SemiBold', fontSize: 11, letterSpacing: 0.4, marginBottom: 3 },
-  keepBranchText: { fontFamily: 'Poppins-Light', fontSize: 13, lineHeight: 18, color: colors.textPrimary },
+  keepGate: { fontFamily: fonts.semibold, fontSize: fontScale.tagline, letterSpacing: 0.4, marginBottom: spacing.xs },
+  keepBranchText: { fontFamily: fonts.light, fontSize: fontScale.caption, lineHeight: 18, color: colors.textPrimary },
 });

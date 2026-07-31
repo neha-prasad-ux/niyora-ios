@@ -24,6 +24,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { Orb } from '@/components/orb';
 import { Pill } from '@/components/Pill';
 import {
@@ -312,16 +315,16 @@ function Chip({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.70)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.backgroundBottom,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-    paddingTop: 22,
+    borderColor: colors.border.faint,
+    paddingTop: spacing.xl,
     paddingBottom: 44,
     overflow: 'hidden',
   },
@@ -329,15 +332,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    marginBottom: 14,
+    paddingHorizontal: spacing.xxl,
+    marginBottom: spacing.md,
   },
   headerSpacer: {
     width: 15,
   },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 17,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
@@ -345,13 +348,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 104,
-    marginBottom: 2,
+    marginBottom: spacing.xs,
   },
   dotsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 7,
-    marginBottom: 20,
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
   },
   dot: {
     width: 6,
@@ -362,35 +365,35 @@ const styles = StyleSheet.create({
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    paddingHorizontal: 24,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xxl,
   },
   chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 22,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   // Selected chip is a translucent lavender toggle with a bright rim -- a clear
   // "this is on", deliberately not the solid gradient of an action button.
   chipSelected: {
-    borderColor: 'rgba(196, 178, 255, 0.85)',
-    backgroundColor: 'rgba(150, 120, 235, 0.22)',
+    borderColor: colors.selectedBorder,
+    backgroundColor: colors.selectedFill,
   },
   chipText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   chipTextSelected: {
-    fontFamily: 'Poppins-Medium',
-    color: '#fff',
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.primary,
   },
   ctaRow: {
-    marginTop: 20,
+    marginTop: spacing.xl,
     alignItems: 'center',
   },
 });

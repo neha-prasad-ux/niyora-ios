@@ -9,12 +9,16 @@ import * as Haptics from 'expo-haptics';
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { BackgroundGradient } from '@/components/background-gradient';
+import { GlassCardBg } from '@/components/glass-card-bg';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 
 type Activity = {
   id: string;
@@ -105,12 +109,7 @@ export default function CouplesScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${a.title}. ${a.sub}.`}
                 >
-                  <LinearGradient
-                    colors={a.gradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
+                  <GlassCardBg gradient={a.gradient} />
                   <View pointerEvents="none" style={styles.chapterBackdrop}>
                     <SymbolView
                       name="heart.fill"
@@ -134,7 +133,7 @@ export default function CouplesScreen() {
                     </View>
                     <SymbolView
                       name="chevron.right"
-                      tintColor="rgba(255, 255, 255, 0.7)"
+                      tintColor={colors.textOnDark.secondary}
                       size={15}
                       weight="semibold"
                       style={styles.cardChevron}
@@ -152,59 +151,59 @@ export default function CouplesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 20 },
-  topBar: { height: 32, justifyContent: 'center', marginTop: 4 },
-  header: { paddingHorizontal: 2, paddingTop: 4, paddingBottom: 14 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
+  topBar: { height: 32, justifyContent: 'center', marginTop: spacing.xs },
+  header: { paddingHorizontal: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.md },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 26,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
     lineHeight: 32,
     color: colors.textPrimary,
     letterSpacing: 0.15,
   },
   sub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 14,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
     lineHeight: 20,
     color: colors.textSubtitle,
     letterSpacing: 0.1,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
-  scroll: { paddingTop: 6, paddingBottom: 28, gap: 14 },
+  scroll: { paddingTop: spacing.sm, paddingBottom: spacing.xxxl, gap: spacing.md },
 
   // Shared card interior (matches Train's chapter cards).
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardTextCol: { flex: 1 },
   cardChevron: { opacity: 0.55, marginRight: -2 },
-  tagText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#ffffff', letterSpacing: 0.5 },
+  tagText: { fontFamily: fonts.medium, fontSize: fontScale.caption, color: colors.textOnDark.primary, letterSpacing: 0.5 },
   cardSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13.5,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
     lineHeight: 19,
-    color: 'rgba(255, 255, 255, 0.72)',
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.1,
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
-  chapterWrap: { marginBottom: 4 },
+  chapterWrap: { marginBottom: spacing.xs },
   chapterTag: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.control,
+    marginLeft: spacing.sm,
     marginBottom: -10,
     zIndex: 2,
-    backgroundColor: 'rgba(205, 90, 120, 0.95)',
+    backgroundColor: colors.accentRose,
   },
   chapterCard: {
     width: '100%',
     minHeight: 120,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderRadius: 22,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: glass.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -212,10 +211,10 @@ const styles = StyleSheet.create({
   heartTopRight: { position: 'absolute', top: -18, right: -12, transform: [{ rotate: '16deg' }] },
   heartBotLeft: { position: 'absolute', bottom: -16, left: -12, transform: [{ rotate: '-12deg' }] },
   chapterTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 21,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
     lineHeight: 26,
-    color: '#ffffff',
+    color: colors.textOnDark.primary,
     letterSpacing: 0.15,
   },
 });

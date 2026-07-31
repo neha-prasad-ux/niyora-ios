@@ -7,6 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { READINESS_WHY, type ReadinessCheckId } from '@/store/pms-readiness';
 
 export function WhySheet({
@@ -60,17 +63,17 @@ export function WhySheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.backgroundTop,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingTop: 12,
-    paddingHorizontal: 26,
+    borderColor: colors.border.base,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.xxl,
     paddingBottom: 40,
     overflow: 'hidden',
   },
@@ -79,28 +82,28 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     alignSelf: 'center',
   },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 21,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     lineHeight: 28,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   body: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 24,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
-    marginTop: 14,
+    marginTop: spacing.md,
   },
-  scienceLink: { alignSelf: 'flex-start', marginTop: 22 },
+  scienceLink: { alignSelf: 'flex-start', marginTop: spacing.xl },
   scienceText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textTagline,
     letterSpacing: 0.2,
     textDecorationLine: 'underline',

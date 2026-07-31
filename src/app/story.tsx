@@ -14,14 +14,40 @@ import * as Haptics from 'expo-haptics';
 
 import { BeginButton } from '@/components/begin-button';
 import { markActivityDone } from '@/lib/hold-activities';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
+const INK = colors.paper.ink;
 
+// All true, in Neha's order. Plain-language retellings (facts, not excerpts), so
+// no on-screen attribution is needed; sources kept here for provenance.
 const STORIES = [
-  'A boy saved his pocket money for months to buy his mum flowers on a plain Tuesday. Not her birthday. Just because she had looked tired.',
-  'An old man feeds the same three pigeons at 7 every morning. When he was in hospital for a week, a neighbour did it for him, so they would not wait for nothing.',
-  'A barista spent a summer learning sign language so one regular could order his coffee the same way as everyone else.',
-  "A girl left a note in a library book: 'if you are reading this on a hard day, it gets lighter.' Years later someone wrote back underneath: 'it did.'",
+  // Bobbie the Wonder Dog, 1923-24 (Oregon Encyclopedia)
+  'A dog named Bobbie lost his family on a trip to Indiana. He walked all the way home to Oregon, 2,551 miles, over six months, in winter, all alone.',
+  // Dindim the penguin & João Pereira de Souza (CNN, 2016)
+  'A fisherman in Brazil found a little penguin covered in oil and nursed him back to health. Every year after that, the penguin swam all the way back just to visit him.',
+  // Farallon humpback whale rescue (SF Chronicle, 2005)
+  'Divers spent an hour cutting a giant whale loose from ropes off San Francisco. Once it was free, it swam to each of them, gave them a soft nudge, and went on its way.',
+  // Dashrath Manjhi, the Mountain Man (BBC)
+  "A man's village was cut off from the nearest doctor by a mountain. So he picked up a hammer and carved a road straight through it, by hand, over 22 years.",
+  // Koko the gorilla & All Ball, 1984 (The Gorilla Foundation; TIME)
+  'Koko the gorilla knew sign language, and one year she asked for a kitten. She picked a tiny grey one, named him All Ball, and carried him around like her own baby.',
+  // Chilean miners rescue, 2010 (BBC)
+  'Thirty-three miners got trapped half a mile underground in Chile for 69 days. One by one, every single one of them came back up alive.',
+  // Miracle on the Hudson, Flight 1549, 2009 (NTSB)
+  'A plane lost both engines over New York. The pilot glided it down onto the river, and all 155 people on board walked away.',
+  // Smallpox eradication, declared 1980 (WHO)
+  'Smallpox used to kill millions of people. In 1980 the whole world got together, wiped it out for good, and it never came back.',
+  // 1925 serum run to Nome, Balto & Togo (Smithsonian)
+  'A town in Alaska ran out of medicine in the middle of a blizzard. Teams of sled dogs ran it 674 miles through the snow and saved all the kids.',
+  // Christian the lion reunion, 1971 (A Lion Called Christian)
+  "Two guys raised a lion cub in London, then set him free in Africa. A year later they went to visit, not sure he'd remember them, and he ran straight into their arms.",
+  // Jadav Payeng, the Forest Man of India (Al Jazeera)
+  "A teenager in India started planting one tree a day on an empty stretch of sand. Forty years later it's a forest, with deer, rhinos, even elephants living in it.",
+  // Saroo Brierley (BBC; "Lion")
+  'A five year old boy got lost on a train, thousands of miles from home. Twenty five years later he traced the way back on Google Earth and found his mom.',
 ];
 
 export default function StoryScreen() {
@@ -63,14 +89,14 @@ export default function StoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: colors.paper.bg },
   safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
   },
   close: {
     width: 32,
@@ -78,23 +104,23 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.paper.control,
   },
-  title: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: INK },
-  center: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 30, paddingVertical: 24 },
+  title: { fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, color: INK },
+  center: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.xxxl, paddingVertical: spacing.xxl },
   story: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
+    fontFamily: fonts.light,
+    fontSize: fontScale.technique,
     lineHeight: 34,
-    color: '#3E3947',
+    color: colors.paper.inkSoft,
     textAlign: 'center',
   },
-  footer: { paddingHorizontal: 22, paddingBottom: 16, gap: 14, alignItems: 'center' },
-  another: { paddingVertical: 4 },
+  footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md, alignItems: 'center' },
+  another: { paddingVertical: spacing.xs },
   anotherText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
-    color: 'rgba(43,38,50,0.55)',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
+    color: colors.paper.inkFaint,
     textDecorationLine: 'underline',
   },
 });

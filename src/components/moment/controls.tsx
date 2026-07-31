@@ -28,17 +28,20 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
+  withRepeat,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
-
-/** The app's existing selected-chip fill. Not a token yet; see file header. */
-const SELECTED = 'rgba(150, 120, 235, 0.28)';
 
 // One option-motion language (motion-design rules, neha-prasad.com):
 //   · options are ACTIONS, so they RISE into place (Y-axis: bottom is action),
@@ -213,6 +216,63 @@ export function Thinking() {
   );
 }
 
+/** One pulsing dot in the thinking row. Fades and lifts on a loop, staggered by
+ *  index so the three read as a wave. Still (dim) under reduce-motion. */
+function Dot({ index }: { index: number }) {
+  const reduce = useReducedMotion();
+  const v = useSharedValue(0);
+  useEffect(() => {
+    if (reduce) return;
+    v.value = withDelay(index * 180, withRepeat(withTiming(1, { duration: 620 }), -1, true));
+  }, [index, reduce, v]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.35 + v.value * 0.65,
+    transform: [{ translateY: reduce ? 0 : -3 * v.value }],
+  }));
+  return <Animated.View style={[styles.dot, style]} />;
+}
+
+/**
+ * Skeleton placeholder rows (M3), shown while the model ranks/writes the
+ * options, reframes or feelings, instead of flashing the authored fallback and
+ * then swapping it. Same height as an option row, so nothing jumps when the real
+ * content lands. The authored fallback still shows if the model actually fails.
+ */
+export function SkeletonRows({ count = 3 }: { count?: number }) {
+  const reduce = useReducedMotion();
+  const v = useSharedValue(0.5);
+  useEffect(() => {
+    if (reduce) return;
+    v.value = withRepeat(withTiming(1, { duration: 820 }), -1, true);
+  }, [reduce, v]);
+  const style = useAnimatedStyle(() => ({ opacity: reduce ? 0.5 : v.value }));
+  return (
+    <View style={styles.skelStack} accessibilityRole="progressbar" accessibilityLabel="Thinking">
+      {Array.from({ length: count }, (_, i) => (
+        <Animated.View key={i} style={[styles.skelRow, style]} />
+      ))}
+    </View>
+  );
+}
+
+/**
+ * The AI-thinking indicator for the generation gap (M2). Three pulsing dots and
+ * an optional line ("Writing you a start"), shown where the model takes a beat
+ * to answer, so the pause reads as working, not broken.
+ */
+export function ThinkingDots({ label }: { label?: string }) {
+  return (
+    <View style={styles.thinkingRow} accessibilityRole="progressbar" accessibilityLabel={label ?? 'Thinking'}>
+      <View style={styles.dots}>
+        <Dot index={0} />
+        <Dot index={1} />
+        <Dot index={2} />
+      </View>
+      {label ? <Text style={styles.thinkingLabel}>{label}</Text> : null}
+    </View>
+  );
+}
+
 // --- 0 to 10 -----------------------------------------------------------------
 
 /**
@@ -280,15 +340,15 @@ const styles = StyleSheet.create({
   // game-v3 l3Solution, verbatim
   row: {
     minHeight: 56,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: radius.button,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
   },
-  rowOn: { backgroundColor: SELECTED, borderColor: colors.beginBorder },
+  rowOn: { backgroundColor: colors.selectedFill, borderColor: colors.beginBorder },
   rowOff: { opacity: 0.45 },
   // The recommended option: the flat solid-purple primary (colors.primarySolid,
   // the same fill the in-card primary buttons use), so it reads as THE button on
@@ -303,20 +363,20 @@ const styles = StyleSheet.create({
     top: -9,
     right: 14,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 9,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.control,
   },
   recChipText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 10,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     lineHeight: 14,
     color: colors.primarySolid,
     letterSpacing: 0.2,
   },
   rowText: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 15.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     lineHeight: 21,
     color: colors.textPrimary,
     textAlign: 'center',
@@ -325,24 +385,24 @@ const styles = StyleSheet.create({
   rowDone: {
     position: 'absolute',
     right: 16,
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.emphasis,
     color: 'hsl(150, 45%, 55%)',
   },
 
   why: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 19,
     color: v3.textFaint,
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
 
   // rough-moment's bubble, verbatim
-  bubble: { maxWidth: '84%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
+  bubble: { maxWidth: '84%', borderRadius: radius.button, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   me: {
     alignSelf: 'flex-end',
-    backgroundColor: 'rgba(115, 57, 172, 0.28)',
+    backgroundColor: colors.selectedFill,
     borderBottomRightRadius: 5,
   },
   app: {
@@ -353,37 +413,50 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 5,
   },
   bubbleText: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 23,
     color: colors.textPrimary,
   },
 
-  scaleEnd: { fontFamily: 'Poppins-Regular', fontSize: 11, color: colors.textTagline },
+  skelStack: { gap: spacing.sm },
+  skelRow: {
+    minHeight: 56,
+    borderRadius: radius.button,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    backgroundColor: v3.panel,
+  },
+  thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.textSubtitle },
+  thinkingLabel: { fontFamily: fonts.light, fontSize: fontScale.caption, color: v3.textFaint },
 
-  numbersWrap: { gap: 10 },
+  scaleEnd: { fontFamily: fonts.regular, fontSize: fontScale.caption, color: colors.textTagline },
+
+  numbersWrap: { gap: spacing.sm },
   // Five fit one row. Each stretches to share the width rather than sitting at
   // a fixed size, so the row fills the card on any phone.
-  numbers: { flexDirection: 'row', gap: 8 },
+  numbers: { flexDirection: 'row', gap: spacing.sm },
   // The stagger wrapper carries the row flex now; the button fills it.
   numberCell: { flex: 1 },
   number: {
     flex: 1,
     height: 56,
-    borderRadius: 14,
+    borderRadius: radius.control,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     backgroundColor: v3.panel,
   },
-  numberOn: { backgroundColor: SELECTED, borderColor: colors.beginBorder },
+  numberOn: { backgroundColor: colors.selectedFill, borderColor: colors.beginBorder },
   numberText: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 16,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.emphasis,
     color: colors.textSubtitle,
     fontVariant: ['tabular-nums'],
   },
-  numberTextOn: { fontFamily: 'Poppins-Medium', color: colors.textPrimary },
-  numberLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
+  numberTextOn: { fontFamily: fonts.medium, color: colors.textPrimary },
+  numberLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xs },
 });

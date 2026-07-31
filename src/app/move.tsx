@@ -10,8 +10,12 @@ import * as Haptics from 'expo-haptics';
 
 import { BeginButton } from '@/components/begin-button';
 import { markActivityDone } from '@/lib/hold-activities';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
+const INK = colors.paper.ink;
 
 export default function MoveScreen() {
   const leave = () => {
@@ -45,14 +49,14 @@ export default function MoveScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: colors.paper.bg },
   safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
   },
   close: {
     width: 32,
@@ -60,16 +64,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.paper.control,
   },
-  title: { fontFamily: 'Poppins-SemiBold', fontSize: 16, color: INK },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, gap: 28 },
+  title: { fontFamily: fonts.semibold, fontSize: fontScale.cardTitle, color: INK },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxxl, gap: spacing.xxxl },
   prompt: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
+    fontFamily: fonts.light,
+    fontSize: fontScale.technique,
     lineHeight: 36,
-    color: '#3E3947',
+    color: colors.paper.inkSoft,
     textAlign: 'center',
   },
-  footer: { paddingHorizontal: 22, paddingBottom: 16 },
+  footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg },
 });

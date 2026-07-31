@@ -53,7 +53,7 @@ const BREAK_OVER_BODY = 'Your 20 minutes are up. Come back when you\'re ready.';
 const PMS_PREP_DAYS = [3, 2, 1] as const; // days before the window opens
 const PMS_PREP_BODIES: Record<(typeof PMS_PREP_DAYS)[number], string> = {
   3: 'PMS in 3 days. Your checklist\'s ready in Niyora. A few ticks now, an easier week.',
-  2: 'PMS soon. Open Niyora to give your partner a heads-up before the hard days.',
+  2: 'PMS soon. Open Niyora to give your partner a heads-up before your PMS.',
   1: 'PMS starts tomorrow. Open Niyora and get your kit set.',
 };
 
@@ -174,6 +174,23 @@ export async function scheduleBreakOver(seconds: number): Promise<void> {
 
 export async function cancelBreakOver(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(BREAK_OVER_ID).catch(() => {});
+}
+
+// C10: a one-off reminder for a response she chose to do later. A unique id per
+// time lets several coexist; a past time is rejected. Returns false when
+// permission is denied or the time is invalid, so the caller can fall back to a
+// plain "saved to Today" with no reminder.
+export const ACTION_REMINDER_PREFIX = 'niyora-action-';
+export async function scheduleActionReminder(body: string, date: Date): Promise<boolean> {
+  if (!(date.getTime() > Date.now())) return false;
+  const ok = await ensureNotificationPermission();
+  if (!ok) return false;
+  await Notifications.scheduleNotificationAsync({
+    identifier: `${ACTION_REMINDER_PREFIX}${date.getTime()}`,
+    content: { title: REMINDER_TITLE, body, sound: 'default' as const },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
+  });
+  return true;
 }
 
 // Schedule the whole PMS sequence for one window: a prep countdown (3, 2, 1 days

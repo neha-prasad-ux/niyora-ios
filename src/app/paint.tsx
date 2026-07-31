@@ -13,8 +13,12 @@ import * as Haptics from 'expo-haptics';
 
 import { ColorFill, type ColorFillHandle } from '@/components/moment/color-fill';
 import { markActivityDone } from '@/lib/hold-activities';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
+const INK = colors.paper.ink;
 
 export default function PaintScreen() {
   const card = useRef<ColorFillHandle>(null);
@@ -22,15 +26,18 @@ export default function PaintScreen() {
     Haptics.selectionAsync().catch(() => {});
     router.back();
   };
-  // Done finishes the card: open the iOS share sheet (she shares or closes it),
-  // then leave. X above leaves without sharing.
-  const onDone = async () => {
+  // M15: Share is its own button now (an icon), opening the iOS share sheet and
+  // staying on the card. Done just finishes and leaves.
+  const onShare = async () => {
     Haptics.selectionAsync().catch(() => {});
     try {
       await card.current?.share();
     } catch {
-      // Snapshot/share can fail (e.g. she cancels): leaving anyway is correct.
+      // Snapshot/share can fail or be cancelled; staying on the card is correct.
     }
+  };
+  const onDone = () => {
+    Haptics.selectionAsync().catch(() => {});
     markActivityDone('colour');
     leave();
   };
@@ -45,9 +52,14 @@ export default function PaintScreen() {
               <SymbolView name="xmark" tintColor={INK} size={15} weight="semibold" />
             </Pressable>
             <Text style={styles.title}>Colour &amp; Share</Text>
-            <Pressable onPress={onDone} hitSlop={12} style={styles.done} accessibilityRole="button" accessibilityLabel="Done and share">
-              <Text style={styles.doneText}>Done</Text>
-            </Pressable>
+            <View style={styles.actions}>
+              <Pressable onPress={onShare} hitSlop={12} style={styles.shareBtn} accessibilityRole="button" accessibilityLabel="Share">
+                <SymbolView name="square.and.arrow.up" tintColor={INK} size={17} weight="semibold" />
+              </Pressable>
+              <Pressable onPress={onDone} hitSlop={12} style={styles.done} accessibilityRole="button" accessibilityLabel="Done">
+                <Text style={styles.doneText}>Done</Text>
+              </Pressable>
+            </View>
           </View>
           <View style={styles.center}>
             <ColorFill ref={card} />
@@ -59,15 +71,15 @@ export default function PaintScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFFFFF' },
+  root: { flex: 1, backgroundColor: colors.paper.bg },
   safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   close: {
     width: 32,
@@ -75,20 +87,23 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: colors.paper.control,
   },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 16,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.cardTitle,
     color: INK,
   },
-  done: { paddingVertical: 6, paddingHorizontal: 8 },
+  // M15: Share icon + Done sit together on the right.
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  shareBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
+  done: { paddingVertical: spacing.sm, paddingHorizontal: spacing.sm },
   doneText: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 15,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.bodyLg,
     color: '#7C5CBF',
   },
   // Top-aligned so the drawing starts right under the title, not floating in the
   // middle of the screen.
-  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 8 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: spacing.sm },
 });

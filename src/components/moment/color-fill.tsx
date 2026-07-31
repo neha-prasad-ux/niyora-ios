@@ -6,11 +6,12 @@
 // at different seeds and widths, so the deposit is rough and uneven the way wax
 // catches on paper tooth, not a flat even fill. Three curated colours so it is
 // always pretty and never a decision, plus an eraser. The whole white page is
-// paintable (Neha, 2026-07-28) — free colouring, with two big flower outlines
+// paintable (Neha, 2026-07-28) — free colouring, with a big penguin outline
 // drawn on top as a guide her colour shows straight through.
 //
-// Illustration is her supplied SVG (art/flower), built into a Skia path. Swap
-// in new SVGs by adding art files; nothing here is flower-specific.
+// Illustration is her supplied SVG (art/penguin), built into a Skia path. It
+// is FILLED (the ink), not stroked like the old flower, and needs evenOdd fill.
+// Swap in new SVGs by adding art files; nothing here is penguin-specific.
 
 import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import {
@@ -27,6 +28,7 @@ import {
   Fill,
   Group,
   Paint,
+  FillType,
   Path,
   Rect,
   Skia,
@@ -50,7 +52,9 @@ import * as Haptics from 'expo-haptics';
 
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 
-import { FLOWER } from '@/components/moment/art/flower';
+import { PENGUIN } from '@/components/moment/art/penguin';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
 // A softened VIBGYOR: the full rainbow so a card can be as bright as she likes,
 // but eased off pure saturation so the page still reads calm, not neon. Ordered
@@ -269,23 +273,28 @@ export const ColorFill = forwardRef<ColorFillHandle>(function ColorFill(_props, 
   // is only drawn during the capture (see `capturing`), so it never doubles with
   // the editable field on screen.
   const skFont = useFont(require('../../../assets/fonts/PatrickHand-Regular.ttf'), 30);
-  const flower = useMemo(() => Skia.Path.MakeFromSVGString(FLOWER.d), []);
+  // Filled, not stroked: the penguin is the black ink of the drawing, so it is
+  // drawn as a fill on top of her colour. Its fill type MUST be evenOdd or the
+  // holes (eyes, gaps) flood solid.
+  const penguin = useMemo(() => {
+    const p = Skia.Path.MakeFromSVGString(PENGUIN.d);
+    p?.setFillType(FillType.EvenOdd);
+    return p;
+  }, []);
 
-  // Two big flowers, offset on a diagonal so they overlap a touch. In photo-local
-  // coordinates (0..photoW, 0..photoH); the whole photo group is shifted by PAD.
+  // One penguin, centred and scaled to fit the photo with a margin. In photo-
+  // local coordinates (0..photoW, 0..photoH); the whole photo group is shifted
+  // by PAD.
   const placements = useMemo(() => {
-    const s = (photoW * 0.62) / FLOWER.vb;
-    return [
-      { s, tx: photoW * 0.34 - FLOWER.cx * s, ty: photoH * 0.3 - FLOWER.cy * s },
-      { s, tx: photoW * 0.66 - FLOWER.cx * s, ty: photoH * 0.72 - FLOWER.cy * s },
-    ];
+    const s = Math.min((photoW * 0.86) / PENGUIN.vbW, (photoH * 0.86) / PENGUIN.vbH);
+    return [{ s, tx: photoW * 0.5 - PENGUIN.cx * s, ty: photoH * 0.5 - PENGUIN.cy * s }];
   }, [photoW, photoH]);
 
   const [sel, setSel] = useState(0);
   const [erasing, setErasing] = useState(false);
   const [sizeIdx, setSizeIdx] = useState(1);
   // The caption starts as this diagram's preset line and she can rewrite it.
-  const [caption, setCaption] = useState<string>(FLOWER.message);
+  const [caption, setCaption] = useState<string>(PENGUIN.message);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   // Lifted strokes, so undo has somewhere to go and redo can put them back. A
   // new stroke clears it (you cannot redo past a fresh mark).
@@ -446,17 +455,13 @@ export const ColorFill = forwardRef<ColorFillHandle>(function ColorFill(_props, 
                       width={widthFor(erasing, sizeIdx)}
                     />
                   )}
-                  {/* The flower guides, stroked so colour shows through. */}
-                  {flower &&
+                  {/* The penguin guide, FILLED (it is the ink), drawn on top so
+                      her colour shows through the white gaps and the lines can
+                      never be rubbed away. */}
+                  {penguin &&
                     placements.map((p, i) => (
                       <Group key={i} transform={[{ translateX: p.tx }, { translateY: p.ty }, { scale: p.s }]}>
-                        <Path
-                          path={flower}
-                          color={OUTLINE}
-                          style="stroke"
-                          strokeWidth={2.6 / p.s}
-                          strokeJoin="round"
-                        />
+                        <Path path={penguin} color={OUTLINE} style="fill" />
                       </Group>
                     ))}
                 </Group>
@@ -562,8 +567,8 @@ export const ColorFill = forwardRef<ColorFillHandle>(function ColorFill(_props, 
 });
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, width: '100%', alignItems: 'center', gap: 16 },
-  history: { position: 'absolute', top: 6, left: 6, flexDirection: 'row', gap: 8 },
+  wrap: { flex: 1, width: '100%', alignItems: 'center', gap: spacing.lg },
+  history: { position: 'absolute', top: 6, left: 6, flexDirection: 'row', gap: spacing.sm },
   round: {
     width: 36,
     height: 36,
@@ -579,13 +584,13 @@ const styles = StyleSheet.create({
     left: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
   },
   // The message, in a handwritten hand and centered, so it reads like something
   // written on the card rather than a form field.
   caption: {
     fontFamily: HAND_FONT,
-    fontSize: 21,
+    fontSize: fontScale.title,
     lineHeight: 30,
     color: '#3E3947',
     textAlign: 'center',
@@ -593,7 +598,7 @@ const styles = StyleSheet.create({
   },
   // Seven colours wrap to a second row on a narrow phone rather than shrinking
   // below a comfortable tap target.
-  swatches: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
   swatchRing: {
     width: 44,
     height: 44,
@@ -611,7 +616,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  toolGroup: { flexDirection: 'row', gap: 16 },
+  toolGroup: { flexDirection: 'row', gap: spacing.lg },
   // Brush + eraser are the primary tools, so their buttons are bigger than a swatch.
   toolRing: {
     width: 58,
@@ -622,7 +627,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     borderColor: 'transparent',
   },
-  sizeGroup: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sizeGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   // Each size is a filled dot sized to preview the stroke; the active one is ink.
   sizeHit: { width: 32, height: 44, alignItems: 'center', justifyContent: 'center' },
   sizeDot: { backgroundColor: '#CDC8D4' },

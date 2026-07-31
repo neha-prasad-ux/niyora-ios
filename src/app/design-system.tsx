@@ -50,7 +50,13 @@ export default function DesignSystemScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <Section title="Colour">
             <View style={styles.swatchGrid}>
-              {Object.entries(colors).map(([name, value]) => (
+              {/* Flatten so nested ramps (textOnDark, fill, border) render as
+                  their own swatches, e.g. "fill.base". */}
+              {Object.entries(colors).flatMap(([name, value]): [string, string][] =>
+                typeof value === 'string'
+                  ? [[name, value]]
+                  : Object.entries(value).map(([sub, v]) => [`${name}.${sub}`, v as string]),
+              ).map(([name, value]) => (
                 <View key={name} style={styles.swatchCell}>
                   <View style={[styles.swatch, { backgroundColor: value }]} />
                   <Text style={styles.swatchName} numberOfLines={1}>{name}</Text>

@@ -21,6 +21,8 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { Orb } from '@/components/orb';
 import type { MoonMaterial } from '@/lib/moon-light';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { spacing } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 
 // A calm, gentle breath while she waits — not the wide guided-breath swell.
@@ -124,12 +126,12 @@ export function HoldTimer({
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 4 },
+  wrap: { alignItems: 'center', gap: spacing.xs },
   // Eats ~40px of the Orb's transparent halo on each side, so the ball reads
   // close to what is above and below it instead of floating in dead space.
   ballBox: { marginVertical: -40 },
   clock: {
-    fontFamily: 'Poppins-Light',
+    fontFamily: fonts.light,
     fontSize: 56,
     lineHeight: 64,
     color: colors.textPrimary,

@@ -15,6 +15,10 @@ import { SymbolView } from 'expo-symbols';
 
 import { CycleBar } from '@/components/cycle-bar';
 import { prepBand } from '@/lib/preparedness';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 import { secondaryButtonSurface } from '@/theme/controls';
 import type { PhaseBand } from '@/lib/phase-band';
 
@@ -118,7 +122,7 @@ export function PhaseActionCard({
             {done && (
               <SymbolView
                 name="checkmark"
-                tintColor="rgba(255,255,255,0.9)"
+                tintColor={colors.textOnDark.primary}
                 size={13}
                 weight="semibold"
                 style={styles.ctaCheck}
@@ -152,7 +156,7 @@ export function PhaseActionCard({
                 {onPrepPress != null && (
                   <SymbolView
                     name="chevron.right"
-                    tintColor="rgba(255,255,255,0.55)"
+                    tintColor={colors.textOnDark.tertiary}
                     size={12}
                     weight="semibold"
                   />
@@ -169,78 +173,78 @@ export function PhaseActionCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: colors.border.base,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     overflow: 'hidden',
   },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   textCol: { flex: 1 },
   why: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    color: 'rgba(255, 255, 255, 0.72)',
-    marginBottom: 5,
+    color: colors.textOnDark.secondary,
+    marginBottom: spacing.xs,
   },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.emphasis,
     lineHeight: 23,
-    color: '#ffffff',
+    color: colors.textOnDark.primary,
     letterSpacing: 0.15,
   },
   cta: {
     flexDirection: 'row',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 19,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
     ...secondaryButtonSurface,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 78,
   },
   ctaDone: {
-    borderColor: 'rgba(255, 255, 255, 0.32)',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.border.strong,
+    backgroundColor: colors.fill.base,
   },
-  ctaCheck: { marginRight: 5 },
-  ctaText: { fontFamily: 'Poppins-Medium', fontSize: 14, color: '#ffffff', letterSpacing: 0.3 },
+  ctaCheck: { marginRight: spacing.xs },
+  ctaText: { fontFamily: fonts.medium, fontSize: fontScale.body, color: colors.textOnDark.primary, letterSpacing: 0.3 },
   barSection: {
-    paddingHorizontal: 14,
-    paddingTop: 13,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     backgroundColor: 'rgba(0, 0, 0, 0.22)',
   },
   prepRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 9,
-    paddingHorizontal: 2,
-    gap: 10,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    gap: spacing.sm,
   },
-  prepBandWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  prepBandWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 0 },
   prepLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 12.5,
-    color: 'rgba(255, 255, 255, 0.82)',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.2,
     flexShrink: 1,
   },
   // The band word is the emphasis; it stays whole and the label yields if space
   // runs short.
   prepPct: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 13,
-    color: '#ffffff',
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.primary,
     letterSpacing: 0.3,
     flexShrink: 0,
   },

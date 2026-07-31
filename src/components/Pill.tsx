@@ -17,6 +17,8 @@ import Animated, {
 
 import { colors } from '@/theme/colors';
 import { secondaryButtonSurface } from '@/theme/controls';
+import { elevation } from '@/theme/elevation';
+import { spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 
 type Props = {
@@ -78,14 +80,11 @@ export function Pill({ label, onPress, variant = 'solid', disabled = false }: Pr
 
 const styles = StyleSheet.create({
   glow: {
-    shadowColor: colors.beginGlow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 14,
+    ...elevation.glow,
   },
   capsule: {
     alignSelf: 'center',
-    paddingVertical: 13,
+    paddingVertical: spacing.md,
     paddingHorizontal: 40,
     borderRadius: 26,
     borderWidth: 1,
@@ -96,8 +95,8 @@ const styles = StyleSheet.create({
   // The shared secondary surface: a filled translucent panel + brighter rim so
   // the ghost action stays legible over busy living-scene backgrounds.
   ghost: { ...secondaryButtonSurface },
-  disabled: { borderColor: 'transparent', backgroundColor: 'rgba(255, 255, 255, 0.06)' },
-  solidLabel: { color: '#fff' },
+  disabled: { borderColor: 'transparent', backgroundColor: colors.fill.faint },
+  solidLabel: { color: colors.textOnDark.primary },
   ghostLabel: { color: colors.textPrimary },
-  disabledLabel: { color: 'rgba(255, 255, 255, 0.35)' },
+  disabledLabel: { color: colors.textOnDark.faint },
 });

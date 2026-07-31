@@ -3,14 +3,19 @@
 // so the chapters page (src/app/train.tsx), the home summary, and the onboarding
 // plan preview all render the exact same card and stay recognisable.
 
-import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GlassCardBg } from '@/components/glass-card-bg';
 import { Orb } from '@/components/orb';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import { type Chapter } from '@/v3/game-content';
 import { type TrainingState } from '@/store/training-v3';
+import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 
 // The card's texture is the CURRENT level's own intro backdrop, so each chapter
 // card previews what she is walking into and shifts as she advances:
@@ -170,12 +175,7 @@ export function ChapterCard({
             : `${chapter.emotion}. ${blurb}. ${statusWord}.`
         }
       >
-        <LinearGradient
-          colors={gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
+        <GlassCardBg gradient={gradient} />
         <CardPattern level={allDone ? levels.length : currentN} />
         <View style={styles.cardRow}>
           <View style={styles.cardTextCol}>
@@ -185,7 +185,7 @@ export function ChapterCard({
           {!peek && (
             <SymbolView
               name="chevron.right"
-              tintColor="rgba(255, 255, 255, 0.7)"
+              tintColor={colors.textOnDark.secondary}
               size={15}
               weight="semibold"
               style={styles.cardChevron}
@@ -199,40 +199,40 @@ export function ChapterCard({
 
 const styles = StyleSheet.create({
   // Shared card interior.
-  cardRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   cardTextCol: { flex: 1 },
   cardChevron: { opacity: 0.55, marginRight: -2 },
-  tagText: { fontFamily: 'Poppins-Medium', fontSize: 12, color: '#ffffff', letterSpacing: 0.5 },
+  tagText: { fontFamily: fonts.medium, fontSize: fontScale.caption, color: colors.textOnDark.primary, letterSpacing: 0.5 },
   cardSub: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 13.5,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
     lineHeight: 19,
-    color: 'rgba(255, 255, 255, 0.72)',
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.1,
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
 
   // Chapter card.
-  chapterWrap: { marginBottom: 4 },
+  chapterWrap: { marginBottom: spacing.xs },
   chapterTag: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginLeft: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.control,
+    marginLeft: spacing.sm,
     marginBottom: -10,
     zIndex: 2,
-    backgroundColor: 'rgba(150, 110, 205, 0.95)',
+    backgroundColor: colors.primarySolid,
   },
   chapterCard: {
     width: '100%',
     minHeight: 120,
-    paddingHorizontal: 20,
-    paddingVertical: 22,
-    borderRadius: 22,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.16)',
+    borderColor: glass.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -250,10 +250,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   chapterTitle: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 21,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
     lineHeight: 26,
-    color: '#ffffff',
+    color: colors.textOnDark.primary,
     letterSpacing: 0.15,
   },
 });

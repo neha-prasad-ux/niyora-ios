@@ -7,6 +7,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 import type { SetupCard } from '@/store/onboarding-v3-progress';
 
 const GRADIENT: readonly [string, string, string, string] = [
@@ -61,7 +65,7 @@ export function OnboardingCard({ setup, onPress }: { setup: SetupCard; onPress: 
         </View>
         <View style={styles.cta}>
           <Text style={styles.ctaText}>{copy.cta}</Text>
-          <SymbolView name="chevron.right" tintColor="rgba(255,255,255,0.9)" size={13} weight="semibold" />
+          <SymbolView name="chevron.right" tintColor={colors.textOnDark.primary} size={13} weight="semibold" />
         </View>
       </View>
     </Pressable>
@@ -70,43 +74,43 @@ export function OnboardingCard({ setup, onPress }: { setup: SetupCard; onPress: 
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    borderColor: colors.border.base,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
     minHeight: 96,
     justifyContent: 'center',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   textCol: { flex: 1 },
   why: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 11,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 1.1,
     textTransform: 'uppercase',
-    color: 'rgba(255, 255, 255, 0.72)',
-    marginBottom: 5,
+    color: colors.textOnDark.secondary,
+    marginBottom: spacing.xs,
   },
   title: {
-    fontFamily: 'Poppins-SemiBold',
-    fontSize: 18,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.emphasis,
     lineHeight: 23,
-    color: '#ffffff',
+    color: colors.textOnDark.primary,
     letterSpacing: 0.15,
   },
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 19,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: colors.fill.strong,
   },
-  ctaText: { fontFamily: 'Poppins-Medium', fontSize: 14, color: '#ffffff', letterSpacing: 0.3 },
+  ctaText: { fontFamily: fonts.medium, fontSize: fontScale.body, color: colors.textOnDark.primary, letterSpacing: 0.3 },
 });

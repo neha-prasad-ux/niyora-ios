@@ -22,6 +22,9 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { radius, spacing } from '@/theme/spacing';
 import { scanForCrisis, CRISIS_COPY } from '@/lib/crisis-scan';
 import type { Activity } from '@/models/activities';
 import { Pill } from '@/components/Pill';
@@ -116,63 +119,63 @@ export function WriteView({ activity, onComplete }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   crisis: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.control,
+    backgroundColor: colors.fill.faint,
   },
   crisisTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: spacing.sm,
   },
   crisisBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 21,
     color: colors.textSubtitle,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
-  crisisRow: { marginBottom: 8 },
+  crisisRow: { marginBottom: spacing.sm },
   crisisLine: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 14,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
     lineHeight: 21,
     color: colors.textPrimary,
   },
   crisisDetail: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 18,
     color: colors.textSubtitle,
   },
   title: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 22,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   subtitle: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 21,
     color: colors.textSubtitle,
     textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 18,
-    paddingHorizontal: 8,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
   inputWrap: { flex: 1 },
   input: {
     flex: 1,
-    fontFamily: 'Poppins-Light',
-    fontSize: 18,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     lineHeight: 28,
-    color: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: 4,
+    color: colors.textOnDark.primary,
+    paddingHorizontal: spacing.xs,
   },
-  actions: { alignItems: 'center', paddingVertical: 16 },
+  actions: { alignItems: 'center', paddingVertical: spacing.lg },
 });

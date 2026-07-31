@@ -37,11 +37,15 @@ import { NiyoraSync } from 'niyora-sync';
 
 import { recordLight } from '@/store/light-ledger';
 import { clearPendingCrossings } from '@/store/pending-crossing';
+import { type ActivityId, markActivityDone } from '@/lib/hold-activities';
 import { appendSession } from '@/store/session-history';
 import type { Tier } from '@/models/tiers';
 import type { MusicTrack } from '@/store/music-prefs';
 import { getVoiceGuidance, setVoiceGuidance } from '@/store/voice-prefs';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 
 // Matches the onboarding breath orb so the Soul-orb techniques feel continuous
 // with the intro.
@@ -55,10 +59,13 @@ const TRACK_OPTIONS: { id: MusicTrack; label: string; icon: SFSymbol }[] = [
 ];
 
 export default function SessionScreen() {
-  const { id, rounds, feeling } = useLocalSearchParams<{
+  const { id, rounds, feeling, hold } = useLocalSearchParams<{
     id: string;
     rounds?: string;
     feeling?: string;
+    /** When launched from the moment flow's settling menu, which hold activity
+     *  to mark done on completion (e.g. 'breath' for Wind Down). */
+    hold?: string;
   }>();
   const technique = id ? getTechnique(id) : undefined;
 
@@ -86,6 +93,7 @@ export default function SessionScreen() {
         technique={technique}
         roundsOverride={roundsOverride}
         feeling={feeling}
+        hold={hold}
       />
     );
   return <MindfulnessSession key={technique.id} technique={technique} feeling={feeling} />;
@@ -95,10 +103,12 @@ function BreathingSession({
   technique,
   roundsOverride,
   feeling,
+  hold,
 }: {
   technique: BreathingTechnique;
   roundsOverride?: number;
   feeling?: string;
+  hold?: string;
 }) {
   // Keep the screen awake for the whole session: eyes are often closed during a
   // breath, so the display must not sleep mid-practice.
@@ -203,6 +213,9 @@ function BreathingSession({
 
   useEffect(() => {
     if (!cycle.done) return;
+    // Launched as a moment-flow settling activity: mark it done so the menu
+    // underneath shows its check when she comes back.
+    if (hold) markActivityDone(hold as ActivityId);
     let cancelled = false;
     let moodTimer: ReturnType<typeof setTimeout> | undefined;
     // Report to the paired Mac (no-op when not paired).
@@ -536,7 +549,7 @@ function BreathingSession({
           <View style={styles.pauseOverlay} pointerEvents="none">
             <SymbolView
               name="pause.fill"
-              tintColor="rgba(255, 255, 255, 0.85)"
+              tintColor={colors.textOnDark.primary}
               size={52}
               weight="regular"
             />
@@ -549,7 +562,7 @@ function BreathingSession({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.backgroundBottom,
   },
   // Centres the breath orb in the upper field, clear of the phase label and
   // technique name that sit at ~62% of the screen.
@@ -565,52 +578,54 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: pageGutter,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: spacing.sm,
   },
   topRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 22,
+    gap: spacing.xl,
   },
   pickerCard: {
     position: 'absolute',
     top: 52,
     right: 0,
-    backgroundColor: 'rgba(18, 14, 26, 0.94)',
-    borderRadius: 14,
-    paddingVertical: 4,
+    // unmapped: translucent dark popover (rgba over the live breathing scene);
+    // surfaceRaised is opaque, no token carries this alpha.
+    backgroundColor: colors.surfaceOverlay,
+    borderRadius: radius.control,
+    paddingVertical: spacing.xs,
     minWidth: 130,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
+    borderColor: colors.border.faint,
   },
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   pickerDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    marginVertical: 4,
-    marginHorizontal: 14,
+    backgroundColor: colors.fill.base,
+    marginVertical: spacing.xs,
+    marginHorizontal: spacing.md,
   },
   pickerLabel: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: fontScale.body,
+    fontFamily: fonts.regular,
     color: colors.textSubtitle,
     letterSpacing: 0.2,
   },
   pickerLabelActive: {
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   bottomBlock: {
     // Sits below the centre bloom rather than over it, so the cue stays legible
@@ -622,48 +637,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nextPhaseCue: {
-    marginTop: 6,
-    fontFamily: 'Poppins-Light',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.40)',
+    marginTop: spacing.sm,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
   // Exercise identity under the phase word — same info as the home list:
   // the technique name (title) and its one-line benefit (subtitle).
   techniqueName: {
-    marginTop: 14,
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    marginTop: spacing.md,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
   techniqueBenefit: {
-    marginTop: 4,
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
+    marginTop: spacing.xs,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.secondary,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
   techniqueContext: {
-    marginTop: 10,
+    marginTop: spacing.sm,
     alignSelf: 'stretch',
-    fontFamily: 'Poppins-Light',
-    fontSize: 14,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     lineHeight: 20,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: colors.textOnDark.secondary,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
   // Stays visible the whole session so users never have to remember the rhythm.
   // Matches Mac's 12px Poppins 400 at rgba(255,255,255,0.9).
   techniqueInstructions: {
-    marginTop: 10,
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: spacing.sm,
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.primary,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
@@ -673,32 +688,36 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     alignItems: 'center',
   },
   dot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
+    // unmapped: 0.18 white fill sits above the fill ramp (max .12/strong).
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   dotFilled: {
+    // art-skipped: translucent violet progress accent; accentViolet is opaque
+    // (solid only), would drop the alpha and shift hue.
     backgroundColor: 'rgba(160, 120, 220, 0.80)',
   },
   barTrack: {
     width: '100%',
     height: 2,
     borderRadius: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: colors.fill.base,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
     borderRadius: 1,
+    // art-skipped: translucent violet progress accent (see dotFilled).
     backgroundColor: 'rgba(150, 110, 210, 0.72)',
   },
   pauseOverlay: {
@@ -707,7 +726,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: colors.scrimSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },

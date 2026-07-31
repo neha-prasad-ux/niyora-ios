@@ -28,6 +28,8 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 
+import { radius } from '@/theme/spacing';
+
 const N = 32;
 
 interface FallParticle {
@@ -112,7 +114,7 @@ const ParticleView = memo(function ParticleView({
         colors={[lightTop, deepBot]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
-        style={{ flex: 1, borderRadius: 9999 }}
+        style={{ flex: 1, borderRadius: radius.pill }}
       />
     </Animated.View>
   );

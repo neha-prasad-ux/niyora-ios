@@ -33,8 +33,8 @@ import {
 // Where the light is going. These MUST track the Tabs.Screen order in
 // (tabs)/_layout.tsx: the motes are aimed by pure geometry, with no ref and no
 // measurement, so a mismatch here misses the icon silently and nothing fails.
-const TAB_COUNT = 4;
-const MOON_TAB_INDEX = 3; // now, grow, you, moon
+const TAB_COUNT = 3;
+const MOON_TAB_INDEX = 0; // moon (home), grow, you — the moon is the first tab
 
 const QUEUE_MAX = 3; // a burst plays as at most this many motes on return
 const QUEUE_FRESH_MS = 60_000; // stale earns stop announcing themselves

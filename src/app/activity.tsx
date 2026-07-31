@@ -26,6 +26,9 @@ import { ReadView } from '@/components/activity/ReadView';
 import { ActionView } from '@/components/activity/ActionView';
 import { UnderstandReadView } from '@/components/activity/UnderstandReadView';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { getActivity, isPmsFeeling, type PmsFeeling } from '@/models/activities';
 import { understandForFeeling, type UnderstandCard } from '@/models/understand';
 import { resolveUnderstandContext } from '@/lib/understand-context';
@@ -252,13 +255,13 @@ function Closure({ onClose, feeling }: { onClose: () => void; feeling?: PmsFeeli
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
-  safe: { flex: 1, paddingHorizontal: 24 },
+  safe: { flex: 1, paddingHorizontal: pageGutter },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 24,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     // Lift above the activity body so the music picker popover isn't clipped
     // behind it.
     zIndex: 20,
@@ -270,38 +273,40 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    // unmapped: translucent full-screen scrim; backgroundMid is opaque.
     backgroundColor: 'rgba(8, 6, 14, 0.94)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xxxl,
   },
-  celebrateCard: { alignItems: 'center', gap: 18 },
+  celebrateCard: { alignItems: 'center', gap: spacing.lg },
   celebrateLead: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 24,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.technique,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   celebrateSub: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.bodyLg,
     lineHeight: 21,
     color: colors.textSubtitle,
     textAlign: 'center',
+    // unmapped: negative overlap nudge, no rung on the positive spacing scale.
     marginTop: -8,
   },
-  closeAsk: { alignItems: 'center', gap: 16 },
+  closeAsk: { alignItems: 'center', gap: spacing.lg },
   closeLead: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 21,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.2,
   },
   closeX: { position: 'absolute', right: 24 },
-  understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: 8 },
+  understandWrap: { flex: 1, alignSelf: 'stretch', paddingBottom: spacing.sm },
   understandBackdrop: {
     position: 'absolute',
     top: 0,
@@ -314,49 +319,49 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundBottom,
     overflow: 'hidden',
   },
-  closeCarryWrap: { alignSelf: 'stretch', alignItems: 'center', gap: 22, paddingHorizontal: 8 },
+  closeCarryWrap: { alignSelf: 'stretch', alignItems: 'center', gap: spacing.xl, paddingHorizontal: spacing.sm },
   // "Why this happens" reads as one of the app's list cards (title + teaser +
   // chevron), not a faint text link.
   whyCard: {
     alignSelf: 'stretch',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    borderRadius: 16,
+    gap: spacing.md,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
-  whyCardText: { flex: 1, gap: 4 },
+  whyCardText: { flex: 1, gap: spacing.xs },
   whyCardTitle: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   whyCardBody: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
     lineHeight: 18,
     color: colors.textSubtitle,
   },
-  levelRow: { flexDirection: 'row', gap: 12 },
+  levelRow: { flexDirection: 'row', gap: spacing.md },
   // The felt-check is a real answer, not a tertiary action: heavier label and a
   // more solid fill set it apart from the ghost buttons used elsewhere.
   levelPill: {
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 22,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.card,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    backgroundColor: 'rgba(255, 255, 255, 0.13)',
+    borderColor: colors.border.strong,
+    backgroundColor: colors.fill.strong,
   },
-  levelLabel: { fontFamily: 'Poppins-Medium', fontSize: 15, letterSpacing: 0.3 },
+  levelLabel: { fontFamily: fonts.medium, fontSize: fontScale.bodyLg, letterSpacing: 0.3 },
   closeCarry: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 22,
+    fontFamily: fonts.light,
+    fontSize: fontScale.technique,
     color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: 0.3,

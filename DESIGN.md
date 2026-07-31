@@ -13,6 +13,28 @@ Three claims, in this order:
 
 Every interaction decision should reinforce at least one of these. If a change doesn't, it probably shouldn't ship.
 
+## Design tokens are the source of truth
+
+Every visual value comes from `src/theme/`. This is a hard rule, not a
+preference · a 2026 audit found the app hardcoding ~900 colors and ~500 font
+sizes around these files, which is what "inconsistent" looks like in practice.
+
+| Concern            | File                    | Use                             |
+|--------------------|-------------------------|---------------------------------|
+| Color + ramps      | `theme/colors.ts`       | `colors.*`, `colors.textOnDark.*`, `colors.fill.*`, `colors.border.*` |
+| Type scale + roles | `theme/typography.ts`   | `typography.*` (never inline `fontSize`) |
+| Font families      | `theme/fonts.ts`        | `fonts.*`                       |
+| Spacing + radius   | `theme/spacing.ts`      | `spacing.*`, `pageGutter`, `radius.*` |
+| Shadows            | `theme/elevation.ts`    | `elevation.glow / level1 / level2` |
+| Motion             | `theme/motion.ts`       | `duration.*`, `easing.*`, `motionTiming.*` |
+| Control surfaces   | `theme/controls.ts`     | `secondaryButtonSurface`, `tileSurface`, `clayChipSurface` |
+
+No inline hex/rgba/hsl, no inline `fontSize`, no ad-hoc radius/shadow/duration.
+Off-scale values round to the nearest token rung. The dev-only **Design system**
+screen (`src/app/design-system.tsx`, long-press the Soul title) renders straight
+off these tokens · if something on screen isn't there, it didn't come from the
+system.
+
 ## Voice and copy
 
 - **Quiet, not chirpy.** No exclamation points. No "Yay!" or "Great job!"
@@ -38,10 +60,28 @@ If any step takes more than a few seconds of friction, it's broken. The user sho
 
 ## Navigation model
 
-- The app is **tab-less in v1**. The home screen IS the pre-session info screen.
-- My Soul opens via the person icon in the top-left of the home screen (as a sheet, not a push).
-- The session screen is a `.fullScreenCover` over the home screen.
-- All other screens dismiss back to the home screen, never to a nested stack.
+The app is a **four-tab** experience. (This supersedes the earlier tab-less v1
+model · the product grew a cycle/PMS surface, a training surface, and My Soul
+into their own homes.)
+
+- **Today** (`now`) · the orb, the one technique pick, Begin. The calm home.
+- **Train** (`grow`) · practices and programs to build the skill.
+- **Soul** (`you`) · My Soul: progression, tiers, history, settings.
+- **Moon** (`moon`) · the cycle / lunar readout.
+
+The custom tab bar is `night-tab-bar.tsx` (moon readout + gliding pill). Its
+title on `now` is "Today"; the person/orb metaphor lives in the tab bar, not a
+header icon.
+
+Everything else is a **full-screen push** over the tabs (`slide_from_right`,
+swipe-back enabled) · session, breathe, couples flow, periods-care, reflect,
+etc. There are **no modal sheets** in v1 (no `presentation: 'modal'`).
+
+**Dismissal grammar (one rule, applied consistently):** a pushed screen is
+dismissed by a **back chevron** (top-left) when it's a step deeper in a flow the
+user will continue, and by an **X** (top-left) only when it's a self-contained
+detour the user is closing outright (e.g. a full-screen practice). Never both on
+one screen. Pick the affordance from that meaning, not per-screen taste.
 
 ## The five Soul tiers
 
@@ -137,33 +177,104 @@ On tap: scale to 0.97 + opacity 0.92 over 150ms (press feedback), soft haptic, t
 
 ### Color use
 
+- **All color comes from `src/theme/colors.ts`.** No inline hex/rgba/hsl in
+  components. Dark mode is the only theme.
 - Tier colors come from the user's progression, not arbitrary accent choices.
 - The home orb stays calm-blue regardless of tier (tier color shows on My Soul instead).
-- Errors and warnings, when needed, use soft variants of red/amber.
-- Body text contrast ≥ 7:1.
+- Errors and warnings, when needed, use soft variants of red/amber. Never alarm red.
+- The **one violet** (brand/Begin family) is `accentViolet`; the **one rose**
+  (PMS/period family) is `accentRose`. Do not invent new purples or roses.
+
+**Semantic ramps** · the whole sanctioned set of white-on-dark values. Round to
+the nearest step; do not introduce new opacities.
+
+```
+Text    textOnDark.primary   .95   default readable text
+        textOnDark.secondary .70   secondary text
+        textOnDark.tertiary  .55   quiet metadata (still legible)
+        textOnDark.faint     .40   DECORATIVE ONLY · fails AA, never body copy
+Fill    fill.faint  .05  ·  fill.base  .08  ·  fill.strong  .12   (glass surfaces)
+Border  border.faint .10 ·  border.base .14 ·  border.strong .28  (hairline strokes)
+```
+
+**Contrast:** aim for body text ≥ 4.5:1 (WCAG AA). On the near-black background
+that means `tertiary` (.55) is the floor for anything the user must read.
+`faint` (.40) is ~2.5:1 · decorative use only. (The old spec claimed ≥7:1; the
+app never met it and 4.5:1 is the honest, enforceable bar.)
 
 ### Typography
 
-- **Poppins** is the canonical typeface across all screens (loaded via expo-font at app start).
-  - Light (300) for taglines, subtitles, and secondary actions.
-  - Medium (500) for chrome labels and the BEGIN button.
-  - SemiBold (600) for technique names and other emphasis.
-- Line-height: 1.6 body, 1.2 headings.
-- No display fonts, no script fonts.
+- **Poppins** is the canonical typeface across all screens (loaded via expo-font
+  at app start). Weight is chosen by **family**, never a numeric `fontWeight`
+  (numeric weights synth-bold unreliably on a custom font). `apply-poppins.ts`
+  is the render-time safety net.
+- No display fonts, no script fonts. (One deliberate exception: `PatrickHand`
+  for the handwritten "I feel…" journaling scene.)
 
-Specific home-screen sizes:
+**The type scale lives in `src/theme/typography.ts`.** Never write an inline
+`fontSize`. Compose a role token and, at most, override color:
 
 ```
-NIYORA wordmark         13pt, weight 500, letter-spacing 3pt, UPPERCASE, white@70%
-Tagline                 11pt, weight 300, white@40%
-Technique name          22-24pt, weight 600, letter-spacing 0.3pt, white@95%
-Subtitle                13pt, weight 300, white@55%, middle dot separator
-Try a different one     13pt, weight 300, white@60%
-BEGIN                   15pt, weight 500, letter-spacing 2pt, UPPERCASE, white@95%
+<Text style={[typography.body, { color: colors.textOnDark.secondary }]}>
 ```
+
+Six rungs (merged 2026-07-30 from an earlier 9-rung scale that crowded four
+sizes into a 4px band), each binding size + family + line-height + letter
+spacing. Body is 14. Line-height ~1.5 body / ~1.2 headings, baked into every role:
+
+```
+Role        Size  Family     LH   LS     Used for
+caption     12    Light      17   0.2    taglines, subtitles, fine print
+body        14    Regular    21   0.2    default running text + UI (default)
+emphasis    16    Medium     22   0.15   emphasis body, card + list headings, labels
+title       20    SemiBold   26   0.15   section titles
+heading     26    SemiBold   32   0.2    tab page titles, technique / practice names
+hero        32    SemiBold   38   0      onboarding hero lines
+```
+
+Off-scale sizes round to the nearest rung. Old role names (tagline, bodyLg,
+cardTitle, technique, pageTitle) are kept as aliases resolving onto these six.
+The NIYORA wordmark is its own token (13, Medium, 3pt tracking, uppercase).
+BEGIN is `label` plus uppercase + 2pt tracking, applied in `begin-button.tsx`.
+
+### Shape, depth, and spacing
+
+**Corner radius** (`src/theme/spacing.ts` → `radius`). Four values, no others:
+
+```
+control  14   inputs, tiles, list cells, utility rows
+button   18   buttons and soft-cornered chips
+card     22   every card, shelf, sheet-like surface
+pill    9999  true capsules · chips, tags, fully-round buttons
+```
+
+A rogue `16` rounds to `14` or `22` by context. `borderCurve: 'continuous'` on
+anything ≥ `card`.
+
+**Elevation** (`src/theme/elevation.ts`). Three levels, spread as a style:
+
+```
+glow     the violet CTA glow · Begin AND Pill use this one glow
+level1   a chip lifting off the surface (soft clay)
+level2   a card / sheet above the background
+```
+
+No other shadows. The two sibling CTAs share `glow`; they used to disagree.
+
+**Spacing** (`src/theme/spacing.ts` → `spacing`, 4-based: 4/8/12/16/20/24/32).
+Pull from the scale, no ad-hoc pixels. Every screen's outer horizontal padding
+is `pageGutter` (20) so screens align to one edge.
+
+**Strokes** are `StyleSheet.hairlineWidth` (default) or `1`; heavier only with a
+reason. Stroke color comes from `colors.border.*`, never an inline opacity.
 
 ### Motion
 
+- Durations come from `src/theme/motion.ts` (`fast 150 · base 250 · slow 400 ·
+  gentle 600`) with easings `standard = out(cubic)`, `breathe = inOut(sin)`,
+  `enter = out(quad)`. No arbitrary millisecond values. The ambient orb pulse
+  and particle loops are the documented exceptions · they follow the breath, not
+  the UI scale.
 - Breath cycles dictate animation cadence. Easing should feel like an inhale, not a bounce.
 - The home orb pulses 5.5s ease-in-out, normalised to ~6px absolute radius change (scale ≈1.055 at 220px, ≈1.11 at 110px), repeats forever.
 - The session orb pulses on the technique's specific breath rhythm (Box = 4-4-4-4, 4-7-8 = 4-7-8, etc.).

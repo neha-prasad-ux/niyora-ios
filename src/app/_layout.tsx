@@ -27,6 +27,17 @@ import { recordAnswer } from '../store/nudge-history';
 import { getReminder } from '../store/reminder-prefs';
 import { useStressTick } from '../hooks/use-stress-tick';
 import { FM_EXPERIMENT, STRESS_EXPERIMENT } from '../config/features';
+import { duration } from '../theme/motion';
+
+// One calm-fade config for every full-screen push that should dissolve rather
+// than slide (the breath, the settling activities, the reflective flows). One
+// speed (duration.slow) so the fades stop drifting across 300 / 350 / 420ms.
+// gestureEnabled is overridden per-screen where swipe-back shouldn't apply.
+const CALM_FADE = {
+  animation: 'fade',
+  animationDuration: duration.slow,
+  gestureEnabled: true,
+} as const;
 
 SplashScreen.preventAutoHideAsync();
 
@@ -114,33 +125,15 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen
             name="onboarding"
-            options={{
-              animation: 'fade',
-              gestureEnabled: false,
-            }}
+            options={{ ...CALM_FADE, gestureEnabled: false }}
           />
-          <Stack.Screen
-            name="onboarding-v3"
-            options={{
-              animation: 'fade',
-              gestureEnabled: true,
-            }}
-          />
-          <Stack.Screen
-            name="result"
-            options={{
-              animation: 'fade',
-              gestureEnabled: true,
-            }}
-          />
+          <Stack.Screen name="onboarding-v3" options={CALM_FADE} />
+          <Stack.Screen name="result" options={CALM_FADE} />
           {/* The three-tab shell (Now / Grow / You). Every other screen below
               stays on this root stack and pushes full-screen over the bar. */}
           <Stack.Screen
             name="(tabs)"
-            options={{
-              animation: 'fade',
-              gestureEnabled: false,
-            }}
+            options={{ ...CALM_FADE, gestureEnabled: false }}
           />
           <Stack.Screen
             name="game-v3"
@@ -151,6 +144,15 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="train"
+            options={{
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+            }}
+          />
+          {/* Learn through stories — Neha's story serial, opened from the Train
+              shelf; lists each chapter, which opens the pms-story reader. */}
+          <Stack.Screen
+            name="stories"
             options={{
               animation: 'slide_from_right',
               gestureEnabled: true,
@@ -185,54 +187,33 @@ export default function RootLayout() {
           <Stack.Screen name="couples-texts" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
           <Stack.Screen name="couples-prep" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
           <Stack.Screen name="couples-reconnect" options={{ animation: 'slide_from_right', gestureEnabled: true }} />
-          <Stack.Screen
-            name="session"
-            options={{
-              // A soft cross-dissolve into (and out of) the breath, rather than
-              // a hard sideways slide -- the calm entrance the session deserves,
-              // and consistent with the faded onboarding/result screens.
-              animation: 'fade',
-              animationDuration: 420,
-              gestureEnabled: true,
-            }}
-          />
-          {/* The cycle-end reflection, opened from the Now tab. */}
-          <Stack.Screen
-            name="reflect"
-            options={{ animation: 'slide_from_right', gestureEnabled: true }}
-          />
+          {/* A soft cross-dissolve into (and out of) the breath, rather than a
+              hard sideways slide · the calm entrance the session deserves. */}
+          <Stack.Screen name="session" options={CALM_FADE} />
+          {/* The settling activities · calm experiential moments, siblings of
+              the breath session, so they fade in rather than slide. */}
+          <Stack.Screen name="breathe" options={CALM_FADE} />
+          <Stack.Screen name="moment" options={CALM_FADE} />
+          <Stack.Screen name="story" options={CALM_FADE} />
+          <Stack.Screen name="paint" options={CALM_FADE} />
+          <Stack.Screen name="capture" options={CALM_FADE} />
+          <Stack.Screen name="move" options={CALM_FADE} />
+          {/* The cycle-end reflection, opened from the Now tab. Fades like the
+              other reflective flows (steady-yourself / rough-moment). */}
+          <Stack.Screen name="reflect" options={CALM_FADE} />
           {/* The in-the-moment "Steady yourself" flow and its 20-minute break,
-              opened from the Now PMS card and the Grow PMS shelf. A calm fade,
-              like the breath session. */}
-          <Stack.Screen
-            name="steady-yourself"
-            options={{ animation: 'fade', animationDuration: 420, gestureEnabled: true }}
-          />
-          <Stack.Screen
-            name="steady-break"
-            options={{ animation: 'fade', animationDuration: 420, gestureEnabled: true }}
-          />
-          {/* The reflect ("start fresh") session, reached from the flow. Ships
-              scripted (no AI in v1), so it is always registered — only the dev
-              spike probe stays behind the experiment flag. */}
-          <Stack.Screen
-            name="rough-moment"
-            options={{
-              // Same calm fade as the breath session: an 11pm spiral does not
-              // deserve a hard sideways slide.
-              animation: 'fade',
-              animationDuration: 420,
-              gestureEnabled: true,
-            }}
-          />
+              opened from the Now PMS card and the Grow PMS shelf. */}
+          <Stack.Screen name="steady-yourself" options={CALM_FADE} />
+          <Stack.Screen name="steady-break" options={CALM_FADE} />
+          {/* The reflect ("start fresh") session, reached from the flow. An 11pm
+              spiral does not deserve a hard sideways slide. Ships scripted (no
+              AI in v1), so it is always registered. */}
+          <Stack.Screen name="rough-moment" options={CALM_FADE} />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
           {FM_EXPERIMENT && <Stack.Screen name="fm-probe" />}
           {/* Dev-only material preview, reached by long-pressing the Now moon. */}
           {__DEV__ && (
-            <Stack.Screen
-              name="moon-probe"
-              options={{ animation: 'fade', animationDuration: 300, gestureEnabled: true }}
-            />
+            <Stack.Screen name="moon-probe" options={CALM_FADE} />
           )}
         </Stack>
       </ErrorBoundary>

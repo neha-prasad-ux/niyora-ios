@@ -6,6 +6,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { colors } from '@/theme/colors';
+import { fontScale } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
 
 export type ChecklistItem = { id: string; label: string; examples?: string };
 
@@ -52,26 +55,26 @@ export function Checklist({
 const styles = StyleSheet.create({
   list: {
     alignSelf: 'stretch',
-    gap: 10,
+    gap: spacing.sm,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.button,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
   box: {
     width: 24,
     height: 24,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: colors.border.strong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -83,20 +86,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   labelStrong: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 16.5,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
   },
   examples: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.55)',
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.tertiary,
     letterSpacing: 0.2,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
 });

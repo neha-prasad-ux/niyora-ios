@@ -7,8 +7,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useHoldCountdown } from '@/lib/hold-clock';
+import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 
-const INK = '#2B2632';
 const FAINT = 'rgba(43,38,50,0.12)';
 
 function mmss(ms: number): string {
@@ -31,11 +34,11 @@ export function HoldClockBar({ onComplete }: { onComplete: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, gap: 6 },
+  wrap: { flex: 1, gap: spacing.sm },
   label: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    color: INK,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    color: colors.paper.ink,
     fontVariant: ['tabular-nums'],
   },
   track: {
@@ -44,5 +47,5 @@ const styles = StyleSheet.create({
     backgroundColor: FAINT,
     overflow: 'hidden',
   },
-  fill: { height: '100%', borderRadius: 2, backgroundColor: INK },
+  fill: { height: '100%', borderRadius: 2, backgroundColor: colors.paper.ink },
 });

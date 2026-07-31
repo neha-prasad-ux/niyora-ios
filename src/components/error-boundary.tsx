@@ -1,6 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
+import { spacing } from '../theme/spacing';
+import { fontScale } from '../theme/typography';
 
 type Props = { children: React.ReactNode };
 type State = { error: Error | null };
@@ -35,20 +38,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundBottom,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
+    gap: spacing.xxl,
   },
   message: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 16,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     color: colors.textSubtitle,
   },
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xxxl,
   },
   buttonLabel: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     letterSpacing: 2,
     textTransform: 'uppercase',
     color: colors.textPrimary,

@@ -8,6 +8,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { spacing, radius } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 import type { ReadinessCheckId, ReadinessChecks } from '@/store/pms-readiness';
 
 type Item = { id: ReadinessCheckId; label: string };
@@ -64,20 +67,20 @@ export function LifeStyleCard({
 
 const styles = StyleSheet.create({
   card: {
-    padding: 18,
-    borderRadius: 18,
+    padding: spacing.lg,
+    borderRadius: radius.card,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.border.base,
+    backgroundColor: colors.fill.faint,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 11 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
   box: {
     width: 24,
     height: 24,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: colors.border.strong,
     alignItems: 'center',
     justifyContent: 'center',
     flex: 0,
@@ -85,18 +88,18 @@ const styles = StyleSheet.create({
   boxOn: { borderColor: '#ffffff', backgroundColor: '#ffffff' },
   label: {
     flex: 1,
-    fontFamily: 'Poppins-Light',
-    fontSize: 15.5,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     lineHeight: 21,
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
   foodIntro: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
     color: colors.textSubtitle,
     letterSpacing: 0.3,
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
   },
 });

@@ -3,7 +3,9 @@ import * as Haptics from 'expo-haptics';
 
 import { Card } from '@/components/Card';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
 import { radius, spacing } from '@/theme/spacing';
+import { fontScale } from '@/theme/typography';
 import type { SyncState } from '@/hooks/use-niyora-sync';
 
 type Props = {
@@ -112,13 +114,13 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: fontScale.body,
+    fontFamily: fonts.medium,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   dot: {
     width: 8,
@@ -129,11 +131,11 @@ const styles = StyleSheet.create({
   name: {
     flex: 1,
     color: colors.textTertiary,
-    fontSize: 14,
+    fontSize: fontScale.body,
   },
   connectBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
     borderRadius: radius.control,
     backgroundColor: colors.beginStart,
     borderWidth: 1,
@@ -141,57 +143,57 @@ const styles = StyleSheet.create({
   },
   connectLabel: {
     color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.scrim,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xxl,
   },
   sheet: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: '#141220',
+    backgroundColor: colors.surfaceRaised,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 24,
+    borderColor: colors.border.faint,
+    padding: spacing.xxl,
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   sheetTitle: {
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: fontScale.emphasis,
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
   sheetSub: {
     color: colors.textSubtitle,
-    fontSize: 13,
+    fontSize: fontScale.caption,
     textAlign: 'center',
     lineHeight: 18,
   },
   sas: {
     color: colors.textPrimary,
     fontSize: 40,
-    fontWeight: '300',
+    fontFamily: fonts.light,
     letterSpacing: 4,
     fontVariant: ['tabular-nums'],
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   cancelBtn: {
-    marginTop: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 22,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
     borderRadius: radius.control,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: colors.border.base,
   },
   cancelLabel: {
     color: colors.textTertiary,
-    fontSize: 13,
+    fontSize: fontScale.caption,
   },
 });

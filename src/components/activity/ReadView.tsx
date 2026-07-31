@@ -4,6 +4,9 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing } from '@/theme/spacing';
 import type { Activity } from '@/models/activities';
 import { Pill } from '@/components/Pill';
 
@@ -30,22 +33,22 @@ export function ReadView({ activity, onComplete }: Props) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   title: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 15,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
     color: colors.textSubtitle,
     textAlign: 'center',
     letterSpacing: 0.5,
-    marginTop: 6,
-    marginBottom: 18,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   scroll: { flex: 1 },
-  scrollContent: { justifyContent: 'center', flexGrow: 1, paddingVertical: 12 },
+  scrollContent: { justifyContent: 'center', flexGrow: 1, paddingVertical: spacing.md },
   body: {
-    fontFamily: 'Poppins-Light',
-    fontSize: 18,
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis,
     lineHeight: 30,
-    color: 'rgba(255,255,255,0.92)',
+    color: colors.textOnDark.primary,
     textAlign: 'left',
   },
-  actions: { alignItems: 'center', paddingVertical: 16 },
+  actions: { alignItems: 'center', paddingVertical: spacing.lg },
 });

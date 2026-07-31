@@ -275,9 +275,9 @@ export function standingSkill(standing: CopingStanding): number {
 export function regulationBlurb(standing: CopingStanding): string {
   switch (standing) {
     case 'engaging':
-      return 'You already work with your feelings more than most. On the hard days you mostly keep your footing.';
+      return 'You already work with your feelings more than most. When emotions are strong, you face it.';
     case 'mixed':
-      return 'Some days you ride it well, some days it rides you. We even that out so the hard days sting less.';
+      return 'Some days you ride it well, some days it rides you. We even that out so the strong emotions stay soft.';
     case 'disengaging':
       return "You're still finding your footing. Big feelings can pull you under before you catch them, and that is the part we steady.";
     default:
