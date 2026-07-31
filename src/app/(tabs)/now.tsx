@@ -66,7 +66,7 @@ import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { todayYmd } from '@/store/pms-readiness';
 import { getRemissionLog, type RemissionEntry } from '@/store/remission-log';
-import { getMomentCheckpoint } from '@/store/moment-resume';
+import { clearMomentCheckpoint, getMomentCheckpoint } from '@/store/moment-resume';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
@@ -454,19 +454,38 @@ export default function NowScreen() {
                   </Pressable>
                   {/* A flow she left unfinished: a quiet second line under the
                       CTA to pick it up where she left off. Never competes with
-                      the primary ask — it only shows when there is one to resume. */}
+                      the primary ask — it only shows when there is one to resume,
+                      and the × dismisses it: she may not want to deal with it. */}
                   {snapshot?.hasResume && (
-                    <Pressable
-                      style={styles.resumeWrap}
-                      onPress={() => {
-                        Haptics.selectionAsync().catch(() => {});
-                        router.push('/moment?resume=1' as Href);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Continue where you left off"
-                    >
-                      <Text style={styles.resumeText}>Continue where you left off</Text>
-                    </Pressable>
+                    <View style={styles.resumeRow}>
+                      <Pressable
+                        style={styles.resumeWrap}
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          router.push('/moment?resume=1' as Href);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Continue where you left off"
+                      >
+                        <Text style={styles.resumeText}>Continue where you left off</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => {});
+                          clearMomentCheckpoint().catch(() => {});
+                          setSnapshot((s) => (s ? { ...s, hasResume: false } : s));
+                        }}
+                        hitSlop={12}
+                        accessibilityRole="button"
+                        accessibilityLabel="Dismiss the unfinished session"
+                      >
+                        <SymbolView
+                          name="xmark"
+                          size={12}
+                          tintColor={colors.textOnDark.faint}
+                        />
+                      </Pressable>
+                    </View>
                   )}
                 </Animated.View>
               </View>
@@ -608,8 +627,16 @@ const styles = StyleSheet.create({
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
   },
-  // The resume line: a quiet text link under the CTA, secondary by design.
-  resumeWrap: { alignSelf: 'center', marginTop: spacing.sm, paddingVertical: spacing.xs },
+  // The resume line: a quiet text link under the CTA, secondary by design, with
+  // a dismiss × beside it so she can drop the unfinished session.
+  resumeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  resumeWrap: { paddingVertical: spacing.xs },
   resumeText: {
     fontFamily: fonts.regular,
     fontSize: fontScale.caption,
