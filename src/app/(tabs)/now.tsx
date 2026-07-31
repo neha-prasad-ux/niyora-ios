@@ -608,6 +608,14 @@ const styles = StyleSheet.create({
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
   },
+  // The resume line: a quiet text link under the CTA, secondary by design.
+  resumeWrap: { alignSelf: 'center', marginTop: spacing.sm, paddingVertical: spacing.xs },
+  resumeText: {
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.secondary,
+    letterSpacing: 0.3,
+  },
   // The crossing line sits over the bloom, near the moon's centre.
   crossingLabel: {
     position: 'absolute',
