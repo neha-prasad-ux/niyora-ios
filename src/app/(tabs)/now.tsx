@@ -26,6 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { CosmicBackground } from '@/components/cosmic-background';
+import { PlannedActions } from '@/components/planned-actions';
 import { FeelingLine } from '@/components/feeling-line';
 import { BAR_CONTENT_HEIGHT, BAR_MIN_BOTTOM_PAD } from '@/components/night-tab-bar';
 import { Orb } from '@/components/orb';
@@ -487,6 +488,8 @@ export default function NowScreen() {
                       </Pressable>
                     </View>
                   )}
+                  {/* Moves she parked for later, with an optional reminder time. */}
+                  <PlannedActions />
                 </Animated.View>
               </View>
             </Animated.View>

@@ -15,8 +15,10 @@ export type PlannedAction = {
   date: string;
   /** The act label she chose, e.g. "Take something off my plate". */
   label: string;
-  /** ISO timestamp, so the newest can sort first. */
+  /** ISO timestamp, so the newest can sort first. Also the stable key. */
   at: string;
+  /** ISO time she set a reminder for, if any (set from the Moon home list). */
+  remindAt?: string;
 };
 
 const STORAGE_KEY = 'niyora:moment-plan';
@@ -55,4 +57,19 @@ export async function addPlannedAction(label: string): Promise<string> {
   ].slice(0, 50);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return date;
+}
+
+/** Set (or change) the reminder time on a planned move, keyed by its `at`. */
+export async function setPlannedReminder(at: string, remindAt: string): Promise<void> {
+  const list = await getPlannedActions();
+  await AsyncStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify(list.map((a) => (a.at === at ? { ...a, remindAt } : a))),
+  );
+}
+
+/** Remove a planned move (she did it, or dropped it), keyed by its `at`. */
+export async function removePlannedAction(at: string): Promise<void> {
+  const list = await getPlannedActions();
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list.filter((a) => a.at !== at)));
 }
