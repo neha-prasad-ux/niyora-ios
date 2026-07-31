@@ -237,9 +237,15 @@ type OrbProps = {
    * true mirrors it. Cosmetic — lets a phase read as waxing or waning.
    */
   waning?: boolean;
+  /**
+   * When true the outer halo is a bold pink→purple bloom (independent of the
+   * body `hue`), so a blue-white sphere can wear a rose halo. Off by default, so
+   * every existing caller keeps the quiet single-hue glow. Used by the home moon.
+   */
+  warmHalo?: boolean;
 };
 
-export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220, brightness = 1, material = 'moonstone', illum = 1, waning = false }: OrbProps) {
+export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phaseDuration, revealKey, shield = false, breathRange, still = false, ringHues, accumulate = false, hue = 220, brightness = 1, material = 'moonstone', illum = 1, waning = false, warmHalo = false }: OrbProps) {
   const scale = useSharedValue(1);
   const haloOpacity = useSharedValue(0.6);
   // Ring reveal: sweeps the band in from the back and closes it around the
@@ -451,10 +457,20 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
               fy={center}
               gradientUnits="userSpaceOnUse"
             >
-              <Stop offset="0.5" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0" />
-              <Stop offset="0.585" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0.6" />
-              <Stop offset="0.72" stopColor={`hsl(${hue}, 52%, 72%)`} stopOpacity="0.24" />
-              <Stop offset="1" stopColor={`hsl(${hue}, 50%, 70%)`} stopOpacity="0" />
+              {warmHalo
+                ? [
+                    <Stop key="0" offset="0.5" stopColor="#D992B0" stopOpacity="0" />,
+                    <Stop key="1" offset="0.6" stopColor="#D992B0" stopOpacity="0.9" />,
+                    <Stop key="2" offset="0.75" stopColor="#9C5C86" stopOpacity="0.6" />,
+                    <Stop key="3" offset="0.9" stopColor="#573072" stopOpacity="0.34" />,
+                    <Stop key="4" offset="1" stopColor="#3A1F5C" stopOpacity="0" />,
+                  ]
+                : [
+                    <Stop key="0" offset="0.5" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0" />,
+                    <Stop key="1" offset="0.585" stopColor={`hsl(${hue}, 58%, 80%)`} stopOpacity="0.6" />,
+                    <Stop key="2" offset="0.72" stopColor={`hsl(${hue}, 52%, 72%)`} stopOpacity="0.24" />,
+                    <Stop key="3" offset="1" stopColor={`hsl(${hue}, 50%, 70%)`} stopOpacity="0" />,
+                  ]}
             </RadialGradient>
 
             {/* Sphere body. radial-gradient circle at 35% 30%, three stops. */}

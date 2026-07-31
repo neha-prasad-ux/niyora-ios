@@ -51,7 +51,7 @@ const LABEL_LINE = 13;
 const TAB_BODY = ICON_SLOT + LABEL_GAP + LABEL_LINE; // icon slot + always-on label
 // The bar no longer spans the screen: it's a rounded pill floated in from the
 // edges, so content flows past its sides instead of colliding with a full slab.
-export const BAR_SIDE_INSET = 16;
+export const BAR_SIDE_INSET = 44;
 // The full height of the pill (top air + body + bottom air). Consumers add the
 // safe-area float below it to know the total space the bar occupies.
 export const BAR_CONTENT_HEIGHT = BAR_PAD_TOP + TAB_BODY + BAR_PAD_BOTTOM;

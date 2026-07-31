@@ -1,16 +1,18 @@
-// Now: the app's home tab. The moon carries the day — its breath entrains
-// yours, its ring closes when today's one coached action is done. Below it:
-// the phase-action card (the cycle strip fused to the single ask picked by
-// lib/today-action, with the Periods door on its right), a one-line progress
-// strip, and "Think with me" docked above the tab bar — the primary action,
-// opening the Moon flow, guaranteed visible on every device. Everything
-// browsable lives in Grow; everything reflective in You.
+// Now: the app's home tab. One calm, softly-blurred moon carries the whole soul
+// — her earned rings, her brightness, her material — breathing so just looking
+// pulls you into sync. Under it, one ask in her own voice: "I feel [____]" (a
+// feeling drifting soft->intense, fresh each open) and the CTA "what do I do",
+// opening the Moon flow. A small pill up top holds the cycle context and the one
+// door to log periods. Everything browsable lives in Grow; everything reflective
+// in You.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import Animated, {
   Easing,
@@ -23,35 +25,24 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { BackgroundGradient } from '@/components/background-gradient';
-import { BeginButton } from '@/components/begin-button';
+import { CosmicBackground } from '@/components/cosmic-background';
+import { FeelingLine } from '@/components/feeling-line';
 import { BAR_CONTENT_HEIGHT, BAR_MIN_BOTTOM_PAD } from '@/components/night-tab-bar';
 import { Orb } from '@/components/orb';
 import { OnboardingCard } from '@/components/onboarding-card';
 import { PeriodSheet } from '@/components/period-sheet';
-import { PhaseActionCard } from '@/components/phase-action-card';
 import { RingCelebration } from '@/components/RingCelebration';
 import { ShootingStar } from '@/components/ShootingStar';
-import { bodyHue, currentTier, SOUL_RING_HUES, TIER_RING_COUNTS } from '@/models/tiers';
+import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { fontScale } from '@/theme/typography';
 import { fonts } from '@/theme/fonts';
 import { spacing, radius, pageGutter } from '@/theme/spacing';
-import { tileSurface } from '@/theme/controls';
-import { bandHeadline, derivePhaseBand } from '@/lib/phase-band';
-import { cycleKeyFor, getPrep, type PrepState } from '@/store/pms-prep';
-import {
-  isRingClosed,
-  periodButtonState,
-  pickTodayAction,
-  type TodayActionInput,
-} from '@/lib/today-action';
-import { COURSE_TITLE, trainSummary, workSummary } from '@/v3/game-content';
+import { bandHeadline } from '@/lib/phase-band';
 import { prefsAfterPeriodLog } from '@/lib/cycle-tune';
 import { syncPmsReminders } from '@/lib/pms-reminders';
 import { daysBetween, engagedDatesFrom, foldLedger } from '@/lib/moon-light';
 import { lightEarned } from '@/lib/light-bus';
-import { takeBreathCue, type BreathCue } from '@/store/breath-cue';
 import { getLightLedger, recordLight } from '@/store/light-ledger';
 import {
   clearPendingCrossings,
@@ -72,203 +63,119 @@ import {
 } from '@/store/period-history';
 import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
-import { getReadiness, todayYmd, type ReadinessState } from '@/store/pms-readiness';
-import {
-  answeredForCycle,
-  getRemissionLog,
-  type RemissionEntry,
-} from '@/store/remission-log';
-import {
-  getSessionsToday,
-  getStreakInfo,
-  type StreakInfo,
-} from '@/store/session-history';
-import {
-  dismissForDay,
-  getTodayActionMemory,
-  recordShownAction,
-  type TodayActionMemory,
-} from '@/store/today-action';
-import { getTraining, type TrainingState } from '@/store/training-v3';
+import { todayYmd } from '@/store/pms-readiness';
+import { getRemissionLog, type RemissionEntry } from '@/store/remission-log';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
-// and the easiest to fall into passively; a longer 4:8 is more demanding to ride.
-// No hold: a pause would break a casual viewer's entrainment.
+// and the easiest to fall into passively. No hold: a pause would break a casual
+// viewer's entrainment.
 const BREATH_IN = 4; // seconds, inhale
 const BREATH_OUT = 6; // seconds, exhale (longer = calming)
 
-// The moon sizes to the screen so the whole loop (moon, state line, action,
-// strip, calm button) fits one viewport without scrolling — the moon is the
-// hero, not the whole show. Its canvas is 1.8x the sphere, so on short phones
-// (SE/mini) a full-size moon would push the action row down under the floating
-// Calm dock; scaling it down keeps the composition clear of the dock at rest.
+// The moon sizes to the screen so the whole composition (moon + ask) sits calmly
+// in one viewport. Its canvas is 1.8x the sphere, so scaling it down on short
+// phones keeps the moon from crowding the ask below.
 function orbSizeFor(screenHeight: number): number {
-  if (screenHeight >= 800) return 208; // 15/16, Pro, Max, Plus
-  if (screenHeight >= 740) return 190; // 13 mini, 12/13 standard shorties
-  return 168; // SE, small legacy
+  if (screenHeight >= 800) return 190; // 15/16, Pro, Max, Plus
+  if (screenHeight >= 740) return 174; // 13 mini, 12/13 standard shorties
+  return 154; // SE, small legacy
 }
 
-// Everything the selector and the strip need, loaded in one pass so the screen
-// derives its whole render from a single consistent snapshot.
+// Everything the screen needs, loaded in one pass so the render derives from a
+// single consistent snapshot.
 type Snapshot = {
   prefs: PmsPrefs;
   reads: PmsRead[];
-  readiness: ReadinessState;
-  sessionsToday: number;
-  training: TrainingState;
-  memory: TodayActionMemory;
-  streak: StreakInfo;
-  periodHistory: string[];
-  remissionLog: RemissionEntry[];
   setupCard: SetupCard | null;
-  // The one moon's state: rings come from lifetime light, brightness + material
-  // from the persisted moon-state (moon-reward-spec.md).
+  // The one moon's state: rings from lifetime light, brightness + material from
+  // the persisted moon-state (moon-reward-spec.md).
   moonState: MoonState;
   lifetimeLight: number;
-  // This cycle's isolated preparedness state (Neha's story rings + readiness).
-  prep: PrepState;
+  periodHistory: string[];
+  remissionLog: RemissionEntry[];
   now: Date;
 };
 
 async function loadSnapshot(): Promise<Snapshot> {
   const now = new Date();
-  const [
-    prefs,
-    reads,
-    readiness,
-    sessionsToday,
-    training,
-    memory,
-    streak,
-    periodHistory,
-    remissionLog,
-    progress,
-    moonState,
-    ledger,
-  ] = await Promise.all([
-    getPmsPrefs(),
-    getPmsReads(),
-    getReadiness(todayYmd(now)),
-    getSessionsToday(),
-    getTraining(),
-    getTodayActionMemory(),
-    getStreakInfo(),
-    getPeriodHistory(),
-    getRemissionLog(),
-    getOnboardingV3Progress().catch(() => null),
-    getMoonState(),
-    getLightLedger(),
-  ]);
-  // Prep is keyed by the cycle anchor, which comes from prefs, so it loads after
-  // the parallel batch resolves.
-  const prep = await getPrep(cycleKeyFor(prefs.lastPeriodStart));
+  const [prefs, reads, progress, moonState, ledger, periodHistory, remissionLog] =
+    await Promise.all([
+      getPmsPrefs(),
+      getPmsReads(),
+      getOnboardingV3Progress().catch(() => null),
+      getMoonState(),
+      getLightLedger(),
+      getPeriodHistory(),
+      getRemissionLog(),
+    ]);
   return {
     prefs,
     reads,
-    readiness,
-    sessionsToday,
-    training,
-    memory,
-    streak,
-    periodHistory,
-    remissionLog,
     setupCard: progress == null ? null : setupCardFor(progress, reads.length > 0),
     moonState,
     lifetimeLight: foldLedger(ledger).lifetimeLight,
-    prep,
+    periodHistory,
+    remissionLog,
     now,
   };
 }
 
-function selectorInput(s: Snapshot): TodayActionInput {
-  return {
-    prefs: s.prefs,
-    reads: s.reads,
-    readiness: s.readiness,
-    calmDoneToday: s.sessionsToday > 0,
-    training: s.training,
-    remissionAnsweredThisCycle: answeredForCycle(s.remissionLog, s.prefs.lastPeriodStart),
-    storyDoneThisCycle: s.prep.chaptersDone.length > 0,
-    lastAction: s.memory.last,
-    dismissedDate: s.memory.dismissedDate,
-    now: s.now,
-  };
-}
-
 export default function NowScreen() {
-  // The Calm dock floats above the night-sky tab bar; content scrolls under
-  // both, so the scroll padding has to clear the bar, the button, and its hint.
+  // Content centers in the space above the night-sky tab bar; the padding has to
+  // clear the bar glass.
   const insets = useSafeAreaInsets();
   const barHeight = BAR_CONTENT_HEIGHT + Math.max(insets.bottom, BAR_MIN_BOTTOM_PAD);
-
-  // The moon scales with screen height (see orbSizeFor). heroPullUp lifts the
-  // card into the moon's transparent bottom padding (0.4 * size); subtracting a
-  // fixed 19 keeps the moon-to-card gap steady as the moon shrinks.
   const { height: screenHeight } = useWindowDimensions();
   const ORB_SIZE = orbSizeFor(screenHeight);
-  const heroPullUp = Math.round(ORB_SIZE * 0.4) - 19;
 
-  // Drive the moon's inhale/exhale on a loop, counting completed breaths so
-  // the welcome cue below can hand off (name it, pace it, go quiet) exactly on
-  // the beat. Focus-gated so a hidden Now tab does no timer work; each return
-  // restarts on a fresh inhale, which is the calmest possible re-entry.
-  const [breath, setBreath] = useState<{ phase: 'inhale' | 'exhale'; cycle: number }>({
-    phase: 'inhale',
-    cycle: 0,
-  });
+  // The glass card (and the moon behind it) share these bounds: a fixed height,
+  // CENTRED in the space above the tab bar, black all around it. A notification
+  // renders in the gap below the card — raising notifShift to its height slides
+  // the card up to make room. The moon centres within these bounds, so the gap
+  // above it (chip → moon) and below it (moon → Reflect) stay balanced.
+  const avail = screenHeight - insets.top - barHeight;
+  const cardHeight = Math.min(avail - spacing.xxl, 580);
+  const notifShift = 0; // set to a shown notification's height to slide the card up
+  const cardTop = insets.top + Math.max((avail - cardHeight) / 2 - notifShift, spacing.xs);
+
+  // Drive the moon's inhale/exhale on a focus-gated loop, so a hidden Now tab
+  // does no timer work and each return restarts on a fresh, calming inhale.
+  const [breath, setBreath] = useState<'inhale' | 'exhale'>('inhale');
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       let timer: ReturnType<typeof setTimeout>;
-      const schedule = (current: 'inhale' | 'exhale', cycle: number) => {
+      const schedule = (current: 'inhale' | 'exhale') => {
         const secs = current === 'inhale' ? BREATH_IN : BREATH_OUT;
         timer = setTimeout(() => {
           if (!alive) return;
           const next = current === 'inhale' ? 'exhale' : 'inhale';
-          const nextCycle = next === 'inhale' ? cycle + 1 : cycle;
-          setBreath({ phase: next, cycle: nextCycle });
-          schedule(next, nextCycle);
+          setBreath(next);
+          schedule(next);
         }, secs * 1000);
       };
-      schedule('inhale', 0);
+      schedule('inhale');
       return () => {
         alive = false;
         clearTimeout(timer);
       };
     }, []),
   );
-  const breathDuration = breath.phase === 'inhale' ? BREATH_IN : BREATH_OUT;
+  const breathDuration = breath === 'inhale' ? BREATH_IN : BREATH_OUT;
 
-  // The breathing cue: a soft invitation over the moon on genuine arrivals.
-  // Mount-only on purpose — switching tabs must never replay it or re-stamp
-  // the arrival window. Its words render straight from `breath` (the same
-  // state driving the Orb) so text and swell cannot desync.
-  const [breathCue, setBreathCue] = useState<BreathCue | null>(null);
-  useEffect(() => {
-    let alive = true;
-    takeBreathCue().then((cue) => {
-      if (!alive || cue == null) return;
-      setBreathCue(cue);
-      // One soft pulse as the first inhale begins, for eyes already on the cards.
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {});
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // One snapshot feeds the whole screen; refreshed on focus and on foreground
-  // (the latter is what re-evaluates the 17:00 morning/evening flip — no
-  // timers). The action itself is derived during render, never stored.
+  // One snapshot feeds the whole screen; refreshed on focus and on foreground.
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  // Bumped on every genuine open (focus / foreground) to re-key the feeling line
+  // so each arrival draws a fresh emotion.
+  const [openSeed, setOpenSeed] = useState(0);
   // A ring or material crossing owed a celebration, played as a bloom on the
   // moon the moment she lands on Home (earned here or in a flow she just left).
   const [crossing, setCrossing] = useState<PendingCrossing | null>(null);
   const reload = useCallback(() => {
+    setOpenSeed((s) => s + 1);
     // The arrival earns its light (first open of the day; repeats are free
-    // no-ops). The moon itself stays bright — absence never dims it; only
-    // fading lessons do, and recordLight refreshes that.
+    // no-ops). The moon itself stays bright — absence never dims it.
     recordLight('visit')
       .catch(() => {})
       .finally(() => {
@@ -291,7 +198,6 @@ export default function NowScreen() {
   useFocusEffect(
     useCallback(() => {
       reload();
-      // Roll the PMS heads-up reminders forward to the next predicted window.
       syncPmsReminders().catch(() => {});
     }, [reload]),
   );
@@ -302,122 +208,19 @@ export default function NowScreen() {
     return () => sub.remove();
   }, [reload]);
 
-  const input = snapshot == null ? null : selectorInput(snapshot);
-  const action = input == null ? null : pickTodayAction(input);
-  const ringClosed = input != null && action != null && isRingClosed(input, action);
-  // The one moon carries the whole soul: her earned rings (the lifetime-light
-  // ladder, same as My Soul), her brightness (fades with unremembered lessons),
-  // and her material. Bare, moonstone, and full for a new user — so the default
-  // Now moon is unchanged until she earns her first ring.
-  const moonTier = snapshot == null ? null : currentTier(snapshot.lifetimeLight);
-  // The cycle strip drives the card's phase framing. Null when PMS mode is off
-  // or no period is logged — the card then shows the header alone (no bar).
-  const band = snapshot == null ? null : derivePhaseBand(snapshot.prefs, snapshot.now);
-  // PMS days fold the in-the-moment action into the hero: the coached action
-  // becomes the Steady-yourself flow (which opens with a breath), so the "Think
-  // with me" dock stands down for the window.
-  const pmsDays = band != null && band.current === 'pms';
-  const periodButton =
-    snapshot == null ? null : periodButtonState(snapshot.prefs, snapshot.now);
+  // The cycle context pill: the runway line ("14 days to PMS" / "PMS days ·
+  // day 2"). Null when PMS mode is off or no period is logged — then no pill.
+  const pillText = snapshot == null ? null : bandHeadline(snapshot.prefs, snapshot.now);
 
   // Onboarding gate: until she has a PMS read, the home pins one card — finish
-  // setup — because the phase card and reflection both need that data.
+  // setup — in place of the ask, which needs that data.
   const setupCard = snapshot?.setupCard ?? null;
   const needsOnboarding = setupCard != null;
 
-  // The redesigned card's copy, driven by the phase (the verb + framing); the
-  // specific build-day target still comes from the selector's `action`.
-  const rose = band != null && band.current !== 'build';
-  // The eyebrow is the short forward cue — "X days to PMS" on build days, the
-  // day-in-phase otherwise — straight from bandHeadline.
-  const phaseWhy = snapshot == null ? null : bandHeadline(snapshot.prefs, snapshot.now);
-  // Build days walk courses forward, never repeating: the next course to learn
-  // (the mind pillar, then the work pillar), or a Grow replay only once every
-  // course is trained. Completing today's course simply advances to the next.
-  const buildSummary =
-    snapshot == null
-      ? null
-      : (() => {
-          const mind = trainSummary(snapshot.training);
-          if (mind.next != null) return mind;
-          const work = workSummary(snapshot.training);
-          return work.next != null ? work : null;
-        })();
-  // In the pre-PMS run-up the coached action becomes Neha's story, then the
-  // checklist (from the today-action ladder). When it does, the card takes its
-  // title + verb straight from that action so the header matches where the
-  // button goes; otherwise it walks the training courses.
-  const buildIsStory = action?.kind === 'story';
-  const buildIsChecklist = action?.kind === 'readiness';
-  const buildTitle =
-    buildIsStory || buildIsChecklist
-      ? action!.title
-      : buildSummary?.next
-        ? (COURSE_TITLE[buildSummary.next.chapterId] ??
-          buildSummary.detail.replace(/^Begin with /, ''))
-        : 'Revisit a practice';
-  const buildVerb = buildIsStory
-    ? 'Read'
-    : buildIsChecklist
-      ? 'Prep'
-      : buildSummary
-        ? buildSummary.statusWord
-        : 'Practice';
-  const phaseTitle =
-    band != null && band.current === 'period'
-      ? 'Reflect'
-      : band != null && band.current === 'pms'
-        ? 'Cried, fought, or snapped?'
-        : buildTitle;
-  const phaseCtaLabel =
-    band != null && band.current === 'period'
-      ? 'Reflect'
-      : band != null && band.current === 'pms'
-        ? 'Try'
-        : buildVerb;
-  // Build days never show a "done" card — there's always a next course, and the
-  // day's reward is the moon lighting up. Only the window/period cards settle.
-  const cardDone = band != null && band.current !== 'build' ? ringClosed : false;
-  // The phase CTAs (Prep -> checklist, Reflect -> the flow, Start/Again ->
-  // Grow) all point somewhere real, so a closed ring never locks the button.
-  // It only deadens when there's no cycle and the ask is the empty "done"
-  // action — nothing left to open.
-  const ctaDisabled = band == null && (action == null || action.kind === 'done');
-
-  // Preparedness moved to Train (components/prep-card.tsx): Today stays one
-  // coached action, so the cycle bar here is the plain elapsed strip.
-
-  // Remember what was asked so tomorrow's pick can rotate away from it.
-  const lastRecordedId = useRef<string | null>(null);
-  useEffect(() => {
-    if (snapshot == null || action == null) return;
-    if (action.kind === 'done' || lastRecordedId.current === action.id) return;
-    lastRecordedId.current = action.id;
-    recordShownAction(todayYmd(snapshot.now), action.id).catch(() => {});
-  }, [snapshot, action]);
-
-  // One warm pulse the moment the ring closes on screen — the day's reward,
-  // felt in the hand and seen as the moon swelling with light (there is no
-  // task ring anymore; the moon herself lighting up is the reward). The ref
-  // keeps it to the transition, never on re-renders or on arriving at an
-  // already-closed day.
-  const glow = useSharedValue(1);
-  // A separate, subtler swell for "light landed" (the non-numeric cue); it
-  // multiplies with the ring-close pulse so the two never fight.
+  // A subtle swell when light lands or a crossing blooms — brighter is the whole
+  // reward (no numbers, per the no-points design).
   const shimmer = useSharedValue(1);
-  const glowStyle = useAnimatedStyle(() => ({ transform: [{ scale: glow.value * shimmer.value }] }));
-  const ringWasClosed = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (snapshot == null) return;
-    if (ringWasClosed.current === false && ringClosed) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      glow.value = withSequence(
-        withTiming(1.06, { duration: 280, easing: Easing.out(Easing.sin) }),
-        withTiming(1, { duration: 640, easing: Easing.inOut(Easing.sin) }),
-      );
-    }
-    ringWasClosed.current = ringClosed;
-  }, [snapshot, ringClosed, glow]);
+  const glowStyle = useAnimatedStyle(() => ({ transform: [{ scale: shimmer.value }] }));
 
   // The Home crossing moment: once a crossing is owed, play the bloom, land a
   // success haptic, then let it clear itself.
@@ -429,7 +232,6 @@ export default function NowScreen() {
   }, [crossing]);
 
   // Light landed while she's on Home: the moon gives a quiet, wordless swell.
-  // No number, no counter — brighter is the whole reward, per the no-points design.
   useFocusEffect(
     useCallback(
       () =>
@@ -443,54 +245,23 @@ export default function NowScreen() {
     ),
   );
 
-  // Setup copy nuance: a read left partway resumes, it doesn't restart.
-  const actionForCard =
-    action != null && action.kind === 'assessment' && snapshot?.setupCard === 'resume'
-      ? { ...action, caption: 'A fresh start' }
-      : action;
-
   // --- Handlers -----------------------------------------------------------
 
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
 
-  // PMS -> the checklist (the Prep button's target), Periods -> the calendar
-  // sheet (the one write path, reached from the Add periods button).
   const openPeriods = () => {
     Haptics.selectionAsync().catch(() => {});
     setPeriodSheetVisible(true);
   };
-  // PMS days: the coached action opens the in-the-moment Steady-yourself flow
-  // (the readiness checklist lives in Grow now).
-  const openSteady = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/steady-yourself' as Href);
-  };
-  const openReflect = () => {
-    Haptics.selectionAsync().catch(() => {});
-    router.push('/reflect' as Href);
-  };
 
-  const onActionPress = () => {
-    if (action == null || snapshot == null) return;
-    Haptics.selectionAsync().catch(() => {});
-    if (action.id === 'checkin:period-confirm') {
-      setPeriodSheetVisible(true);
-      return;
-    }
-    if (action.route !== '') router.push(action.route as Href);
-  };
-
-  // Logging a period is the one write that re-anchors the whole prediction:
-  // the newest start becomes the anchor and, once three real cycles exist,
-  // the cycle length tunes itself to the observed median (lib/cycle-tune).
+  // Logging a period is the one write that re-anchors the whole prediction: the
+  // newest start becomes the anchor and, once three real cycles exist, the cycle
+  // length tunes itself to the observed median (lib/cycle-tune).
   const onPeriodConfirm = (date: Date) => {
     if (snapshot == null) return;
     const ymd = todayYmd(date);
     // A live confirmation closes a cycle when it lands a plausible gap after the
-    // current anchor and is recent — the same guard that lets it mint a moon,
-    // keeping backfilled history and implausible gaps out. Computed off the
-    // snapshot up front (before the anchor advances) so both the mint and the
-    // reflect offer below read the cycle that just ended.
+    // current anchor and is recent — the same guard that lets it mint a moon.
     const prevAnchor = snapshot.prefs.lastPeriodStart;
     const cycleDays = prevAnchor == null ? null : daysBetween(prevAnchor, ymd);
     const recency = daysBetween(ymd, todayYmd(snapshot.now));
@@ -502,19 +273,13 @@ export default function NowScreen() {
       recency != null &&
       recency >= 0 &&
       recency <= 10;
-    // Whether she has already looked back on the cycle just closed. If she has,
-    // the moon already took its clarity from that answer and we don't re-offer.
+    // Whether she has already looked back on the cycle just closed.
     const alreadyReflected =
       prevAnchor != null && snapshot.remissionLog.some((e) => e.cycleAnchor === prevAnchor);
     addPeriodStart(ymd)
       .then(async (history) => {
         await setPmsPrefs(prefsAfterPeriodLog(snapshot.prefs, history));
         await syncPmsReminders().catch(() => {});
-        // Confirming the period completes the day's check-in ask, if that is
-        // what the card was asking.
-        if (action?.id === 'checkin:period-confirm') {
-          await dismissForDay(todayYmd(snapshot.now)).catch(() => {});
-        }
         // Mint the closed cycle onto the shelf (moon-reward-spec.md).
         if (closedRealCycle && prevAnchor != null) {
           const clarity =
@@ -532,11 +297,8 @@ export default function NowScreen() {
       .then(reload)
       .then(() => {
         // A cycle just closed and she hasn't looked back on it yet: close the
-        // calendar and offer the cycle-end reflection, anchored to the cycle
-        // that ended (lastPeriodStart has already advanced to the new start).
-        // This is where we learn whether the month actually eased — the read
-        // that fills her "is it working?" chart. Reflect's own Close is the
-        // escape, so this offers, never gates.
+        // calendar and offer the cycle-end reflection, anchored to the cycle that
+        // ended. This offers, never gates — Reflect's own Close is the escape.
         if (closedRealCycle && !alreadyReflected && prevAnchor != null) {
           setPeriodSheetVisible(false);
           router.push({ pathname: '/reflect', params: { anchor: prevAnchor } });
@@ -550,7 +312,6 @@ export default function NowScreen() {
     const remaining = snapshot.periodHistory.filter((s) => s !== startYmd);
     setPeriodHistory(remaining)
       .then(async () => {
-        // Removing the anchor itself may legitimately move the anchor back.
         if (snapshot.prefs.lastPeriodStart === startYmd) {
           await setPmsPrefs({ ...snapshot.prefs, lastPeriodStart: latestStart(remaining) });
         }
@@ -559,181 +320,136 @@ export default function NowScreen() {
       .catch(() => {});
   };
 
-  // The one-line progress strip is reserved for a number worth saying. The PMS
-  // readiness count moved to Grow with the checklist, so there is nothing to
-  // surface here for now; with no parts the strip stays hidden rather than
-  // showing an empty rail.
-  const stripParts: string[] = [];
-  const stripText = stripParts.join(' · ');
-
   return (
     <View style={styles.root}>
-      <BackgroundGradient />
-      {/* The ambient light-line: a shooting star arcing across the home sky
-          every so often, carried over from V2. Purely decorative, pointer-safe. */}
+      <CosmicBackground />
+      {/* The ambient light-line: a shooting star arcing across the home sky. */}
       <ShootingStar />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + 106 }]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* The soul: one big calm moon that carries the whole reward — her
-              earned rings, her brightness, her material — and lights up when
-              the day's action lands. */}
-          <Animated.View entering={FadeInDown.duration(500)} style={[styles.hero, { marginBottom: -heroPullUp }]}>
+        {/* The moon lives in the background — it fades in first, on the mostly-
+            black sky, and then the glass appears over it. Ringless sphere + rose
+            halo (warmHalo keeps the halo centred on the sphere). */}
+        {snapshot != null && (
+          <Animated.View
+            entering={FadeIn.duration(1300)}
+            pointerEvents="none"
+            style={[styles.moonLayer, { top: cardTop, height: cardHeight }]}
+          >
             <Animated.View style={glowStyle}>
-              {/* Dev-only: long-press the moon to preview all materials. */}
-              <Pressable
-                onLongPress={__DEV__ ? () => router.push('/moon-probe' as Href) : undefined}
-                delayLongPress={600}
-              >
-                <Orb
-                  size={ORB_SIZE}
-                  phase={breath.phase}
-                  phaseDuration={breathDuration}
-                  breathRange={{ min: 0.72, max: 1.16 }}
-                  tierRingCount={moonTier == null ? 0 : TIER_RING_COUNTS[moonTier.id]}
-                  tierHue={moonTier?.hue ?? 335}
-                  ringHues={SOUL_RING_HUES}
-                  accumulate
-                  hue={snapshot == null ? 220 : bodyHue(snapshot.lifetimeLight)}
-                  brightness={snapshot?.moonState.fullness ?? 1}
-                  illum={snapshot?.moonState.fullness ?? 1}
-                  material={snapshot?.moonState.material ?? 'moonstone'}
-                />
-              </Pressable>
-            </Animated.View>
-            {/* The cue rides the moon itself. Cycle 0 names the motion, cycles
-                1-2 pace it with "in"/"out" swapped exactly when the phase flips
-                (same state as the Orb, so text and swell cannot desync), then
-                it all fades and the moon breathes wordless. */}
-            {breathCue != null && breath.cycle <= 2 && (
-              <View pointerEvents="none" style={styles.cueOverlay}>
-                {breath.cycle === 0 ? (
-                  <Animated.Text
-                    key="cue-headline"
-                    entering={FadeIn.duration(900)}
-                    exiting={FadeOut.duration(600)}
-                    style={styles.cueHeadline}
-                  >
-                    {breathCue === 'first' ? 'Breathe with me, always' : 'Breathe with me'}
-                  </Animated.Text>
-                ) : (
-                  <Animated.Text
-                    key={`cue-${breath.cycle}-${breath.phase}`}
-                    entering={FadeIn.duration(700)}
-                    exiting={FadeOut.duration(500)}
-                    style={styles.cueLabel}
-                  >
-                    {breath.phase === 'inhale' ? 'in' : 'out'}
-                  </Animated.Text>
-                )}
-              </View>
-            )}
-          </Animated.View>
-
-          {/* Until she's onboarded, the home pins the finish-setup card and
-              nothing else cycle-related — the rest needs her PMS/period data. */}
-          {needsOnboarding && setupCard != null ? (
-            <Animated.View entering={FadeInDown.delay(60).duration(500)}>
-              <OnboardingCard
-                setup={setupCard}
-                onPress={() => {
-                  Haptics.selectionAsync().catch(() => {});
-                  router.push('/onboarding-v3' as Href);
-                }}
+              <Orb
+                size={ORB_SIZE}
+                phase={breath}
+                phaseDuration={breathDuration}
+                breathRange={{ min: 0.97, max: 1.03 }}
+                warmHalo
+                hue={bodyHue(snapshot.lifetimeLight)}
+                brightness={snapshot.moonState.fullness}
+                illum={snapshot.moonState.fullness}
+                material={snapshot.moonState.material}
               />
             </Animated.View>
-          ) : (
-            actionForCard != null && (
-              <>
-                {/* The one coached action: a textured phase header (why + what +
-                    the phase verb). Build + PMS days only — the "Period days ·
-                    take it light" card moved to Train (components/prep-card.tsx),
-                    so period days here are just the moon and the utilities below. */}
-                {band?.current !== 'period' && (
-                  <Animated.View entering={FadeInDown.delay(60).duration(500)}>
-                    <PhaseActionCard
-                      band={band}
-                      why={phaseWhy}
-                      title={phaseTitle}
-                      ctaLabel={phaseCtaLabel}
-                      onCta={
-                        band != null && band.current === 'pms' ? openSteady : onActionPress
-                      }
-                      done={cardDone}
-                      ctaDisabled={ctaDisabled}
-                      rose={rose}
-                      periodEmphasized={periodButton?.emphasized ?? false}
-                    />
-                  </Animated.View>
-                )}
+          </Animated.View>
+        )}
 
-                {/* The two cycle utilities: log periods (the honesty loop) and
-                    reflect on the cycle just gone. */}
-                <Animated.View entering={FadeInDown.delay(110).duration(500)} style={styles.actionRow}>
-                  <Pressable
-                    style={styles.actionBtn}
-                    onPress={openPeriods}
-                    accessibilityRole="button"
-                    accessibilityLabel="Add periods"
-                  >
-                    <SymbolView name="calendar" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
-                    <Text style={styles.actionBtnText}>Add periods</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.actionBtn}
-                    onPress={openReflect}
-                    accessibilityRole="button"
-                    accessibilityLabel="How did this PMS go?"
-                  >
-                    <SymbolView name="book.closed" tintColor="rgba(255,255,255,0.85)" size={17} weight="regular" />
-                    <Text style={styles.actionBtnText}>Reflect</Text>
-                  </Pressable>
-                </Animated.View>
-              </>
-            )
-          )}
-
-          {/* One line of numbers, tapping into the full story in You. Hidden
-              while there is nothing worth saying (no zero-day streaks). */}
-          {stripText !== '' && (
-            <Animated.View entering={FadeInDown.delay(160).duration(500)}>
-              <Pressable
-                style={styles.strip}
-                onPress={() => router.navigate('/you' as Href)}
-                accessibilityRole="button"
-                accessibilityLabel={`${stripText}. See your progress.`}
-              >
-                <Text style={styles.stripText}>{stripText}</Text>
-                <Text style={styles.stripChevron}>›</Text>
-              </Pressable>
-            </Animated.View>
-          )}
-
-          <View style={{ height: 12 }} />
-        </ScrollView>
-
-        {/* The primary action, docked above the tab bar: same spot, same look,
-            every single day — found by muscle memory, never by reading. It never
-            scrolls away, even on an SE. "Think with me" opens the Moon flow (the
-            same destination as the Moon tab). During the PMS days it folds into
-            the Steady-yourself hero, so the dock stands down to keep one. */}
-        {!pmsDays && (
+        {/* Until she's onboarded, the finish-setup card floats over the sky —
+            no glass card, no cycle data to frame yet. */}
+        {needsOnboarding && setupCard != null ? (
           <Animated.View
-            entering={FadeInDown.delay(220).duration(500)}
-            style={[styles.calmDock, { bottom: barHeight + 10 }]}
-            pointerEvents="box-none"
+            entering={FadeInDown.delay(120).duration(500)}
+            style={[styles.onboardWrap, { bottom: barHeight + spacing.lg }]}
           >
-            <BeginButton
-              label="Think with me"
+            <OnboardingCard
+              setup={setupCard}
               onPress={() => {
                 Haptics.selectionAsync().catch(() => {});
-                router.push('/moment' as Href);
+                router.push('/onboarding-v3' as Href);
               }}
             />
-            <Text style={styles.calmHint}>Think it through with Moon AI</Text>
           </Animated.View>
+        ) : (
+          snapshot != null && (
+            // The glass appears over the moon: a frosted panel holding the period
+            // pill and the ask, the background moon glowing through from behind.
+            <Animated.View
+              entering={FadeIn.delay(700).duration(1100)}
+              style={[styles.glassCard, { top: cardTop, height: cardHeight }]}
+            >
+              <BlurView
+                intensity={30}
+                tint="dark"
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+              />
+              <View pointerEvents="none" style={styles.glassTint} />
+              {/* Glossy sheen: light catching the glass from the top-LEFT and
+                  falling away toward the bottom-right, so the top-right corner
+                  stays quiet rather than washing white. */}
+              <LinearGradient
+                colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+                locations={[0, 0.28, 0.62]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                pointerEvents="none"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.glassInner}>
+                {pillText != null && (
+                  <Pressable
+                    style={styles.pill}
+                    onPress={openPeriods}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${pillText}. Edit periods.`}
+                  >
+                    <BlurView intensity={26} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+                    {/* Softer top sheen. */}
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.09)', 'transparent']}
+                      locations={[0, 0.6]}
+                      pointerEvents="none"
+                      style={StyleSheet.absoluteFill}
+                    />
+                    {/* A light layer along the left edge. */}
+                    <LinearGradient
+                      colors={['rgba(255,255,255,0.13)', 'transparent']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0.55, y: 0 }}
+                      pointerEvents="none"
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <SymbolView name="pencil" tintColor={colors.textOnDark.primary} size={15} weight="regular" />
+                    <Text style={styles.pillText}>{pillText}</Text>
+                  </Pressable>
+                )}
+                {/* The moon glows through here (frosted). */}
+                <View style={styles.glassFill} />
+                {/* The ask fades in once the sheet has settled. */}
+                <Animated.View entering={FadeIn.delay(1600).duration(900)} style={styles.ask}>
+                  <Text style={styles.triad}>Reflect • Regulate • Respond</Text>
+                  <FeelingLine key={openSeed} />
+                  <Pressable
+                    style={styles.ctaWrap}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {});
+                      router.push('/moment' as Href);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Talk to Moon"
+                  >
+                    <LinearGradient
+                      colors={['#E79BC0', '#8C6BC2']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.ctaBorder}
+                    >
+                      <View style={styles.ctaInner}>
+                        <Text style={styles.ctaText}>Talk to Moon</Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+                </Animated.View>
+              </View>
+            </Animated.View>
+          )
         )}
       </SafeAreaView>
 
@@ -771,6 +487,105 @@ export default function NowScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
+  // The background moon: centred and lifted (paddingBottom) into the upper body,
+  // behind the glass, so it glows through the frosted panel from behind. Ringless,
+  // so its soft halo bleeds gently onto the black rather than spilling sharp.
+  moonLayer: {
+    // top + bottom set inline (cardTop / cardBottom) so the moon centres within
+    // the card, not the whole screen. Sides match the card's sleek margin.
+    position: 'absolute',
+    left: spacing.sm,
+    right: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: '14%',
+  },
+  // The charcoal glass card: as large as it gets with a sleek margin — a thin
+  // black frame all around. top + bottom set inline (safe inset + bar height).
+  glassCard: {
+    position: 'absolute',
+    left: spacing.sm,
+    right: spacing.sm,
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  // A light frost over the blur — kept translucent so the nebula and the moon's
+  // rose halo glow through the glass, then the gloss sheen adds the highlight.
+  glassTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(28,26,38,0.20)',
+  },
+  // Generous interior: room above the pill, below the CTA, and to the sides of
+  // the words — the card is big, so the content breathes inside it.
+  glassInner: {
+    flex: 1,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xxl,
+  },
+  // The moon glows through this stretch of the sheet, above the ask.
+  glassFill: { flex: 1 },
+  // The ask sits at the foot of the sheet, left-aligned.
+  ask: { alignItems: 'flex-start', gap: spacing.md },
+  onboardWrap: { position: 'absolute', left: pageGutter, right: pageGutter },
+  // The cycle context + the one door to log periods: a small glass capsule at the
+  // top of the sheet. Blur + gloss inside (JSX); this clips them to the capsule.
+  pill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.pill,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.26)',
+  },
+  pillText: {
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
+    color: colors.textOnDark.primary,
+    letterSpacing: 0.3,
+  },
+  // "Reflect · Regulate · Respond" — the arc named, quiet above the ask.
+  triad: {
+    fontFamily: fonts.regular,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
+    letterSpacing: 0.6,
+  },
+  // The CTA: a dark pill ringed by a pink->purple gradient border — the brand
+  // colour carried as a glowing outline, not a fill, so it stays calm on the
+  // charcoal card. Full width. The gradient is the 1.5px frame; the dark inner
+  // View is the button face.
+  ctaWrap: { alignSelf: 'stretch', marginTop: spacing.xs },
+  ctaBorder: {
+    borderRadius: radius.pill,
+    borderCurve: 'continuous',
+    padding: 1.5,
+  },
+  ctaInner: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    borderCurve: 'continuous',
+    backgroundColor: '#2C2C33',
+  },
+  ctaText: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis,
+    color: colors.textOnDark.primary,
+    letterSpacing: 0.3,
+  },
   // The crossing line sits over the bloom, near the moon's centre.
   crossingLabel: {
     position: 'absolute',
@@ -782,113 +597,5 @@ const styles = StyleSheet.create({
     fontSize: fontScale.cardTitle,
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
-  },
-  // Bottom padding is set inline: it clears the floating Calm dock and the
-  // tab bar glass, both of which depend on the device's bottom inset.
-  scroll: { paddingHorizontal: pageGutter, paddingTop: spacing.xxl, gap: spacing.md },
-  // The orb's canvas is 1.8x the sphere (halo room), so a chunk of transparent
-  // padding sits below the visible moon; a negative margin pulls the card up
-  // into that gap so the moon and the ask read as one composition.
-  // marginBottom is applied inline (heroPullUp) since it scales with the moon.
-  hero: { alignItems: 'center', marginTop: spacing.xs },
-  // The cue overlay centers on the orb's oversized canvas so the words sit on
-  // the moon regardless of halo padding.
-  cueOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Soft slate grey, not a brand violet: quiet against the pale sphere, in the
-  // greyish register of the app's muted text rather than a coloured banner.
-  cueHeadline: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 21,
-    color: 'hsla(222, 10%, 28%, 0.82)',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-    // Capped to the sphere's width so the dark-slate words (tuned for the pale
-    // moon) can never spill onto the dim halo and vanish.
-    maxWidth: 188,
-  },
-  cueLabel: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
-    color: 'hsla(222, 10%, 28%, 0.72)',
-    letterSpacing: 3,
-  },
-  strip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-  },
-  stripText: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    color: colors.textOnDark.secondary,
-    letterSpacing: 0.3,
-  },
-  stripChevron: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.bodyLg,
-    color: colors.textOnDark.faint,
-    marginTop: -1,
-  },
-  // The two cycle utilities under the card: Add periods · Reflect.
-  actionRow: { flexDirection: 'row', gap: spacing.sm },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: radius.control,
-    ...tileSurface,
-  },
-  actionBtnText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.body,
-    color: colors.textOnDark.primary,
-    letterSpacing: 0.2,
-  },
-  chipRow: { alignItems: 'center', marginTop: -2, marginBottom: spacing.xs },
-  periodChip: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.control,
-    borderWidth: 1,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.faint,
-  },
-  periodChipEmphasized: {
-    borderColor: colors.bandRoseBorder,
-    backgroundColor: 'rgba(237, 147, 177, 0.10)',
-  },
-  periodChipText: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    color: colors.textOnDark.secondary,
-    letterSpacing: 0.3,
-  },
-  periodChipTextEmphasized: {
-    fontFamily: fonts.medium,
-    color: colors.bandRoseText,
-  },
-  calmDock: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: spacing.sm },
-  calmHint: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    color: colors.textTertiary,
-    letterSpacing: 0.2,
   },
 });
