@@ -192,8 +192,14 @@ export async function draftAct(
   herText: string,
   feeling: string,
   actLabel: string,
+  cycleNote?: string,
 ): Promise<string | null> {
-  const user = [`she wrote: "${herText.trim()}"`, feeling && `she feels: ${feeling}`, `her move: ${actLabel}`]
+  const user = [
+    `she wrote: "${herText.trim()}"`,
+    feeling && `she feels: ${feeling}`,
+    `her move: ${actLabel}`,
+    cycleNote,
+  ]
     .filter(Boolean)
     .join('\n');
   return compose(provider, 'act_help', user);

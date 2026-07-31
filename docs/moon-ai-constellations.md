@@ -48,7 +48,39 @@ Each emotion = a constellation whose myth fits the feeling (the story). Cute bad
 | Jealousy / envy | Pavo | the peacock's hundred eyes, calmed | Eyesrest |
 | Inadequacy | Corona Borealis | the crown, worth returned | Crownfound |
 
-## How we make the images: DON'T make images
+## Asset list (Neha sourcing as transparent PNGs, @3x, one cute style)
+
+Reveal = illustrated figure PNG + star light-layer on top (stars animate/light per count). Figures are drawn assets, NOT hand-coded SVG. Full set = 19, one per emotion. Stand-ins used where the real constellation figure isn't cute.
+
+| # | PNG | Cute name | Emotion | Note |
+|---|---|---|---|---|
+| 1 | dragon.png | Dragontamer | Rage / anger | Draco |
+| 2 | lynx.png | Softpaw | Irritability | Lynx |
+| 3 | campfire.png | Cooled Coal | Frustration | stand-in |
+| 4 | raincloud.png | Rainkeeper | Sadness / tears | stand-in |
+| 5 | harp.png | Songkeeper | Grief | Lyra |
+| 6 | lantern.png | Rekindled | Numbness | stand-in |
+| 7 | swan.png | Nightswan | Loneliness | Cygnus |
+| 8 | yarnball.png | Untangler | Anxiety | stand-in |
+| 9 | owl.png | Dawnwaiter | Dread | stand-in |
+| 10 | sailboat.png | Sailtrimmer | Overwhelm | Vela |
+| 11 | fox.png | Nightfacer | Fear | stand-in |
+| 12 | crow.png | Truthfinder | Betrayal | Corvus |
+| 13 | arrow.png | Arrowdrawn | Hurt | Sagitta |
+| 14 | dove.png | Homedove | Rejection | Columba |
+| 15 | bear.png | Stillheld | Abandonment | Ursa Major |
+| 16 | phoenix.png | Ashrisen | Shame | Phoenix |
+| 17 | scales.png | Evenscale | Guilt | Libra |
+| 18 | peacock.png | Eyesrest | Jealousy / envy | Pavo |
+| 19 | crown.png | Crownfound | Inadequacy | Corona Borealis |
+
+PNG spec: transparent bg, @3x, consistent cute style, filename = creature.
+Open: big reward moon (M28) art — existing asset / animated, or new PNG?
+
+## Star layer (Claude owns this)
+Each figure has a small star-data object: `{ id, stars:[{x,y,mag}], count }`, coords normalized to the PNG box. One renderer lights `count` stars over the PNG. Same layer drives scratch-reveal, count tiers, and the Soul-page sky. Region = glow color (Ember warm, Deep blue, Fog violet, Rift rose, Mirror gold).
+
+## (superseded) earlier idea: render constellations from real star data — DON'T make images
 
 A constellation IS a set of star points + connecting lines. Render it, don't draw it.
 

@@ -68,6 +68,7 @@ import {
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, WhyLine } from '@/components/moment/controls';
+import { Chip, FillInTemplate, assemble } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
 import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
@@ -79,10 +80,13 @@ import {
   type Verdict,
 } from '@/v3/moment-analyse';
 import { echo, pick, composeReadings, draftAct, revise } from '@/v3/moment-ai';
+import { optionPlanFor } from '@/v3/option-plan';
 import { getMomentProvider } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
+import { getPmsPrefs } from '@/store/pms-prefs';
+import { isInPmsWindow } from '@/lib/pms-window';
 import type { MoonState } from '@/lib/moon-light';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
@@ -121,6 +125,23 @@ const ADVANCE_MS = 260;
  *  app's calm 4:6, the same one steady-break and the home orb pace. */
 const BREATH_IN = 4;
 const BREATH_OUT = 6;
+
+// Cycle context (C2): appended to the reframe, ranking and draft prompts only
+// while she is in her premenstrual window, so the read is gentler and the
+// responses lower-stakes. Plain words, no jargon; it steers the model, she never
+// sees it.
+const CYCLE_NOTE =
+  'note: she is likely in her premenstrual days, when feelings run louder than usual. Lean toward a reading like "this is the week talking and it will pass", and prefer calmer, lower-stakes responses (like holding off on big decisions today).';
+
+// Edit with Moon (M19): quick rewrites she taps instead of typing a note. Each
+// label's `note` is the instruction handed to revise(); the model rewrites the
+// current draft, she still reads and sends it herself.
+const EDIT_MOVES = [
+  { label: 'Shorter', note: 'make it shorter' },
+  { label: 'Longer', note: 'make it a little longer' },
+  { label: 'Softer', note: 'make it softer and warmer, less confrontational' },
+  { label: 'More direct', note: 'make it clearer and more direct' },
+] as const;
 
 export default function Moment() {
   const reduceMotion = useReducedMotion();
@@ -196,8 +217,10 @@ export default function Moment() {
   const [actDrafting, setActDrafting] = useState(false);
   const [actDraft, setActDraft] = useState('');
   const [actDraftLoading, setActDraftLoading] = useState(false);
-  const [reviseNote, setReviseNote] = useState('');
   const [revising, setRevising] = useState(false);
+  // The fill-in composer's blanks at the respond step (relational feelings). Her
+  // words, so the draft is seeded from these rather than drafted by the model.
+  const [fillValues, setFillValues] = useState<Record<string, string>>({});
   /** The close celebration's two stages: the wrapped gift, then the scratch
    *  card. `giftOpened` reveals the card; `revealed` is set once she has
    *  scratched enough, which surfaces the "saved to your Soul" line and Done. */
@@ -234,6 +257,9 @@ export default function Moment() {
   const baseline = useRef<number | null>(null);
   /** The word she settled on, hers or ours. */
   const chosenFeeling = useRef('');
+  /** Whether today is inside her premenstrual window (C2). Loaded once on mount;
+   *  gates the CYCLE_NOTE added to the reframe/ranking/draft prompts. */
+  const pmsActive = useRef(false);
   const beat = node(current);
 
   // How far the current state's segment is filled: the distinct beats she has
@@ -332,7 +358,7 @@ export default function Moment() {
     setActOrder(null);
     setActDrafting(false);
     setActDraft('');
-    setReviseNote('');
+    setFillValues({});
     setOtherOpen(false);
     setDraft('');
     setCurrent(prev);
@@ -375,9 +401,8 @@ export default function Moment() {
     (a: Act) => {
       setActDrafting(true);
       setActDraft('');
-      setReviseNote('');
       setActDraftLoading(true);
-      draftAct(provider, herText.current.trim(), chosenFeeling.current, a.label)
+      draftAct(provider, herText.current.trim(), chosenFeeling.current, a.label, pmsActive.current ? CYCLE_NOTE : undefined)
         .then((t) => setActDraft(t ?? ''))
         .catch(() => {})
         .finally(() => setActDraftLoading(false));
@@ -385,26 +410,35 @@ export default function Moment() {
     [provider],
   );
 
-  /** "Change it": hand the current draft and her note back for a rewrite. */
-  const reviseActDraft = useCallback(() => {
-    const note = reviseNote.trim();
-    if (!note || !actDraft.trim() || revising) return;
-    tap();
-    setRevising(true);
-    revise(provider, actDraft, note)
-      .then((t) => {
-        if (t) setActDraft(t);
-        setReviseNote('');
-      })
-      .catch(() => {})
-      .finally(() => setRevising(false));
-  }, [provider, reviseNote, actDraft, revising]);
+  /** Open the draft view seeded with text she composed herself (the fill-in
+   *  template), skipping the model draft: these are already her words. */
+  const openActDraftWith = useCallback((text: string) => {
+    setActDrafting(true);
+    setActDraft(text);
+    setActDraftLoading(false);
+  }, []);
+
+  /** Edit with Moon: hand the current draft and a tapped instruction (shorter,
+   *  softer...) back for a rewrite. */
+  const reviseActDraft = useCallback(
+    (note: string) => {
+      if (!note.trim() || !actDraft.trim() || revising) return;
+      tap();
+      setRevising(true);
+      revise(provider, actDraft, note)
+        .then((t) => {
+          if (t) setActDraft(t);
+        })
+        .catch(() => {})
+        .finally(() => setRevising(false));
+    },
+    [provider, actDraft, revising],
+  );
 
   /** Leave the draft view, clearing its state, without advancing the beat. */
   const closeActDraft = useCallback(() => {
     setActDrafting(false);
     setActDraft('');
-    setReviseNote('');
   }, []);
 
   const send = useCallback(() => {
@@ -558,13 +592,30 @@ export default function Moment() {
     };
   }, [aiOn, echoOk, current, feelingOrder, provider]);
 
+  // Cycle context (C2): read her PMS window once on mount. A gentler reframe and
+  // lower-stakes options fit while she is premenstrual; off otherwise.
+  useEffect(() => {
+    let alive = true;
+    getPmsPrefs()
+      .then((p) => {
+        if (alive) {
+          pmsActive.current = p.pmsMode && isInPmsWindow(p.lastPeriodStart, p.cycleLength, new Date());
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // Reframe COMPOSE: gentle readings of the same situation. Null → authored
   // smallReframes. This is a draft she rules true or false, so it may add words.
   useEffect(() => {
     if (!aiOn || current !== 'reframe_small' || reframeReadings) return;
     const her = herText.current.trim();
     if (!her) return;
-    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}`;
+    const cycle = pmsActive.current ? `\n${CYCLE_NOTE}` : '';
+    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}`;
     let alive = true;
     composeReadings(provider, user)
       .then((r) => {
@@ -584,8 +635,9 @@ export default function Moment() {
     const her = herText.current.trim();
     if (!her) return;
     const pool = offerableActs(false);
+    const cycle = pmsActive.current ? `\n${CYCLE_NOTE}` : '';
     let alive = true;
-    pick(provider, 'options', `${her}\nshe feels: ${chosenFeeling.current}`, pool, pool.length, (a) => a.label)
+    pick(provider, 'options', `${her}\nshe feels: ${chosenFeeling.current}${cycle}`, pool, pool.length, (a) => a.label)
       .then((r) => {
         if (!alive) return;
         const firstOf = (rung: Act['rung']) => r.items.find((a) => a.rung === rung);
@@ -1429,11 +1481,57 @@ export default function Moment() {
         // without the hold. An offer above the acts, never a wall in front of
         // them: she can still pick any act right below it.
         const nudgeHold = skippedHold && (baseline.current ?? 0) >= 4;
+        // The respond step, tailored to the feeling she named: one earned science
+        // line for this feeling (C8), instead of the generic options why.
+        const plan = optionPlanFor(chosenFeeling.current);
+        // Relational feelings compose via the fill-in ("I felt __ when __, I need
+        // __"), seeded with the feeling. Continue runs the crisis scan on her
+        // words, then seeds the draft editor (Edit with Moon + send). The calming
+        // act cards stay the path for hot feelings (plan.composer 'cards') and are
+        // reachable from the draft's skip.
+        if (plan.composer === 'fill' && plan.template && !nudgeHold) {
+          const template = plan.template;
+          const sayAct = offerableActs(false).find((a) => a.id === 'A');
+          if (sayAct) {
+            const ready = !!fillValues.trigger?.trim() && !!fillValues.need?.trim();
+            return {
+              body: (
+                <>
+                  {head(COPY.options)}
+                  <WhyLine>{plan.science}</WhyLine>
+                  <FillInTemplate
+                    parts={template}
+                    values={fillValues}
+                    onChange={(k, v) => setFillValues((p) => ({ ...p, [k]: v }))}
+                  />
+                  <Text style={styles.settles}>{UNIVERSAL_DV_LINE}</Text>
+                </>
+              ),
+              cta: (
+                <BeginButton
+                  fullWidth
+                  label="Continue"
+                  disabled={!ready}
+                  onPress={() => {
+                    const text = assemble(template, fillValues);
+                    if (analyse(text).kind === 'crisis') {
+                      setCrisis(true);
+                      return;
+                    }
+                    setChosenAct(sayAct);
+                    openActDraftWith(text);
+                    go('options', 'picks');
+                  }}
+                />
+              ),
+            };
+          }
+        }
         return {
           body: (
             <>
               {head(COPY.options)}
-              <WhyLine>{COPY.options_why}</WhyLine>
+              <WhyLine>{plan.science}</WhyLine>
               {nudgeHold && (
                 <View style={styles.holdNudge}>
                   <Text style={styles.holdNudgeText}>
@@ -1628,27 +1726,17 @@ export default function Moment() {
                   inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
                   accessibilityLabel="Your draft"
                 />
-                <View style={styles.askGroup}>
-                  <TextInput
-                    style={styles.inputSmall}
-                    value={reviseNote}
-                    onChangeText={setReviseNote}
-                    placeholder={COPY.act_draft_change_ph}
-                    placeholderTextColor="rgba(255,255,255,0.30)"
-                    selectionColor="rgba(196, 178, 255, 0.9)"
-                    editable={!revising}
-                    returnKeyType="send"
-                    onSubmitEditing={reviseActDraft}
-                    inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
-                    accessibilityLabel="Tell the moon what to change"
-                  />
-                  <Pressable
-                    onPress={reviseActDraft}
-                    disabled={!reviseNote.trim() || revising || !actDraft.trim()}
-                    style={styles.changeLink}
-                  >
-                    <Text style={styles.changeLinkText}>{COPY.act_draft_change}</Text>
-                  </Pressable>
+                <View style={styles.editWithMoon}>
+                  <Text style={styles.editWithMoonLabel}>{COPY.act_draft_change}</Text>
+                  <View style={styles.editWithMoonChips}>
+                    {EDIT_MOVES.map((m) => (
+                      <Chip
+                        key={m.label}
+                        label={m.label}
+                        onPress={() => reviseActDraft(m.note)}
+                      />
+                    ))}
+                  </View>
                 </View>
                 <Pressable onPress={closeActDraft} style={styles.skipLink}>
                   <Text style={styles.skipLinkText}>{COPY.act_draft_skip}</Text>
@@ -1734,21 +1822,17 @@ export default function Moment() {
             <>
               {head(COPY.today_action_head)}
               <WhyLine>{COPY.today_action_why}</WhyLine>
-              <View style={styles.askGroup}>
-                <Text style={styles.settles}>{COPY.today_action_if}</Text>
-                <TextInput
-                  style={styles.inputSmall}
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={chosenAct?.label ?? COPY.today_action_hint}
-                  placeholderTextColor="rgba(255,255,255,0.30)"
-                  selectionColor="rgba(196, 178, 255, 0.9)"
-                  inputAccessoryViewID={
-                    Platform.OS === 'ios' ? ACCESSORY_ID : undefined
-                  }
-                  accessibilityLabel="What you will do"
-                />
-              </View>
+              {/* M21: the if-then as a dashed fill-in. The trigger half is fixed
+                  copy; she fills only the response, seeded with the move she
+                  just chose. */}
+              <FillInTemplate
+                parts={[
+                  `${COPY.today_action_if} `,
+                  { key: 'response', placeholder: chosenAct?.label ?? COPY.today_action_hint },
+                ]}
+                values={{ response: draft }}
+                onChange={(_k, v) => setDraft(v)}
+              />
             </>
           ),
           cta: (
@@ -2173,6 +2257,17 @@ const styles = StyleSheet.create({
   // options below). Proximity, so the line reads as belonging to the question
   // above it, not floating between it and the answers.
   askGroup: { gap: spacing.sm },
+  // Edit with Moon (M19): a quiet label over a wrap of quick-rewrite chips,
+  // sitting under the draft. Kept lighter than the draft so the message stays
+  // the hero and the edits read as tools, not another thing to read.
+  editWithMoon: { gap: spacing.sm, marginTop: spacing.xs },
+  editWithMoonLabel: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textSubtitle,
+    paddingHorizontal: spacing.xs,
+  },
+  editWithMoonChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   // The "change it" affordance under the revise field, and the quiet "skip"
   // under the draft: a right-aligned action and a centred way out.
   changeLink: { alignSelf: 'flex-end', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },

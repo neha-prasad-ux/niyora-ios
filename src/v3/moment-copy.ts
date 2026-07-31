@@ -488,8 +488,8 @@ export const COPY = {
   // can change, then send or do. All [DRAFT], awaiting Neha's voice.
   act_draft_hint: 'A start, in your words. Change anything.', // [DRAFT]
   act_draft_loading: 'Writing you a start', // [DRAFT]
-  act_draft_change_ph: 'Tell the moon what to change', // [DRAFT]
-  act_draft_change: 'Change it', // [DRAFT]
+  act_draft_change_ph: 'Tell the moon what to change', // [DRAFT] (unused since M19 buttons)
+  act_draft_change: 'Edit with Moon', // [DRAFT] label over the quick-rewrite chips
   act_draft_send: 'Open in Messages', // [DRAFT]
   act_draft_do: 'I will do this', // [DRAFT]
   act_draft_skip: 'Skip, I have got it', // [DRAFT]
