@@ -1,7 +1,7 @@
 // The three-way routing decides whether a woman in crisis reaches a helpline,
 // so it gets tests rather than a walk-through.
 
-import { analyse, offerFeelings } from './moment-analyse';
+import { analyse, namedFeeling, offerFeelings, pinFeeling } from './moment-analyse';
 
 describe('crisis comes first, always', () => {
   it('routes a disclosure to the handoff even when it is a perfectly clear event', () => {
@@ -78,6 +78,20 @@ describe('what it says back', () => {
   });
 });
 
+describe('a long feeling-dump is accepted, not interrogated', () => {
+  it('does not answer verbosity with "what happened"', () => {
+    // She wrote a lot, with no discrete event and "for some reason" (no known
+    // cause). The old path declined the carve as a rephrase and routed her to
+    // "and what happened, to bring that on?" — asking for what she just said she
+    // does not have. Now it is clear-enough to proceed (empty echo, no carve).
+    const v = analyse(
+      "For some reason I feel like I wanna be alone I don't wanna do anything I don't wanna shop and I think this would hurt my husband what do I do",
+    );
+    expect(v.kind).toBe('clear');
+    if (v.kind === 'clear') expect(v.echo).toBe('');
+  });
+});
+
 describe('the feelings offered', () => {
   it('offers three, from the closed set', () => {
     const three = offerFeelings('I was interrupted again in a meeting');
@@ -95,5 +109,34 @@ describe('the feelings offered', () => {
 
   it('still offers three when nothing matches, rather than none', () => {
     expect(offerFeelings('the weather was odd yesterday')).toHaveLength(3);
+  });
+
+  it('offers low-state feelings for a withdrawal entry, not relational ones', () => {
+    // "wanna stay in bed, dont feel like doing anything" is a flat/withdrawal
+    // state; it must not fall back to Dismissed/Not taken seriously/Angry.
+    const three = offerFeelings(
+      "For some reason I don't feel like going out or do anything I just wanna be on bed and not do anything",
+    );
+    expect(three).toContain('Numb'); // routes to the low lane (behavioral activation)
+    expect(three).not.toContain('Dismissed');
+    expect(three).not.toContain('Angry');
+  });
+});
+
+describe('a feeling she named outright is never buried by the model reorder', () => {
+  it('finds the feeling word she typed', () => {
+    expect(namedFeeling('I end up feeling guilty when I do things I like')).toBe('Guilty');
+    expect(namedFeeling('he interrupted me in the meeting')).toBeNull(); // an event, no feeling word
+  });
+
+  it('does not treat our multiword framing as her word', () => {
+    // "seriously" alone must not match "Not taken seriously".
+    expect(namedFeeling('take this seriously')).toBeNull();
+  });
+
+  it('pins her word to the top, whether the model demoted or dropped it', () => {
+    expect(pinFeeling('Guilty', ['Dismissed', 'Angry', 'Guilty'])).toEqual(['Guilty', 'Dismissed', 'Angry']);
+    expect(pinFeeling('Guilty', ['Dismissed', 'Angry'])).toEqual(['Guilty', 'Dismissed', 'Angry']);
+    expect(pinFeeling(null, ['Dismissed', 'Angry'])).toEqual(['Dismissed', 'Angry']);
   });
 });

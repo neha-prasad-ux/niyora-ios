@@ -10,26 +10,53 @@ import {
 
 export function useDictation(onPhrase: (text: string) => void) {
   const [listening, setListening] = useState(false);
+  // The in-progress utterance, updated on every interim result so the caller can
+  // show words appear live (proof the mic is on) rather than only after a pause.
+  const [partial, setPartial] = useState('');
 
   useSpeechRecognitionEvent('start', () => setListening(true));
-  useSpeechRecognitionEvent('end', () => setListening(false));
-  useSpeechRecognitionEvent('error', () => setListening(false));
+  useSpeechRecognitionEvent('end', () => {
+    setListening(false);
+    setPartial('');
+  });
+  useSpeechRecognitionEvent('error', () => {
+    setListening(false);
+    setPartial('');
+  });
   useSpeechRecognitionEvent('result', (e) => {
-    // Only commit finished phrases, so interim guesses don't churn the field.
-    if (!e.isFinal) return;
-    const t = e.results?.[0]?.transcript?.trim();
-    if (t) onPhrase(t);
+    const t = e.results?.[0]?.transcript ?? '';
+    if (e.isFinal) {
+      // Phrase settled: commit it and clear the live preview.
+      setPartial('');
+      const trimmed = t.trim();
+      if (trimmed) onPhrase(trimmed);
+    } else {
+      // Live interim transcript — shown as she speaks.
+      setPartial(t);
+    }
   });
 
   const toggle = async () => {
     if (listening) {
-      ExpoSpeechRecognitionModule.stop();
+      try {
+        ExpoSpeechRecognitionModule.stop();
+      } catch {
+        setListening(false);
+      }
       return;
     }
     const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync().catch(() => null);
     if (!perm?.granted) return;
-    ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true, continuous: false });
+    // Guard the native start: an unavailable recognizer / unsupported locale
+    // throws synchronously, which would otherwise surface as an uncaught error.
+    try {
+      // continuous: keep listening across pauses so she can speak more than one
+      // sentence without re-tapping; she stops it herself with the mic button.
+      ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true, continuous: true });
+    } catch {
+      setListening(false);
+    }
   };
 
-  return { listening, toggle };
+  return { listening, partial, toggle };
 }

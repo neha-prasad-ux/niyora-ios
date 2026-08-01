@@ -3,7 +3,40 @@
 // about others must never trigger (or she learns the feature can't hold the
 // very thing it exists for).
 
-import { CRISIS_COPY, scanForCrisis } from './crisis-scan';
+import { CRISIS_COPY, scanForCrisis, scanForAbuse, DV_RESOURCE } from './crisis-scan';
+
+describe('the abuse scan catches physical violence, not idioms', () => {
+  it.each([
+    'he hit me', // the reported disclosure (scan runs on HER 1st-person input)
+    'my husband slapped me last night',
+    'he punched me',
+    'he choked me',
+    'he beats me when he drinks',
+    'he put his hands on me',
+    "he's violent",
+    'i think he is abusive',
+    'this is domestic violence',
+  ])('fires on a disclosure: %s', (line) => {
+    expect(scanForAbuse(line)).toBe(true);
+  });
+
+  it.each([
+    'it hit me that i forgot',
+    'the news really hit me hard',
+    'that comment hit me',
+    'he hurt me', // emotional hurt is deliberately NOT a trigger
+    'it beats me why he did that',
+    'we watched a movie',
+  ])('does not fire on: %s', (line) => {
+    expect(scanForAbuse(line)).toBe(false);
+  });
+
+  it('DV_RESOURCE is present, quiet, and non-diagnostic (no "you are being abused")', () => {
+    const all = [DV_RESOURCE.intro, DV_RESOURCE.label, DV_RESOURCE.detail].join(' ');
+    expect(all).not.toMatch(/!/);
+    expect(all.toLowerCase()).not.toMatch(/you are being abused|we (detected|noticed)/);
+  });
+});
 
 describe('scanForCrisis · must trigger', () => {
   it.each([

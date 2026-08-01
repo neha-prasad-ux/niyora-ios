@@ -54,23 +54,32 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'mood with no event at all ("I feel awful", "today was bad"). If there is any concrete thing, ' +
     'even small, say "yes".',
   feelings:
-    'Order the feelings in the options list by fit to what she wrote, best first. Do not add, ' +
-    'rename, or invent one. Return only the reordered list.',
+    'Order the feelings in the options list by fit to what she wrote, best first. If she names a ' +
+    'feeling outright ("I feel guilty", "so angry"), that one goes first. Do not add, rename, or ' +
+    'invent one. Return only the reordered list.',
   reframe_small:
     'Offer up to 3 gentler, plausible readings of the same situation. Each is another way to ' +
     'read her own thoughts, never a claim about what happened or what anyone else felt. State ' +
-    'no fact. Do not minimise or reassure. She decides if any is true, so she can reject them ' +
-    'all. Return only the readings, one per line, no intro line, each one sentence, max 18 words.',
+    'no fact. Do not minimise or reassure. Never explain her feeling away as her mood, hormones, ' +
+    'body, or cycle: if she named a real thing someone did, take it as real. She decides if any ' +
+    'is true, so she can reject them all. Return only the readings, one per line, no intro line, ' +
+    'each one sentence, max 18 words.',
   options:
     'Choose and order the actions from the options list that best fit her situation, best ' +
     'first. Do not write, rename, or invent one. If none fit, still return your best ordering.',
   act_help:
-    'She decided on the move named below. Give her a short draft to carry it out. For a message, ' +
-    'write what she could send, her voice, first person. For something she says out loud or does, ' +
-    'write the words or one simple first step. Ground it in the specific thing she wrote, not a ' +
-    'generic line. Aim to be heard, not to win: own her own feeling ("I felt..."), never accuse, ' +
-    'label, or diagnose the other person, and nothing sarcastic, threatening, or that invites a ' +
-    'fight. Plain, calm, grown-up. One or two lines. A starting point she edits.',
+    'She decided on the move named below. Give her a short draft to carry it out, and make it MATCH ' +
+    'that move: if she chose to hold a line, ask for something, or say it to them, the draft ' +
+    'actually states her position — it does not quietly concede it or slide into an apology, which ' +
+    'would carry out the opposite of what she picked. Take no side on who is right: state what she ' +
+    'wants without casting the other person\'s wish as wrong. For a message, write what she could ' +
+    'send, her voice, first person. For something she says out loud or does, write the words or one ' +
+    'simple first step. If the move is to let it go, look after herself, or take something off her ' +
+    'plate, write one gentle, concrete thing she can do for herself right now, not a message to anyone. ' +
+    'Ground it in the specific thing she wrote, not a generic line. Aim to be ' +
+    'heard, not to win: own her own feeling ("I felt..."), never accuse, label, or diagnose the ' +
+    'other person, and nothing sarcastic, threatening, or that invites a fight. Plain, calm, ' +
+    'grown-up. One or two lines. A starting point she edits.',
   revise:
     'She wants to change what you wrote. Rewrite it to follow her note, keeping her voice and ' +
     'everything true to what she wrote. If her note asks to be more direct, make it clearer and ' +

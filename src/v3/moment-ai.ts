@@ -19,7 +19,7 @@
 // Every verb may return null, and null is never an error state: it means the
 // beat renders its authored line. The flow is complete with no provider at all.
 
-import { echoBlocked, groundedReflection, isGrounded } from '@/lib/ground-floor';
+import { echoBlocked, groundedReflection, isGrounded, isRephrase } from '@/lib/ground-floor';
 
 /** What a provider must implement. Nothing here is Gemma-specific. */
 export type MomentProvider = {
@@ -76,7 +76,10 @@ export async function echo(
   if (!raw) return { text: null, via: 'authored' };
 
   const prose = await provider.generate(slot, raw, TIMEOUT_MS).catch(() => null);
-  if (prose && isGrounded(raw, prose) && !echoBlocked(prose)) {
+  // isGrounded is SATISFIED by reusing all her words, so a model that just plays
+  // her sentence back passes it. isRephrase is the separate guard against that:
+  // grounding stops invention, this stops parroting.
+  if (prose && isGrounded(raw, prose) && !echoBlocked(prose) && !isRephrase(raw, prose)) {
     return { text: prose.trim(), via: 'model' };
   }
 

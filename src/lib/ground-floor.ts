@@ -121,6 +121,11 @@ export function echoBlocked(text: string): boolean {
   return NO_ECHO.test(text) || CORE_BELIEF.some((re) => re.test(text));
 }
 
+/** The mark of a clause that carries the wound, not the set-up: a feeling word,
+ *  or a turn ("but", "end up", "even if") after which people put the point. */
+const CHARGE =
+  /\b(feel|felt|feeling|hurt|guilty|ashamed|wrong|upset|angry|sad|scared|but|end(?:ed)? up|even (?:if|though|when)|like i)\b/i;
+
 /** Her read of someone else's intent. Flow rule 07: never echo it. */
 const ATTRIBUTION =
   /\b(pulling away|losing interest|doesn'?t care|hates? (me|you)|done with (me|you)|never cared|thinks (i'?m|you'?re))\b/i;
@@ -129,7 +134,29 @@ export interface GroundedReflection {
   /** The reflection, or null when her text offers nothing safe to carve. */
   text: string | null;
   /** Why it declined, for logging. Never shown to her. */
-  reason?: 'too-short' | 'no-clause' | 'self-attack' | 'attribution';
+  reason?: 'too-short' | 'no-clause' | 'self-attack' | 'attribution' | 'rephrase';
+}
+
+/**
+ * Is `reply` just her sentence handed back? A reflection is a GIST; a near-
+ * verbatim playback of a long paste is a parrot, and she never wants to see one
+ * ("I never want to see this as a rephrase", Neha 2026-08-01) — whether it came
+ * from the model or the mechanical carve. Both paths call this.
+ *
+ * Short entries are exempt: reflecting a 7-word event fully ("you were
+ * interrupted again in a meeting") is a good reflection, not a parrot. The parrot
+ * only appears when a LONG sentence is played back almost whole, so this fires
+ * only when the reply reuses most of her words AND is nearly as long as she was.
+ */
+export function isRephrase(herText: string, reply: string): boolean {
+  const words = (s: string) => (s.toLowerCase().match(/[a-z']+/g) ?? []);
+  const her = words(herText);
+  if (her.length <= 14) return false;
+  const rep = words(reply);
+  if (rep.length === 0) return false;
+  const herSet = new Set(her);
+  const shared = rep.filter((w) => herSet.has(w)).length;
+  return rep.length / her.length >= 0.8 && shared / rep.length >= 0.7;
 }
 
 /**
@@ -164,7 +191,9 @@ export function groundedReflection(herText: string): GroundedReflection {
   const candidates = clauses(raw);
   if (candidates.length === 0) return { text: null, reason: 'no-clause' };
 
-  // Prefer the first clause that describes something, not how she judges it.
+  // Every clause that is safe to say back, in order. Lowercased to normalise
+  // whatever she typed; sentence-cased at return, since this is the app speaking.
+  const valid: { orig: string; flipped: string }[] = [];
   for (const c of candidates) {
     if (echoBlocked(c)) continue;
     if (ATTRIBUTION.test(c)) continue;
@@ -176,10 +205,24 @@ export function groundedReflection(herText: string): GroundedReflection {
       .toLowerCase();
 
     if (flipped.split(/\s+/).length < 3) continue;
+    valid.push({ orig: c, flipped });
+  }
 
-    // Lowercased above to normalise whatever she typed, then sentence-cased
-    // here: this is the app speaking, and the house style is sentence case.
-    return { text: `So, ${flipped}.` };
+  if (valid.length) {
+    // Reflect the clause carrying the POINT, not the preamble. People front-load
+    // context ("he likes building products...") and put what actually stung last
+    // ("...I end up feeling guilty"). A bare first-clause carve reflects the setup
+    // and drops the wound, which is what made the moon open on his good qualities.
+    // Prefer the LAST clause that carries a feeling/turn cue; else the first.
+    // ponytail: keyword heuristic — misses a wound phrased without these words;
+    // upgrade to the model echo (which this only backstops) when it lands.
+    const charged = valid.filter((v) => CHARGE.test(v.orig));
+    const chosen = charged.length ? charged[charged.length - 1] : valid[0];
+    // If the only clause worth saying back is most of a long sentence, saying it
+    // back is a parrot. Decline so the flow asks her to go deeper (clarify)
+    // rather than reading her own paste to her.
+    if (isRephrase(raw, chosen.flipped)) return { text: null, reason: 'rephrase' };
+    return { text: `So, ${chosen.flipped}.` };
   }
 
   // Everything she wrote was self-attack or an attribution about someone else.

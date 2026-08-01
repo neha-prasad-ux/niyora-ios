@@ -47,6 +47,69 @@ const CRISIS_PHRASES = [
   'kms',
 ] as const;
 
+// --- physical-abuse disclosure -------------------------------------------
+//
+// SEPARATE from the crisis (self-harm) scan and it does NOT stop the flow. When
+// it fires it does two things (Neha 2026-08-01, "both, tuned to minimise
+// disclosure"): (1) removes every option aimed AT the person from the respond
+// menu — you never coach someone to confront a person who hits them, and "own
+// my part" self-blame is the abuser's own tool — and (2) surfaces a quiet,
+// NON-DIAGNOSTIC resource. Nothing here ever says "you are being abused": that
+// would be a disclosure on a device someone else may be reading, which in abuse
+// is common. The universal DV line (shown to everyone on "say it to them")
+// still covers what detection misses.
+//
+// Tolerance leans toward catching clear PHYSICAL violence. The ambiguous "he
+// hurt me" (usually emotional) is deliberately NOT here, and "hit me" is subject-
+// gated so "it hit me" / "that hit me" do not fire. [SAFETY] Human-curated;
+// review before any TestFlight release.
+const ABUSE_PATTERNS: readonly RegExp[] = [
+  // a person + a violent verb + me. Subject-gated, so "it hit me" / "that hit
+  // me" / "the news hit me" (no person subject) never fire.
+  /\b(he|she|they|husband|wife|partner|boyfriend|girlfriend|bf|gf|ex|dad|mum|mom|father|mother|stepdad)\s+(?:\w+\s+){0,3}(hit|hits|hitting|slapped|punched|kicked|choked|strangled|shoved|beats|beat|beaten)\s+me\b/,
+  // unambiguous physical violence, bare (low idiom collision)
+  /\b(punched|slapped|kicked|choked|strangled|beaten|pinned)\s+me\b/,
+  /\bbeat me up\b/,
+  /\bput (his|her|their) hands on me\b/,
+  /\b(raised (a|his|her) hand (to|at) me|laid a hand on me|lays a hand on me)\b/,
+  /\b(he|she) (is|was) (violent|abusive)\b/,
+  /\bhes (violent|abusive)\b/,
+  // unambiguous; NOT "hits me"/"beats me" bare — those collide with idioms ("it
+  // beats me") and are already caught, in a person context, by the first pattern.
+  /\b(abuses me|abused me|domestic violence|domestic abuse|being abused)\b/,
+];
+
+/** True when the input discloses physical violence by another person. Does NOT
+ *  stop the flow: it de-fangs the respond menu and surfaces a quiet resource.
+ *  Apostrophes are stripped so "he's violent" reads as "hes violent". */
+export function scanForAbuse(text: string): boolean {
+  const t = normalize(text).replace(/[’']/g, '');
+  return ABUSE_PATTERNS.some((re) => re.test(t));
+}
+
+/**
+ * [SAFETY] The quiet DV resource, surfaced on the respond step when the abuse
+ * scan fires. Worded GENERALLY ("if someone is hurting you"), never as a finding
+ * about her. US default; localise before release. Kept beside the scan so the
+ * copy and the number can never drift.
+ */
+export const DV_RESOURCE = {
+  intro: 'Support lines for this are free, confidential, and used to exactly this.', // [SAFETY]
+  label: 'Call or text a support line', // [SAFETY]
+  detail: 'National Domestic Violence Hotline · 24/7', // [SAFETY]
+} as const;
+
+// US National Domestic Violence Hotline: call 1-800-799-7233 (text START to
+// 88788). [SAFETY] localise before release; a resource that dials the wrong
+// place is worse than none.
+export const DV_URL = 'tel:18007997233';
+
+/** Open the DV support line. Silent on failure — a dead link must not raise a
+ *  dialog in front of her. */
+export function openDvLine(): void {
+  Linking.openURL(DV_URL).catch(() => {});
+}
+
 /** Lowercase, unify apostrophes, collapse punctuation to spaces. */
 function normalize(text: string): string {
   return ` ${text

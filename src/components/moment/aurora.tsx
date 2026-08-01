@@ -189,18 +189,33 @@ function Band({ ribbon, w, h }: { ribbon: Ribbon; w: number; h: number }) {
  */
 function Stars({ w, h }: { w: number; h: number }) {
   const reduceMotion = useReducedMotion();
-  const [groups] = useState(() =>
-    Array.from({ length: 3 }, (_, g) =>
-      Array.from({ length: 20 }, () => ({
-        x: Math.random() * w,
-        // Upper two thirds only: below that the card covers them.
-        y: Math.random() * h * 0.66,
-        size: 1 + Math.random() * 1.6,
-        alpha: 0.25 + Math.random() * 0.5,
-        key: `${g}-${Math.random()}`,
-      })),
-    ),
-  );
+  // Jittered grid, not pure random: one star per cell placed at a random point
+  // inside its cell (0.15..0.85, so never on an edge). Uniform Math.random over
+  // the whole sky clumps and leaves bald patches; this spreads evenly but still
+  // reads organic. 10x6 = 60 stars, upper two thirds only (the card covers below).
+  const [groups] = useState(() => {
+    const COLS = 10;
+    const ROWS = 6;
+    const cellW = w / COLS;
+    const cellH = (h * 0.66) / ROWS;
+    const out: { x: number; y: number; size: number; alpha: number; key: string }[][] = [[], [], []];
+    let n = 0;
+    for (let r = 0; r < ROWS; r += 1) {
+      for (let c = 0; c < COLS; c += 1) {
+        // Interleave the three twinkle groups so each blinks across the whole
+        // sky, not in one contiguous block.
+        out[n % 3].push({
+          x: (c + 0.15 + Math.random() * 0.7) * cellW,
+          y: (r + 0.15 + Math.random() * 0.7) * cellH,
+          size: 1 + Math.random() * 1.6,
+          alpha: 0.25 + Math.random() * 0.5,
+          key: `${r}-${c}`,
+        });
+        n += 1;
+      }
+    }
+    return out;
+  });
 
   return (
     <>

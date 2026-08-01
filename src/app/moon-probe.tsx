@@ -1,107 +1,100 @@
-// Dev-only preview of the moon's materials and states, so the gold/opal/diamond
-// bodies can be eyeballed on device without grinding to 800+ lifetime light.
-// Not shipping UI: registered behind __DEV__ in _layout, reached by a dev-only
-// long-press on the Now moon. Safe to delete once the materials are tuned.
+// The moon-growth explainer: the materials (moonstone -> gold -> opal ->
+// diamond), the ring band, and the lunar phases, so she can see where her moon
+// is and what moves it. Opened from "You're on [material]" on the Soul page
+// (which passes her current material so this page can mark "You're here"), and
+// still reachable by a dev long-press on the Now moon.
 
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { Orb } from '@/components/orb';
 import { SOUL_RING_HUES } from '@/models/tiers';
 import type { MoonMaterial } from '@/lib/moon-light';
 import { colors } from '@/theme/colors';
+import { fonts } from '@/theme/fonts';
+import { fontScale } from '@/theme/typography';
+import { spacing, radius } from '@/theme/spacing';
 
-const MATERIALS: { material: MoonMaterial; name: string; gate: string }[] = [
-  { material: 'moonstone', name: 'Moonstone', gate: 'default — every new moon' },
-  { material: 'gold', name: 'Gold', gate: '800 light + 1 cycle kept' },
-  { material: 'opal', name: 'Opal', gate: '2500 light · 3 skills solid' },
-  { material: 'diamond', name: 'Diamond', gate: '6000 light · lived outside' },
+// The four materials, in order. `unlock` is the warm, user-facing version of the
+// underlying light/behaviour gate. [DRAFT] copy — awaiting Neha's voice.
+const MATERIALS: { material: MoonMaterial; name: string; unlock: string }[] = [
+  { material: 'moonstone', name: 'Moonstone', unlock: 'Where every moon begins.' },
+  { material: 'gold', name: 'Gold', unlock: 'Show up steadily, and keep one full cycle.' },
+  { material: 'opal', name: 'Opal', unlock: 'Three skills solid, and the practice runs deep.' },
+  { material: 'diamond', name: 'Diamond', unlock: 'Carried into real life, again and again.' },
 ];
 
-// Lunar phases: the shadow that carries the fade, and a delight in its own
-// right. Fullness floors at 0.4, so the dimmest real moon is a fat crescent.
+// Lunar phases: the moon fades as lessons fade, waxes back when she returns.
 const PHASES: { illum: number; label: string }[] = [
   { illum: 1, label: 'Full' },
   { illum: 0.75, label: 'Gibbous' },
   { illum: 0.5, label: 'Half' },
-  { illum: 0.4, label: 'Dimmest · 0.4' },
-  { illum: 0.2, label: 'Crescent' },
-];
-
-// The colour ladder, in order — auto-evolves one step per ring tier, riding the
-// same lifetime-light thresholds. Blues → jewels, then materials take over at
-// the 800-light gate. Mirrors TIER_BODY_HUE in models/tiers.
-const COLOURS: { hue: number; label: string }[] = [
-  { hue: 220, label: 'Calm · 0' },
-  { hue: 202, label: 'Light blue · 20' },
-  { hue: 178, label: 'Aqua · 100' },
-  { hue: 272, label: 'Amethyst · 300' },
-  { hue: 250, label: 'Indigo · 600' },
+  { illum: 0.4, label: 'Crescent' },
 ];
 
 export default function MoonProbeScreen() {
+  const { current } = useLocalSearchParams<{ current?: string }>();
+  const currentMaterial = (current as MoonMaterial) ?? 'moonstone';
   return (
     <View style={styles.root}>
       <BackgroundGradient />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Done">
             <Text style={styles.back}>Done</Text>
           </Pressable>
-          <Text style={styles.title}>Moon materials</Text>
-          <View style={{ width: 44 }} />
+          <Text style={styles.title}>How your moon grows</Text>
+          <View style={styles.headerSpacer} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.section}>Clean body</Text>
-          <View style={styles.grid}>
-            {MATERIALS.map((m) => (
-              <View key={m.material} style={styles.cell}>
-                <Orb size={128} material={m.material} still />
-                <Text style={styles.name}>{m.name}</Text>
-                <Text style={styles.gate}>{m.gate}</Text>
+          <Text style={styles.intro}>
+            Your moon is a record of your practice. It brightens as you show up, and
+            over time its very material changes — from moonstone to something rarer.
+          </Text>
+
+          <Text style={styles.section}>The stages</Text>
+          {MATERIALS.map((m) => {
+            const here = m.material === currentMaterial;
+            return (
+              <View key={m.material} style={[styles.stageRow, here && styles.stageHere]}>
+                <Orb size={64} material={m.material} still />
+                <View style={styles.stageText}>
+                  <View style={styles.stageNameRow}>
+                    <Text style={styles.stageName}>{m.name}</Text>
+                    {here && <Text style={styles.hereChip}>You&apos;re here</Text>}
+                  </View>
+                  <Text style={styles.stageUnlock}>{m.unlock}</Text>
+                </View>
               </View>
-            ))}
+            );
+          })}
+
+          <Text style={styles.section}>Rings</Text>
+          <View style={styles.ringRow}>
+            <Orb
+              size={76}
+              material={currentMaterial}
+              tierRingCount={4}
+              ringHues={SOUL_RING_HUES}
+              accumulate
+              still
+            />
+            <Text style={styles.rowNote}>
+              Rings fill as you practise. Each new material only surfaces once the
+              ring band is complete.
+            </Text>
           </View>
 
-          <Text style={styles.section}>With full rings (Radiance)</Text>
-          <Text style={styles.note}>Materials only surface once the ring band is complete.</Text>
-          <View style={styles.grid}>
-            {MATERIALS.map((m) => (
-              <View key={m.material} style={styles.cell}>
-                <Orb
-                  size={128}
-                  material={m.material}
-                  tierRingCount={4}
-                  ringHues={SOUL_RING_HUES}
-                  accumulate
-                  still
-                />
-                <Text style={styles.name}>{m.name}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.section}>Phases · fade (moonstone)</Text>
-          <Text style={styles.note}>The moon wanes as lessons fade; returning waxes her back.</Text>
-          <View style={styles.grid}>
+          <Text style={styles.section}>Phases</Text>
+          <Text style={styles.note}>Your moon wanes as lessons fade, and waxes back when you return.</Text>
+          <View style={styles.phaseRow}>
             {PHASES.map((p) => (
-              <View key={p.label} style={styles.cell}>
-                <Orb size={104} illum={p.illum} brightness={p.illum} still />
-                <Text style={styles.name}>{p.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Text style={styles.section}>Colour ladder</Text>
-          <Text style={styles.note}>Auto-evolves one step per ring, by lifetime light. Then materials take over.</Text>
-          <View style={styles.grid}>
-            {COLOURS.map((c) => (
-              <View key={c.hue} style={styles.cell}>
-                <Orb size={104} hue={c.hue} still />
-                <Text style={styles.name}>{c.label}</Text>
+              <View key={p.label} style={styles.phaseCell}>
+                <Orb size={56} illum={p.illum} brightness={p.illum} still />
+                <Text style={styles.phaseLabel}>{p.label}</Text>
               </View>
             ))}
           </View>
@@ -118,45 +111,80 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
-  back: { fontFamily: 'Poppins-Regular', fontSize: 15, color: colors.textTertiary, width: 44 },
-  title: { fontFamily: 'Poppins-Medium', fontSize: 16, color: colors.textPrimary },
-  scroll: { paddingHorizontal: 12, paddingBottom: 60, alignItems: 'center' },
+  headerSpacer: { width: 44 },
+  back: { fontFamily: fonts.medium, fontSize: fontScale.body, color: colors.textTertiary, width: 44 },
+  title: { fontFamily: fonts.semibold, fontSize: fontScale.emphasis, color: colors.textPrimary },
+  scroll: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl },
+  intro: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 22,
+    color: colors.textOnDark.secondary,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
   section: {
-    alignSelf: 'flex-start',
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.caption,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.5)',
-    marginTop: 24,
-    marginBottom: 4,
-    marginLeft: 8,
+    color: colors.textOnDark.faint,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+  },
+  stageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.card,
+    marginBottom: spacing.xs,
+  },
+  // The current stage, lifted from the row above it.
+  stageHere: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  stageText: { flex: 1 },
+  stageNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  stageName: { fontFamily: fonts.semibold, fontSize: fontScale.bodyLg, color: colors.textPrimary },
+  hereChip: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.tagline,
+    color: colors.textPrimary,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  stageUnlock: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
+    marginTop: 2,
+  },
+  ringRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  rowNote: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    lineHeight: 20,
+    color: colors.textOnDark.secondary,
   },
   note: {
-    alignSelf: 'flex-start',
-    fontFamily: 'Poppins-Regular',
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-    marginLeft: 8,
-    marginBottom: 8,
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
+    marginBottom: spacing.md,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  cell: { alignItems: 'center', width: 168, marginVertical: 4 },
-  name: {
-    fontFamily: 'Poppins-Medium',
-    fontSize: 13,
-    color: colors.textPrimary,
-    marginTop: -6,
-  },
-  gate: {
-    fontFamily: 'Poppins-Regular',
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.42)',
-    marginTop: 2,
-    textAlign: 'center',
-  },
+  phaseRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  phaseCell: { alignItems: 'center', gap: spacing.xs },
+  phaseLabel: { fontFamily: fonts.medium, fontSize: fontScale.tagline, color: colors.textOnDark.secondary },
 });

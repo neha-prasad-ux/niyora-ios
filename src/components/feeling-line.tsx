@@ -1,9 +1,10 @@
-// The Moon home's ask: a first-person feeling named in her own words, drifting
+// The Moon home's ask: the moon gently guesses a feeling as a question, drifting
 // soft -> intense through ONE emotion so a mild day and a flooding one both see
 // themselves. One emotion is picked per open (three rungs); each rung is held
-// ~2s with a soft fade while the frame ("I feel ___") stays put, so only the
-// word breathes. A settled word would read as a claim about her; the drift keeps
-// it an offering. Reduce motion holds the first rung. Copy locked 2026-07-31.
+// ~2s with a soft fade while the frame ("Feeling ___?") stays put, so only the
+// word breathes. A question, not a claim about her ("I feel ___"), so it reads as
+// the moon checking in rather than telling her. Reduce motion holds the first
+// rung. Copy: Neha 2026-08-01 (question form over the first-person statement).
 
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
@@ -78,10 +79,10 @@ export function FeelingLine() {
     <View
       style={styles.row}
       accessibilityRole="text"
-      accessibilityLabel={`I feel ${word}. What do I do?`}
+      accessibilityLabel={`Feeling ${word}? What do I do?`}
     >
-      <Text style={styles.lead}>I feel </Text>
-      <Animated.Text style={[styles.word, wordStyle]}>{word}</Animated.Text>
+      <Text style={styles.lead}>Feeling </Text>
+      <Animated.Text style={[styles.word, wordStyle]}>{word}?</Animated.Text>
     </View>
   );
 }

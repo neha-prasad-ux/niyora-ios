@@ -72,6 +72,7 @@ import {
   DEFAULT_PERIOD_LENGTH,
   type PmsPrefs,
 } from '@/store/pms-prefs';
+import { todayYmd } from '@/store/pms-readiness';
 import { isInPmsWindow, daysUntilPmsWindow } from '@/lib/pms-window';
 import {
   ensureNotificationPermission,
@@ -396,10 +397,21 @@ export default function MySoulScreen() {
               <SectionEyebrow title="Your badges" />
               <DrawingsCard earned={rewardCount} />
 
+              {/* Eyebrow above the card, matching "Your badges"/"Your growth". */}
+              <SectionEyebrow title="You & Niyora" />
               <EffortImpactCard
                 series={cycleSeriesLive}
                 impacts={cycleImpacts}
                 muted={mutedDomains}
+                // Always-available way into the cycle reflection (#1); anchors to
+                // the current cycle when she has one, else today, so it works
+                // before any period is logged. Button lives inside the card.
+                onReflect={() =>
+                  router.push({
+                    pathname: '/reflect',
+                    params: { anchor: pmsPrefs.lastPeriodStart ?? todayYmd() },
+                  })
+                }
               />
 
               <SectionEyebrow title="Your growth" />
@@ -802,10 +814,21 @@ function ScoreboardCard({
   const name = material.charAt(0).toUpperCase() + material.slice(1);
   return (
     <View style={styles.scoreboard}>
-      <Text style={styles.scoreLevel}>
-        You&apos;re on <Text style={{ color: accent }}>{name}</Text>
-      </Text>
-      <Text style={styles.scoreSub}>Level {level} of {MATERIAL_ORDER.length}</Text>
+      {/* Tap the material to read how the moon grows (materials, rings, phases). */}
+      <Pressable
+        onPress={() => router.push({ pathname: '/moon-probe', params: { current: material } })}
+        style={({ pressed }) => [styles.scoreTap, pressed && { opacity: 0.6 }]}
+        accessibilityRole="button"
+        accessibilityLabel={`You're on ${name}. See how your moon grows.`}
+      >
+        <View style={styles.scoreLevelRow}>
+          <Text style={styles.scoreLevel}>
+            You&apos;re on <Text style={{ color: accent }}>{name}</Text>
+          </Text>
+          <SymbolView name="chevron.right" tintColor={accent} size={15} weight="semibold" />
+        </View>
+        <Text style={styles.scoreSub}>Level {level} of {MATERIAL_ORDER.length} · tap to see the stages</Text>
+      </Pressable>
       <View style={styles.statsRow}>
         <GlassCardBg radius={radius.control} />
         <StatCell n={noticed} t="Noticed" />
@@ -1003,12 +1026,24 @@ function EffortImpactCard({
   series,
   impacts,
   muted,
+  onReflect,
 }: {
   series: CyclePoint[];
   impacts: CycleImpactEntry[];
   muted: ImpactDomain[];
+  onReflect: () => void;
 }) {
   const [width, setWidth] = useState(0);
+  const reflectBtn = (
+    <Pressable
+      onPress={onReflect}
+      style={[styles.ghostBtn, styles.reflectBtn]}
+      accessibilityRole="button"
+      accessibilityLabel="Reflect on this cycle"
+    >
+      <Text style={styles.ghostBtnLabel}>Reflect on this cycle</Text>
+    </Pressable>
+  );
   const visibleDomains = IMPACT_DOMAINS.filter((d) => !muted.includes(d));
   const [selected, setSelected] = useState<ImpactDomain>(visibleDomains[0] ?? 'work');
 
@@ -1025,6 +1060,7 @@ function EffortImpactCard({
           actionLabel="Take today's moment"
           onAction={() => router.navigate('/now' as Href)}
         />
+        {reflectBtn}
       </View>
     );
   }
@@ -1096,6 +1132,7 @@ function EffortImpactCard({
           </View>
         )}
       </View>
+      {reflectBtn}
     </View>
   );
 }
@@ -1582,6 +1619,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.xs,
   },
+  scoreTap: { alignSelf: 'flex-start' },
+  scoreLevelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   scoreLevel: {
     fontSize: fontScale.title,
     fontFamily: fonts.semibold,
@@ -1788,6 +1827,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.3,
   },
+  reflectBtn: { alignSelf: 'center', marginTop: spacing.md },
   // Glass card: transparent container (the frost + tint + sheen come from the
   // <GlassCardBg /> dropped in as each card's first child, over the cosmic
   // background) with a bright edge and a brighter top border for the glass rim.

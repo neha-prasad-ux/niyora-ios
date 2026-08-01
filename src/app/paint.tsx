@@ -4,14 +4,15 @@
 // real illustrations feed in as SVGs. No countdown here (Neha, 2026-07-29): a
 // ticking clock over a make-something-nice task reads as pressure, not calm.
 
-import { useRef } from 'react';
-import { KeyboardAvoidingView, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 
 import { ColorFill, type ColorFillHandle } from '@/components/moment/color-fill';
+import { DRAWINGS } from '@/components/moment/art';
 import { markActivityDone } from '@/lib/hold-activities';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/fonts';
@@ -22,6 +23,10 @@ const INK = colors.paper.ink;
 
 export default function PaintScreen() {
   const card = useRef<ColorFillHandle>(null);
+  // Which outline she is colouring. Switching remounts ColorFill (via key), so a
+  // fresh drawing starts clean with its own caption.
+  const [drawingIdx, setDrawingIdx] = useState(0);
+  const choice = DRAWINGS[drawingIdx];
   const leave = () => {
     Haptics.selectionAsync().catch(() => {});
     router.back();
@@ -61,8 +66,31 @@ export default function PaintScreen() {
               </Pressable>
             </View>
           </View>
+          {/* Pick which outline to colour. Switching remounts the card, so it
+              starts fresh — the drawings Neha asked for beyond the penguin. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.pickerScroll}
+            contentContainerStyle={styles.picker}
+          >
+            {DRAWINGS.map((d, i) => (
+              <Pressable
+                key={d.id}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  setDrawingIdx(i);
+                }}
+                style={[styles.pick, i === drawingIdx && styles.pickOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: i === drawingIdx }}
+              >
+                <Text style={[styles.pickText, i === drawingIdx && styles.pickTextOn]}>{d.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
           <View style={styles.center}>
-            <ColorFill ref={card} />
+            <ColorFill key={choice.id} ref={card} drawing={choice.art} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -106,4 +134,24 @@ const styles = StyleSheet.create({
   // Top-aligned so the drawing starts right under the title, not floating in the
   // middle of the screen.
   center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: spacing.sm },
+  // The drawing picker: a compact scrollable row of small chips under the header.
+  // flexGrow:0 keeps the row content-height; alignItems:center stops the chips
+  // stretching to fill the scroll view (which made them tall columns).
+  pickerScroll: { flexGrow: 0 },
+  picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xs,
+  },
+  pick: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: 14,
+    backgroundColor: colors.paper.control,
+  },
+  pickOn: { backgroundColor: '#7C5CBF' },
+  pickText: { fontFamily: fonts.semibold, fontSize: fontScale.body, color: INK },
+  pickTextOn: { color: '#FFFFFF' },
 });

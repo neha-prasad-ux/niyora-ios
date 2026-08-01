@@ -3,10 +3,10 @@
 // onboarding's first-period step, so the calendar looks identical everywhere.
 // The parent decides which days glow (moonDays) and what a tap means.
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import DateTimePicker, { useDefaultStyles } from 'react-native-ui-datepicker';
-import type { CalendarDay } from 'react-native-ui-datepicker';
+import type { CalendarDay, DateType } from 'react-native-ui-datepicker';
 
 import { colors } from '@/theme/colors';
 import { fontScale } from '@/theme/typography';
@@ -45,6 +45,16 @@ export function PeriodCalendar({
   maxDate?: Date;
 }) {
   const base = useDefaultStyles('dark');
+
+  // The library resets its visible month whenever onChange changes identity (an
+  // internal effect refires and snaps currentDate back to today). Keep onChange
+  // stable via a ref so editing length/cycle or adding a period never yanks the
+  // calendar off the month she navigated to.
+  const onDayPressRef = useRef(onDayPress);
+  onDayPressRef.current = onDayPress;
+  const handleChange = useCallback(({ date: d }: { date: DateType }) => {
+    if (d) onDayPressRef.current(new Date(d as string | number | Date));
+  }, []);
 
   // A period can only be in the past, so cap selection at today. Defaulted here
   // (not just per-caller) so every calendar blocks the future the same way.
@@ -95,9 +105,7 @@ export function PeriodCalendar({
       mode="single"
       maxDate={cappedMax}
       components={components}
-      onChange={({ date: d }) => {
-        if (d) onDayPress(new Date(d as string | number | Date));
-      }}
+      onChange={handleChange}
       styles={pickerStyles}
     />
   );

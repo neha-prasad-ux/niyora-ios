@@ -18,6 +18,47 @@
 // labels; a feeling with no entry falls back to DEFAULT_PLAN (cards).
 
 import type { TemplatePart } from '@/components/moment/fill-in-assemble';
+import type { Act } from '@/v3/moment-copy';
+
+// Grounded fill-in for the option labels (Neha 2026-08-01, "grounded fill-in
+// only"). The person in a label is lifted VERBATIM from her own text — a relation
+// she named, or the pronoun she used — never one she didn't. So a label can never
+// introduce a "husband" she never mentioned: it is correct by construction, the
+// same principle as the echo carve. No person found → the authored label stands.
+// Mechanical on purpose: no model runs, so there is nothing to ground-check.
+const RELATION =
+  /\bmy (husband|wife|partner|boyfriend|girlfriend|fianc[ée]e?|fiance|bf|gf|sister|brother|mum|mom|mother|dad|father|boss|manager|friend|colleague|son|daughter|roommate|ex)\b/i;
+
+/** The person she is talking about, in her own words, or null. Relation first
+ *  (most grounded), then the pronoun she used. */
+export function personRef(herText: string): string | null {
+  const m = RELATION.exec(herText);
+  if (m) return `your ${m[1].toLowerCase()}`;
+  if (/\b(he|him|his)\b/i.test(herText)) return 'him';
+  if (/\b(she|her|hers)\b/i.test(herText)) return 'her';
+  if (/\b(they|them|their)\b/i.test(herText)) return 'them';
+  return null;
+}
+
+// Label templates for the acts that address a person. {person} is filled from
+// personRef; acts with no person (prep/self) are absent here and keep their
+// authored label. Keyed by Act.id. [DRAFT] voice.
+const PERSONALISED: Record<string, (p: string) => string> = {
+  A: (p) => `Tell ${p} how you feel`, // Say it to them
+  B: (p) => `Ask ${p} for what you need`, // Ask for the thing
+  C: (p) => `Hold your line with ${p}`, // Hold a line
+  D: (p) => `Own your part with ${p}`, // Own my part
+};
+
+/** The label to show for an act: her person filled in where the act addresses
+ *  one, else the authored label. The act's identity and safety flags are
+ *  untouched — this is display only. */
+export function personalisedLabel(a: Act, herText: string): string {
+  const make = PERSONALISED[a.id];
+  if (!make) return a.label;
+  const p = personRef(herText);
+  return p ? make(p) : a.label;
+}
 
 export type Composer = 'cards' | 'fill';
 export type OptionPlan = { science: string; composer: Composer; template?: TemplatePart[] };

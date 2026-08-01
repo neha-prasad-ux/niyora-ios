@@ -52,7 +52,7 @@ import * as Haptics from 'expo-haptics';
 
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 
-import { PENGUIN } from '@/components/moment/art/penguin';
+import { DEFAULT_DRAWING, type Drawing } from '@/components/moment/art';
 import { fontScale } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
 
@@ -254,7 +254,14 @@ export type ColorFillHandle = {
   share: () => Promise<void>;
 };
 
-export const ColorFill = forwardRef<ColorFillHandle>(function ColorFill(_props, ref) {
+export type ColorFillProps = {
+  /** Which outline she is colouring. Defaults to the penguin. Change it by
+   *  remounting (key), so strokes and caption reset cleanly for the new drawing. */
+  drawing?: Drawing;
+};
+
+export const ColorFill = forwardRef<ColorFillHandle, ColorFillProps>(function ColorFill(props, ref) {
+  const drawing = props.drawing ?? DEFAULT_DRAWING;
   const { width } = useWindowDimensions();
   // The whole Polaroid card is `w` wide × `cardH` tall; the photo (the drawing)
   // is inset by PAD on three sides with the caption BAND below it.
@@ -273,28 +280,27 @@ export const ColorFill = forwardRef<ColorFillHandle>(function ColorFill(_props, 
   // is only drawn during the capture (see `capturing`), so it never doubles with
   // the editable field on screen.
   const skFont = useFont(require('../../../assets/fonts/PatrickHand-Regular.ttf'), 30);
-  // Filled, not stroked: the penguin is the black ink of the drawing, so it is
-  // drawn as a fill on top of her colour. Its fill type MUST be evenOdd or the
-  // holes (eyes, gaps) flood solid.
-  const penguin = useMemo(() => {
-    const p = Skia.Path.MakeFromSVGString(PENGUIN.d);
+  // Filled, not stroked: the drawing is the black ink, drawn as a fill on top of
+  // her colour. Its fill type MUST be evenOdd or the holes (eyes, gaps) flood.
+  const ink = useMemo(() => {
+    const p = Skia.Path.MakeFromSVGString(drawing.d);
     p?.setFillType(FillType.EvenOdd);
     return p;
-  }, []);
+  }, [drawing]);
 
-  // One penguin, centred and scaled to fit the photo with a margin. In photo-
+  // The drawing, centred and scaled to fit the photo with a margin. In photo-
   // local coordinates (0..photoW, 0..photoH); the whole photo group is shifted
   // by PAD.
   const placements = useMemo(() => {
-    const s = Math.min((photoW * 0.86) / PENGUIN.vbW, (photoH * 0.86) / PENGUIN.vbH);
-    return [{ s, tx: photoW * 0.5 - PENGUIN.cx * s, ty: photoH * 0.5 - PENGUIN.cy * s }];
-  }, [photoW, photoH]);
+    const s = Math.min((photoW * 0.86) / drawing.vbW, (photoH * 0.86) / drawing.vbH);
+    return [{ s, tx: photoW * 0.5 - drawing.cx * s, ty: photoH * 0.5 - drawing.cy * s }];
+  }, [photoW, photoH, drawing]);
 
   const [sel, setSel] = useState(0);
   const [erasing, setErasing] = useState(false);
   const [sizeIdx, setSizeIdx] = useState(1);
   // The caption starts as this diagram's preset line and she can rewrite it.
-  const [caption, setCaption] = useState<string>(PENGUIN.message);
+  const [caption, setCaption] = useState<string>(drawing.message);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   // Lifted strokes, so undo has somewhere to go and redo can put them back. A
   // new stroke clears it (you cannot redo past a fresh mark).
@@ -455,13 +461,13 @@ export const ColorFill = forwardRef<ColorFillHandle>(function ColorFill(_props, 
                       width={widthFor(erasing, sizeIdx)}
                     />
                   )}
-                  {/* The penguin guide, FILLED (it is the ink), drawn on top so
+                  {/* The drawing guide, FILLED (it is the ink), drawn on top so
                       her colour shows through the white gaps and the lines can
                       never be rubbed away. */}
-                  {penguin &&
+                  {ink &&
                     placements.map((p, i) => (
                       <Group key={i} transform={[{ translateX: p.tx }, { translateY: p.ty }, { scale: p.s }]}>
-                        <Path path={penguin} color={OUTLINE} style="fill" />
+                        <Path path={ink} color={OUTLINE} style="fill" />
                       </Group>
                     ))}
                 </Group>

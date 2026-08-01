@@ -24,6 +24,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Animated, {
+  Easing,
   FadeInUp,
   useAnimatedStyle,
   useReducedMotion,
@@ -33,6 +34,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { colors } from '@/theme/colors';
@@ -42,6 +44,12 @@ import { radius, spacing } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
+
+// The option/skeleton rows sit over the moon glowing through the frosted card,
+// so a light panel (v3.panel, ~5% white) leaves white text unreadable where the
+// glow is bright. A DARK well keeps every row legible regardless of what is
+// behind it — the same value as the moment composer field.
+const PANEL_DARK = 'rgba(10,8,16,0.55)';
 
 // One option-motion language (motion-design rules, neha-prasad.com):
 //   · options are ACTIONS, so they RISE into place (Y-axis: bottom is action),
@@ -240,16 +248,40 @@ function Dot({ index }: { index: number }) {
  */
 export function SkeletonRows({ count = 3 }: { count?: number }) {
   const reduce = useReducedMotion();
-  const v = useSharedValue(0.5);
+  // A gloss band that sweeps left→right across every row on a loop — the "still
+  // loading" motion. `x` runs 0→1 forever; the band (60% of the row wide) is
+  // translated from just off the left edge to just off the right, so the wrap is
+  // never visible. Row width is measured once so the travel matches any phone.
+  const [w, setW] = useState(0);
+  const x = useSharedValue(0);
   useEffect(() => {
     if (reduce) return;
-    v.value = withRepeat(withTiming(1, { duration: 820 }), -1, true);
-  }, [reduce, v]);
-  const style = useAnimatedStyle(() => ({ opacity: reduce ? 0.5 : v.value }));
+    x.value = withRepeat(withTiming(1, { duration: 1150, easing: Easing.inOut(Easing.ease) }), -1, false);
+  }, [reduce, x]);
+  const shine = useAnimatedStyle(() => ({
+    // -w (fully left of the row) → +w (fully right of it).
+    transform: [{ translateX: -w + x.value * (2 * w) }],
+  }));
   return (
-    <View style={styles.skelStack} accessibilityRole="progressbar" accessibilityLabel="Thinking">
+    <View
+      style={styles.skelStack}
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      accessibilityRole="progressbar"
+      accessibilityLabel="Thinking"
+    >
       {Array.from({ length: count }, (_, i) => (
-        <Animated.View key={i} style={[styles.skelRow, style]} />
+        <View key={i} style={styles.skelRow}>
+          {!reduce && w > 0 && (
+            <Animated.View style={[styles.skelShine, { width: w * 0.6 }, shine]} pointerEvents="none">
+              <LinearGradient
+                colors={['transparent', 'rgba(255,255,255,0.11)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </Animated.View>
+          )}
+        </View>
       ))}
     </View>
   );
@@ -346,7 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    backgroundColor: PANEL_DARK,
   },
   rowOn: { backgroundColor: colors.selectedFill, borderColor: colors.beginBorder },
   rowOff: { opacity: 0.45 },
@@ -425,8 +457,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    backgroundColor: PANEL_DARK,
+    overflow: 'hidden',
   },
+  // The sweeping gloss band, clipped to the row by its overflow:hidden.
+  skelShine: { position: 'absolute', top: 0, bottom: 0, left: 0 },
   thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   dots: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.textSubtitle },
@@ -448,7 +483,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    backgroundColor: PANEL_DARK,
   },
   numberOn: { backgroundColor: colors.selectedFill, borderColor: colors.beginBorder },
   numberText: {
