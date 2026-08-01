@@ -1,7 +1,7 @@
 // The echo is the one beat that promises to use only her own words, so the
 // promise gets tests. This module shipped with none.
 
-import { echoBlocked, groundedReflection, isGrounded } from './ground-floor';
+import { echoBlocked, groundedReflection, isGrounded, isRephrase } from './ground-floor';
 
 describe('the echo says her words back, correctly', () => {
   // The failure a wireframe of this flow accidentally demonstrated: flipping
@@ -18,9 +18,43 @@ describe('the echo says her words back, correctly', () => {
     expect(r.text).toContain('he ignored you');
   });
 
+  // The screenshot bug: her entry front-loaded praise of him and put the wound
+  // ("I feel guilty...") last. The old first-clause carve reflected the praise.
+  it('reflects the clause that carries the wound, not the preamble', () => {
+    const r = groundedReflection(
+      'he likes building products and reading about tech. I end up feeling guilty when I do things I like.',
+    );
+    expect(r.text).toContain('guilty');
+    expect(r.text).not.toMatch(/building products/i);
+  });
+
   it('declines rather than guessing when there is nothing to carve', () => {
     expect(groundedReflection('ugh').text).toBeNull();
     expect(groundedReflection('').text).toBeNull();
+  });
+
+  // "I never want to see this as a rephrase" (Neha). A long paste played back
+  // almost whole is a parrot, not a reflection — decline it, both paths.
+  it('never plays a long sentence back near-verbatim', () => {
+    const paste =
+      'I feel he has lots of discipline, he likes building products, reading content about business, computer, software and technology';
+    const r = groundedReflection(paste);
+    expect(r.text).toBeNull();
+    expect(r.reason).toBe('rephrase');
+    expect(isRephrase(paste, `So, ${paste.replace(/\bI\b/g, 'you')}.`)).toBe(true);
+  });
+
+  it('still reflects a short event in full, which is not a parrot', () => {
+    expect(isRephrase('I was interrupted again in a meeting', 'So, you were interrupted again in a meeting.')).toBe(false);
+    expect(groundedReflection('I was interrupted again in a meeting.').text).toBe(
+      'So, you were interrupted again in a meeting.',
+    );
+  });
+
+  it('does not flag a genuine short gist of a long entry as a rephrase', () => {
+    const long =
+      'he barely looked up from his laptop the whole evening and when I tried to talk he just nodded without hearing a word';
+    expect(isRephrase(long, 'so that felt like being invisible in your own home')).toBe(false);
   });
 });
 

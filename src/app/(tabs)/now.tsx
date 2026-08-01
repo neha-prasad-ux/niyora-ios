@@ -63,7 +63,7 @@ import {
   latestStart,
   setPeriodHistory,
 } from '@/store/period-history';
-import { getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
+import { DEFAULT_PERIOD_LENGTH, getPmsPrefs, setPmsPrefs, type PmsPrefs } from '@/store/pms-prefs';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { todayYmd } from '@/store/pms-readiness';
 import { getRemissionLog, type RemissionEntry } from '@/store/remission-log';
@@ -327,6 +327,16 @@ export default function NowScreen() {
       .catch(() => {});
   };
 
+  const onPeriodLengthChange = (length: number) => {
+    if (snapshot == null) return;
+    setPmsPrefs({ ...snapshot.prefs, periodLength: length }).then(reload).catch(() => {});
+  };
+
+  const onCycleLengthChange = (length: number) => {
+    if (snapshot == null) return;
+    setPmsPrefs({ ...snapshot.prefs, cycleLength: length }).then(reload).catch(() => {});
+  };
+
   return (
     <View style={styles.root}>
       <CosmicBackground />
@@ -504,8 +514,11 @@ export default function NowScreen() {
         onClose={() => setPeriodSheetVisible(false)}
         onConfirm={onPeriodConfirm}
         onRemove={onPeriodRemove}
+        onPeriodLengthChange={onPeriodLengthChange}
+        onCycleLengthChange={onCycleLengthChange}
         markedDates={snapshot?.periodHistory ?? []}
         cycleLength={snapshot?.prefs.cycleLength}
+        periodLength={snapshot?.prefs.periodLength ?? DEFAULT_PERIOD_LENGTH}
       />
 
       {/* The unified crossing moment: a bloom on the moon with a plain line, for

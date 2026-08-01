@@ -24,11 +24,11 @@ import {
   InputAccessoryView,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   Image,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -38,7 +38,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { resetActivities, useActivitiesDone } from '@/lib/hold-activities';
+import {
+  getActivitiesDone,
+  markActivityDone,
+  resetActivities,
+  subscribeActivities,
+  useActivitiesDone,
+} from '@/lib/hold-activities';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
@@ -56,11 +62,14 @@ import Animated, {
 
 import { CosmicBackground } from '@/components/cosmic-background';
 import { CelebrationParticles } from '@/components/CelebrationParticles';
+import { RingCelebration } from '@/components/RingCelebration';
 import { BackButton } from '@/components/BackButton';
 import { BeginButton } from '@/components/begin-button';
 import { Checklist } from '@/components/checklist';
 import { CloseButton } from '@/components/CloseButton';
-import { GlassSurface } from '@/components/glass-surface';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { glass } from '@/theme/glass';
 import {
   PhaseProgress,
   PHASE_STEPS,
@@ -70,19 +79,21 @@ import {
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, SkeletonRows, ThinkingDots, WhyLine } from '@/components/moment/controls';
-import { Chip, FillInTemplate, assemble } from '@/components/moment/fill-in';
+import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
-import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
+import { CRISIS_COPY, openCrisisLine, scanForAbuse, DV_RESOURCE, openDvLine } from '@/lib/crisis-scan';
 import {
   analyse,
   FEELING_SET,
   laneFor,
+  namedFeeling,
   offerFeelings,
+  pinFeeling,
   type Verdict,
 } from '@/v3/moment-analyse';
 import { echo, pick, composeReadings, draftAct, revise, hasConcreteEvent } from '@/v3/moment-ai';
-import { optionPlanFor } from '@/v3/option-plan';
+import { optionPlanFor, personalisedLabel } from '@/v3/option-plan';
 import { getMomentProvider } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
@@ -158,6 +169,20 @@ const CONFLICT_CUES =
 // these. Short, so the lift is felt without cheering over her.
 const STEP_PRAISE = ['Good.', 'Nice.', 'Well done.', 'That is the work.', 'Great job.'];
 
+// C5: the two fast body resets, now guided in-place steps (not a flash of snack
+// that vanishes). Each ends on Done, marks itself finished like the other
+// settling items, and earns the same shine + praise. [DRAFT] copy — Neha's pass.
+const MICRO: Record<'cold' | 'shoulders', { title: string; steps: string[] }> = {
+  cold: {
+    title: 'Cold water',
+    steps: ['Run cold water over your wrists.', 'Or splash your face.', 'Give it about 30 seconds.'],
+  },
+  shoulders: {
+    title: 'Relax your shoulders',
+    steps: ['Drop your shoulders down.', 'Unclench your jaw.', 'Take three slow breaths.'],
+  },
+};
+
 const EDIT_MOVES = [
   { label: 'Shorter', note: 'make it shorter' },
   { label: 'Longer', note: 'make it a little longer' },
@@ -193,6 +218,11 @@ export default function Moment() {
    *  actually looking at does. */
   const [history, setHistory] = useState<NodeId[]>([]);
   const [crisis, setCrisis] = useState(false);
+  // Physical-abuse disclosure detected (scanForAbuse). Does not stop the flow:
+  // it de-fangs the respond menu (no acts aimed at the person) and shows a quiet
+  // resource. Once set in a session it stays, so a later beat can't re-offer a
+  // confront option. Never auto-reset.
+  const [dvDetected, setDvDetected] = useState(false);
   // Resume: launched with ?resume=1 from Home's "Continue where you left off",
   // she picks up the saved checkpoint. `hydrating` holds the first render blank
   // until it loads, so the entry card never flashes before the saved beat lands.
@@ -227,15 +257,21 @@ export default function Moment() {
   const [echoResolving, setEchoResolving] = useState(false);
   /** Model orderings/readings per beat. Each defaults to null → the deterministic
    *  authored value, so nothing here can leave a beat empty. */
-  const [feelingOrder, setFeelingOrder] = useState<string[] | null>(null);
   const [reframeReadings, setReframeReadings] = useState<string[] | null>(null);
+  /** The FULL ranked act pool from the model (null → authored order). The menu
+   *  shows one-per-rung from this; `showAllActs` expands it to the rest when she
+   *  taps "Show me other options". */
   const [actOrder, setActOrder] = useState<Act[] | null>(null);
+  const [showAllActs, setShowAllActs] = useState(false);
   // M3: while the model is ranking/writing, show a skeleton instead of the
   // authored fallback. The fallback still shows if the call settles with nothing
   // (a real failure), so a skeleton never sticks. AI off = no wait, no skeleton.
-  const [feelingsLoading, setFeelingsLoading] = useState(false);
   const [reframeLoading, setReframeLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
+  // The model's ranking of the feeling set (null → the deterministic offerFeelings
+  // order). The AI orders the list; it never asserts one as the answer.
+  const [feelingOrder, setFeelingOrder] = useState<string[] | null>(null);
+  const [feelingsLoading, setFeelingsLoading] = useState(false);
   /** The reading she chose at the reframe, before we ask whether it helped. */
   const [reframePick, setReframePick] = useState<string | null>(null);
   /** Index into BREATH_SCRIPT. The guided breath walks it while she is on the
@@ -276,14 +312,14 @@ export default function Moment() {
   const [actDraft, setActDraft] = useState('');
   const [actDraftLoading, setActDraftLoading] = useState(false);
   const [revising, setRevising] = useState(false);
-  // The fill-in composer's blanks at the respond step (relational feelings). Her
-  // words, so the draft is seeded from these rather than drafted by the model.
-  const [fillValues, setFillValues] = useState<Record<string, string>>({});
   /** The close celebration's two stages: the wrapped gift, then the scratch
    *  card. `giftOpened` reveals the card; `revealed` is set once she has
    *  scratched enough, which surfaces the "saved to your Soul" line and Done. */
   const [giftOpened, setGiftOpened] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  /** The in-place guided card for a fast body reset (cold water / shoulders),
+   *  opened from the settling menu; null when the menu list is showing. */
+  const [microStep, setMicroStep] = useState<'cold' | 'shoulders' | null>(null);
   /** A brief bottom toast ("Added to today"), floated over the flow. */
   const [snack, setSnack] = useState<string | null>(null);
   useEffect(() => {
@@ -322,6 +358,9 @@ export default function Moment() {
    *  at raw_entry, read at the clarify decision. null = pending/unknown (never
    *  over-clarifies); false = only a mood, so ask for context. */
   const eventCheck = useRef<boolean | null>(null);
+  /** The in-flight concrete-event check, so the rating step can await it rather
+   *  than reading a still-pending null and waving a vague entry through. */
+  const eventCheckPromise = useRef<Promise<boolean | null> | null>(null);
   // C3: counts forward steps, to rotate the per-step praise line.
   const stepN = useRef(0);
   // M9-14 reward: the gift-scratch drawings are awarded one by one IN ORDER. The
@@ -353,7 +392,9 @@ export default function Moment() {
   // The moon's reply on the echo beat: her words carved and person-flipped when
   // the read was clear, an authored line otherwise. Derived here so the stream
   // effect and the render share one source.
-  const carveEcho = verdict?.kind === 'clear' ? verdict.echo : COPY.together;
+  // A clear verdict with an empty echo is the `rephrase` case: she said plenty,
+  // there is no carve, so the authored line stands unless the model earns one.
+  const carveEcho = (verdict?.kind === 'clear' && verdict.echo) || COPY.together;
   const echoText = modelEcho ?? carveEcho;
   const echoAi = echoText !== COPY.together;
 
@@ -392,6 +433,26 @@ export default function Moment() {
       setReadyLow(false);
       return;
     }
+    // In-place second screens on the settling menu: a micro reset (cold water /
+    // shoulders), the body-prep checklist (either entry point), or the reminder
+    // chooser. Back closes the sub-screen and stays on the beat — without these
+    // guards it fell through and popped a whole beat too, jumping two screens.
+    if (microStep) {
+      setMicroStep(null);
+      return;
+    }
+    if (bodyPrepOpen) {
+      setBodyPrepOpen(false);
+      return;
+    }
+    if (bodyPrepInList) {
+      setBodyPrepInList(false);
+      return;
+    }
+    if (reminderOpen) {
+      setReminderOpen(false);
+      return;
+    }
     // The celebration's stages are second screens on the close beat: back
     // unwinds the scratch card to the gift before leaving the beat.
     if (current === 'close' && giftOpened) {
@@ -428,19 +489,21 @@ export default function Moment() {
     const prev = history[history.length - 1];
     setHistory(history.slice(0, -1));
     // Sub-state that belongs to a particular beat, cleared so returning to an
-    // earlier one never shows a stale pick or a half-open field. The model
-    // orderings clear too, so re-entering a beat re-asks rather than reusing a
-    // ranking made against different text.
+    // earlier one never shows a stale pick or a half-open field.
     setReframePick(null);
     setReframeReadings(null);
     setClarifyMoreContext(false);
     setBodyPrepOpen(false);
     setBodyPrepInList(false);
+    setMicroStep(null);
     setReminderOpen(false);
-    setActOrder(null);
+    // NOT actOrder: the ranked options are kept, so stepping back to the menu
+    // shows the SAME three in the same order, not a fresh model shuffle. It is
+    // reset only when the feeling it is ranked on actually changes (chooseFeeling).
+    // The expand DOES collapse, so the menu returns to its three.
+    setShowAllActs(false);
     setActDrafting(false);
     setActDraft('');
-    setFillValues({});
     setOtherOpen(false);
     setDraft('');
     setCurrent(prev);
@@ -477,6 +540,9 @@ export default function Moment() {
       .then((cp) => {
         if (!alive || !cp) return;
         herText.current = cp.herText;
+        // Re-derive the abuse flag from her saved text, so resuming into the
+        // respond step never loses the suppression (the flag itself isn't stored).
+        if (scanForAbuse(cp.herText)) setDvDetected(true);
         chosenFeeling.current = cp.chosenFeeling;
         baseline.current = cp.baseline;
         setVerdict(cp.verdict);
@@ -521,13 +587,13 @@ export default function Moment() {
     }).catch(() => {});
   }, [current, history, crisis, verdict, chosenAct, skippedHold, readyLow, hydrating]);
 
-  /** Whether the "now" tap should open a draft rather than act straight away.
-   *  Only where there are words to help with: a message to send, or a direct or
-   *  preparatory move she has to say or do. A pure self-soothing act gets no
-   *  draft, and neither does anything when the provider is off. */
+  /** Whether picking this act opens a personalised "what to do" draft. EVERY act
+   *  now gets one when the model is on (Neha 2026-08-01: every option should
+   *  explain what to do, including a self / let-it-go move). With no provider,
+   *  only a message act opens the (blank) draft to share; the rest have nothing to
+   *  compose and go straight on. */
   const wantsDraft = useCallback(
-    (a: Act | null) =>
-      aiOn && a != null && (a.channel === 'message' || a.rung === 'direct' || a.rung === 'prep'),
+    (a: Act | null) => a != null && (aiOn || a.channel === 'message'),
     [aiOn],
   );
 
@@ -538,21 +604,13 @@ export default function Moment() {
       setActDrafting(true);
       setActDraft('');
       setActDraftLoading(true);
-      draftAct(provider, herText.current.trim(), chosenFeeling.current, a.label, pmsActive.current ? CYCLE_NOTE : undefined)
+      draftAct(provider, herText.current.trim(), chosenFeeling.current, personalisedLabel(a, herText.current), pmsActive.current ? CYCLE_NOTE : undefined)
         .then((t) => setActDraft(t ?? ''))
         .catch(() => {})
         .finally(() => setActDraftLoading(false));
     },
     [provider],
   );
-
-  /** Open the draft view seeded with text she composed herself (the fill-in
-   *  template), skipping the model draft: these are already her words. */
-  const openActDraftWith = useCallback((text: string) => {
-    setActDrafting(true);
-    setActDraft(text);
-    setActDraftLoading(false);
-  }, []);
 
   /** Edit with Moon: hand the current draft and a tapped instruction (shorter,
    *  softer...) back for a rewrite. */
@@ -579,16 +637,17 @@ export default function Moment() {
 
   // M18/M25: picking a response goes straight into doing it, no Now/Later/Try-
   // another page in between (you cannot judge now-vs-later before you see the
-  // task). A draft act opens the editor; a self act goes straight to the if-then.
+  // task). It opens the personalised "what to do" editor; only a no-provider
+  // act with nothing to compose skips to the closing rating.
   const beginAct = (a: Act | null) => {
     if (!a) return;
     if (wantsDraft(a)) {
       openActDraft(a);
       go('options', 'picks');
     } else {
-      if (a.channel === 'message') Linking.openURL('sms:').catch(() => {});
+      // No provider and nothing to compose: straight to the sendoff.
       setHistory((h) => [...h, 'options']);
-      setCurrent('today_action');
+      setCurrent('sendoff');
     }
   };
 
@@ -624,40 +683,59 @@ export default function Moment() {
       return;
     }
 
+    // Physical-abuse disclosure: does NOT stop the flow (she keeps the reflect/
+    // regulate help), but from here the respond menu drops every act aimed at the
+    // person and a quiet resource is shown. Runs on her raw text, before any model
+    // call. Latches on: once true in a session it never flips back.
+    if (scanForAbuse(text)) setDvDetected(true);
+
     // Her latest event text, kept for the feeling suggestions and the echo
     // correction prefill.
     herText.current = text;
     setVerdict(v);
     setDraft('');
 
-    // From the entry, the rating comes next on its own card. From clarify she
-    // has already rated, so she goes straight on.
+    // She should only say how big it feels once we understand what happened, so
+    // a thin entry clarifies BEFORE the rating (Neha 2026-08-01). A clear entry
+    // rates straight away; the rating stays BEFORE acknowledge, which is the beat
+    // being measured, so the in-to-out delta still means something.
     if (current === 'raw_entry') {
+      setHistory((h) => [...h, 'raw_entry']);
+      if (v.kind !== 'clear') {
+        setClarifyMoreContext(false);
+        setCurrent('clarify');
+        return;
+      }
       // M6: for a clear sentence, ask the model in the background whether it holds
       // a concrete event, while she rates. If it says no, the rating card routes
       // her to clarify for context. Null (pending/off/failed) never clarifies.
+      // SKIP it for the rephrase case (empty echo): she already wrote plenty, so
+      // "no concrete event" must not send her back to "what happened".
       eventCheck.current = null;
-      if (aiOn && v.kind === 'clear') {
-        hasConcreteEvent(provider, text)
-          .then((r) => {
-            eventCheck.current = r;
-          })
-          .catch(() => {});
+      eventCheckPromise.current = null;
+      if (aiOn && v.echo) {
+        const p = hasConcreteEvent(provider, text);
+        eventCheckPromise.current = p;
+        p.then((r) => {
+          eventCheck.current = r;
+        }).catch(() => {});
       }
-      setHistory((h) => [...h, 'raw_entry']);
       setCurrent('intensity_in');
       return;
     }
 
-    // `clarify` only exists for a thin entry, so a clear verdict skips it.
-    // Asking again when she has already named the thing reads as not listening.
+    // From clarify. She has given the context now, so the rating comes next —
+    // unless she has already rated (the M6 path clarifies AFTER rating), in which
+    // case go straight to the echo. Still nothing concrete: ask once more.
     setHistory((h) => [...h, 'clarify']);
-    if (v.kind === 'clear') {
-      startEcho();
-      setCurrent('acknowledge');
-    } else {
+    if (v.kind !== 'clear') {
       setClarifyMoreContext(false);
       setCurrent('clarify');
+    } else if (baseline.current == null) {
+      setCurrent('intensity_in');
+    } else {
+      startEcho();
+      setCurrent('acknowledge');
     }
   }, [current, draft, startEcho, aiOn, provider]);
 
@@ -714,6 +792,31 @@ export default function Moment() {
     opacity: 0.8 + moonBloom.value * 0.2,
   }));
 
+  // The reward beat: the moon behind the card swells and brightens, and a short
+  // line of praise floats up. Fired on every forward step (in `go`) and, via the
+  // listener below, on every settling activity she finishes.
+  const rewardShine = useCallback(
+    (msg: string) => {
+      moonBloom.value = withSequence(withTiming(0.45, { duration: 220 }), withTiming(0, { duration: 720 }));
+      setSnack(msg);
+    },
+    [moonBloom],
+  );
+
+  // C5: reward each completed settling activity, not just beat advances. The
+  // done-set lives outside React (an activity screen marks itself done on its own
+  // route), so we listen to it and shine the instant it grows — "I don't see a
+  // reward for finishing an action" (Neha). Set-state is in the emitted callback,
+  // not the effect body, so it never runs on mount.
+  useEffect(() => {
+    let prev = getActivitiesDone().size;
+    return subscribeActivities(() => {
+      const n = getActivitiesDone().size;
+      if (n > prev) rewardShine('Nicely done.');
+      prev = n;
+    });
+  }, [rewardShine]);
+
   // Walk the guided breath. Each step holds for its own length — a breath in
   // for four, out for six, the intro and the counts shorter — then advances. A
   // light tick lands at the start of every inhale and exhale so she can pace it
@@ -765,8 +868,10 @@ export default function Moment() {
     return () => clearTimeout(id);
   }, [current, echoOk, echoFixing, reduceMotion, streamLen, echoText, echoResolving]);
 
-  // Feelings PICK: once the echo is confirmed and the naming shows, ask the
-  // model to reorder the closed feeling set. Null keeps the deterministic order.
+  // Feelings PICK: the model RANKS the closed feeling set for her text (most
+  // likely first), but it never asserts one as the answer — the screen stays a
+  // neutral "which feeling is strongest?" picker she chooses from (Neha
+  // 2026-08-01). Null keeps the deterministic offerFeelings order.
   useEffect(() => {
     if (!aiOn || !echoOk || current !== 'acknowledge' || feelingOrder) return;
     const her = herText.current.trim();
@@ -775,7 +880,9 @@ export default function Moment() {
     setFeelingsLoading(true);
     pick(provider, 'feelings', her, FEELING_SET, 3, (f) => f.label)
       .then((r) => {
-        if (alive) setFeelingOrder(r.items.map((f) => f.label));
+        // Pin a feeling she named outright back to the top: the model reorder is
+        // free to rank the rest, never to bury the word she actually wrote.
+        if (alive) setFeelingOrder(pinFeeling(namedFeeling(her), r.items.map((f) => f.label)));
       })
       .catch(() => {})
       .finally(() => {
@@ -821,8 +928,12 @@ export default function Moment() {
     if (!aiOn || current !== 'reframe_small' || reframeReadings) return;
     const her = herText.current.trim();
     if (!her) return;
-    const cycle = pmsActive.current ? `\n${CYCLE_NOTE}` : '';
-    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}`;
+    // No CYCLE_NOTE here, on purpose. It steers options and drafts toward
+    // lower-stakes moves, which is fine — but as a REFRAME reading ("this is the
+    // week talking") it becomes a claim she is asked to endorse, and against a
+    // real grievance that reads as "it's just your hormones". The cycle steer
+    // stays on the act beats; the reframe never explains her feeling away.
+    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}`;
     let alive = true;
     setReframeLoading(true);
     composeReadings(provider, user)
@@ -845,18 +956,17 @@ export default function Moment() {
     if (!aiOn || current !== 'options' || actOrder) return;
     const her = herText.current.trim();
     if (!her) return;
-    const pool = offerableActs(false);
+    const pool = offerableActs(dvDetected);
     const cycle = pmsActive.current ? `\n${CYCLE_NOTE}` : '';
     let alive = true;
     setOptionsLoading(true);
     pick(provider, 'options', `${her}\nshe feels: ${chosenFeeling.current}${cycle}`, pool, pool.length, (a) => a.label)
       .then((r) => {
         if (!alive) return;
-        const firstOf = (rung: Act['rung']) => r.items.find((a) => a.rung === rung);
-        const three = [firstOf('direct'), firstOf('prep'), firstOf('self')].filter(
-          (a): a is Act => a != null,
-        );
-        if (three.length === 3) setActOrder(three);
+        // Store the FULL ranked pool; the menu shows one per rung (threeRungs)
+        // and "show other options" reveals the rest. Only accept a ranking that
+        // still yields the one-direct/one-prep/one-self triad, else keep authored.
+        if (threeRungs(r.items).length === 3) setActOrder(r.items);
       })
       .catch(() => {})
       .finally(() => {
@@ -865,7 +975,7 @@ export default function Moment() {
     return () => {
       alive = false;
     };
-  }, [aiOn, current, actOrder, provider]);
+  }, [aiOn, current, actOrder, provider, dvDetected]);
 
   /**
    * The head of every card: her moon beside the phase and the question, on one
@@ -875,7 +985,7 @@ export default function Moment() {
    */
   const head = (
     question: string,
-    opts: { missing?: boolean; tone?: 'ask' | 'said'; ai?: boolean } = {},
+    opts: { missing?: boolean; tone?: 'ask' | 'said'; ai?: boolean; thinking?: boolean } = {},
   ) => {
     // Two registers. A QUESTION is the app asking something and carries the
     // weight of the card. A SAID line is the moon repeating her own sentence,
@@ -903,7 +1013,13 @@ export default function Moment() {
               illum={1}
             />
           </Animated.View>
-          {opts.ai ? (
+          {opts.thinking ? (
+            // The moon is gathering her words: three dots beside it, so the wait
+            // reads as the model working, not a blank card.
+            <View style={styles.askFill}>
+              <ThinkingDots />
+            </View>
+          ) : opts.ai ? (
             <MoonText
               hue={bodyHue(lifetimeLight)}
               containerStyle={styles.askFill}
@@ -923,6 +1039,94 @@ export default function Moment() {
     );
   };
 
+  /**
+   * The chat-style composer used by every typing beat: a rounded dark field with
+   * the controls docked in a bottom bar inside it — an optional mic on the left,
+   * a small circular send arrow on the right (violet when there is text, muted
+   * when empty). This replaces the full-width "Continue" button, which read as a
+   * wall across the card; a corner send icon is the pattern from any chat app and
+   * keeps the field itself the focus. Like `head`, this is CALLED inline (not a
+   * <Component/>), so the TextInput is never torn down between keystrokes.
+   */
+  const entryField = (opts: {
+    placeholder: string;
+    onSend: () => void;
+    withMic?: boolean;
+    a11yLabel?: string;
+  }) => {
+    const canSend = draft.trim().length > 0;
+    return (
+      <View style={styles.composer}>
+        <TextInput
+          style={styles.composerInput}
+          // While dictating, show the live interim words appended to what she has
+          // so far, so text appears AS she speaks (proof the mic is on). On a
+          // final phrase the hook commits it to `draft` and clears the partial.
+          value={
+            opts.withMic && dictation.listening && dictation.partial
+              ? (draft.trim() ? draft.trim() + ' ' : '') + dictation.partial
+              : draft
+          }
+          onChangeText={setDraft}
+          // While the mic is live the field is read-only: dictation owns the
+          // buffer, so a stray keyboard tap can't write the live text back in and
+          // compound it. Tap the mic to stop, then type. (End users will do both.)
+          editable={!(opts.withMic && dictation.listening)}
+          placeholder={opts.placeholder}
+          placeholderTextColor="rgba(255,255,255,0.30)"
+          selectionColor="rgba(196, 178, 255, 0.9)"
+          multiline
+          textAlignVertical="top"
+          autoFocus
+          inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
+          accessibilityLabel={opts.a11yLabel ?? 'What happened'}
+        />
+        <View style={styles.composerBar}>
+          {opts.withMic ? (
+            <Pressable
+              onPress={() => {
+                tap();
+                // Starting to listen: drop the keyboard so she isn't tempted to
+                // type into a field the mic now owns.
+                if (!dictation.listening) Keyboard.dismiss();
+                dictation.toggle();
+              }}
+              hitSlop={8}
+              style={styles.composerMic}
+              accessibilityRole="button"
+              accessibilityLabel={dictation.listening ? 'Stop dictation' : 'Speak instead of typing'}
+            >
+              <SymbolView
+                name={dictation.listening ? 'mic.fill' : 'mic'}
+                size={22}
+                tintColor={dictation.listening ? '#F2A2C0' : 'rgba(255,255,255,0.55)'}
+              />
+            </Pressable>
+          ) : null}
+          <View style={styles.composerSpace} />
+          <Pressable
+            onPress={() => {
+              if (!canSend) return;
+              opts.onSend();
+            }}
+            disabled={!canSend}
+            style={[styles.sendBtn, !canSend && styles.sendBtnOff]}
+            accessibilityRole="button"
+            accessibilityLabel="Send"
+            accessibilityState={{ disabled: !canSend }}
+          >
+            <SymbolView
+              name="arrow.up"
+              size={20}
+              weight="semibold"
+              tintColor={canSend ? '#FFFFFF' : 'rgba(255,255,255,0.4)'}
+            />
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
+
   // CALLED, not rendered as <Beat />. Declaring a component inside the render
   // body makes a NEW component type every render, so React unmounts and
   // remounts the whole subtree on each state change — which with a TextInput
@@ -930,11 +1134,25 @@ export default function Moment() {
   // keyboard. Calling it inlines the JSX with no component boundary.
   const ui = crisis ? Crisis() : hydrating ? { body: null, cta: null } : Beat();
 
+  // A "composer beat" is a typing screen whose chat-style field lives in the
+  // pinned CTA slot (raw_entry / clarify / the acknowledge correction). On these
+  // the scroll GROWS so the composer sticks to the bottom like a chat bar, with
+  // the speaker/question at the top. Every other beat lets the scroll HUG its
+  // content, so the body and its button stay grouped together instead of the
+  // button being pinned a whole screen away below.
+  const composerBeat =
+    !crisis && (current === 'raw_entry' || current === 'clarify' || (current === 'acknowledge' && echoFixing));
+
   return (
     <View style={styles.root}>
       {/* The flow now happens in FRONT of Home: same cosmic sky, and the moon
           behind the card (M28), instead of the old aurora. */}
       <CosmicBackground />
+      {/* The moon sits BEHIND the full-screen frosted card, so it always reads
+          as a soft blurred glow through the glass — never the raw sharp moon
+          exposed on bare sky. The card filling the screen is what keeps it
+          covered; that (not hiding the moon) is what fixed the earlier "big raw
+          moon below a short card". It blooms brighter on the finish. */}
       <View style={styles.moonLayer} pointerEvents="none">
         <Animated.View style={moonBloomStyle}>
           <Orb
@@ -948,9 +1166,17 @@ export default function Moment() {
           />
         </Animated.View>
       </View>
-      {/* On the finish the sky dims so the moon and confetti carry the moment. */}
+      {/* On the finish the sky dims so the moon and the burst carry the moment. */}
       <View style={[styles.scrim, celebrating && styles.scrimDim]} pointerEvents="none" />
-      {celebrating && <CelebrationParticles style={styles.confetti} />}
+      {/* THE FINISH: a big one-shot burst — bloom + sunburst + sparks flying out
+          from the moon, in her moon's hue. The payoff. */}
+      {celebrating && (
+        <RingCelebration hue={bodyHue(lifetimeLight)} originYFraction={0.32} />
+      )}
+      {/* SMALL TASKS: a brief snow flurry while the "nice / well done" toast is up
+          (each step, each finished settling activity). Lighter than the finish
+          burst, never at the same time as it. */}
+      {!!snack && !celebrating && <CelebrationParticles style={styles.confetti} />}
 
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         {/* Close only. Back lives inside the card, next to the beat it steps
@@ -958,6 +1184,29 @@ export default function Moment() {
         <View style={styles.header}>
           <CloseButton onPress={leave} />
         </View>
+
+        {/* The keyboard "Done" bar, mounted ONCE for the whole screen: every
+            composer's multiline field references this ACCESSORY_ID, and its
+            return key inserts a newline, so this is the only way to dismiss the
+            keyboard. Hoisted here rather than per-beat so two fields never
+            register the same nativeID during a beat crossfade. */}
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID={ACCESSORY_ID}>
+            <View style={styles.accessory}>
+              <Pressable
+                onPress={() => {
+                  tap();
+                  Keyboard.dismiss();
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Done typing"
+              >
+                <Text style={styles.accessoryDone}>Done</Text>
+              </Pressable>
+            </View>
+          </InputAccessoryView>
+        )}
 
         <KeyboardAvoidingView
           style={styles.fill}
@@ -983,15 +1232,22 @@ export default function Moment() {
                 : LinearTransition.duration(300).easing(Easing.inOut(Easing.quad))
             }
           >
-            {/* Glass, three tiers deep: liquid glass where the OS has it, an
-                expo-blur fallback, then a flat wash. Sits behind the content
-                and never takes touches.
-
-                It carries the SAME radius as the card. Without that its fill
-                is a square that the parent has to clip, and iOS leaks that
-                clip at the corners when the parent also draws a border, which
-                is what made the corners look broken. */}
-            <GlassSurface intensity={22} style={styles.glass} />
+            {/* The SAME glass as Home (now.tsx), not the shared GlassSurface:
+                an expo-blur frost, a light neutral-charcoal tint (NOT an opaque
+                fill), and a top-left gloss sheen. The moon behind refracts
+                through, so a session reads with Home's exact texture instead of
+                the purpler liquid-glass look. Clipped to the card's rounded
+                corners by its overflow:hidden; never takes touches. */}
+            <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+            <View pointerEvents="none" style={styles.glassTint} />
+            <LinearGradient
+              colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+              locations={[0, 0.28, 0.62]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+            />
             {/* Card header: back and the three-state map share one row, so they
                 sit on the same line and read as one piece of chrome. Back shows
                 only when there is somewhere to go back to; a spacer holds the
@@ -1013,7 +1269,7 @@ export default function Moment() {
               </View>
             )}
             <ScrollView
-              style={styles.scroll}
+              style={[styles.scroll, composerBeat && styles.scrollGrow]}
               contentContainerStyle={styles.cardBody}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -1053,9 +1309,6 @@ export default function Moment() {
               </Animated.View>
             </View>
           </Animated.View>
-          {/* M1/#3: the card is top-anchored and hugs its content; this spacer
-              takes the rest, so the top stays put and the bottom fits the beat. */}
-          <View style={styles.spacer} />
         </KeyboardAvoidingView>
       </SafeAreaView>
 
@@ -1165,68 +1418,14 @@ export default function Moment() {
       // it is one thought.
       case 'raw_entry':
         return {
-          body: (
-            <>
-              {head(COPY.raw_entry)}
-              <TextInput
-                style={styles.input}
-                value={draft}
-                onChangeText={setDraft}
-                placeholder={COPY.raw_entry_placeholder}
-                placeholderTextColor="rgba(255,255,255,0.30)"
-                selectionColor="rgba(196, 178, 255, 0.9)"
-                multiline
-                textAlignVertical="top"
-                autoFocus
-                inputAccessoryViewID={
-                  Platform.OS === 'ios' ? ACCESSORY_ID : undefined
-                }
-                accessibilityLabel="What happened"
-              />
-              {/* Speak instead of type: dictation appends each finished phrase. */}
-              <Pressable
-                onPress={() => {
-                  tap();
-                  dictation.toggle();
-                }}
-                style={styles.micBtn}
-                accessibilityRole="button"
-                accessibilityLabel={dictation.listening ? 'Stop dictation' : 'Speak instead of typing'}
-              >
-                <SymbolView
-                  name={dictation.listening ? 'mic.fill' : 'mic'}
-                  size={18}
-                  tintColor={dictation.listening ? '#F2A2C0' : 'rgba(255,255,255,0.55)'}
-                />
-                <Text style={styles.micText}>{dictation.listening ? 'Listening…' : 'Speak instead'}</Text>
-              </Pressable>
-              {Platform.OS === 'ios' && (
-                <InputAccessoryView nativeID={ACCESSORY_ID}>
-                  <View style={styles.accessory}>
-                    <Pressable
-                      onPress={() => {
-                        tap();
-                        Keyboard.dismiss();
-                      }}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel="Done typing"
-                    >
-                      <Text style={styles.accessoryDone}>Done</Text>
-                    </Pressable>
-                  </View>
-                </InputAccessoryView>
-              )}
-            </>
-          ),
-          cta: (
-            <BeginButton
-              fullWidth
-              label="Continue"
-              disabled={!draft.trim()}
-              onPress={send}
-            />
-          ),
+          // Speaker/question sticky at the top (body); the chat composer sticky
+          // at the bottom (cta), like any messaging screen.
+          body: head(COPY.raw_entry),
+          cta: entryField({
+            placeholder: COPY.raw_entry_placeholder,
+            onSend: send,
+            withMic: true,
+          }),
         };
 
       // She wrote something, but not a thing that happened. Ask for the event,
@@ -1238,34 +1437,13 @@ export default function Moment() {
             ? verdict.reason
             : 'no-event';
         return {
-          body: (
-            <>
-              {head(CLARIFY_ASK[reason])}
-              <TextInput
-                style={styles.input}
-                value={draft}
-                onChangeText={setDraft}
-                placeholder={CLARIFY_HINT[reason]}
-                placeholderTextColor="rgba(255,255,255,0.30)"
-                selectionColor="rgba(196, 178, 255, 0.9)"
-                multiline
-                textAlignVertical="top"
-                autoFocus
-                inputAccessoryViewID={
-                  Platform.OS === 'ios' ? ACCESSORY_ID : undefined
-                }
-                accessibilityLabel="What happened"
-              />
-            </>
-          ),
-          cta: (
-            <BeginButton
-              fullWidth
-              label="Continue"
-              disabled={!draft.trim()}
-              onPress={send}
-            />
-          ),
+          body: head(CLARIFY_ASK[reason]),
+          cta: entryField({
+            placeholder: CLARIFY_HINT[reason],
+            onSend: send,
+            withMic: true,
+            a11yLabel: 'Tell me more about what happened',
+          }),
         };
       }
 
@@ -1281,46 +1459,24 @@ export default function Moment() {
         // She said it was wrong: a field to say it again, then re-echo.
         if (echoFixing) {
           return {
-            body: (
-              <>
-                {head(COPY.ack_fix)}
-                <TextInput
-                  style={styles.input}
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={COPY.raw_entry_placeholder}
-                  placeholderTextColor="rgba(255,255,255,0.30)"
-                  selectionColor="rgba(196, 178, 255, 0.9)"
-                  multiline
-                  textAlignVertical="top"
-                  autoFocus
-                  inputAccessoryViewID={
-                    Platform.OS === 'ios' ? ACCESSORY_ID : undefined
-                  }
-                  accessibilityLabel="What happened"
-                />
-              </>
-            ),
-            cta: (
-              <BeginButton
-                fullWidth
-                label="Continue"
-                disabled={!draft.trim()}
-                onPress={() => {
-                  const t = draft.trim();
-                  const v = analyse(t);
-                  if (v.kind === 'crisis') {
-                    setCrisis(true);
-                    return;
-                  }
-                  herText.current = t;
-                  setVerdict(v);
-                  setDraft('');
-                  // Re-echo the correction: back to typing, then confirm again.
-                  startEcho();
-                }}
-              />
-            ),
+            body: head(COPY.ack_fix),
+            cta: entryField({
+              placeholder: COPY.raw_entry_placeholder,
+              onSend: () => {
+                const t = draft.trim();
+                tap();
+                const v = analyse(t);
+                if (v.kind === 'crisis') {
+                  setCrisis(true);
+                  return;
+                }
+                herText.current = t;
+                setVerdict(v);
+                setDraft('');
+                // Re-echo the correction: back to typing, then confirm again.
+                startEcho();
+              },
+            }),
           };
         }
 
@@ -1328,11 +1484,17 @@ export default function Moment() {
         // the naming appears. The confirm question and its options hold back
         // until the stream finishes, so she reads the whole line first.
         if (!echoOk) {
+          // "Did I get that right?" only makes sense over an actual reflection of
+          // her words. When the line is the generic authored fallback (the model
+          // gave nothing to say back — e.g. a feeling-dump), there is nothing to
+          // confirm; show a plain Continue instead of a nonsensical yes/no.
+          const isReflection = echoAi;
+          const settled = streamDone && !echoResolving;
           return {
             body: (
               <>
-                {head(revealed, { tone: 'said', ai: echoAi })}
-                {streamDone && (
+                {head(revealed, { tone: 'said', ai: echoAi, thinking: echoResolving })}
+                {isReflection && settled && (
                   <>
                     <Text style={styles.feelingsAsk}>{COPY.ack_confirm}</Text>
                     <View style={styles.stack}>
@@ -1356,45 +1518,60 @@ export default function Moment() {
                 )}
               </>
             ),
-            cta: null,
+            cta:
+              !isReflection && settled ? (
+                <BeginButton fullWidth label="Continue" onPress={() => setEchoOk(true)} />
+              ) : null,
           };
         }
 
-        // Confirmed: name the emotion. The echo is gone from this card — she
-        // just confirmed it on the step before, so repeating all of it here was
-        // what crowded the page. One heading (the question), one why line, then
-        // the options: three type roles, room to breathe.
+        // Name the emotion — SHE names it, the app does not (Neha 2026-08-01). A
+        // neutral "which feeling is strongest?" list she picks from: the moon no
+        // longer guesses and asserts a feeling ("Feeling guilty?") with a "Yes,
+        // that's it" confirm. The AI still RANKS the list (most likely first) via
+        // feelingOrder; it just never states the answer. offerFeelings is the
+        // deterministic fallback until the ranking lands.
+        const ranked = feelingOrder ?? offerFeelings(herText.current);
+        const loadingFeelings = aiOn && feelingsLoading && !feelingOrder;
+        const chooseFeeling = (f: string) => {
+          // The options are ranked on the feeling. Drop a stale ranking only when
+          // she actually changes it, so the menu is re-fetched for the new feeling
+          // but stays put on a plain step-back.
+          if (f !== chosenFeeling.current) {
+            setActOrder(null);
+            setShowAllActs(false);
+          }
+          chosenFeeling.current = f;
+          setHistory((h) => [...h, 'acknowledge']);
+          setCurrent('reframe_small');
+        };
         return {
           body: (
             <>
               {head(COPY.feelings_ask)}
               <WhyLine>{COPY.feelings_why}</WhyLine>
               <View style={styles.stack}>
-                {aiOn && feelingsLoading && !feelingOrder ? (
+                {loadingFeelings ? (
                   <SkeletonRows count={4} />
                 ) : (
                   <>
-                {(feelingOrder ?? offerFeelings(herText.current)).map((f, i) => (
+                {ranked.map((f, i) => (
                   <OptionRow
                     key={f}
                     label={f}
                     index={i}
                     tint={selTint}
-                    onPress={() => {
-                      chosenFeeling.current = f;
-                      setHistory((h) => [...h, 'acknowledge']);
-                      setCurrent('reframe_small');
-                    }}
+                    onPress={() => chooseFeeling(f)}
                   />
                 ))}
                 {/* The field stays hidden until she asks for it. Shown always, it
-                    puts a keyboard-shaped decision in front of three answers that
-                    are one tap each. No tint: this opens a field in place rather
-                    than advancing a beat. */}
+                    puts a keyboard-shaped decision in front of answers that are one
+                    tap each. No tint: this opens a field in place rather than
+                    advancing a beat. */}
                 {!otherOpen ? (
                   <OptionRow
                     label={COPY.feelings_other}
-                    index={(feelingOrder ?? offerFeelings(herText.current)).length}
+                    index={ranked.length}
                     onPress={() => setOtherOpen(true)}
                   />
                 ) : (
@@ -1501,14 +1678,12 @@ export default function Moment() {
             body: (
               <>
                 <Text style={styles.settlesStrong}>{COPY.make_safe_care_intro}</Text>
-                <Text style={styles.settles}>{COPY.make_safe_care_ask}</Text>
                 <Checklist
                   items={MAKE_SAFE_BODY}
                   isChecked={(id) => !!bodyChecks[id]}
                   onToggle={(id) => setBodyChecks((c) => ({ ...c, [id]: !c[id] }))}
                   emphasizeTitle
                 />
-                <Text style={styles.settles}>{COPY.make_safe_why}</Text>
                 {/* Only while she cannot honestly tick all three: the honest way out. */}
                 {!bodyReady && (
                   <Pressable onPress={leave} accessibilityRole="button" style={styles.breathSkip}>
@@ -1535,7 +1710,6 @@ export default function Moment() {
           body: (
             <>
               {head(COPY.make_safe_intro)}
-              <Text style={styles.settles}>{COPY.make_safe_why}</Text>
               <View style={styles.stack}>
                 {/* "Now" opens the body-prep page (no tint: it opens a page in
                     place, it does not advance the beat). "Wait" is the recommended
@@ -1545,20 +1719,23 @@ export default function Moment() {
                   index={0}
                   onPress={() => setBodyPrepOpen(true)}
                 />
-                <OptionRow
-                  label={COPY.make_safe_wait}
-                  index={1}
-                  recommended
-                  tint={selTint}
-                  onPress={() => {
-                    resetActivities();
-                    go('make_safe', 'wait');
-                  }}
-                />
               </View>
             </>
           ),
-          cta: null,
+          // "Yey I am ready" is the recommended hold and a big-commit moment, so it
+          // gets the hero CTA gradient (the heroGradient design token), not the flat
+          // begin gradient — the encouraged path reads as the primary move.
+          cta: (
+            <BeginButton
+              hero
+              fullWidth
+              label={COPY.make_safe_wait}
+              onPress={() => {
+                resetActivities();
+                go('make_safe', 'wait');
+              }}
+            />
+          ),
         };
       }
 
@@ -1570,6 +1747,12 @@ export default function Moment() {
         // authored set, not one line delivered at her — she decides which is
         // true, and the app does not get to assert any of them.
         if (reframePick == null) {
+          // While the model is still writing the readings, show ONLY the
+          // skeletons. "None of these are true" must not appear before them, or
+          // she taps it as the one loaded option and skips the reframe entirely.
+          // It arrives together with the readings once they land.
+          const loadingReadings = aiOn && reframeLoading && !reframeReadings;
+          const readings = reframeReadings ?? SETS.smallReframes;
           return {
             body: (
               <>
@@ -1586,31 +1769,34 @@ export default function Moment() {
                     VoiceOver hint. Authored placeholders today, Gemini-written
                     soon. */}
                 <View style={styles.stack}>
-                  {aiOn && reframeLoading && !reframeReadings ? (
+                  {loadingReadings ? (
                     <SkeletonRows count={3} />
                   ) : (
-                    (reframeReadings ?? SETS.smallReframes).map((r, i) => (
+                    <>
+                      {readings.map((r, i) => (
+                        <OptionRow
+                          key={r}
+                          label={r}
+                          index={i}
+                          hint="Suggested by the moon"
+                          tint={selTint}
+                          onPress={() => setReframePick(r)}
+                        />
+                      ))}
+                      {/* Her own answer, apart from the moon's readings and
+                          plainly authored: "none of them are true" is a real
+                          answer, and it skips the follow-up because there is no
+                          line to ask whether it helped. Only shown once the
+                          readings are here, so it never loads alone. */}
                       <OptionRow
-                        key={r}
-                        label={r}
-                        index={i}
-                        hint="Suggested by the moon"
+                        label={COPY.reframe_small_none}
+                        index={readings.length}
                         tint={selTint}
-                        onPress={() => setReframePick(r)}
+                        onPress={() => go('reframe_small', 'small_no')}
                       />
-                    ))
+                    </>
                   )}
                 </View>
-                {/* Her own answer, apart from the moon's readings and plainly
-                    authored: "none of them are true" is a real answer, and it
-                    skips the follow-up because there is no line to ask whether
-                    it helped. */}
-                <OptionRow
-                  label={COPY.reframe_small_none}
-                  index={(reframeReadings ?? SETS.smallReframes).length}
-                  tint={selTint}
-                  onPress={() => go('reframe_small', 'small_no')}
-                />
               </>
             ),
             cta: null,
@@ -1670,13 +1856,25 @@ export default function Moment() {
                 value={intensity}
                 onChange={(n) => {
                   setIntensity(n);
-                  pickThenGo(() => {
+                  pickThenGo(async () => {
                     setIntensity(null);
                     baseline.current = n;
                     // clarify fires for a thin entry, or (M6) when her sentence was
                     // clear but the model found no concrete event: ask for context.
                     setHistory((h) => [...h, 'intensity_in']);
-                    const vague = verdict?.kind === 'clear' && eventCheck.current === false;
+                    // Wait out a still-pending event check rather than reading its
+                    // null and letting a vague entry through to feelings. Only a
+                    // resolved "no" clarifies; a failed/off check (null) proceeds.
+                    let ev = eventCheck.current;
+                    if (verdict?.kind === 'clear' && ev === null && eventCheckPromise.current) {
+                      // Bounded: give the check up to 1.5s to land, then proceed on
+                      // whatever we have. Never hang the tapped rating card.
+                      ev = await Promise.race([
+                        eventCheckPromise.current.catch(() => null),
+                        new Promise<boolean | null>((res) => setTimeout(() => res(eventCheck.current), 1500)),
+                      ]);
+                    }
+                    const vague = verdict?.kind === 'clear' && ev === false;
                     if (verdict?.kind === 'clear' && !vague) {
                       startEcho();
                       setCurrent('acknowledge');
@@ -1694,31 +1892,21 @@ export default function Moment() {
           cta: null,
         };
 
-      // The closing reading, merged with "we good?" onto one card: the number
-      // she gives IS the answer, and "not yet" is how she asks for something
-      // untried. Two pages became one.
-      case 'intensity_out':
+      // The warm ending (Neha 2026-08-01), replacing the closing "And now?" 0-10
+      // rating: name the three phases done and hand her evening back — no more
+      // "how do you feel", which pulls her into monitoring right when she should
+      // disengage. Then the reward.
+      case 'sendoff':
         return {
           body: (
             <>
-              {head(COPY.intensity_out)}
-              <ScaleButtons
-                value={intensity}
-                onChange={(n) => {
-                  setIntensity(n);
-                  pickThenGo(() => {
-                    setIntensity(null);
-                    go('intensity_out', 'rated');
-                  });
-                }}
-              />
-              <OptionRow
-                label={COPY.intensity_out_not_yet}
-                onPress={() => go('intensity_out', 'not_yet')}
-              />
+              {head(COPY.sendoff_head)}
+              <Text style={styles.settles}>{COPY.sendoff_body}</Text>
             </>
           ),
-          cta: null,
+          cta: (
+            <BeginButton fullWidth label={COPY.sendoff_cta} onPress={() => go('sendoff')} />
+          ),
         };
 
       case 'options': {
@@ -1753,54 +1941,35 @@ export default function Moment() {
         // The respond step, tailored to the feeling she named: one earned science
         // line for this feeling (C8), instead of the generic options why.
         const plan = optionPlanFor(chosenFeeling.current);
-        // Relational feelings compose via the fill-in ("I felt __ when __, I need
-        // __"), seeded with the feeling. Continue runs the crisis scan on her
-        // words, then seeds the draft editor (Edit with Moon + send). The calming
-        // act cards stay the path for hot feelings (plan.composer 'cards') and are
-        // reachable from the draft's skip.
-        if (plan.composer === 'fill' && plan.template && !nudgeHold) {
-          const template = plan.template;
-          const sayAct = offerableActs(false).find((a) => a.id === 'A');
-          if (sayAct) {
-            const ready = !!fillValues.trigger?.trim() && !!fillValues.need?.trim();
-            return {
-              body: (
-                <>
-                  {head(COPY.options)}
-                  <WhyLine>{plan.science}</WhyLine>
-                  <FillInTemplate
-                    parts={template}
-                    values={fillValues}
-                    onChange={(k, v) => setFillValues((p) => ({ ...p, [k]: v }))}
-                  />
-                  <Text style={styles.settles}>{UNIVERSAL_DV_LINE}</Text>
-                </>
-              ),
-              cta: (
-                <BeginButton
-                  fullWidth
-                  label="Continue"
-                  disabled={!ready}
-                  onPress={() => {
-                    const text = assemble(template, fillValues);
-                    if (analyse(text).kind === 'crisis') {
-                      setCrisis(true);
-                      return;
-                    }
-                    setChosenAct(sayAct);
-                    openActDraftWith(text);
-                    go('options', 'picks');
-                  }}
-                />
-              ),
-            };
-          }
-        }
+        // The ranked pool (model, else authored). The menu shows one per rung;
+        // "Show me other options" expands to the rest. Labels get her own person
+        // filled in (personalisedLabel), grounded so it can never invent one.
+        const ranked = actOrder ?? offerableActs(dvDetected);
+        const visibleActs = showAllActs ? ranked : threeRungs(ranked);
+        const hasMore = ranked.length > visibleActs.length;
         return {
           body: (
             <>
               {head(COPY.options)}
               <WhyLine>{plan.science}</WhyLine>
+              {/* Abuse in the picture: the confront/self-blame options are gone
+                  from the menu (offerableActs), and this quiet, NON-DIAGNOSTIC
+                  resource sits above what remains. General wording ("if someone
+                  is") so a shared device never reveals a conclusion about her. */}
+              {dvDetected && (
+                <View style={styles.holdNudge}>
+                  <Text style={styles.settles}>{UNIVERSAL_DV_LINE}</Text>
+                  <Text style={styles.holdNudgeText}>{DV_RESOURCE.intro}</Text>
+                  <OptionRow
+                    label={DV_RESOURCE.label}
+                    tint={selTint}
+                    onPress={() => {
+                      tap();
+                      openDvLine();
+                    }}
+                  />
+                </View>
+              )}
               {nudgeHold && (
                 <View style={styles.holdNudge}>
                   <Text style={styles.holdNudgeText}>
@@ -1829,15 +1998,14 @@ export default function Moment() {
                   <SkeletonRows count={3} />
                 ) : (
                   <>
-                {(actOrder ?? threeRungs(offerableActs(false))).map((a, i) => (
+                {visibleActs.map((a, i) => (
                   <OptionRow
                     key={a.id}
-                    label={a.label}
+                    label={personalisedLabel(a, herText.current)}
                     index={i}
                     tint={selTint}
-                    // C7: gently steer to the self-directed calming move (it sits
-                    // last), so the eye lands there rather than on confronting first.
-                    recommended={a.rung === 'self'}
+                    // No recommended chip: the moves are offered flat, none singled
+                    // out (Neha 2026-08-01). We present, she chooses.
                     onPress={() => {
                       setChosenAct(a);
                       if (a.universalLine) {
@@ -1848,27 +2016,39 @@ export default function Moment() {
                     }}
                   />
                 ))}
-                <OptionRow
-                  label={COPY.options_more}
-                  index={3}
-                  tint={selTint}
-                  onPress={() => go('options', 'show_others')}
-                />
-                <OptionRow
-                  label={COPY.options_none}
-                  index={4}
-                  tint={selTint}
-                  onPress={() => go('options', 'none_possible')}
-                />
                 {/* C6: after-fight repair, only when her words point to a conflict. */}
                 {CONFLICT_CUES.test(herText.current) && (
                   <OptionRow
                     label="Make up after the fight"
-                    index={5}
+                    index={visibleActs.length}
                     tint={selTint}
                     onPress={() => router.push('/couples-reconnect')}
                   />
                 )}
+                {/* The two meta-choices sit apart from the responses as quiet
+                    links, not filled option rows: they are not answers to
+                    "which response", they are ways out of the list. "Show me
+                    other options" expands the menu in place (no navigation);
+                    it hides once everything is shown. */}
+                {hasMore && !showAllActs && (
+                  <Pressable
+                    onPress={() => {
+                      tap();
+                      setShowAllActs(true);
+                    }}
+                    style={styles.skipLink}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.skipLinkText}>{COPY.options_more}</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => go('options', 'none_possible')}
+                  style={styles.skipLink}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.skipLinkText}>{COPY.options_none}</Text>
+                </Pressable>
                   </>
                 )}
               </View>
@@ -1891,17 +2071,42 @@ export default function Moment() {
             body: (
               <>
                 <Text style={styles.settlesStrong}>{COPY.make_safe_care_intro}</Text>
-                <Text style={styles.settles}>{COPY.make_safe_care_ask}</Text>
                 <Checklist
                   items={MAKE_SAFE_BODY}
                   isChecked={(id) => !!bodyChecks[id]}
                   onToggle={(id) => setBodyChecks((c) => ({ ...c, [id]: !c[id] }))}
                   emphasizeTitle
                 />
-                <Text style={styles.settles}>{COPY.make_safe_why}</Text>
               </>
             ),
             cta: <BeginButton fullWidth label="Done" onPress={() => setBodyPrepInList(false)} />,
+          };
+        }
+
+        // C5: a fast body reset (cold water / shoulders) as a guided in-place
+        // step. Done marks it finished, which fires the shine + praise and shows
+        // the check back on the list — a real little flow, not a vanishing snack.
+        if (microStep) {
+          const m = MICRO[microStep];
+          return {
+            body: (
+              <>
+                <Text style={styles.microTitle}>{m.title}</Text>
+                {m.steps.map((s) => (
+                  <Text key={s} style={styles.microStep}>{s}</Text>
+                ))}
+              </>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label="Done"
+                onPress={() => {
+                  markActivityDone(microStep);
+                  setMicroStep(null);
+                }}
+              />
+            ),
           };
         }
         return {
@@ -1912,7 +2117,6 @@ export default function Moment() {
                 <OptionRow
                   label={COPY.activities_colour}
                   index={0}
-                  recommended
                   done={activitiesDone.has('colour')}
                   tint={selTint}
                   onPress={() => router.push('/paint')}
@@ -1946,17 +2150,21 @@ export default function Moment() {
                     })
                   }
                 />
-                {/* C5: quick regulation, the fast body resets. No tint: they show
-                    a how-to line in place, they do not advance the beat. */}
+                {/* C5: quick regulation, the fast body resets. Each opens a short
+                    guided step in place, then marks done and earns the shine. */}
                 <OptionRow
-                  label="Cold water"
+                  label={MICRO.cold.title}
                   index={4}
-                  onPress={() => setSnack('Run cold water over your wrists, or splash your face. About 30 seconds.')}
+                  done={activitiesDone.has('cold')}
+                  tint={selTint}
+                  onPress={() => setMicroStep('cold')}
                 />
                 <OptionRow
-                  label="Relax your shoulders"
+                  label={MICRO.shoulders.title}
                   index={5}
-                  onPress={() => setSnack('Drop your shoulders down. Unclench your jaw. Three slow breaths.')}
+                  done={activitiesDone.has('shoulders')}
+                  tint={selTint}
+                  onPress={() => setMicroStep('shoulders')}
                 />
                 {/* M8 (wait path): body-prep as a settling item. No tint: it opens
                     the checklist in place rather than advancing the beat. */}
@@ -1977,7 +2185,7 @@ export default function Moment() {
 
       // After the hold: she rates whether she is in a better place to react.
       // The hold was the intervention; this reads whether it landed, then goes
-      // to the act menu. Not the closing delta rating — that is intensity_out.
+      // to the act menu. There is no closing rating any more (removed 2026-08-01).
       case 'arousal_check': {
         // A low rating never blocks her: it surfaces permission to wait, then
         // the act menu follows anyway (where "none feel possible" is the exit).
@@ -2038,7 +2246,7 @@ export default function Moment() {
           return {
             body: (
               <>
-                {head(a?.label ?? COPY.options)}
+                {head(a ? personalisedLabel(a, herText.current) : COPY.options)}
                 <Text style={styles.settles}>When should I remind you?</Text>
                 <View style={styles.stack}>
                   {REMINDER_WHENS.map((w, i) => (
@@ -2062,7 +2270,7 @@ export default function Moment() {
         return {
             body: (
               <>
-                {head(a?.label ?? COPY.options)}
+                {head(a ? personalisedLabel(a, herText.current) : COPY.options)}
                 <Text style={styles.settles}>{COPY.act_draft_hint}</Text>
                 {actDraftLoading ? (
                   // M2: the generation gap reads as working, not broken.
@@ -2106,11 +2314,10 @@ export default function Moment() {
                 disabled={actDraftLoading}
                 onPress={() => {
                   const text = actDraft.trim();
-                  // Prefill Messages with her draft (no recipient); she still
-                  // reads it and taps send herself. Non-message acts just proceed.
-                  if (a?.channel === 'message') {
-                    const url = text ? `sms:&body=${encodeURIComponent(text)}` : 'sms:';
-                    Linking.openURL(url).catch(() => {});
+                  // Hand her draft to the iOS share sheet so she picks how to send
+                  // it (Messages, WhatsApp, Mail...). Non-message acts just proceed.
+                  if (a?.channel === 'message' && text) {
+                    Share.share({ message: text }).catch(() => {});
                   }
                   closeActDraft();
                   go('act', 'now');
@@ -2120,39 +2327,9 @@ export default function Moment() {
           };
       }
 
-      // Fill in to remember: a coping if-then she keeps for next time, seeded
-      // with the move she just chose. She fills only the response; the trigger
-      // ("if I feel anxious for this reason") is fixed, never an invented detail.
-      case 'today_action':
-        return {
-          body: (
-            <>
-              {head(COPY.today_action_head)}
-              <WhyLine>{COPY.today_action_why}</WhyLine>
-              {/* M21: the if-then as a dashed fill-in. The trigger half is fixed
-                  copy; she fills only the response, seeded with the move she
-                  just chose. */}
-              <FillInTemplate
-                parts={[
-                  `${COPY.today_action_if} `,
-                  { key: 'response', placeholder: chosenAct?.label ?? COPY.today_action_hint },
-                ]}
-                values={{ response: draft }}
-                onChange={(_k, v) => setDraft(v)}
-              />
-            </>
-          ),
-          cta: (
-            <BeginButton
-              fullWidth
-              label="Continue"
-              onPress={() => {
-                setDraft('');
-                go('today_action');
-              }}
-            />
-          ),
-        };
+      // The if-then "Fill in to remember" beat (today_action) was removed
+      // 2026-08-01 (Neha): confusing right after she had already chosen and done
+      // a response. Picking an act now goes act -> closing rating -> close.
 
       // The one celebration in the app, and it is for a hard act she completed.
       // A wrapped gift opens into a scratch card she rubs to reveal an earned
@@ -2326,11 +2503,8 @@ const SPOKEN: Partial<Record<NodeId, string>> = {
   feelings: COPY.feelings_ask,
   ready_reward: COPY.ready_reward,
   unctrl_honor: COPY.unctrl_honor,
-  // C4: the low + mixed lanes render generically, so they read from here.
-  low_activate: COPY.low_activate,
-  low_justone: COPY.low_justone,
-  low_reward: COPY.low_reward,
-  low_better: COPY.low_better,
+  // C4: the mixed lane renders generically, so it reads from here. (The low lane
+  // now reuses the `activities` menu; its old text beats were removed 2026-08-01.)
   mixed_name_swing: COPY.mixed_name_swing,
   mixed_validate: COPY.mixed_validate,
   mixed_check_read: COPY.mixed_check_read,
@@ -2407,7 +2581,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
   safe: { flex: 1 },
   fill: { flex: 1 },
-  spacer: { flex: 1 },
   // Overlaps the card's top edge, so the moon reads as in front of it.
 
   scrim: {
@@ -2432,6 +2605,8 @@ const styles = StyleSheet.create({
   confetti: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // "The situation" is a label sitting above; the moon and the question below
   // it are one unit, so the gap here is what separates label from speech.
+  // No scrim of its own — the whole-card dark tint (glassTint) keeps the speaker
+  // + question legible, so the head is just spacing.
   head: { gap: spacing.sm },
   // The moon sits ON the question's first line, not above the whole block, so
   // it stays put when the question wraps to two lines.
@@ -2468,36 +2643,50 @@ const styles = StyleSheet.create({
   // there is no point where an edge starts or stops mid-curve — which is what
   // was reading as broken when the outline only covered the top.
   card: {
+    // FILLS the screen (flex:1, no maxHeight cap) so the frosted glass covers
+    // the whole area and there is no exposed sky/moon below a short beat. The
+    // moon is hidden during the session, so behind the empty glass is only the
+    // plain starfield — a full frosted surface, not a small card floating over a
+    // big moon.
+    flex: 1,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     borderRadius: 28,
     borderCurve: 'continuous',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    // A real surface under the glass, so the card reads as a panel floating on
-    // the aurora instead of blending into it. This is the "break" the page was
-    // missing — the sky above, a defined card below.
-    backgroundColor: colors.surfaceOverlay,
+    borderColor: glass.border,
+    // Frosted glass, not an opaque panel: blur + the light `glassTint` over it.
+    // The readable zones carry their own darker fills (the composer well, option
+    // rows, buttons); the empty stretches stay just-blurred.
     overflow: 'hidden',
-    // A CAP, not a height: the card is only as tall as its content, so short
-    // beats still leave most of the sky showing. Raised from 78% because the
-    // long cards were scrolling with Continue below the fold while a third of
-    // the screen above sat empty. Growing upward costs nothing on short cards
-    // and removes the scroll on nearly every one.
-    maxHeight: '92%',
   },
   // M1: the flow beats share one height so the card and its Continue button stop
   // jumping as content length changes between beats. The extra room falls below
   // the content (short beats just leave space); intro and crisis keep their own
   // content-sized layout (they are exempted at the call site).
   cardFixed: { height: '92%' },
-  // With cardFixed giving the card a set height, the scroll fills the space
-  // between header and the pinned CTA, so the button sits at the same spot every
-  // beat. On the content-sized cards (intro/crisis) it collapses to content.
-  // flexShrink (not flex:1): the scroll hugs short content, but still shrinks to
-  // scroll inside the card's maxHeight cap on a long beat.
+  // Default: the scroll HUGS its content (grow 0), so the body and its CTA stay
+  // grouped near the top of the full-screen card instead of the button being
+  // pinned a screen away at the bottom. flexShrink lets a long beat still scroll.
   scroll: { flexShrink: 1 },
-  glass: { borderRadius: 28, borderCurve: 'continuous' },
+  // Composer beats only: grow to fill, pushing the chat-style field (in the CTA
+  // slot) down to the bottom edge like a messaging bar.
+  scrollGrow: { flexGrow: 1 },
+  // A light frost darkening over the blur — Home's exact value, kept translucent
+  // so the moon's halo and the cosmic sky glow through the glass.
+  // The whole-card dark tint. Per-element tints (a well behind each button, a
+  // scrim behind the head) read patchy — the bright moon showed through the gaps
+  // between them. So the tint lives HERE, over the entire frosted card, and
+  // everything sits on one uniform dark surface. The moon still shows, now as a
+  // soft dim glow rather than a legibility problem.
+  glassTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10,8,16,0.50)',
+  },
   // One spacing unit (SP) between blocks, so the rhythm is even down the card.
   // Sections breathe; things that belong together (moon + question in `head`)
   // stay tight.
@@ -2536,17 +2725,59 @@ const styles = StyleSheet.create({
     fontSize: fontScale.cardTitle,
     lineHeight: 25,
     color: colors.textOnDark.primary,
-    backgroundColor: v3.panel,
+    // A dark, mostly-opaque well — darker than the card's frost tint (0.20), so
+    // the field reads as a recessed surface and light text stays legible over
+    // the moon glowing through the translucent card behind it.
+    backgroundColor: 'rgba(10,8,16,0.55)',
     borderRadius: radius.button,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: v3.panelBorder,
     padding: spacing.lg,
-    minHeight: 120,
-    maxHeight: 200,
+    minHeight: 180,
+    maxHeight: 300,
   },
-  // Speak-instead: a quiet mic row under the entry field.
-  micBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, alignSelf: 'flex-start', paddingVertical: spacing.sm },
-  micText: { fontFamily: fonts.light, fontSize: fontScale.caption, color: colors.textSubtitle },
+  // The chat-style composer (entryField): a rounded dark well holding the text
+  // and a bottom bar of controls, so the send action is a corner icon rather
+  // than a full-width button walling off the card.
+  composer: {
+    backgroundColor: 'rgba(10,8,16,0.55)',
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  // The text itself sits transparent over the well; the composer paints the fill.
+  composerInput: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
+    lineHeight: 25,
+    color: colors.textOnDark.primary,
+    paddingHorizontal: spacing.xs,
+    paddingTop: spacing.xs,
+    // FIXED height, not min/max: the field must never grow with the text, or it
+    // eats upward and pushes the speaker off the top. At a fixed height the
+    // speaker stays pinned above and the send button below — both always in
+    // place — and a long entry scrolls INSIDE the field instead.
+    height: 150,
+  },
+  // Controls docked along the bottom of the field: mic on the left, send on the
+  // right, the spacer pushing them apart.
+  composerBar: { flexDirection: 'row', alignItems: 'center' },
+  composerMic: { padding: spacing.xs },
+  composerSpace: { flex: 1 },
+  // The send arrow: a small circle, violet (brand) when there is text to send,
+  // muted when the field is empty. The chat-app affordance.
+  sendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySolid,
+  },
+  sendBtnOff: { backgroundColor: 'rgba(255,255,255,0.10)' },
   todo: {
     fontFamily: fonts.light,
     fontSize: fontScale.tagline,
@@ -2571,11 +2802,17 @@ const styles = StyleSheet.create({
   // Her own words, repeated back. Lighter than a question, and slightly
   // smaller: the app is not making a point here, it is showing it listened.
   saidLine: {
-    fontFamily: fonts.light,
+    // The moon's spoken line. It was Light weight at 0.60 white — thin and dim,
+    // right at the readable floor, and unreadable over the moon glow. Medium
+    // weight + primary (0.95) white (DESIGN.md text ramp) makes it legible; it
+    // still reads lighter than the SemiBold question through weight, not dimness.
+    // The gradient echo (MoonText) inherits this weight too, so it thickens with
+    // it.
+    fontFamily: fonts.medium,
     fontSize: fontScale.cardTitle,
     lineHeight: 25,
     letterSpacing: 0,
-    color: colors.textTertiary,
+    color: colors.textOnDark.primary,
   },
   // Closes the moon's line off, so what follows reads as a new thought rather
   // than more of the same sentence.
@@ -2596,6 +2833,21 @@ const styles = StyleSheet.create({
     fontSize: fontScale.bodyLg,
     lineHeight: 22,
     color: colors.textPrimary,
+  },
+  // The guided micro reset (cold water / relax shoulders): the shared `settles`
+  // subtitle read too small here. Its own larger, brighter type — a real
+  // instruction to follow, not fine print.
+  microTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title,
+    lineHeight: 26,
+    color: colors.textPrimary,
+  },
+  microStep: {
+    fontFamily: fonts.regular,
+    fontSize: fontScale.emphasis,
+    lineHeight: 24,
+    color: colors.textOnDark.primary,
   },
   feelingsAsk: {
     fontFamily: fonts.medium,

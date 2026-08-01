@@ -86,7 +86,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   label: {
-    fontFamily: fonts.light,
+    // Was Light (300) — too thin to read. Regular is the DESIGN.md body weight.
+    fontFamily: fonts.regular,
     fontSize: fontScale.emphasis,
     color: colors.textPrimary,
     letterSpacing: 0.2,
@@ -96,9 +97,11 @@ const styles = StyleSheet.create({
     fontSize: fontScale.emphasis,
   },
   examples: {
-    fontFamily: fonts.light,
+    // Was Light + tertiary (0.55) — thin and dim. Regular + secondary (0.70)
+    // keeps it quieter than the label but still legible.
+    fontFamily: fonts.regular,
     fontSize: fontScale.caption,
-    color: colors.textOnDark.tertiary,
+    color: colors.textOnDark.secondary,
     letterSpacing: 0.2,
     marginTop: spacing.xs,
   },

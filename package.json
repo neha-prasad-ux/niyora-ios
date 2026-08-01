@@ -71,7 +71,8 @@
   "private": true,
   "expo": {
     "autolinking": {
-      "nativeModulesDir": "./modules"
+      "nativeModulesDir": "./modules",
+      "exclude": ["niyora-gemma"]
     }
   }
 }

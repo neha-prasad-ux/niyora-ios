@@ -204,7 +204,12 @@ export const ACTS: readonly Act[] = [
 export function offerableActs(dvScreenFired: boolean): Act[] {
   return ACTS.filter((a) => {
     if (a.gated) return false;
-    if (dvScreenFired && a.confrontational) return false;
+    // Abuse in the picture (Neha 2026-08-01): no act aimed AT the person. Not
+    // just the confrontational ones — the whole DIRECT rung goes, because "own my
+    // part" (self-blame, D) is the abuser's own tool. She keeps prep and self;
+    // the quiet safety resource shows above the menu. A filter before ranking, so
+    // no confront/self-blame option can come back however the model answers.
+    if (dvScreenFired && a.rung === 'direct') return false;
     return true;
   });
 }
@@ -297,6 +302,7 @@ export const COPY = {
   // question underneath it instead of a standalone assertion.
   naming_science: "Let's give this emotion a name.", // [NEHA]
   feelings_ask: 'Which feeling is strongest?', // [NEHA] shortened 2026-07-28
+  feelings_yes: "Yes, that's it", // [DRAFT] confirms the moon's guessed feeling
   feelings_other: 'Something else', // [DRAFT]
   feelings_other_hint: 'Your word for it.', // [DRAFT]
   // Her word in an authored sentence: a transform, not composition. The second
@@ -453,11 +459,9 @@ export const COPY = {
   arousal_check_wait: "If you feel like you're not in the space to respond, don't. We can wait.", // [NEHA]
 
   // --- low lane ----------------------------------------------------------
-  low_activate: 'One small thing. Not a good one, just one.', // [DRAFT]
-  low_why: 'Flat is the state where doing something works better than working out why. Small counts.', // [DRAFT]
-  low_justone: 'Just the one, done is enough', // [MAP]
-  low_reward: 'That is one more than none. Flat lifts a little at a time.', // [DRAFT]
-  low_better: 'Feeling better?', // [MAP]
+  // The low-lane text beats (low_activate/low_why/low_justone/low_reward/
+  // low_better) were removed 2026-08-01 (Neha): the low lane now reuses the built
+  // `activities` menu as its behavioral-activation step. Copy went with them.
 
   // --- mixed lane --------------------------------------------------------
   mixed_name_swing: 'Name the swing, trust no peak', // [MAP]
@@ -476,10 +480,13 @@ export const COPY = {
   // --- the act -----------------------------------------------------------
   // Neha 2026-07-29: leads with the doing ("let's respond") and reassures with
   // no-right-answer, which is the same sense the old line carried, reworded.
-  options: "Let's respond to the situation. Does any of these look good?", // [NEHA] 2026-07-29
+  options: "Now that you're calm, let's respond. Does any of these look good to you?", // [NEHA] 2026-08-01
   options_why: 'There is no right or wrong move here.', // [NEHA] 2026-07-29
-  options_more: 'Show me some others', // [MAP]
-  options_none: 'None of these feel possible right now', // [MAP]
+  options_more: 'Show me other options', // [NEHA] 2026-08-01
+  // The escape hatch, reworded to say plainly what it means: she is not in a
+  // place to act on any of these right now (Neha 2026-08-01, "not easy to
+  // understand what we mean").
+  options_none: "I can't do any of these right now", // [NEHA] 2026-08-01
 
   // The "when" page (Neha 2026-07-29): her chosen move at the top, then when to
   // do it. "Now" carries it out (opens Messages for a message act); "later"
@@ -494,7 +501,7 @@ export const COPY = {
   act_draft_loading: 'Writing you a start', // [DRAFT]
   act_draft_change_ph: 'Tell the moon what to change', // [DRAFT] (unused since M19 buttons)
   act_draft_change: 'Edit with Moon', // [DRAFT] label over the quick-rewrite chips
-  act_draft_send: 'Open in Messages', // [DRAFT]
+  act_draft_send: 'Share', // [DRAFT] opens the iOS share sheet
   act_draft_do: 'I will do this', // [DRAFT]
   act_draft_skip: 'Skip, I have got it', // [DRAFT]
 
@@ -519,24 +526,23 @@ export const COPY = {
   unctrl_honor:
     "We're not fixing this tonight, and that's a fair call. You looked at it, which was the hard part. Do one small kind thing now, and let the rest keep.", // [DRAFT]
 
-  // --- the if-then -------------------------------------------------------
-  // "Fill in to remember" (Neha 2026-07-29): a coping if-then she keeps for the
-  // next time the same anxiety hits, filled with the move she just chose. The
-  // old "If ___ happens, then I ___" double-blank folded into this: the trigger
-  // is fixed ("if I feel anxious for this reason"), she fills only the response.
-  // The when-page (act_*) replaced the old time_it beat (now / tomorrow / not
-  // sure).
-  today_action_head: 'Fill in to remember', // [NEHA] 2026-07-29
-  today_action_if: 'If I feel anxious for this reason, then I will', // [NEHA] 2026-07-29
-  today_action_hint: 'what you will do', // [DRAFT]
-  today_action_why: 'A plan tied to a specific moment is the kind that actually fires. Vague ones do not.', // [DRAFT]
+  // The if-then ("Fill in to remember") was removed from every path 2026-08-01
+  // (Neha): a coping-plan-for-next-time landed as confusing right after she had
+  // chosen and done a response, especially a let-it-go one. Its copy went with
+  // it (today_action_head/if/hint/why).
 
   // --- close -------------------------------------------------------------
-  // `we_good` was merged into the closing rating 2026-07-28 (Neha): the number
-  // she gives IS the "we good", so a separate yes/no page asked the same thing
-  // twice. "Not yet" is how she asks for something she has not tried.
-  intensity_out: 'And now?', // [MAP]
-  intensity_out_not_yet: 'Not yet, show me something else', // [NEHA] approved 2026-07-28
+  // The closing "And now?" 0-10 rating was REMOVED 2026-08-01 (Neha): a self-
+  // check that pulls her back into monitoring her feelings right when she should
+  // disengage, and the flow already asks how she feels several times. It ends on
+  // a warm sendoff instead — the three phases done, and permission to go live her
+  // life while it settles. (This was the in/out delta measure; giving it up on
+  // purpose.) The "not yet, show me something else" untried-options loop
+  // (we_good_more) went with it.
+  sendoff_head: 'You reflected, regulated and responded.', // [NEHA] 2026-08-01
+  sendoff_body:
+    'Now go do what you like. Feelings can take an hour or so to settle, so keep busy, distract yourself, and have some fun.', // [NEHA] 2026-08-01
+  sendoff_cta: 'Continue', // [DRAFT] leads to the reward
 
   // The one celebration in the app (Neha 2026-07-29): a wrapped gift opens into
   // a scratch card, she scratches it to reveal an earned character, and it is
@@ -562,17 +568,12 @@ export type CopyKey = keyof typeof COPY;
 export const MAKE_SAFE_BODY: readonly { id: string; label: string; examples: string }[] = [
   {
     id: 'fed',
-    label: 'You are not hungry',
-    examples: 'It is easier to stay steady when your body is looked after.',
+    label: 'Make sure you are not on an empty stomach', // [NEHA] 2026-08-01
+    examples: '',
   },
   {
     id: 'rested',
-    label: 'You are not tired',
-    examples: 'Rested, you have more room to respond, not just react.',
-  },
-  {
-    id: 'slept',
-    label: 'You had a sound sleep',
-    examples: 'Good sleep makes the day feel more manageable.',
+    label: 'If you are tired, deal with this after some time', // [NEHA] 2026-08-01
+    examples: '',
   },
 ];

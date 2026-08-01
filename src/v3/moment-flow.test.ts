@@ -122,9 +122,13 @@ describe('the beats the evidence turns on', () => {
     expect(order.indexOf('intensity_in')).toBeLessThan(order.indexOf('acknowledge'));
   });
 
-  it('measures intensity twice, so there is a delta to read', () => {
+  it('rates intensity once, at the opening, and never re-quizzes her at the end', () => {
+    // The closing "And now?" 0-10 rating was removed 2026-08-01 (Neha): ending on
+    // a self-check pulls her back into monitoring when she should disengage.
     expect(ALL).toContain('intensity_in');
-    expect(ALL).toContain('intensity_out');
+    expect(ALL).not.toContain('intensity_out');
+    // The flow ends on a warm sendoff, then the reward.
+    expect(ALL).toContain('sendoff');
   });
 
   // The body check (slept / moved / eaten) was removed 2026-07-27. If it comes
@@ -159,7 +163,7 @@ describe('the beats the evidence turns on', () => {
     while (cur && seen.length < 20) {
       seen.push(cur);
       if (node(cur).terminal) break;
-      cur = advance(cur, cur === 'we_good' ? 'yes' : cur === 'today_action' ? 'no_after' : undefined);
+      cur = advance(cur);
     }
     expect(seen).toContain('close');
   });

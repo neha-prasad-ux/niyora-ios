@@ -70,6 +70,14 @@ export function analyse(raw: string): Verdict {
     return { kind: 'unclear', reason: 'nothing-to-echo' };
   }
 
+  // A `rephrase` decline means she wrote a LOT — too much to carve without
+  // parroting — which is the OPPOSITE of "no event". Routing her to "what
+  // happened?" answers verbosity with an interrogation (she wrote "for some
+  // reason...", then we ask her the reason). So treat it as clear enough to
+  // proceed: no mechanical carve (empty echo → the authored acknowledge line),
+  // and the model still tries a compressed reflection on the acknowledge beat.
+  if (carved.reason === 'rephrase') return { kind: 'clear', echo: '' };
+
   // 4. Only a state, with no event attached: "I feel awful", nothing more.
   if (FEELING_ONLY.test(text)) return { kind: 'unclear', reason: 'no-event' };
 
@@ -122,11 +130,15 @@ export const FEELING_SET: readonly FeelingWord[] = [
   { label: 'Irritable', constellation: 'irritability', cues: ['on edge', 'every little thing', 'snappy', 'irritable', 'wound up'] },
   { label: 'Anxious', constellation: 'anxiety', cues: ['worried', 'nervous', 'what if', 'panic', 'anxious', 'on edge'] },
   { label: 'Dreading', constellation: 'dread', cues: ['tomorrow', 'have to', 'facing', 'coming up', 'cant face', 'dreading'] },
-  { label: 'Overwhelmed', constellation: 'overwhelm', cues: ['too much', 'cant cope', 'everything', 'drowning', 'buried', 'overwhelmed'] },
+  { label: 'Overwhelmed', constellation: 'overwhelm', cues: ['too much', 'cant cope', 'everything', 'drowning', 'buried', 'overwhelmed', 'dont feel like'] },
   { label: 'Scared', constellation: 'fear', cues: ['scared', 'afraid', 'terrified', 'frightened', 'threat'] },
-  { label: 'Sad', constellation: 'sadness', cues: ['cried', 'crying', 'tears', 'down', 'low', 'sad'] },
+  { label: 'Sad', constellation: 'sadness', cues: ['cried', 'crying', 'tears', 'down', 'low', 'sad', 'dont feel like', 'no energy'] },
   { label: 'Grieving', constellation: 'grief', cues: ['lost', 'gone', 'died', 'passed', 'miss'] },
-  { label: 'Numb', constellation: 'numbness', cues: ['nothing', 'empty', 'blank', 'numb', 'dont care', 'shut down'] },
+  // Withdrawal / low-energy language ("dont feel like doing anything", "just
+  // wanna stay in bed") lands here — the closest word we have, and it routes to
+  // the LOW lane (behavioral activation), which is the right path for a flat,
+  // do-nothing state. TODO: the set still lacks a proper "Drained"/"Flat" word.
+  { label: 'Numb', constellation: 'numbness', cues: ['nothing', 'empty', 'blank', 'numb', 'dont care', 'shut down', 'dont feel like', 'not do anything', 'be on bed', 'stay in bed', 'no energy', 'cant be bothered', 'dont wanna do'] },
   { label: 'Lonely', constellation: 'loneliness', cues: ['alone', 'no one', 'by myself', 'nobody', 'lonely', 'left out'] },
   { label: 'Jealous', constellation: 'jealousy', cues: ['she got', 'they have', 'why not me', 'jealous', 'envy', 'everyone else'] },
 ];
@@ -157,7 +169,13 @@ export const FEELING_SET: readonly FeelingWord[] = [
  */
 export type Lane = 'high' | 'low' | 'mixed';
 
-const LOW_WORDS = /\b(flat|numb|drained|empty|tired of it|low|heavy|nothing|blank)\b/i;
+// The low lane is for LOW-AROUSAL, shut-down feelings (flat, numb, sad, lonely,
+// grieving): the ones where behavioral activation — doing one small engaging
+// thing — beats the hold/breath, which are tools for a wound-up, high-arousal
+// state. Sad/Lonely/Grieving used to fall through to the high lane (the "beat the
+// urge to react" hold), which makes no sense for someone who is shut down, not
+// activated (Neha 2026-08-01).
+const LOW_WORDS = /\b(flat|numb|drained|empty|tired of it|low|heavy|nothing|blank|sad|lonely|grieving)\b/i;
 const MIXED_WORDS =
   /\b(all over the place|up and down|swinging|confused|torn|not sure|mixed)\b/i;
 
@@ -167,8 +185,39 @@ export function laneFor(feeling: string): Lane {
   return 'high';
 }
 
-export function offerFeelings(herText: string, count = 3): string[] {
+/**
+ * The feeling she named OUTRIGHT, if any: a label whose own word she typed
+ * ("guilty", "angry", "ashamed"). Affect labeling works on the emotion she
+ * actually feels, so a model reorder must never bury a word she handed us — it
+ * did exactly that once, offering "Dismissed" over her written "guilty". This is
+ * checked against the model's order and pins the named feeling back to the top.
+ * Null when she named none, which is the common case (she wrote an event, not a
+ * feeling), and then the model's ranking stands.
+ */
+export function namedFeeling(herText: string): string | null {
   const t = herText.toLowerCase();
+  const hit = FEELING_SET.find((f) => {
+    const w = f.label.toLowerCase();
+    // Single-word labels only: multiword labels ("Not taken seriously") are our
+    // framing, never her verbatim word, so their presence is not "she named it".
+    return !w.includes(' ') && new RegExp(`\\b${w}\\b`).test(t);
+  });
+  return hit ? hit.label : null;
+}
+
+/** Put `label` first — moving it up if the model ranked it lower, or prepending
+ *  it if the model dropped it from the top three entirely. `label` is always a
+ *  real feeling word she typed (from namedFeeling), so prepending invents nothing. */
+export function pinFeeling(label: string | null, order: string[]): string[] {
+  if (!label || order[0] === label) return order;
+  return [label, ...order.filter((l) => l !== label)];
+}
+
+export function offerFeelings(herText: string, count = 3): string[] {
+  // Strip apostrophes so a cue like "dont feel like" matches her "don't feel
+  // like". The cue list is apostrophe-free by convention, so this only ever helps
+  // (it also fixes existing cues like "dont care", "cant cope").
+  const t = herText.toLowerCase().replace(/['’]/g, '');
   const scored = FEELING_SET.map((f, i) => ({
     label: f.label,
     hits: f.cues.filter((c) => t.includes(c)).length,

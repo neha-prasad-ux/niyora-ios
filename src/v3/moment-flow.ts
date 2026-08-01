@@ -61,11 +61,7 @@ export type NodeId =
   | 'lane_split'
   | 'activities'
   | 'arousal_check'
-  // low and mixed lanes
-  | 'low_activate'
-  | 'low_justone'
-  | 'low_reward'
-  | 'low_better'
+  // mixed lane
   | 'mixed_name_swing'
   | 'mixed_validate'
   | 'mixed_check_read'
@@ -78,11 +74,8 @@ export type NodeId =
   | 'act'
   // nothing feels possible
   | 'unctrl_honor'
-  | 'unctrl_ifthen'
   // timing and close
-  | 'today_action'
-  | 'we_good_more'
-  | 'intensity_out'
+  | 'sendoff'
   | 'close';
 
 // Three states, named for what the app does in each (Neha 2026-07-28): reflect
@@ -125,15 +118,15 @@ export const MOMENT_FLOW: FlowNode[] = [
     id: 'raw_entry',
     owner: 'ui',
     phase: 'reflect',
-    next: 'intensity_in',
-    note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held.',
+    next: 'clarify',
+    note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held. A clear entry skips clarify straight to intensity_in (screen logic); a thin one clarifies first, so she only rates once we understand what happened.',
   },
   {
     id: 'safe_check',
     owner: 'safety',
     phase: 'reflect',
     branches: [
-      { when: 'safe', next: 'intensity_in' },
+      { when: 'safe', next: 'clarify' },
       { when: 'not_safe', next: 'crisis_handoff' },
     ],
     note: 'Only on an ambiguous scan hit. Never explained.',
@@ -149,8 +142,8 @@ export const MOMENT_FLOW: FlowNode[] = [
     id: 'intensity_in',
     owner: 'ui',
     phase: 'reflect',
-    next: 'clarify',
-    note: '0 to 10, taken BEFORE acknowledge because acknowledge is one of the things being measured. Also routes big vs small, rather than asking her the same thing twice.',
+    next: 'acknowledge',
+    note: '0 to 10, taken BEFORE acknowledge because acknowledge is one of the things being measured, but AFTER clarify (Neha 2026-08-01) so she only rates once we understand what happened. Also routes big vs small, rather than asking her the same thing twice.',
   },
 
   // --- naming --------------------------------------------------------------
@@ -159,8 +152,8 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'echo',
     phase: 'reflect',
     slot: 'clarify',
-    next: 'acknowledge',
-    note: 'Only when her entry is thin. Asks for the concrete thing using her own words.',
+    next: 'intensity_in',
+    note: 'Only when her entry is thin. Asks for the concrete thing using her own words, then she rates (intensity_in) and it is said back (acknowledge).',
   },
   {
     id: 'acknowledge',
@@ -257,10 +250,10 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'regulate',
     branches: [
       { when: 'high', next: 'options' },
-      { when: 'low', next: 'low_activate' },
+      { when: 'low', next: 'activities' },
       { when: 'mixed', next: 'mixed_name_swing' },
     ],
-    note: 'NOT A PAGE (Neha, 2026-07-27). She is never asked which lane she is in: it is derived from the feeling she already named, because asking again for something she has just told us reads as a form. High goes straight to the menu; low and mixed keep their own work first. Cycle phase is context here, never a fork.',
+    note: 'NOT A PAGE (Neha, 2026-07-27). She is never asked which lane she is in: it is derived from the feeling she already named. High (wound up) goes straight to respond; low (flat/shut down) reuses the built `activities` menu as its behavioral-activation step (Neha 2026-08-01 — "use what we built in the high lane"): one small engaging thing lifts a flat state, and it reuses a menu she already has rather than a text-only stub (the old low_activate chain was removed). Cycle phase is context here, never a fork.',
   },
 
   // --- the hold: a menu of ways to settle -----------------------------------
@@ -292,8 +285,8 @@ export const MOMENT_FLOW: FlowNode[] = [
   // intervention for the big emotion; after it, straight to "any better?".
   // After the hold, she rates whether she is in a better place to react. A
   // rating, not a yes/no (Neha 2026-07-28): the hold is the intervention and
-  // this reads whether it landed, then straight to the act menu. NOT the
-  // closing delta rating -- that is intensity_out, at the very end.
+  // this reads whether it landed, then straight to the act menu. There is no
+  // closing rating any more (removed 2026-08-01); the flow ends on the sendoff.
   {
     id: 'arousal_check',
     owner: 'ui',
@@ -304,25 +297,13 @@ export const MOMENT_FLOW: FlowNode[] = [
 
 
   // --- low lane ------------------------------------------------------------
-  {
-    id: 'low_activate',
-    owner: 'authored',
-    phase: 'regulate',
-    next: 'low_justone',
-    why: true,
-    note: 'One small thing: sunlight, a song, a warm drink, the dog. Engaging, never soothing. The flat need an act most, not least.',
-  },
-  { id: 'low_justone', owner: 'authored', phase: 'regulate', next: 'low_reward' },
-  { id: 'low_reward', owner: 'reward', phase: 'regulate', next: 'low_better' },
-  {
-    id: 'low_better',
-    owner: 'branch',
-    phase: 'regulate',
-    branches: [
-      { when: 'yes', next: 'ready_reward' },
-      { when: 'no', next: 'low_activate' },
-    ],
-  },
+  // The low lane now REUSES the built `activities` menu (lane_split low →
+  // activities) as its behavioral-activation step, so the old skeletal beats
+  // (low_activate → low_justone → low_reward → low_better) were removed
+  // 2026-08-01 (Neha, "use what we built in the high lane"). If the low lane
+  // ever wants ACTIVATION-specific content (engaging, not soothing) distinct from
+  // the settling menu, it gets its own beat then — but a menu it already has beats
+  // a text-only stub.
 
   // --- mixed lane ----------------------------------------------------------
   { id: 'mixed_name_swing', owner: 'authored', phase: 'regulate', next: 'mixed_validate' },
@@ -370,7 +351,6 @@ export const MOMENT_FLOW: FlowNode[] = [
     why: true,
     branches: [
       { when: 'picks', next: 'act' },
-      { when: 'show_others', next: 'options' },
       { when: 'take_hold', next: 'activities' },
       { when: 'none_possible', next: 'unctrl_honor' },
     ],
@@ -381,11 +361,11 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'she',
     phase: 'react',
     branches: [
-      { when: 'now', next: 'today_action' },
-      { when: 'later', next: 'intensity_out' },
+      { when: 'now', next: 'sendoff' },
+      { when: 'later', next: 'sendoff' },
       { when: 'another', next: 'options' },
     ],
-    note: 'The "when" page (Neha 2026-07-29): her chosen move, and three replies — do it now, later, try another. "Now" DOES the thing: for a message act it opens the iOS Messages compose (blank; the app never drafts or sends, she writes and sends, which is why the beat that drafts for her measured at 26%), then goes to the if-then. "Later" (Neha 2026-07-30) SAVES the move to Today, shows an "Added to today" snackbar, and continues to the closing rating — it no longer bails out to the Today tab, so she keeps the flow and the reward; it skips the if-then because the plan is already parked on Today. "Another" goes back to the menu. The old time_it beat (now / tomorrow / not sure) folded into this: the "when" question is answered by the three buttons here.',
+    note: 'The "when" page (Neha 2026-07-29): her chosen move, and three replies — do it now, later, try another. "Now" DOES the thing (for a message act it opens the iOS share sheet), then goes STRAIGHT to the closing rating — the if-then "Fill in to remember" was removed 2026-08-01 (Neha) as confusing after she had already acted. "Later" SAVES the move to Today, shows an "Added to today" snackbar, and continues to the closing rating. "Another" goes back to the menu.',
   },
 
   // --- nothing feels possible ---------------------------------------------
@@ -401,48 +381,23 @@ export const MOMENT_FLOW: FlowNode[] = [
     id: 'unctrl_honor',
     owner: 'authored',
     phase: 'react',
-    next: 'unctrl_ifthen',
-    note: 'A valid answer with a full ending of its own. No "but maybe", no re-asking. Merges the old honor + warmth + comfort lines into one moon line, then goes straight to the plan.',
-  },
-  {
-    id: 'unctrl_ifthen',
-    owner: 'she',
-    phase: 'react',
     next: 'close',
-    note: 'A coping if-then, not a fixing one. Same mechanism as today_action, surviving instead of solving. Goes straight to close: the "it will be here tomorrow" door line was folded into the one honor line above.',
+    note: 'A valid answer with a full ending of its own. No "but maybe", no re-asking. Merges the old honor + warmth + comfort lines into one moon line, then goes straight to close. The coping if-then that used to follow (unctrl_ifthen) was removed 2026-08-01 (Neha) with the rest of the if-then.',
   },
 
   // --- timing and close ----------------------------------------------------
+  // The closing "And now?" 0-10 rating (intensity_out) and its "not yet, show me
+  // something else" loop (we_good_more) were REMOVED 2026-08-01 (Neha): a self-
+  // rating at the end pulls her back into monitoring her feelings exactly when
+  // she should disengage, and the flow already checks how she feels several
+  // times. This was the in/out delta measure; given up on purpose for a better
+  // ending. The flow now closes on a warm sendoff, then the reward.
   {
-    id: 'today_action',
-    owner: 'she',
+    id: 'sendoff',
+    owner: 'authored',
     phase: 'react',
-    why: true,
-    next: 'intensity_out',
-    note: 'Fill in to remember (Neha 2026-07-29): "If I feel anxious for this reason, then I will ___." A coping if-then she keeps for next time, filled with what she just chose to do. She fills the slot; the trigger is grounded in her own situation, never an invented him or dinner. Then the closing rating, then the reward. The old two-way fork (has_after / no_after -> after_checklist) folded away with the act-scaffold rewrite: the act now happens on the "when" page, not as an in-app draft, so there is no "after" checklist to gate.',
-  },
-  // The closing check. `we_good` and the outcome rating were MERGED here
-  // 2026-07-28 (Neha): they were two taps on two pages for one question. The
-  // rating she gives IS the "we good", and "not yet" is how she asks for
-  // something she has not tried. The delta between this and intensity_in is the
-  // flow's only outcome measure, so it is still a real reading.
-  {
-    id: 'intensity_out',
-    owner: 'ui',
-    phase: 'react',
-    branches: [
-      { when: 'rated', next: 'close' },
-      { when: 'not_yet', next: 'we_good_more' },
-    ],
-    note: 'And now? Never "how much better do you feel", which presupposes improvement and inflates a measure the evidence already distrusts. Carries the "we good?" sense on the same card: the number is the answer, "not yet" opens the untried options.',
-  },
-  {
-    id: 'we_good_more',
-    owner: 'echo',
-    phase: 'react',
-    slot: 'we_good_more',
-    next: 'intensity_out',
-    note: 'One node doing two jobs: the ask is echo, the untried options are an authored list minus what she already did. Loops back to the merged closing rating, not to a separate "we good" page.',
+    next: 'close',
+    note: 'The warm ending (Neha 2026-08-01): names the three phases done and hands her back her evening — go do what you like, feelings take about an hour to settle, keep busy, have fun. No rating, no "how do you feel" one more time. Then the reward.',
   },
   // human_nudge ("you've been here a lot, go be with someone") was removed from
   // the path 2026-07-28 (Neha): it is a pure usage-frequency beat -- fires only

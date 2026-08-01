@@ -15,6 +15,9 @@ export function CosmicBackground() {
   const patch = Math.round(W * 0.62);
   return (
     <View style={[styles.fill, styles.base]} pointerEvents="none">
+      {/* A faint full-screen starfield so stars fill the middle too, not only the
+          two nebula corners — even distribution without losing the corner glow. */}
+      <Image source={STARS} resizeMode="cover" style={[styles.fill, styles.spread]} />
       {/* Blue patch, bleeding in from the top-left corner. */}
       <Image
         source={STARS}
@@ -40,5 +43,6 @@ export function CosmicBackground() {
 const styles = StyleSheet.create({
   fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   base: { backgroundColor: '#04030A' },
+  spread: { opacity: 0.28 },
   patch: { position: 'absolute', opacity: 0.6 },
 });

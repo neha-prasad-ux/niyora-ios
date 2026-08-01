@@ -5,7 +5,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-export type ActivityId = 'colour' | 'story' | 'move' | 'breath';
+export type ActivityId = 'colour' | 'story' | 'move' | 'breath' | 'cold' | 'shoulders';
 
 let done: ReadonlySet<ActivityId> = new Set();
 const subs = new Set<() => void>();
@@ -25,6 +25,18 @@ export function markActivityDone(id: ActivityId): void {
 
 export function isActivityDone(id: ActivityId): boolean {
   return done.has(id);
+}
+
+/** The current done-set, read outside React (for a completion listener). */
+export function getActivitiesDone(): ReadonlySet<ActivityId> {
+  return done;
+}
+
+/** Subscribe to done-set changes outside React — used to reward each completed
+ *  activity (fire a moon shine + praise) the instant it lands. */
+export function subscribeActivities(cb: () => void): () => void {
+  subs.add(cb);
+  return () => subs.delete(cb);
 }
 
 /** Clear the marks for a new hold. */

@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ErrorBoundary } from '../components/error-boundary';
 import * as Notifications from 'expo-notifications';
 import {
+  ACTION_REMINDER_PREFIX,
   COMEBACK_NUDGE_ID,
   cancelCombackNudge,
   notificationRoute,
@@ -78,6 +79,12 @@ export default function RootLayout() {
       const route = notificationRoute(id);
       if (route) {
         router.push(route);
+        return;
+      }
+      // A response she parked for "later" is saved on Today; a tap opens it there
+      // instead of falling through to wherever the app last was.
+      if (id.startsWith(ACTION_REMINDER_PREFIX)) {
+        router.push('/now');
         return;
       }
       if (id === STRESS_NUDGE_ID) {
@@ -211,10 +218,9 @@ export default function RootLayout() {
           <Stack.Screen name="rough-moment" options={CALM_FADE} />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
           {FM_EXPERIMENT && <Stack.Screen name="fm-probe" />}
-          {/* Dev-only material preview, reached by long-pressing the Now moon. */}
-          {__DEV__ && (
-            <Stack.Screen name="moon-probe" options={CALM_FADE} />
-          )}
+          {/* The moon-growth explainer (materials, rings, phases), opened from
+              "You're on [material]" on the Soul page. */}
+          <Stack.Screen name="moon-probe" options={CALM_FADE} />
         </Stack>
       </ErrorBoundary>
     </GestureHandlerRootView>

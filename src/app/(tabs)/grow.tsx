@@ -487,8 +487,8 @@ const styles = StyleSheet.create({
   },
 
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
-  patTopRight: { position: 'absolute', top: -24, right: -16, opacity: 0.3, transform: [{ rotate: '18deg' }] },
-  patBotLeft: { position: 'absolute', bottom: -24, left: -18, opacity: 0.24, transform: [{ rotate: '-12deg' }] },
+  patTopRight: { position: 'absolute', top: -24, right: -16, opacity: 0.16, transform: [{ rotate: '18deg' }] },
+  patBotLeft: { position: 'absolute', bottom: -24, left: -18, opacity: 0.12, transform: [{ rotate: '-12deg' }] },
   couplesHeartBig: { position: 'absolute', top: -22, right: -14, transform: [{ rotate: '14deg' }] },
   couplesHeartSmall: { position: 'absolute', bottom: -18, right: 58, transform: [{ rotate: '-10deg' }] },
 });
