@@ -180,12 +180,12 @@ export type Act = {
 export const ACTS: readonly Act[] = [
   { id: 'A', rung: 'direct', label: 'Say it to them', evidence: 'assertiveness', confrontational: true, universalLine: true, channel: 'message' },
   { id: 'B', rung: 'direct', label: 'Ask for the thing', evidence: null, confrontational: true, channel: 'message' },
-  { id: 'C', rung: 'direct', label: 'Hold a line', evidence: 'refusal', confrontational: true },
+  { id: 'C', rung: 'direct', label: "Say what's not okay", evidence: 'refusal', confrontational: true },
   { id: 'D', rung: 'direct', label: 'Own my part', evidence: 'recipient_only' },
-  { id: 'E', rung: 'prep', label: 'Find out', evidence: null },
+  { id: 'E', rung: 'prep', label: 'Get the full story', evidence: null },
   { id: 'F', rung: 'prep', label: 'Get it ready', evidence: null },
   { id: 'G', rung: 'prep', label: 'Tell one person', evidence: 'listener_dependent', channel: 'message' },
-  { id: 'H', rung: 'prep', label: 'Get someone whose job it is', evidence: null },
+  { id: 'H', rung: 'prep', label: 'Bring in the right person', evidence: null },
   { id: 'I', rung: 'prep', label: 'Work out what I want', evidence: null },
   { id: 'J', rung: 'self', label: 'Take something off my plate', evidence: null },
   { id: 'K', rung: 'self', label: 'Let it be', evidence: null },
@@ -310,10 +310,11 @@ export const COPY = {
   ack_yes: "Yes, that's it", // [DRAFT]
   ack_no: 'No, not quite', // [DRAFT]
   ack_fix: 'Tell me again, in your words.', // [DRAFT]
-  // Shown when Moon cannot be reached at the entry beat (not offline, not crisis).
-  // Better to say so than to hand her a hollow scripted reflection. [DRAFT] 2026-08-02.
-  ai_not_responding: "Moon isn't responding right now", // [DRAFT]
-  ai_not_responding_sub: 'That is on our side, not yours. Give it another go in a moment.', // [DRAFT]
+  // Shown when Moon AI cannot be reached at the entry beat (v1: any failure incl.
+  // offline; crisis is handled before this). v1 is AI-required, so we say so and
+  // let her retry rather than degrading to authored copy. [DRAFT] 2026-08-02.
+  ai_not_responding: "Moon AI isn't working right now", // [DRAFT]
+  ai_not_responding_sub: 'Refresh, or try again in a moment. If it keeps happening, reach out at neha@niyora.com.', // [DRAFT]
   ai_retry: 'Try again', // [DRAFT]
 
   together: "You're not in this alone tonight.", // [MAP]
@@ -422,7 +423,7 @@ export const COPY = {
   make_safe_now: 'I am calm to respond now', // [NEHA] 2026-07-29
   // The settling menu (Neha 2026-07-29): four ways to fill the wait, done in any
   // order, none required. "I am ready to respond" is the un-shamed exit.
-  activities_intro: "Let's settle first. Do as many as you like.", // [NEHA] 2026-07-29
+  activities_intro: 'Try these activities', // [NEHA] 2026-08-02
   activities_colour: 'Colour & share', // [NEHA] 2026-07-29
   activities_story: 'A story', // [NEHA] 2026-07-29
   activities_move: 'Move your body', // [NEHA] 2026-07-29
@@ -524,12 +525,12 @@ export const COPY = {
   // do it. "Now" carries it out (opens Messages for a message act); "later"
   // steps out to Today; "another" reopens the menu. Order is hers.
   act_now: 'I will do it now', // [NEHA] 2026-07-29
-  act_later: 'Later', // [NEHA] 2026-07-29
+  act_later: 'Save for later', // [NEHA] 2026-08-02
   act_another: "Let's try another option", // [NEHA] 2026-07-29
 
   // The draft step (Gemini): when she picks "now", the moon writes a start she
   // can change, then send or do. All [DRAFT], awaiting Neha's voice.
-  act_draft_hint: 'A start, in your words. Change anything.', // [DRAFT]
+  act_draft_hint: 'Here is a draft you can edit', // [NEHA] 2026-08-02
   act_draft_loading: 'Writing you a start', // [DRAFT]
   act_draft_change_ph: 'Tell the moon what to change', // [DRAFT] (unused since M19 buttons)
   act_draft_change: 'Edit with Moon', // [DRAFT] label over the quick-rewrite chips

@@ -80,6 +80,7 @@ import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, SkeletonRows, ThinkingDots, WhyLine } from '@/components/moment/controls';
 import { HoldWhisper } from '@/components/moment/hold-clock-bar';
+import { ActivityBall } from '@/components/moment/activity-ball';
 import { resetHold } from '@/lib/hold-clock';
 import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
@@ -221,10 +222,11 @@ export default function Moment() {
    *  actually looking at does. */
   const [history, setHistory] = useState<NodeId[]>([]);
   const [crisis, setCrisis] = useState(false);
-  // Set when the entry beat cannot reach the model (timeout/HTTP/empty) while AI
-  // is on: the flow shows "Moon isn't responding" with a retry instead of a
-  // hollow scripted beat. Offline keeps the authored floor (never stranded);
-  // crisis is handled before this and is unaffected.
+  // Set when the entry beat cannot reach the model while AI is on (v1: any
+  // failure, including offline): the flow shows "Moon AI not working" with a
+  // retry instead of degrading to authored copy. v1 is AI-required — no offline
+  // flow until the authored path is built out. Crisis is handled before this and
+  // is unaffected.
   const [aiError, setAiError] = useState(false);
   // The typed crisis read from the model layer, for the crisis page to route the
   // right resource. A ref (not state) because nothing renders from it yet; the
@@ -396,8 +398,18 @@ export default function Moment() {
   const rewardBumped = useRef(false);
   // M28: on Done the sky dims and the moon behind the card blooms + confetti.
   const [celebrating, setCelebrating] = useState(false);
-  // Speak-to-type on the entry: each finished phrase appends to the draft.
-  const dictation = useDictation((t) => setDraft((d) => (d.trim() ? d.trim() + ' ' : '') + t));
+  // Speak-to-type on the entry: each finished phrase appends to the draft. The
+  // suppress ref lets `send` fold the in-progress phrase itself (so she can send
+  // mid-dictation without stopping the mic first) and drop the duplicate final
+  // result the recognizer emits when we stop it on that send.
+  const dictationSuppress = useRef(false);
+  const dictation = useDictation((t) => {
+    if (dictationSuppress.current) {
+      dictationSuppress.current = false;
+      return;
+    }
+    setDraft((d) => (d.trim() ? d.trim() + ' ' : '') + t);
+  });
   const beat = node(current);
 
   // How far the current state's segment is filled: the distinct beats she has
@@ -555,11 +567,15 @@ export default function Moment() {
     echo(provider, 'acknowledge', her)
       .then((r) => {
         setModelEcho(r.via === 'model' ? r.text : null);
-        // AI health gate at the entry beat. If the model could not be reached
-        // (fail: timeout/HTTP/empty) — not merely rejected for grounding — show
-        // the "not responding" state. Offline ('offline') keeps the authored
-        // floor so she is never stranded.
-        if (lastAiTransport() === 'fail') setAiError(true);
+        // AI health gate at the entry beat. v1 is AI-required: if the model could
+        // not be reached AT ALL — timeout, HTTP error, empty, OR offline — show the
+        // "Moon AI not working" state and let her retry, rather than degrading to
+        // authored copy. (Transport 'ok' but a line rejected for grounding is NOT a
+        // failure: the model worked, we just used the safe carve.) The offline
+        // floor comes back when the authored path is built out; until then, no
+        // offline flow.
+        const t = lastAiTransport();
+        if (t === 'fail' || t === 'offline') setAiError(true);
       })
       .catch(() => {})
       .finally(() => setEchoResolving(false));
@@ -707,8 +723,18 @@ export default function Moment() {
   };
 
   const send = useCallback(() => {
-    const text = draft.trim();
+    // Fold any in-progress dictation into the text and stop the mic, so she can
+    // send in one tap without turning the speaker off first (Neha 2026-08-02).
+    // Suppress the duplicate final phrase the recognizer emits on that stop.
+    const spoken = dictation.partial.trim();
+    const live =
+      dictation.listening && spoken ? (draft.trim() ? draft.trim() + ' ' : '') + spoken : draft;
+    const text = live.trim();
     if (!text) return;
+    if (dictation.listening) {
+      dictationSuppress.current = spoken.length > 0;
+      dictation.toggle();
+    }
     tap();
 
     // One call decides all three routes. The crisis scan runs inside it, on her
@@ -787,7 +813,7 @@ export default function Moment() {
       startEcho();
       setCurrent('acknowledge');
     }
-  }, [current, draft, startEcho, aiOn, provider]);
+  }, [current, draft, startEcho, aiOn, provider, dictation]);
 
   const leave = useCallback(() => {
     tap();
@@ -1124,8 +1150,16 @@ export default function Moment() {
     onSend: () => void;
     withMic?: boolean;
     a11yLabel?: string;
+    // Whether to raise the keyboard on mount. On for the beats whose whole job is
+    // typing (entry, clarify); OFF where the field is a secondary option that
+    // shouldn't cover the screen until she taps it (the reframe "your own read").
+    autoFocus?: boolean;
   }) => {
-    const canSend = draft.trim().length > 0;
+    // Enabled while she is still speaking too, so she never has to tap the mic
+    // off before she can send (Neha 2026-08-02).
+    const canSend =
+      draft.trim().length > 0 ||
+      (!!opts.withMic && dictation.listening && dictation.partial.trim().length > 0);
     return (
       <View style={styles.composer}>
         <TextInput
@@ -1148,7 +1182,7 @@ export default function Moment() {
           selectionColor="rgba(196, 178, 255, 0.9)"
           multiline
           textAlignVertical="top"
-          autoFocus
+          autoFocus={opts.autoFocus ?? true}
           inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
           accessibilityLabel={opts.a11yLabel ?? 'What happened'}
         />
@@ -1158,8 +1192,12 @@ export default function Moment() {
               onPress={() => {
                 tap();
                 // Starting to listen: drop the keyboard so she isn't tempted to
-                // type into a field the mic now owns.
-                if (!dictation.listening) Keyboard.dismiss();
+                // type into a field the mic now owns, and clear any stale suppress
+                // flag so a fresh dictation's first phrase isn't swallowed.
+                if (!dictation.listening) {
+                  dictationSuppress.current = false;
+                  Keyboard.dismiss();
+                }
                 dictation.toggle();
               }}
               hitSlop={8}
@@ -1965,6 +2003,10 @@ export default function Moment() {
                     {entryField({
                       placeholder: reframeSelfPrompt,
                       a11yLabel: 'Your own read',
+                      // Don't raise the keyboard on the "Wait, let's think" page:
+                      // the readings are the point; the field waits for a tap
+                      // (Neha 2026-08-02).
+                      autoFocus: false,
                       onSend: () => {
                         const t = draft.trim();
                         if (!t) return;
@@ -2130,6 +2172,8 @@ export default function Moment() {
             <>
               {head(COPY.options)}
               <WhyLine>{plan.science}</WhyLine>
+              {/* A divider below the intro (Neha 2026-08-02: "line" = divider). */}
+              <View style={styles.divider} />
               {/* Abuse in the picture: the confront/self-blame options are gone
                   from the menu (offerableActs), and this quiet, NON-DIAGNOSTIC
                   resource sits above what remains. General wording ("if someone
@@ -2209,25 +2253,30 @@ export default function Moment() {
                     "which response", they are ways out of the list. "Show me
                     other options" expands the menu in place (no navigation);
                     it hides once everything is shown. */}
-                {hasMore && !showAllActs && (
+                {/* A divider sets the two meta-links apart from the responses
+                    (Neha 2026-08-02: "line" = divider). */}
+                <View style={styles.divider} />
+                <View style={styles.metaLinks}>
+                  {hasMore && !showAllActs && (
+                    <Pressable
+                      onPress={() => {
+                        tap();
+                        setShowAllActs(true);
+                      }}
+                      style={styles.skipLink}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.skipLinkText}>{COPY.options_more}</Text>
+                    </Pressable>
+                  )}
                   <Pressable
-                    onPress={() => {
-                      tap();
-                      setShowAllActs(true);
-                    }}
+                    onPress={() => go('options', 'none_possible')}
                     style={styles.skipLink}
                     accessibilityRole="button"
                   >
-                    <Text style={styles.skipLinkText}>{COPY.options_more}</Text>
+                    <Text style={styles.skipLinkText}>{COPY.options_none}</Text>
                   </Pressable>
-                )}
-                <Pressable
-                  onPress={() => go('options', 'none_possible')}
-                  style={styles.skipLink}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.skipLinkText}>{COPY.options_none}</Text>
-                </Pressable>
+                </View>
                   </>
                 )}
               </View>
@@ -2296,33 +2345,36 @@ export default function Moment() {
               <HoldWhisper />
               {head(COPY.activities_intro)}
               <WhyLine>{COPY.make_safe_why}</WhyLine>
-              <View style={styles.stack}>
-                <OptionRow
+              {/* The settling activities as magic balls: a 2-col grid, each a
+                  glowing orb that clears + lights up once done (activity-ball). */}
+              <View style={styles.activityGrid}>
+                <ActivityBall
+                  kind="colour"
                   label={COPY.activities_colour}
                   index={0}
+                  active
                   done={activitiesDone.has('colour')}
-                  tint={selTint}
                   onPress={() => router.push('/paint')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="story"
                   label={COPY.activities_story}
                   index={1}
                   done={activitiesDone.has('story')}
-                  tint={selTint}
                   onPress={() => router.push('/story')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="move"
                   label={COPY.activities_move}
                   index={2}
                   done={activitiesDone.has('move')}
-                  tint={selTint}
                   onPress={() => router.push('/move')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="wind"
                   label={COPY.activities_breath}
                   index={3}
                   done={activitiesDone.has('breath')}
-                  tint={selTint}
                   // The real guided Wind Down (voice + captions), the same
                   // /session exercise as in the calm library; `hold` tells it to
                   // mark this activity done when she finishes.
@@ -2335,23 +2387,24 @@ export default function Moment() {
                 />
                 {/* C5: quick regulation, the fast body resets. Each opens a short
                     guided step in place, then marks done and earns the shine. */}
-                <OptionRow
+                <ActivityBall
+                  kind="cold"
                   label={MICRO.cold.title}
                   index={4}
                   done={activitiesDone.has('cold')}
-                  tint={selTint}
                   onPress={() => setMicroStep('cold')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="aurora"
                   label={MICRO.shoulders.title}
                   index={5}
                   done={activitiesDone.has('shoulders')}
-                  tint={selTint}
                   onPress={() => setMicroStep('shoulders')}
                 />
-                {/* M8 (wait path): body-prep as a settling item. No tint: it opens
-                    the checklist in place rather than advancing the beat. */}
-                <OptionRow
+                {/* M8 (wait path): body-prep as a settling item, opens the
+                    checklist in place rather than advancing the beat. */}
+                <ActivityBall
+                  kind="sprout"
                   label={COPY.make_safe_care_intro}
                   index={6}
                   done={bodyReady}
@@ -2477,6 +2530,7 @@ export default function Moment() {
             body: (
               <>
                 {head(a ? personalisedLabel(a, herText.current) : COPY.options)}
+                <View style={styles.divider} />
                 <Text style={styles.settles}>{COPY.act_draft_hint}</Text>
                 {actDraftLoading ? (
                   // M2: the generation gap reads as working, not broken.
@@ -2506,23 +2560,31 @@ export default function Moment() {
                     </View>
                   </View>
                 )}
-                {/* M20: no "skip", just Done. "Do this later" opens the C10
-                    when-chooser (park on Today, optionally set a reminder). */}
-                <Pressable onPress={() => setReminderOpen(true)} style={styles.skipLink}>
-                  <Text style={styles.skipLinkText}>{COPY.act_later}</Text>
+                {/* A divider before the secondary action, so "Save for later"
+                    reads as a distinct choice from editing the draft (Neha
+                    2026-08-02). */}
+                <View style={styles.divider} />
+                {/* M20: no "skip". "Save for later" (secondary, bordered) opens
+                    the C10 when-chooser; the primary "Share" sits in the footer. */}
+                <Pressable
+                  onPress={() => setReminderOpen(true)}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.secondaryBtnText}>{COPY.act_later}</Text>
                 </Pressable>
               </>
             ),
             cta: (
               <BeginButton
                 fullWidth
-                label={a?.channel === 'message' ? COPY.act_draft_send : COPY.act_draft_do}
+                label={COPY.act_draft_send}
                 disabled={actDraftLoading}
                 onPress={() => {
                   const text = actDraft.trim();
-                  // Hand her draft to the iOS share sheet so she picks how to send
-                  // it (Messages, WhatsApp, Mail...). Non-message acts just proceed.
-                  if (a?.channel === 'message' && text) {
+                  // Primary is always "Share": hand her draft to the iOS share
+                  // sheet so she picks how to send it (Messages, WhatsApp, Mail).
+                  if (text) {
                     Share.share({ message: text }).catch(() => {});
                   }
                   closeActDraft();
@@ -3005,15 +3067,13 @@ const styles = StyleSheet.create({
   // Her own words, repeated back. Lighter than a question, and slightly
   // smaller: the app is not making a point here, it is showing it listened.
   saidLine: {
-    // The moon's spoken line. It was Light weight at 0.60 white — thin and dim,
-    // right at the readable floor, and unreadable over the moon glow. Medium
-    // weight + primary (0.95) white (DESIGN.md text ramp) makes it legible; it
-    // still reads lighter than the SemiBold question through weight, not dimness.
-    // The gradient echo (MoonText) inherits this weight too, so it thickens with
-    // it.
+    // The moon's spoken line. SAME SIZE as the question now (it only layers over
+    // `ask`, so dropping the size override lets it inherit the title size —
+    // Moon's voice is one consistent size, Neha 2026-08-02). It still reads
+    // lighter than the SemiBold question through WEIGHT (medium), not size or
+    // dimness. Medium + primary (0.95) white keeps it legible over the moon glow;
+    // the gradient echo (MoonText) inherits this weight too.
     fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 25,
     letterSpacing: 0,
     color: colors.textOnDark.primary,
   },
@@ -3093,6 +3153,32 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   stack: { gap: spacing.sm },
+  // Magic-ball settling grid: two orbs per row (activity-ball tiles).
+  activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  metaLinks: { gap: spacing.sm },
+  // A subtle full-width divider line (Neha 2026-08-02, "line" = a divider).
+  divider: {
+    alignSelf: 'stretch',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  // Secondary action, bordered (sibling to the primary's rounded shape) — e.g.
+  // "Save for later" on the draft screen.
+  secondaryBtn: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: 28,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  secondaryBtnText: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.bodyLg,
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
   // A question and its one-line description are ONE group: they sit tight (6),
   // while the card's 18 gap falls between groups (the description and the
   // options below). Proximity, so the line reads as belonging to the question
