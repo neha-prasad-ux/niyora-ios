@@ -79,6 +79,8 @@ import {
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, SkeletonRows, ThinkingDots, WhyLine } from '@/components/moment/controls';
+import { HoldWhisper } from '@/components/moment/hold-clock-bar';
+import { resetHold } from '@/lib/hold-clock';
 import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
@@ -89,12 +91,13 @@ import {
   laneFor,
   namedFeeling,
   offerFeelings,
+  matchFeelings,
   pinFeeling,
   type Verdict,
 } from '@/v3/moment-analyse';
 import { echo, pick, composeReadings, draftAct, revise, hasConcreteEvent } from '@/v3/moment-ai';
 import { optionPlanFor, personalisedLabel } from '@/v3/option-plan';
-import { getMomentProvider } from '@/lib/moment-gemini';
+import { getMomentProvider, classifyCrisis, lastAiTransport, type CrisisType } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
@@ -218,6 +221,15 @@ export default function Moment() {
    *  actually looking at does. */
   const [history, setHistory] = useState<NodeId[]>([]);
   const [crisis, setCrisis] = useState(false);
+  // Set when the entry beat cannot reach the model (timeout/HTTP/empty) while AI
+  // is on: the flow shows "Moon isn't responding" with a retry instead of a
+  // hollow scripted beat. Offline keeps the authored floor (never stranded);
+  // crisis is handled before this and is unaffected.
+  const [aiError, setAiError] = useState(false);
+  // The typed crisis read from the model layer, for the crisis page to route the
+  // right resource. A ref (not state) because nothing renders from it yet; the
+  // page rework reads crisisType.current.
+  const crisisType = useRef<CrisisType | null>(null);
   // Physical-abuse disclosure detected (scanForAbuse). Does not stop the flow:
   // it de-fangs the respond menu (no acts aimed at the person) and shows a quiet
   // resource. Once set in a session it stays, so a later beat can't re-offer a
@@ -229,6 +241,13 @@ export default function Moment() {
   const { resume } = useLocalSearchParams<{ resume?: string }>();
   const [hydrating, setHydrating] = useState(resume === '1');
   const [draft, setDraft] = useState('');
+  // One good entry example, picked once per open so it rotates across sessions
+  // (partner / family / work) without crowding the screen with all three.
+  const [goodExample] = useState(
+    () => COPY.raw_entry_examples_good[
+      Math.floor(Math.random() * COPY.raw_entry_examples_good.length)
+    ],
+  );
   const [intensity, setIntensity] = useState<number | null>(null);
   /** What the app decided about her sentence. Drives clarify vs acknowledge. */
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -258,6 +277,9 @@ export default function Moment() {
   /** Model orderings/readings per beat. Each defaults to null → the deterministic
    *  authored value, so nothing here can leave a beat empty. */
   const [reframeReadings, setReframeReadings] = useState<string[] | null>(null);
+  /** The model's self-generation prompt, seeded as the placeholder of her own
+   *  text box at the reframe so she can reach a reading herself. Empty when none. */
+  const [reframeSelfPrompt, setReframeSelfPrompt] = useState('');
   /** The FULL ranked act pool from the model (null → authored order). The menu
    *  shows one-per-rung from this; `showAllActs` expands it to the rest when she
    *  taps "Show me other options". */
@@ -287,6 +309,9 @@ export default function Moment() {
   const [bodyPrepInList, setBodyPrepInList] = useState(false);
   // C10: "Do this later" opens a when-chooser; a pick schedules a local reminder.
   const [reminderOpen, setReminderOpen] = useState(false);
+  // After she saves a move for later: a short "Nicely done" confirmation, so the
+  // save is acknowledged instead of the chooser just vanishing.
+  const [savedLater, setSavedLater] = useState(false);
   /** She chose to act now instead of taking the twenty-minute hold. Gates the
    *  gentle "still worth twenty minutes" offer on the act menu, and only when
    *  the opening rating was high. */
@@ -492,11 +517,13 @@ export default function Moment() {
     // earlier one never shows a stale pick or a half-open field.
     setReframePick(null);
     setReframeReadings(null);
+    setReframeSelfPrompt('');
     setClarifyMoreContext(false);
     setBodyPrepOpen(false);
     setBodyPrepInList(false);
     setMicroStep(null);
     setReminderOpen(false);
+    setSavedLater(false);
     // NOT actOrder: the ranked options are kept, so stepping back to the menu
     // shows the SAME three in the same order, not a fresh model shuffle. It is
     // reset only when the feeling it is ranked on actually changes (chooseFeeling).
@@ -517,6 +544,7 @@ export default function Moment() {
     setStreamLen(0);
     setModelEcho(null);
     setFeelingOrder(null);
+    setAiError(false);
     if (!aiOn) return;
     const her = herText.current.trim();
     if (!her) return;
@@ -525,7 +553,14 @@ export default function Moment() {
     // anything else keeps the carve. The stream holds until this settles.
     setEchoResolving(true);
     echo(provider, 'acknowledge', her)
-      .then((r) => setModelEcho(r.via === 'model' ? r.text : null))
+      .then((r) => {
+        setModelEcho(r.via === 'model' ? r.text : null);
+        // AI health gate at the entry beat. If the model could not be reached
+        // (fail: timeout/HTTP/empty) — not merely rejected for grounding — show
+        // the "not responding" state. Offline ('offline') keeps the authored
+        // floor so she is never stranded.
+        if (lastAiTransport() === 'fail') setAiError(true);
+      })
       .catch(() => {})
       .finally(() => setEchoResolving(false));
   }, [aiOn, provider]);
@@ -655,19 +690,20 @@ export default function Moment() {
   // reminder. A denied permission (or no time) just saves it, no reminder.
   const saveForLater = async (date: Date | null) => {
     const a = chosenAct;
-    if (a) addPlannedAction(a.label).catch(() => {});
+    // Keep the drafted text with the parked move, so the home list can reopen the
+    // exact task she saved, not just its label.
+    const text = actDraft.trim();
+    if (a) addPlannedAction(a.label, text || undefined).catch(() => {});
     if (date) {
-      const ok = await scheduleActionReminder(
+      await scheduleActionReminder(
         a ? `You saved "${a.label}" for later.` : 'A response you saved is waiting.',
         date,
       );
-      setSnack(ok ? 'Saved, I will remind you' : COPY.added_today);
-    } else {
-      setSnack(COPY.added_today);
     }
     setReminderOpen(false);
     closeActDraft();
-    go('act', 'later');
+    // Show the "Nicely done" confirmation in place; Continue advances the flow.
+    setSavedLater(true);
   };
 
   const send = useCallback(() => {
@@ -688,6 +724,20 @@ export default function Moment() {
     // person and a quiet resource is shown. Runs on her raw text, before any model
     // call. Latches on: once true in a session it never flips back.
     if (scanForAbuse(text)) setDvDetected(true);
+
+    // Model crisis layer, behind the keyword floor above. Escalate-only and async
+    // so it never blocks her send: if it catches what the keywords missed, it
+    // pulls her to the crisis screen a beat later. classifyCrisis is a no-op when
+    // AI is off, and only an ACUTE read stops the flow (a historical disclosure
+    // continues). Recall-first: on any doubt the model returns crisis.
+    classifyCrisis(text)
+      .then((r) => {
+        if (r?.isCrisisMode && r.acuity === 'acute') {
+          crisisType.current = r.crisisType;
+          setCrisis(true);
+        }
+      })
+      .catch(() => {});
 
     // Her latest event text, kept for the feeling suggestions and the echo
     // correction prefill.
@@ -741,6 +791,7 @@ export default function Moment() {
 
   const leave = useCallback(() => {
     tap();
+    resetHold(); // don't leak an expired hold clock into the next moment
     router.back();
   }, []);
 
@@ -802,6 +853,16 @@ export default function Moment() {
     },
     [moonBloom],
   );
+
+  // The finish: sky dims, moon blooms, burst fires, then out. Fired ONLY by the
+  // final reward "Done" (Neha 2026-08-02: the celebration is earned by finishing;
+  // closing early via the X never celebrates).
+  const finishAndLeave = useCallback(() => {
+    tap();
+    setCelebrating(true);
+    moonBloom.value = withTiming(1, { duration: 900 });
+    setTimeout(leave, 1600);
+  }, [leave, moonBloom]);
 
   // C5: reward each completed settling activity, not just beat advances. The
   // done-set lives outside React (an activity screen marks itself done on its own
@@ -938,7 +999,17 @@ export default function Moment() {
     setReframeLoading(true);
     composeReadings(provider, user)
       .then((r) => {
-        if (alive && r) setReframeReadings(r);
+        if (!alive || !r) return; // null = failure → authored smallReframes stand
+        if (r.readings.length === 0) {
+          // The model deliberately offered nothing to loosen: a real fear, grief,
+          // harm, or diffuse mood. Skip the reframe rather than show generic
+          // small-reframes that would trivialise a serious moment. small_no routes
+          // to the breath, which is the right move for a real worry.
+          go('reframe_small', 'small_no');
+          return;
+        }
+        setReframeReadings(r.readings);
+        setReframeSelfPrompt(r.selfPrompt);
       })
       .catch(() => {})
       .finally(() => {
@@ -947,7 +1018,7 @@ export default function Moment() {
     return () => {
       alive = false;
     };
-  }, [aiOn, current, reframeReadings, provider]);
+  }, [aiOn, current, reframeReadings, provider, go]);
 
   // Options PICK: rank the acts, but keep the safety invariant that one direct,
   // one prep and one self are always offered together. The model only sets which
@@ -1168,11 +1239,6 @@ export default function Moment() {
       </View>
       {/* On the finish the sky dims so the moon and the burst carry the moment. */}
       <View style={[styles.scrim, celebrating && styles.scrimDim]} pointerEvents="none" />
-      {/* THE FINISH: a big one-shot burst — bloom + sunburst + sparks flying out
-          from the moon, in her moon's hue. The payoff. */}
-      {celebrating && (
-        <RingCelebration hue={bodyHue(lifetimeLight)} originYFraction={0.32} />
-      )}
       {/* SMALL TASKS: a brief snow flurry while the "nice / well done" toast is up
           (each step, each finished settling activity). Lighter than the finish
           burst, never at the same time as it. */}
@@ -1312,6 +1378,14 @@ export default function Moment() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
+      {/* THE FINISH: a big one-shot burst — bloom + sunburst + sparks flying out
+          from the moon, in her moon's hue. Painted ABOVE the frosted card (not
+          behind it), so the glass never mutes the payoff. pointerEvents:none via
+          its own absoluteFill root, so the card underneath stays tappable. */}
+      {celebrating && (
+        <RingCelebration hue={bodyHue(lifetimeLight)} originYFraction={0.32} />
+      )}
+
       {/* A brief confirmation toast, floated at the bottom over the flow. Non-
           interactive: it says what happened, it is not a control. */}
       {snack && (
@@ -1419,8 +1493,48 @@ export default function Moment() {
       case 'raw_entry':
         return {
           // Speaker/question sticky at the top (body); the chat composer sticky
-          // at the bottom (cta), like any messaging screen.
-          body: head(COPY.raw_entry),
+          // at the bottom (cta), like any messaging screen. A good-vs-bad pair
+          // under the question teaches how to write to Moon (Neha 2026-08-02):
+          // faint x / brand check, never alarm red, so it guides without judging.
+          body: (
+            <View style={styles.entryHead}>
+              {head(COPY.raw_entry)}
+              <WhyLine>{COPY.raw_entry_why}</WhyLine>
+              {/* The example is guidance for an empty field: once she starts
+                  typing (or dictating), it fades out so it never lingers next to
+                  her own words (Neha 2026-08-02). GOOD comes first: with the
+                  keyboard up the card is short and the list can clip to one line,
+                  so the teaching example must survive, never the "bad" one alone. */}
+              {!draft.trim() && !dictation.listening && (
+                <Animated.View
+                  style={styles.entryExamples}
+                  entering={reduceMotion ? undefined : FadeIn.duration(220)}
+                  exiting={reduceMotion ? undefined : FadeOut.duration(200)}
+                >
+                  <View style={styles.entryExampleRow}>
+                    <SymbolView
+                      name="checkmark"
+                      tintColor={v3.accent}
+                      size={13}
+                      weight="semibold"
+                      style={styles.entryExampleMark}
+                    />
+                    <Text style={styles.entryExampleGood}>{goodExample}</Text>
+                  </View>
+                  <View style={styles.entryExampleRow}>
+                    <SymbolView
+                      name="xmark"
+                      tintColor={colors.textTagline}
+                      size={13}
+                      weight="semibold"
+                      style={styles.entryExampleMark}
+                    />
+                    <Text style={styles.entryExampleBad}>{COPY.raw_entry_example_bad}</Text>
+                  </View>
+                </Animated.View>
+              )}
+            </View>
+          ),
           cta: entryField({
             placeholder: COPY.raw_entry_placeholder,
             onSend: send,
@@ -1455,6 +1569,31 @@ export default function Moment() {
         // What has streamed in so far, and whether the stream has finished.
         const revealed = reduceMotion ? echoText : echoText.slice(0, streamLen);
         const streamDone = reduceMotion || streamLen >= echoText.length;
+
+        // Moon could not be reached at the entry beat (timeout/HTTP/empty, while
+        // AI is on and she is not offline). Say so and let her retry, rather than
+        // proceeding on a hollow scripted reflection. Crisis is handled before
+        // here; offline never reaches this (it keeps the authored floor).
+        if (aiError) {
+          return {
+            body: (
+              <>
+                {head(COPY.ai_not_responding)}
+                <Text style={styles.settles}>{COPY.ai_not_responding_sub}</Text>
+              </>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label={COPY.ai_retry}
+                onPress={() => {
+                  tap();
+                  startEcho();
+                }}
+              />
+            ),
+          };
+        }
 
         // She said it was wrong: a field to say it again, then re-echo.
         if (echoFixing) {
@@ -1494,6 +1633,7 @@ export default function Moment() {
             body: (
               <>
                 {head(revealed, { tone: 'said', ai: echoAi, thinking: echoResolving })}
+                {settled && <WhyLine>{COPY.ack_why}</WhyLine>}
                 {isReflection && settled && (
                   <>
                     <Text style={styles.feelingsAsk}>{COPY.ack_confirm}</Text>
@@ -1575,19 +1715,37 @@ export default function Moment() {
                     onPress={() => setOtherOpen(true)}
                   />
                 ) : (
-                  <TextInput
-                    style={styles.inputSmall}
-                    value={draft}
-                    onChangeText={setDraft}
-                    placeholder={COPY.feelings_other_hint}
-                    placeholderTextColor="rgba(255,255,255,0.30)"
-                    selectionColor="rgba(196, 178, 255, 0.9)"
-                    autoFocus
-                    inputAccessoryViewID={
-                      Platform.OS === 'ios' ? ACCESSORY_ID : undefined
-                    }
-                    accessibilityLabel="Your own word for it"
-                  />
+                  <>
+                    <TextInput
+                      style={styles.inputSmall}
+                      value={draft}
+                      onChangeText={setDraft}
+                      placeholder={COPY.feelings_other_hint}
+                      placeholderTextColor="rgba(255,255,255,0.30)"
+                      selectionColor="rgba(196, 178, 255, 0.9)"
+                      autoFocus
+                      inputAccessoryViewID={
+                        Platform.OS === 'ios' ? ACCESSORY_ID : undefined
+                      }
+                      accessibilityLabel="Your own word for it"
+                    />
+                    {/* She types, we fill: matching feeling words she can tap
+                        instead of writing from scratch. Nothing matches → no
+                        rows, and Continue still takes her verbatim word. */}
+                    {matchFeelings(draft).map((f, i) => (
+                      <OptionRow
+                        key={f}
+                        label={f}
+                        index={i}
+                        tint={selTint}
+                        onPress={() => {
+                          setDraft('');
+                          setOtherOpen(false);
+                          chooseFeeling(f);
+                        }}
+                      />
+                    ))}
+                  </>
                 )}
                   </>
                 )}
@@ -1707,35 +1865,34 @@ export default function Moment() {
           };
         }
         return {
+          // Both choices sit together under the question rather than the hero
+          // button docking at the screen bottom with a big gap above it (Neha
+          // 2026-08-02, "the gradient button ends up at the lower end, move it
+          // up"). "Now" opens the body-prep page in place; "Wait" is the
+          // recommended hold — hero gradient, so the encouraged path leads.
           body: (
             <>
               {head(COPY.make_safe_intro)}
               <View style={styles.stack}>
-                {/* "Now" opens the body-prep page (no tint: it opens a page in
-                    place, it does not advance the beat). "Wait" is the recommended
-                    hold and advances to the settling menu. */}
                 <OptionRow
                   label={COPY.make_safe_now}
                   index={0}
                   onPress={() => setBodyPrepOpen(true)}
                 />
+                <BeginButton
+                  hero
+                  fullWidth
+                  label={COPY.make_safe_wait}
+                  onPress={() => {
+                    resetActivities();
+                    resetHold(); // fresh 20:00 for this hold (also clears any stale clock)
+                    go('make_safe', 'wait');
+                  }}
+                />
               </View>
             </>
           ),
-          // "Yey I am ready" is the recommended hold and a big-commit moment, so it
-          // gets the hero CTA gradient (the heroGradient design token), not the flat
-          // begin gradient — the encouraged path reads as the primary move.
-          cta: (
-            <BeginButton
-              hero
-              fullWidth
-              label={COPY.make_safe_wait}
-              onPress={() => {
-                resetActivities();
-                go('make_safe', 'wait');
-              }}
-            />
-          ),
+          cta: null,
         };
       }
 
@@ -1797,6 +1954,26 @@ export default function Moment() {
                     </>
                   )}
                 </View>
+                {/* Her own read: a self-generation on-ramp seeded with the model's
+                    open question as the placeholder. Self-generated reappraisals
+                    stick better than served ones, so the field sits below the
+                    tappable readings, not instead of them. Only shown once the
+                    readings (and the question) have landed. */}
+                {!loadingReadings && reframeSelfPrompt ? (
+                  <View style={styles.stack}>
+                    <Text style={styles.settles}>{COPY.reframe_small_own}</Text>
+                    {entryField({
+                      placeholder: reframeSelfPrompt,
+                      a11yLabel: 'Your own read',
+                      onSend: () => {
+                        const t = draft.trim();
+                        if (!t) return;
+                        setReframePick(t);
+                        setDraft('');
+                      },
+                    })}
+                  </View>
+                ) : null}
               </>
             ),
             cta: null,
@@ -1852,6 +2029,7 @@ export default function Moment() {
           body: (
             <>
               {head(COPY.intensity_in)}
+              <WhyLine>{COPY.intensity_why}</WhyLine>
               <ScaleButtons
                 value={intensity}
                 onChange={(n) => {
@@ -1984,6 +2162,7 @@ export default function Moment() {
                       // entry as "wait": the settling menu.
                       setSkippedHold(false);
                       resetActivities();
+                      resetHold(); // fresh 20:00 for this hold
                       go('options', 'take_hold');
                     }}
                   />
@@ -2112,7 +2291,11 @@ export default function Moment() {
         return {
           body: (
             <>
+              {/* Soft, permission-to-wait timer in the corner; the rationale
+                  ("wait before you react") sits under the heading. */}
+              <HoldWhisper />
               {head(COPY.activities_intro)}
+              <WhyLine>{COPY.make_safe_why}</WhyLine>
               <View style={styles.stack}>
                 <OptionRow
                   label={COPY.activities_colour}
@@ -2240,6 +2423,29 @@ export default function Moment() {
       // the if-then. "Later" steps out to Today. "Another" reopens the menu.
       case 'act': {
         const a = chosenAct;
+
+        // She saved the move for later: a short "Nicely done" so the save lands as
+        // a real moment, not the chooser silently vanishing. Continue moves on.
+        if (savedLater) {
+          return {
+            body: (
+              <View style={styles.celebrate}>
+                <Text style={styles.congrats}>Nicely done.</Text>
+                <Text style={styles.giftSub}>Saved to Today. I&apos;ll bring it back when you&apos;re ready.</Text>
+              </View>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label="Continue"
+                onPress={() => {
+                  setSavedLater(false);
+                  go('act', 'later');
+                }}
+              />
+            ),
+          };
+        }
 
         // C10: the "when should I remind you" chooser, opened from Do-this-later.
         if (reminderOpen) {
@@ -2409,13 +2615,7 @@ export default function Moment() {
             <BeginButton
               fullWidth
               label={COPY.close_done}
-              onPress={() => {
-                // M28: the sky dims, the moon blooms and confetti falls, then out.
-                tap();
-                setCelebrating(true);
-                moonBloom.value = withTiming(1, { duration: 900 });
-                setTimeout(leave, 1600);
-              }}
+              onPress={finishAndLeave}
             />
           ) : null,
         };
@@ -2485,7 +2685,10 @@ export default function Moment() {
           <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
         </>
       ),
-      cta: <BeginButton fullWidth label="Close" onPress={leave} />,
+      // "No am good, let me rephrase" returns her to her own words (setCrisis
+      // false) instead of exiting the moment — her draft is intact, so she can
+      // edit and resend (Neha 2026-08-02). Resources stay one send away.
+      cta: <BeginButton fullWidth label={CRISIS_COPY.back} onPress={() => setCrisis(false)} />,
     };
   }
 }
@@ -2825,6 +3028,28 @@ const styles = StyleSheet.create({
     fontFamily: fonts.light,
     fontSize: fontScale.bodyLg,
     lineHeight: 22,
+    color: colors.textSubtitle,
+  },
+  // The good-vs-bad example under the entry question. Fainter and smaller than a
+  // said line, so it reads as a quiet hint she can glance at, not an instruction.
+  // entryHead keeps it tight to the question (sm), not the wider beatBody gap, so
+  // the whole block stays short when the keyboard shrinks the card.
+  entryHead: { gap: spacing.sm },
+  entryExamples: { gap: spacing.xs },
+  entryExampleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  entryExampleMark: { marginTop: 3 },
+  entryExampleBad: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 20,
+    color: colors.textTagline,
+  },
+  entryExampleGood: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 20,
     color: colors.textSubtitle,
   },
   // "Body prep" heading over the self-check list: same size, more weight.

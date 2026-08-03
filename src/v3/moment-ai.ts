@@ -42,6 +42,14 @@ export const NO_PROVIDER: MomentProvider = {
 
 const TIMEOUT_MS = 5000;
 
+// How many words the echo may introduce that are not in her text. The default
+// grounding budget is 2; the echo runs a little looser (4) ON PURPOSE, so the
+// model can fix her spelling and grammar without the corrected words counting as
+// "invented" and bouncing the clean line back to the raw-text carve (which would
+// echo her typos). Still tight: 4 novel words cannot carry an invented fact about
+// her situation, only surface corrections and small connective words.
+const ECHO_GROUND_BUDGET = 4;
+
 export type EchoResult = {
   text: string | null;
   /** How the line was produced. For the dev overlay and for knowing whether the
@@ -79,7 +87,7 @@ export async function echo(
   // isGrounded is SATISFIED by reusing all her words, so a model that just plays
   // her sentence back passes it. isRephrase is the separate guard against that:
   // grounding stops invention, this stops parroting.
-  if (prose && isGrounded(raw, prose) && !echoBlocked(prose) && !isRephrase(raw, prose)) {
+  if (prose && isGrounded(raw, prose, ECHO_GROUND_BUDGET) && !echoBlocked(prose) && !isRephrase(raw, prose)) {
     return { text: prose.trim(), via: 'model' };
   }
 
@@ -146,15 +154,19 @@ export async function pick<T extends { toString(): string }>(
     .catch(() => null);
   if (!reply) return authored();
 
-  // Match by containment against the closed set. The provider's prose is only
-  // ever used to look items UP; not one character of it reaches the screen.
+  // Match by containment against the closed set, ordered by WHERE the model put
+  // each item in its reply. This is a ranking beat: the model returns the set
+  // reordered, and we must honour that order (Scared before Dismissed), while
+  // still only ever returning closed-set items — the provider's prose is used to
+  // look items up and order them, never to reach the screen. (Iterating `from`
+  // instead would silently ignore the model's ranking and always return the
+  // set's own order.)
   const hay = reply.toLowerCase();
-  const chosen: T[] = [];
-  for (const item of from) {
-    const l = label(item).toLowerCase().trim();
-    if (l && hay.includes(l) && !chosen.includes(item)) chosen.push(item);
-    if (chosen.length === count) break;
-  }
+  const chosen: T[] = from
+    .map((item) => ({ item, at: hay.indexOf(label(item).toLowerCase().trim()) }))
+    .filter((x) => x.at >= 0 && label(x.item).trim().length > 0)
+    .sort((a, b) => a.at - b.at)
+    .map((x) => x.item);
   if (chosen.length === 0) return authored();
 
   // Top up from the authored order so the menu is never short.
@@ -188,23 +200,42 @@ export async function compose(
   return out ? out.trim() : null;
 }
 
+export type ReframeResult = {
+  /** Up to three gentler readings she rules true or false. Empty when there is
+   *  nothing to loosen (self-worth attack, diffuse mood, harm). */
+  readings: string[];
+  /** One open question, seeded into her own text box so she can reach a reading
+   *  herself. Empty when readings are empty. */
+  selfPrompt: string;
+};
+
 /**
- * The reframe beat, as a list. The model returns one reading per line; this
- * strips any bullet/number and caps at three, so the angle cards are never
- * flooded. Returns null (authored `smallReframes`) if nothing usable comes back.
+ * The reframe beat: gentler readings plus a self-generation prompt. The model
+ * returns JSON; this parses it defensively and caps readings at three. Returns
+ * null (authored `smallReframes`, no self field) if nothing usable comes back,
+ * so a bad reply degrades to the deterministic build.
  */
 export async function composeReadings(
   provider: MomentProvider,
   userText: string,
-): Promise<string[] | null> {
+): Promise<ReframeResult | null> {
   const out = await compose(provider, 'reframe_small', userText);
   if (!out) return null;
-  const lines = out
-    .split('\n')
-    .map((s) => s.replace(/^\s*[-*\d.)]+\s*/, '').trim())
-    .filter(Boolean)
-    .slice(0, 3);
-  return lines.length ? lines : null;
+  try {
+    const j = JSON.parse(out.replace(/^```json\s*|```$/g, '').trim());
+    const readings = Array.isArray(j?.readings)
+      ? j.readings.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3)
+      : [];
+    const selfPrompt = typeof j?.selfPrompt === 'string' ? j.selfPrompt.trim() : '';
+    // Empty readings is a DELIBERATE decline (self-worth attack, diffuse mood,
+    // grief, harm) — nothing to loosen. This is returned as readings: [], NOT
+    // null: the caller skips the reframe beat rather than showing generic
+    // small-reframes, which trivialise a serious moment. null is reserved for a
+    // real failure (no reply / unparseable), which keeps the authored fallback.
+    return { readings, selfPrompt };
+  } catch {
+    return null;
+  }
 }
 
 /** Draft a way to carry out the chosen act. Null → the authored "when" copy. */
