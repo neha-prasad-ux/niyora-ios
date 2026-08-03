@@ -2,9 +2,9 @@
 // come back to her here (this is the Today surface the moment-plan store was
 // waiting for). Each can get a reminder time; ticking one marks it done. Hidden
 // when there is nothing parked, so it never clutters a clean home.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 
@@ -15,6 +15,7 @@ import {
   type PlannedAction,
 } from '@/store/moment-plan';
 import { scheduleActionReminder } from '@/lib/notifications';
+import { recordLight } from '@/store/light-ledger';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/fonts';
 import { fontScale } from '@/theme/typography';
@@ -43,7 +44,7 @@ function fmtTime(iso: string): string {
   return `${h}:${String(m).padStart(2, '0')} ${ap}`;
 }
 
-export function PlannedActions() {
+export function PlannedActions({ onCount }: { onCount?: (n: number) => void }) {
   const [items, setItems] = useState<PlannedAction[]>([]);
   const [activeAt, setActiveAt] = useState<string | null>(null);
 
@@ -60,6 +61,13 @@ export function PlannedActions() {
   }, []);
   useFocusEffect(load);
 
+  // Report the live count up so the home can hide the "waiting for you" divider
+  // the instant the last parked move is ticked off (Neha 2026-08-02). Runs before
+  // the empty-return below, so onCount(0) still fires when the list clears.
+  useEffect(() => {
+    onCount?.(items.length);
+  }, [items, onCount]);
+
   if (items.length === 0) return null;
 
   const setTime = async (a: PlannedAction, when: () => Date) => {
@@ -73,21 +81,32 @@ export function PlannedActions() {
   const markDone = async (a: PlannedAction) => {
     Haptics.selectionAsync().catch(() => {});
     await removePlannedAction(a.at).catch(() => {});
+    // Following through on a parked move brightens the moon (the calm reward),
+    // never confetti — the one celebration stays the moment-flow finish (Neha
+    // 2026-08-02, "moon-bloom, not graffiti").
+    recordLight('apply').catch(() => {});
     getPlannedActions().then(setItems).catch(() => {});
   };
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.header}>Later</Text>
+      <Text style={styles.header}>Waiting for you</Text>
       {items.map((a) => (
         <View key={a.at} style={styles.item}>
           <View style={styles.row}>
             <Pressable onPress={() => markDone(a)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Done: ${a.label}`}>
               <SymbolView name="circle" size={18} tintColor={colors.textOnDark.faint} />
             </Pressable>
-            <Text style={styles.label} numberOfLines={1}>
-              {a.label}
-            </Text>
+            <Pressable
+              style={styles.labelWrap}
+              onPress={() => router.push({ pathname: '/saved-task', params: { at: a.at } })}
+              accessibilityRole="button"
+              accessibilityLabel={`Open: ${a.label}`}
+            >
+              <Text style={styles.label} numberOfLines={1}>
+                {a.label}
+              </Text>
+            </Pressable>
             {a.remindAt ? (
               <View style={styles.time}>
                 <SymbolView name="bell.fill" size={12} tintColor={colors.textOnDark.secondary} />
@@ -130,7 +149,8 @@ const styles = StyleSheet.create({
   },
   item: { gap: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  label: { flex: 1, fontFamily: fonts.regular, fontSize: fontScale.body, color: colors.textOnDark.primary },
+  labelWrap: { flex: 1 },
+  label: { fontFamily: fonts.regular, fontSize: fontScale.body, color: colors.textOnDark.primary },
   time: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   timeText: { fontFamily: fonts.regular, fontSize: fontScale.caption, color: colors.textOnDark.secondary },
   addTime: { fontFamily: fonts.regular, fontSize: fontScale.caption, color: colors.textOnDark.secondary, letterSpacing: 0.3 },

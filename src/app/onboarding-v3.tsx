@@ -63,6 +63,7 @@ import { ChapterCard } from '@/components/chapter-card';
 import { CHAPTERS } from '@/v3/game-content';
 import { DEFAULT_TRAINING } from '@/store/training-v3';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { recommend } from '@/models/recommend';
 import { CardScene } from '@/components/CardScene';
 
@@ -150,6 +151,7 @@ type StepId =
   | 'loading'
   | 'result'
   | 'goal'
+  | 'moon_intro' // "Meet Moon": what the in-the-moment AI is, before she can open it
   | 'reminder' // after the plan: opt into one gentle daily nudge (first-run only)
   | 'pick' // after the plan: choose the first experience (Grow leads with it)
   | 'compare'; // retake mode only: her level then vs. now
@@ -169,6 +171,7 @@ const SEQUENCE: StepId[] = [
   'loading',
   'result',
   'goal', // pick-up: her goal + how Niyora will help
+  'moon_intro', // meet Moon: what the in-the-moment AI is, right before she lands home
   'reminder', // opt into one gentle daily nudge, folded in from the old onboarding
   // The "pick" (4-card "where do you want to start?") step was removed; the flow
   // now ends on the reminder and lands on home.
@@ -337,6 +340,20 @@ export default function OnboardingV3Screen() {
     else router.replace('/');
   }, []);
 
+  // She chose to skip / step out before finishing (first-run only). Save where
+  // she is, satisfy the launch gate so she lands on Now instead of being bounced
+  // straight back into onboarding, and go there — the home's "finish setting up"
+  // card is her way back in. getOnboardingComplete gates ONLY the launch redirect
+  // (index.tsx), so setting it here is safe; `done` stays false so the card and
+  // her saved step both survive. Force-save even at step 0 so progress is never
+  // null (the home shows no card for null progress).
+  const deferAndExit = useCallback(async () => {
+    Haptics.selectionAsync().catch(() => {});
+    await setOnboardingV3Progress({ stepIndex, answers, done: false }).catch(() => {});
+    await setOnboardingComplete().catch(() => {});
+    router.replace('/now' as Href);
+  }, [stepIndex, answers]);
+
   // The plan hand-off: write her cycle into the app's real PMS prefs (so home,
   // the luteal card, reminders, and the game all read it), remember the period in
   // the additive history, mark onboarding done. Does NOT navigate — the pick step
@@ -415,13 +432,20 @@ export default function OnboardingV3Screen() {
       // From the compare there is nothing to step back to: the read is already
       // recorded, and backing into 'loading' would auto-advance right back here
       // and record it again. Back means done.
-      if (i === 0 || sequence[i] === 'compare') {
+      if (sequence[i] === 'compare') {
         finish();
+        return i;
+      }
+      // First screen: don't trap her. First-run backing out defers onboarding
+      // and drops her on the home with a way back in; retake returns to My Soul.
+      if (i === 0) {
+        if (retake) finish();
+        else deferAndExit();
         return i;
       }
       return Math.max(0, i - 1);
     });
-  }, [finish, sequence]);
+  }, [finish, sequence, retake, deferAndExit]);
 
   return (
     <View style={styles.root}>
@@ -451,6 +475,7 @@ export default function OnboardingV3Screen() {
             update={update}
             advance={advance}
             finish={finish}
+            deferAndExit={deferAndExit}
             commitPlan={commitPlan}
             startWith={startWith}
             onBack={onBack}
@@ -522,6 +547,7 @@ function RenderStep({
   update,
   advance,
   finish,
+  deferAndExit,
   commitPlan,
   startWith,
   onBack,
@@ -532,6 +558,7 @@ function RenderStep({
   update: UpdateFn;
   advance: () => void;
   finish: () => void;
+  deferAndExit: () => void;
   commitPlan: () => void;
   startWith: (choice: StartChoice) => void;
   onBack: () => void;
@@ -542,9 +569,10 @@ function RenderStep({
     case 'privacy':
       return <Privacy onNext={advance} />;
     case 'fact_spectrum':
-      // Skip advances past the fact rather than exiting: as the first-run flow,
-      // "exit" would only bounce back here via the launch gate.
-      return <FactSpectrum onNext={advance} onSkip={advance} />;
+      // "I'll try later" now genuinely exits: deferAndExit satisfies the launch
+      // gate and lands her on the home with the "finish setting up" card, instead
+      // of the old behaviour where skip just advanced into the test.
+      return <FactSpectrum onNext={advance} onSkip={deferAndExit} />;
     case 'symptoms':
       return <Symptoms answers={answers} update={update} onNext={advance} />;
     case 'fact_hormones':
@@ -569,6 +597,9 @@ function RenderStep({
     case 'goal':
       // The plan hand-off: persist her cycle + mark done, then move to the pick.
       return <Plan answers={answers} update={update} onDone={commitPlan} />;
+    case 'moon_intro':
+      // Meet Moon: what the in-the-moment AI is, before she can ever open it.
+      return <MoonIntro onNext={advance} />;
     case 'reminder':
       // The last step now (the 4-card pick page was removed): land on home.
       return <ReminderStep onDone={() => router.replace('/now' as Href)} />;
@@ -758,6 +789,63 @@ function Privacy({ onNext }: { onNext: () => void }) {
         ))}
       </View>
     </StepLayout>
+  );
+}
+
+// Meet Moon AI: the first time the flow says what the in-the-moment AI is,
+// before she can ever open it. Redesigned 2026-08-02 (Neha) from a 4-paragraph
+// wall to a title + two points over a real Home-style glass card, the moon
+// glowing through from behind. Mixed case for hierarchy. A plain sequence step
+// with no skip link, so it can't be tapped past.
+const MEET_MOON_POINTS: string[] = [
+  'Not a doctor, not a therapist or a friend',
+  'An AI who protects your personal info and helps you regulate emotions',
+];
+
+function MoonIntro({ onNext }: { onNext: () => void }) {
+  return (
+    <View style={styles.screen}>
+      {/* The moon, big and blooming, sits behind and above the glass so it glows
+          through the frosted top edge — the Home composition. */}
+      <View style={styles.moonIntroHero}>
+        <Orb size={196} />
+      </View>
+      <Animated.View
+        entering={FadeInDown.delay(200).duration(600)}
+        style={styles.moonIntroCard}
+      >
+        {/* The SAME frosted glass as Home (now.tsx): blur + light frost + a
+            top-left gloss sheen, so it reads as one product. */}
+        <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={styles.moonIntroGlassTint} />
+        <LinearGradient
+          colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+          locations={[0, 0.28, 0.62]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.moonIntroInner}>
+          <Text style={styles.moonIntroTitle}>Meet Moon AI</Text>
+          <View style={styles.moonIntroPoints}>
+            {MEET_MOON_POINTS.map((text, i) => (
+              <Animated.View
+                key={text}
+                entering={FadeInDown.delay(360 + i * 140).duration(500)}
+                style={styles.moonIntroPoint}
+              >
+                <View style={styles.moonIntroBullet} />
+                <Text style={styles.moonIntroPointText}>{text}</Text>
+              </Animated.View>
+            ))}
+          </View>
+        </View>
+      </Animated.View>
+      <View style={styles.footer}>
+        <BeginButton fullWidth label="Continue" onPress={onNext} />
+      </View>
+    </View>
   );
 }
 
@@ -1570,26 +1658,38 @@ function Plan({
         </View>
       </Animated.View>
 
-      {/* 1 — Train your mind: the real chapter cards, stacked into a deck. */}
+      {/* Moon: the in-the-moment AI, teased here and introduced in full on the
+          next step. One flat card (not a deck) so it doesn't add to the stack. */}
+      <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.planSection}>
+        <PlanSectionHead
+          when="In the moment"
+          title="Talk to Moon"
+          sub="Think it through together, and pick what actually helps"
+        />
+        <Panel accent={v3.accent} style={styles.moonPlanCard}>
+          <Orb size={46} still />
+          <View style={styles.planItemText}>
+            <Text style={styles.moonPlanTitle}>One tap from your home screen</Text>
+            <Text style={styles.planItemSub}>For anger, tears, spiraling, or nothing at all.</Text>
+          </View>
+        </Panel>
+      </Animated.View>
+
+      {/* 1 — Train your mind: one representative chapter card. (Was a negative-
+          margin stacked deck; collapsed to a single card so nothing's buried and
+          the fragile fixed-height overlap is gone. Neha 2026-08-02.) */}
       <Animated.View entering={FadeInDown.delay(180).duration(500)} style={styles.planSection}>
         <PlanSectionHead
           when={whenTrain}
           title="Train your mind"
           sub="Gamified, science-backed ways to master emotions"
         />
-        <View style={styles.deck}>
-          {PLAN_DECK.map((chapter, i) => (
-            <View
-              key={chapter.id}
-              style={[
-                { zIndex: i, marginHorizontal: (PLAN_DECK.length - 1 - i) * 7 },
-                i > 0 && styles.deckStack,
-              ]}
-            >
-              <ChapterCard chapter={chapter} training={DEFAULT_TRAINING} onOpen={() => {}} peek />
-            </View>
-          ))}
-        </View>
+        <ChapterCard
+          chapter={PLAN_DECK[PLAN_DECK.length - 1]}
+          training={DEFAULT_TRAINING}
+          onOpen={() => {}}
+          peek
+        />
       </Animated.View>
 
       {/* 2 — Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
@@ -1599,19 +1699,7 @@ function Plan({
           title="Us vs. the PMS"
           sub="Keep the two of you on the same side"
         />
-        <View style={styles.deck}>
-          {PLAN_COUPLE_DECK.map((item, i) => (
-            <View
-              key={item.title}
-              style={[
-                { zIndex: i, marginHorizontal: (PLAN_COUPLE_DECK.length - 1 - i) * 7 },
-                i > 0 && styles.deckStack,
-              ]}
-            >
-              <PlanCoupleCard item={item} />
-            </View>
-          ))}
-        </View>
+        <PlanCoupleCard item={PLAN_COUPLE_DECK[PLAN_COUPLE_DECK.length - 1]} />
       </Animated.View>
 
       {/* 3 — PMS prep checklist: real checklist items stacked, calcium in front. */}
@@ -1621,19 +1709,7 @@ function Plan({
           title="PMS prep checklist"
           sub="Simple, science-backed ways to ease the week"
         />
-        <View style={styles.deck}>
-          {PREP_DECK.map((id, i) => (
-            <View
-              key={id}
-              style={[
-                { zIndex: i, marginHorizontal: (PREP_DECK.length - 1 - i) * 6 },
-                i > 0 && styles.prepStack,
-              ]}
-            >
-              <PrepCard id={id} />
-            </View>
-          ))}
-        </View>
+        <PrepCard id={PREP_DECK[PREP_DECK.length - 1]} />
       </Animated.View>
 
       {/* 4 — Explore your power move: the real calm cards (CardScene), horizontal. */}
@@ -2473,6 +2549,60 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
+  // Meet Moon AI: the moon hero above a Home-style glass card holding the title
+  // and two points. Hero justifies to the bottom so the moon's base tucks under
+  // the card's frosted top edge and glows through.
+  moonIntroHero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: spacing.sm },
+  moonIntroCard: {
+    marginTop: -48,
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+  },
+  moonIntroGlassTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(28,26,38,0.20)',
+  },
+  moonIntroInner: { padding: spacing.xl, gap: spacing.lg },
+  moonIntroTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
+    lineHeight: 32,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  moonIntroPoints: { gap: spacing.md },
+  moonIntroPoint: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  moonIntroBullet: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: v3.accent,
+    marginTop: 8,
+  },
+  moonIntroPointText: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
+    lineHeight: 25,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  // Plan: the Moon teaser card (orb + line), a single flat panel.
+  moonPlanCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  moonPlanTitle: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
   reminderChips: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -2936,14 +3066,6 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     marginTop: spacing.xs,
   },
-  // Chapter deck: the featured card in front, the rest peeking as slivers behind
-  // it. Tight overlap so only the top edge of each back card shows.
-  deck: { width: '100%' },
-  deckStack: { marginTop: -102 },
-
-  // Prep deck: readiness items as cards, calcium in front, the rest peeking as a
-  // very thin edge (reads as "and more", not a countable list).
-  prepStack: { marginTop: -68 },
   prepCard: {
     flexDirection: 'row',
     alignItems: 'center',

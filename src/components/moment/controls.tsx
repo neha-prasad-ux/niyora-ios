@@ -423,10 +423,13 @@ const styles = StyleSheet.create({
   },
 
   why: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    lineHeight: 19,
-    color: v3.textFaint,
+    // Bumped from caption/faint to body/soft (Neha 2026-08-02, "the subtext is
+    // too small, I can't read it") — these are the step subtitles now, they have
+    // to be readable, not fine print.
+    fontFamily: fonts.regular,
+    fontSize: fontScale.body,
+    lineHeight: 21,
+    color: v3.textSoft,
     paddingHorizontal: spacing.xs,
   },
 
