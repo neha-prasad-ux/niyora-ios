@@ -21,7 +21,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.error) {
       return (
         <View style={styles.container}>
-          <Text style={styles.message}>Something went sideways.</Text>
+          <View style={styles.group}>
+            <Text style={styles.message}>Something went sideways.</Text>
+            <Text style={styles.sub}>If this keeps happening, reach out at neha@niyora.com.</Text>
+          </View>
           <TouchableOpacity onPress={this.reset} activeOpacity={0.7} style={styles.button}>
             <Text style={styles.buttonLabel}>Tap to restart</Text>
           </TouchableOpacity>
@@ -44,6 +47,17 @@ const styles = StyleSheet.create({
     fontFamily: fonts.light,
     fontSize: fontScale.emphasis,
     color: colors.textSubtitle,
+  },
+  group: {
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.xxl,
+  },
+  sub: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textSubtitle,
+    textAlign: 'center',
   },
   button: {
     paddingVertical: spacing.md,
