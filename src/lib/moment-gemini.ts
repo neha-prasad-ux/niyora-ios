@@ -12,11 +12,16 @@
 // NO_PROVIDER and the flow is byte-identical to the deterministic build. Set
 // EXPO_PUBLIC_MOMENT_AI=1 and EXPO_PUBLIC_GEMINI_API_KEY=... to light it up.
 
+import Constants from 'expo-constants';
 import { MOMENT_AI } from '@/config/features';
 import { NO_PROVIDER, type MomentProvider } from '@/v3/moment-ai';
 
-const GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? 'gemini-3.6-flash';
+// Read from app.config.js `extra` (embedded via expo-constants), NOT
+// process.env.EXPO_PUBLIC_*: the EXPO_PUBLIC inlining was not reaching the
+// production bundle, so the key came out empty and the provider was stripped.
+const extra = (Constants.expoConfig?.extra ?? {}) as { geminiKey?: string; geminiModel?: string };
+const GEMINI_KEY = extra.geminiKey ?? '';
+const MODEL = extra.geminiModel ?? 'gemini-3.6-flash';
 // The Interactions API. generateContent is deprecated for new keys (404s with a
 // migrate-to-interactions notice), so this is the only path that answers.
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';

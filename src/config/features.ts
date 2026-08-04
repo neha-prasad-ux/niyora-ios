@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+
 // v1 feature gates. Flip to re-enable; the stores and components stay intact.
 
 // The daily mood check-in (light / okay / heavy logging) is hidden for v1.
@@ -52,4 +54,4 @@ export const REFLECT_AI = process.env.EXPO_PUBLIC_REFLECT_AI === '1';
 // EXPO_PUBLIC_MOMENT_AI=1 AND an EXPO_PUBLIC_GEMINI_API_KEY; with either missing,
 // getMomentProvider() returns NO_PROVIDER and the flow is byte-identical to the
 // deterministic build. Replaces the on-device Gemma seam (REFLECT_AI).
-export const MOMENT_AI = process.env.EXPO_PUBLIC_MOMENT_AI === '1';
+export const MOMENT_AI = Constants.expoConfig?.extra?.momentAi === true;
