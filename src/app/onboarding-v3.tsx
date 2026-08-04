@@ -63,6 +63,7 @@ import { ChapterCard } from '@/components/chapter-card';
 import { CHAPTERS } from '@/v3/game-content';
 import { DEFAULT_TRAINING } from '@/store/training-v3';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { recommend } from '@/models/recommend';
 import { CardScene } from '@/components/CardScene';
 
@@ -71,7 +72,9 @@ import { SymbolView } from 'expo-symbols';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Orb } from '@/components/orb';
+import { CosmicBackground } from '@/components/cosmic-background';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { fontScale } from '@/theme/typography';
 import { fonts } from '@/theme/fonts';
 import { radius, spacing, pageGutter } from '@/theme/spacing';
@@ -150,6 +153,7 @@ type StepId =
   | 'loading'
   | 'result'
   | 'goal'
+  | 'moon_intro' // "Meet Moon": what the in-the-moment AI is, before she can open it
   | 'reminder' // after the plan: opt into one gentle daily nudge (first-run only)
   | 'pick' // after the plan: choose the first experience (Grow leads with it)
   | 'compare'; // retake mode only: her level then vs. now
@@ -169,6 +173,7 @@ const SEQUENCE: StepId[] = [
   'loading',
   'result',
   'goal', // pick-up: her goal + how Niyora will help
+  'moon_intro', // meet Moon: what the in-the-moment AI is, right before she lands home
   'reminder', // opt into one gentle daily nudge, folded in from the old onboarding
   // The "pick" (4-card "where do you want to start?") step was removed; the flow
   // now ends on the reminder and lands on home.
@@ -227,6 +232,11 @@ function toYmd(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+// Steps that render their OWN prominent hero orb (or an animated one), so the
+// persistent background moon is suppressed on them to avoid a double moon.
+// Every other step is a content screen that now glows over the shared moon.
+const HERO_ORB_STEPS = new Set<StepId>(['splash', 'privacy', 'moon_intro', 'loading', 'reminder']);
 
 export default function OnboardingV3Screen() {
   // Retake mode (entered from My Soul with ?mode=retake): question steps only,
@@ -337,6 +347,20 @@ export default function OnboardingV3Screen() {
     else router.replace('/');
   }, []);
 
+  // She chose to skip / step out before finishing (first-run only). Save where
+  // she is, satisfy the launch gate so she lands on Now instead of being bounced
+  // straight back into onboarding, and go there — the home's "finish setting up"
+  // card is her way back in. getOnboardingComplete gates ONLY the launch redirect
+  // (index.tsx), so setting it here is safe; `done` stays false so the card and
+  // her saved step both survive. Force-save even at step 0 so progress is never
+  // null (the home shows no card for null progress).
+  const deferAndExit = useCallback(async () => {
+    Haptics.selectionAsync().catch(() => {});
+    await setOnboardingV3Progress({ stepIndex, answers, done: false }).catch(() => {});
+    await setOnboardingComplete().catch(() => {});
+    router.replace('/now' as Href);
+  }, [stepIndex, answers]);
+
   // The plan hand-off: write her cycle into the app's real PMS prefs (so home,
   // the luteal card, reminders, and the game all read it), remember the period in
   // the additive history, mark onboarding done. Does NOT navigate — the pick step
@@ -415,17 +439,49 @@ export default function OnboardingV3Screen() {
       // From the compare there is nothing to step back to: the read is already
       // recorded, and backing into 'loading' would auto-advance right back here
       // and record it again. Back means done.
-      if (i === 0 || sequence[i] === 'compare') {
+      if (sequence[i] === 'compare') {
         finish();
+        return i;
+      }
+      // First screen: don't trap her. First-run backing out defers onboarding
+      // and drops her on the home with a way back in; retake returns to My Soul.
+      if (i === 0) {
+        if (retake) finish();
+        else deferAndExit();
         return i;
       }
       return Math.max(0, i - 1);
     });
-  }, [finish, sequence]);
+  }, [finish, sequence, retake, deferAndExit]);
 
   return (
     <View style={styles.root}>
       <BackgroundGradient />
+      {/* A faint starfield across the whole flow. On content screens it sits
+          behind the moon + frost as subtle texture; on the hero-orb screens
+          (splash etc.), where the frost is suppressed, the stars read clearly. */}
+      <CosmicBackground />
+      {/* The persistent moon AND the full-page frost render only on the content
+          screens. The moon is one glowing orb behind the WHOLE flow so every
+          content screen frosts over the same moon (the Home / Moon-chat
+          composition). Both are suppressed on the steps that carry their own hero
+          orb, so those keep a crisp composition (a dropping moon over stars, not
+          a muted glow under a dark sheet). */}
+      {!HERO_ORB_STEPS.has(step) ? (
+        <>
+          <View pointerEvents="none" style={styles.bgMoon}>
+            <Orb size={200} warmHalo still brightness={0.7} />
+          </View>
+          {/* The whole page is one frosted glass layer: a single full-screen blur
+              + dark tint over the moon, so it glows softly through. Step content
+              renders in front and stays crisp, and the blur only samples the
+              static moon behind, so it never re-computes on scroll. Heavier blur
+              + darker tint than the chat, since onboarding's moon is persistent
+              behind every screen and would otherwise wash out the text. */}
+          <BlurView intensity={40} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+          <View pointerEvents="none" style={styles.pageTint} />
+        </>
+      ) : null}
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.topBar}>
           <Pressable
@@ -451,6 +507,7 @@ export default function OnboardingV3Screen() {
             update={update}
             advance={advance}
             finish={finish}
+            deferAndExit={deferAndExit}
             commitPlan={commitPlan}
             startWith={startWith}
             onBack={onBack}
@@ -522,6 +579,7 @@ function RenderStep({
   update,
   advance,
   finish,
+  deferAndExit,
   commitPlan,
   startWith,
   onBack,
@@ -532,6 +590,7 @@ function RenderStep({
   update: UpdateFn;
   advance: () => void;
   finish: () => void;
+  deferAndExit: () => void;
   commitPlan: () => void;
   startWith: (choice: StartChoice) => void;
   onBack: () => void;
@@ -542,9 +601,10 @@ function RenderStep({
     case 'privacy':
       return <Privacy onNext={advance} />;
     case 'fact_spectrum':
-      // Skip advances past the fact rather than exiting: as the first-run flow,
-      // "exit" would only bounce back here via the launch gate.
-      return <FactSpectrum onNext={advance} onSkip={advance} />;
+      // "I'll try later" now genuinely exits: deferAndExit satisfies the launch
+      // gate and lands her on the home with the "finish setting up" card, instead
+      // of the old behaviour where skip just advanced into the test.
+      return <FactSpectrum onNext={advance} onSkip={deferAndExit} />;
     case 'symptoms':
       return <Symptoms answers={answers} update={update} onNext={advance} />;
     case 'fact_hormones':
@@ -569,6 +629,9 @@ function RenderStep({
     case 'goal':
       // The plan hand-off: persist her cycle + mark done, then move to the pick.
       return <Plan answers={answers} update={update} onDone={commitPlan} />;
+    case 'moon_intro':
+      // Meet Moon: what the in-the-moment AI is, before she can ever open it.
+      return <MoonIntro onNext={advance} />;
     case 'reminder':
       // The last step now (the 4-card pick page was removed): land on home.
       return <ReminderStep onDone={() => router.replace('/now' as Href)} />;
@@ -722,7 +785,7 @@ function Splash({ onNext }: { onNext: () => void }) {
       {/* Orb hero drops into the space below the brand block. */}
       <View style={styles.orbArea}>
         <Animated.View style={orbStyle}>
-          <Orb size={220} />
+          <Orb size={220} warmHalo />
         </Animated.View>
       </View>
       <View style={styles.footer}>
@@ -761,6 +824,63 @@ function Privacy({ onNext }: { onNext: () => void }) {
   );
 }
 
+// Meet Moon AI: the first time the flow says what the in-the-moment AI is,
+// before she can ever open it. Redesigned 2026-08-02 (Neha) from a 4-paragraph
+// wall to a title + two points over a real Home-style glass card, the moon
+// glowing through from behind. Mixed case for hierarchy. A plain sequence step
+// with no skip link, so it can't be tapped past.
+const MEET_MOON_POINTS: string[] = [
+  'Not a doctor, not a therapist or a friend',
+  'An AI who protects your personal info and helps you regulate emotions',
+];
+
+function MoonIntro({ onNext }: { onNext: () => void }) {
+  return (
+    <View style={styles.screen}>
+      {/* The moon, big and blooming, sits behind and above the glass so it glows
+          through the frosted top edge — the Home composition. */}
+      <View style={styles.moonIntroHero}>
+        <Orb size={196} />
+      </View>
+      <Animated.View
+        entering={FadeInDown.delay(200).duration(600)}
+        style={styles.moonIntroCard}
+      >
+        {/* The SAME frosted glass as Home (now.tsx): blur + light frost + a
+            top-left gloss sheen, so it reads as one product. */}
+        <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+        <View pointerEvents="none" style={styles.moonIntroGlassTint} />
+        <LinearGradient
+          colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+          locations={[0, 0.28, 0.62]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.moonIntroInner}>
+          <Text style={styles.moonIntroTitle}>Meet Moon AI</Text>
+          <View style={styles.moonIntroPoints}>
+            {MEET_MOON_POINTS.map((text, i) => (
+              <Animated.View
+                key={text}
+                entering={FadeInDown.delay(360 + i * 140).duration(500)}
+                style={styles.moonIntroPoint}
+              >
+                <View style={styles.moonIntroBullet} />
+                <Text style={styles.moonIntroPointText}>{text}</Text>
+              </Animated.View>
+            ))}
+          </View>
+        </View>
+      </Animated.View>
+      <View style={styles.footer}>
+        <BeginButton fullWidth label="Continue" onPress={onNext} />
+      </View>
+    </View>
+  );
+}
+
 // Section 1 opener, as its own fact screen (no progress bar): PMS sits on a
 // spectrum. Three anchored zones (title top, graphic middle, tee-up line +
 // button bottom) so the screen reads full and calm, not empty. The graphic and
@@ -792,7 +912,7 @@ function FactSpectrum({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
         <SpectrumBar width={sw} height={Math.round((sw * 88) / 320)} />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.testCardWrap}>
-        <Panel>
+        <Panel hero>
           <Text style={styles.testHeading}>The quick test</Text>
           <View style={styles.expectList}>
             {steps.map((label, i) => (
@@ -922,7 +1042,7 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
         <HormoneCurve />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(360).duration(500)} style={styles.hormoneCardWrap}>
-        <Panel style={styles.hormoneCard}>
+        <Panel hero style={styles.hormoneCard}>
           <Text style={styles.factLine}>
             Everyone&apos;s hormones drop, but the ones with a{' '}
             <Text style={styles.factEmph}>more sensitive brain</Text> get PMS
@@ -1287,7 +1407,7 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
     >
       {/* Hero — severity on the mild -> PMDD spectrum. The only tinted card. */}
       <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
-        <Panel accent={levelColor}>
+        <Panel hero accent={levelColor}>
           <Text style={styles.cardHeadingText}>Your PMS reads as</Text>
           <Text style={[styles.resultLevel, { color: levelColor }]}>{levelWord}</Text>
           <View style={styles.graphFill}>
@@ -1361,7 +1481,7 @@ function Compare({
   return (
     <StepLayout footer={<BeginButton fullWidth label="Done" onPress={onDone} />}>
       <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
-        <Panel accent={levelColor}>
+        <Panel hero accent={levelColor}>
           <Text style={styles.cardHeadingText}>Your PMS now reads as</Text>
           <Text style={[styles.resultLevel, { color: levelColor }]}>
             {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -1570,26 +1690,38 @@ function Plan({
         </View>
       </Animated.View>
 
-      {/* 1 — Train your mind: the real chapter cards, stacked into a deck. */}
+      {/* Moon: the in-the-moment AI, teased here and introduced in full on the
+          next step. One flat card (not a deck) so it doesn't add to the stack. */}
+      <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.planSection}>
+        <PlanSectionHead
+          when="In the moment"
+          title="Talk to Moon"
+          sub="Think it through together, and pick what actually helps"
+        />
+        <Panel hero accent={v3.accent} style={styles.moonPlanCard}>
+          <Orb size={46} still />
+          <View style={styles.planItemText}>
+            <Text style={styles.moonPlanTitle}>One tap from your home screen</Text>
+            <Text style={styles.planItemSub}>For anger, tears, spiraling, or nothing at all.</Text>
+          </View>
+        </Panel>
+      </Animated.View>
+
+      {/* 1 — Train your mind: one representative chapter card. (Was a negative-
+          margin stacked deck; collapsed to a single card so nothing's buried and
+          the fragile fixed-height overlap is gone. Neha 2026-08-02.) */}
       <Animated.View entering={FadeInDown.delay(180).duration(500)} style={styles.planSection}>
         <PlanSectionHead
           when={whenTrain}
           title="Train your mind"
           sub="Gamified, science-backed ways to master emotions"
         />
-        <View style={styles.deck}>
-          {PLAN_DECK.map((chapter, i) => (
-            <View
-              key={chapter.id}
-              style={[
-                { zIndex: i, marginHorizontal: (PLAN_DECK.length - 1 - i) * 7 },
-                i > 0 && styles.deckStack,
-              ]}
-            >
-              <ChapterCard chapter={chapter} training={DEFAULT_TRAINING} onOpen={() => {}} peek />
-            </View>
-          ))}
-        </View>
+        <ChapterCard
+          chapter={PLAN_DECK[PLAN_DECK.length - 1]}
+          training={DEFAULT_TRAINING}
+          onOpen={() => {}}
+          peek
+        />
       </Animated.View>
 
       {/* 2 — Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
@@ -1599,19 +1731,7 @@ function Plan({
           title="Us vs. the PMS"
           sub="Keep the two of you on the same side"
         />
-        <View style={styles.deck}>
-          {PLAN_COUPLE_DECK.map((item, i) => (
-            <View
-              key={item.title}
-              style={[
-                { zIndex: i, marginHorizontal: (PLAN_COUPLE_DECK.length - 1 - i) * 7 },
-                i > 0 && styles.deckStack,
-              ]}
-            >
-              <PlanCoupleCard item={item} />
-            </View>
-          ))}
-        </View>
+        <PlanCoupleCard item={PLAN_COUPLE_DECK[PLAN_COUPLE_DECK.length - 1]} />
       </Animated.View>
 
       {/* 3 — PMS prep checklist: real checklist items stacked, calcium in front. */}
@@ -1621,19 +1741,7 @@ function Plan({
           title="PMS prep checklist"
           sub="Simple, science-backed ways to ease the week"
         />
-        <View style={styles.deck}>
-          {PREP_DECK.map((id, i) => (
-            <View
-              key={id}
-              style={[
-                { zIndex: i, marginHorizontal: (PREP_DECK.length - 1 - i) * 6 },
-                i > 0 && styles.prepStack,
-              ]}
-            >
-              <PrepCard id={id} />
-            </View>
-          ))}
-        </View>
+        <PrepCard id={PREP_DECK[PREP_DECK.length - 1]} />
       </Animated.View>
 
       {/* 4 — Explore your power move: the real calm cards (CardScene), horizontal. */}
@@ -2078,10 +2186,12 @@ function colorAlpha(color: string, alpha: number): string {
 // hero); leave it off for the neutral default.
 function Panel({
   accent,
+  hero,
   style,
   children,
 }: {
   accent?: string;
+  hero?: boolean;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
@@ -2089,6 +2199,19 @@ function Panel({
     <View
       style={[styles.panel, accent ? { borderColor: colorAlpha(accent, 0.35) } : null, style]}
     >
+      {/* The blur lives ONCE at the page root (a full-screen frost over the
+          moon), so a panel is just a light raised surface on that glass — no
+          per-card BlurView. `hero` lifts a touch stronger for the primary card;
+          the top-left gloss gives both the glass sheen. */}
+      <View pointerEvents="none" style={hero ? styles.panelFillHero : styles.panelFill} />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+        locations={[0, 0.28, 0.62]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        pointerEvents="none"
+        style={StyleSheet.absoluteFill}
+      />
       {children}
     </View>
   );
@@ -2151,6 +2274,20 @@ function DegreeChoice({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
+  // The persistent background moon: upper-centre so its bloom sits behind the
+  // hero card while the title stays in the softer halo above the core.
+  bgMoon: { position: 'absolute', top: '12%', left: 0, right: 0, alignItems: 'center' },
+  // The full-page frost tint over the blurred moon. Matches the Moon-AI CHAT
+  // card exactly (`rgba(10,8,16,0.50)`, not Home's lighter 0.20) so text stays
+  // accessible over the moon and the tint is consistent with the chat surface.
+  pageTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10,8,16,0.62)',
+  },
   safe: { flex: 1, paddingHorizontal: pageGutter, paddingBottom: spacing.sm },
   topBar: {
     flexDirection: 'row',
@@ -2464,14 +2601,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    borderColor: colors.border.strong,
+    // Dark glass rows (matching the chips, segments and radios).
+    backgroundColor: 'rgba(10,8,16,0.45)',
   },
   privacyRowLabel: {
-    fontFamily: fonts.light,
+    fontFamily: fonts.medium,
     fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
+  },
+  // Meet Moon AI: the moon hero above a Home-style glass card holding the title
+  // and two points. Hero justifies to the bottom so the moon's base tucks under
+  // the card's frosted top edge and glows through.
+  moonIntroHero: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: spacing.sm },
+  moonIntroCard: {
+    marginTop: -48,
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+  },
+  moonIntroGlassTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(28,26,38,0.20)',
+  },
+  moonIntroInner: { padding: spacing.xl, gap: spacing.lg },
+  moonIntroTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
+    lineHeight: 32,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  moonIntroPoints: { gap: spacing.md },
+  moonIntroPoint: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  moonIntroBullet: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: v3.accent,
+    marginTop: 8,
+  },
+  moonIntroPointText: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
+    lineHeight: 25,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  // Plan: the Moon teaser card (orb + line), a single flat panel.
+  moonPlanCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  moonPlanTitle: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.cardTitle,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+    marginBottom: 2,
   },
   reminderChips: {
     flexDirection: 'row',
@@ -2670,11 +2862,11 @@ const styles = StyleSheet.create({
   // Symptom question: Emotional / Body groups, each a left label over left-aligned chips.
   symptomGroup: { width: '100%', maxWidth: 420, alignSelf: 'center', marginBottom: spacing.xl },
   groupLabel: {
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
     fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: colors.textTagline,
+    color: colors.textSubtitle,
     marginBottom: spacing.md,
   },
   symptomChips: {
@@ -2689,22 +2881,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.base,
+    borderColor: colors.border.strong,
+    // Dark glass pills (like the Moon-chat option rows), not a faint white fill,
+    // so the many chips read clearly over the moon instead of washing out.
+    backgroundColor: 'rgba(10,8,16,0.45)',
   },
   chipOn: {
     backgroundColor: colors.selectedFill,
     borderColor: colors.beginBorder,
   },
-  chipLabel: { fontFamily: fonts.light, fontSize: fontScale.body, color: colors.textPrimary },
-  chipLabelOn: { fontFamily: fonts.medium, color: colors.textPrimary },
+  chipLabel: { fontFamily: fonts.medium, fontSize: fontScale.body, color: colors.textPrimary },
+  chipLabelOn: { fontFamily: fonts.semibold, color: colors.textPrimary },
 
   // Sliders
   // Degree pickers: a stacked list of rows, each a labeled segmented control.
   sliders: { width: '100%', maxWidth: 360, gap: spacing.xxl, marginVertical: spacing.sm },
   choice: { alignItems: 'flex-start' },
   choiceLabel: {
-    fontFamily: fonts.light,
+    fontFamily: fonts.medium,
     fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -2724,8 +2918,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.base,
+    borderColor: colors.border.strong,
+    // Dark glass segments (matching the chips) so they read clearly over the
+    // moon instead of washing out.
+    backgroundColor: 'rgba(10,8,16,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2734,13 +2930,13 @@ const styles = StyleSheet.create({
     borderColor: colors.beginBorder,
   },
   segmentLabel: {
-    fontFamily: fonts.light,
+    fontFamily: fonts.medium,
     fontSize: fontScale.bodyLg,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   segmentLabelOn: {
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
   },
 
   // Radio
@@ -2750,14 +2946,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    borderColor: colors.border.strong,
+    // Dark glass rows (matching the chips + segments) so they read over the moon.
+    backgroundColor: 'rgba(10,8,16,0.45)',
   },
   radioOn: {
     borderColor: colors.beginBorder,
     backgroundColor: colors.selectedFill,
   },
-  radioLabel: { fontFamily: fonts.light, fontSize: fontScale.bodyLg, color: colors.textPrimary },
+  radioLabel: { fontFamily: fonts.medium, fontSize: fontScale.bodyLg, color: colors.textPrimary },
 
 
 
@@ -2769,9 +2966,28 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: spacing.lg,
     borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden', // clip the blur / tint / gloss layers to the rounded card
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    borderColor: glass.border,
+  },
+  // A panel is a light raised surface on the already-frosted page: a faint white
+  // lift so it reads above the glass without its own blur. `hero` lifts stronger.
+  panelFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  panelFillHero: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   // Wrapper that carries the entrance animation + inter-card spacing so the
   // Panel itself stays layout-only.
@@ -2936,14 +3152,6 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
     marginTop: spacing.xs,
   },
-  // Chapter deck: the featured card in front, the rest peeking as slivers behind
-  // it. Tight overlap so only the top edge of each back card shows.
-  deck: { width: '100%' },
-  deckStack: { marginTop: -102 },
-
-  // Prep deck: readiness items as cards, calcium in front, the rest peeking as a
-  // very thin edge (reads as "and more", not a countable list).
-  prepStack: { marginTop: -68 },
   prepCard: {
     flexDirection: 'row',
     alignItems: 'center',

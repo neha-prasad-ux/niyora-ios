@@ -4,6 +4,7 @@
 // only onboarding gives, so until then this is the one thing the home asks.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 
@@ -12,14 +13,6 @@ import { fonts } from '@/theme/fonts';
 import { spacing, radius } from '@/theme/spacing';
 import { fontScale } from '@/theme/typography';
 import type { SetupCard } from '@/store/onboarding-v3-progress';
-
-const GRADIENT: readonly [string, string, string, string] = [
-  'rgba(78,72,150,0.62)',
-  'rgba(96,84,158,0.6)',
-  'rgba(110,96,166,0.58)',
-  'rgba(70,88,150,0.58)',
-];
-const GRADIENT_LOCATIONS = [0, 0.42, 0.62, 1] as const;
 
 const COPY: Record<SetupCard, { why: string; title: string; cta: string }> = {
   start: {
@@ -43,18 +36,16 @@ export function OnboardingCard({ setup, onPress }: { setup: SetupCard; onPress: 
       accessibilityRole="button"
       accessibilityLabel={`${copy.title}. ${copy.why}.`}
     >
+      {/* The SAME frosted glass as the Home card (now.tsx): blur + light frost +
+          a top-left gloss sheen, so the card reads as the same material as the
+          home glass and the period pill, not a violet slab from another world. */}
+      <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+      <View pointerEvents="none" style={styles.tint} />
       <LinearGradient
-        colors={GRADIENT}
-        locations={GRADIENT_LOCATIONS}
+        colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+        locations={[0, 0.28, 0.62]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'rgba(0,0,0,0.1)']}
-        locations={[0, 0.45, 1]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.4, y: 1 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
@@ -78,11 +69,21 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
+    borderColor: 'rgba(255,255,255,0.16)',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
     minHeight: 96,
     justifyContent: 'center',
+  },
+  // A light frost over the blur, matching the home glass card's glassTint, so
+  // the moon halo glows through rather than a flat fill.
+  tint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(28,26,38,0.20)',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   textCol: { flex: 1 },

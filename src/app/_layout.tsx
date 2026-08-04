@@ -221,6 +221,8 @@ export default function RootLayout() {
           {/* The moon-growth explainer (materials, rings, phases), opened from
               "You're on [material]" on the Soul page. */}
           <Stack.Screen name="moon-probe" options={CALM_FADE} />
+          {/* A saved "later" move, opened from the Later list on the home. */}
+          <Stack.Screen name="saved-task" options={CALM_FADE} />
         </Stack>
       </ErrorBoundary>
     </GestureHandlerRootView>

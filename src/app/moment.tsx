@@ -79,6 +79,9 @@ import {
 import { MoonText } from '@/components/moment/moon-text';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, SkeletonRows, ThinkingDots, WhyLine } from '@/components/moment/controls';
+import { HoldWhisper } from '@/components/moment/hold-clock-bar';
+import { ActivityBall } from '@/components/moment/activity-ball';
+import { resetHold } from '@/lib/hold-clock';
 import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
@@ -89,12 +92,13 @@ import {
   laneFor,
   namedFeeling,
   offerFeelings,
+  matchFeelings,
   pinFeeling,
   type Verdict,
 } from '@/v3/moment-analyse';
 import { echo, pick, composeReadings, draftAct, revise, hasConcreteEvent } from '@/v3/moment-ai';
 import { optionPlanFor, personalisedLabel } from '@/v3/option-plan';
-import { getMomentProvider } from '@/lib/moment-gemini';
+import { getMomentProvider, classifyCrisis, lastAiTransport, type CrisisType } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
@@ -112,8 +116,7 @@ import { useDictation } from '@/hooks/use-dictation';
 import type { MoonState } from '@/lib/moon-light';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
-import { fonts } from '@/theme/fonts';
-import { fontScale } from '@/theme/typography';
+import { moon } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import { advance, ENTRY, node, type NodeId, type Phase } from '@/v3/moment-flow';
@@ -218,6 +221,16 @@ export default function Moment() {
    *  actually looking at does. */
   const [history, setHistory] = useState<NodeId[]>([]);
   const [crisis, setCrisis] = useState(false);
+  // Set when the entry beat cannot reach the model while AI is on (v1: any
+  // failure, including offline): the flow shows "Moon AI not working" with a
+  // retry instead of degrading to authored copy. v1 is AI-required — no offline
+  // flow until the authored path is built out. Crisis is handled before this and
+  // is unaffected.
+  const [aiError, setAiError] = useState(false);
+  // The typed crisis read from the model layer, for the crisis page to route the
+  // right resource. A ref (not state) because nothing renders from it yet; the
+  // page rework reads crisisType.current.
+  const crisisType = useRef<CrisisType | null>(null);
   // Physical-abuse disclosure detected (scanForAbuse). Does not stop the flow:
   // it de-fangs the respond menu (no acts aimed at the person) and shows a quiet
   // resource. Once set in a session it stays, so a later beat can't re-offer a
@@ -229,6 +242,13 @@ export default function Moment() {
   const { resume } = useLocalSearchParams<{ resume?: string }>();
   const [hydrating, setHydrating] = useState(resume === '1');
   const [draft, setDraft] = useState('');
+  // One good entry example, picked once per open so it rotates across sessions
+  // (partner / family / work) without crowding the screen with all three.
+  const [goodExample] = useState(
+    () => COPY.raw_entry_examples_good[
+      Math.floor(Math.random() * COPY.raw_entry_examples_good.length)
+    ],
+  );
   const [intensity, setIntensity] = useState<number | null>(null);
   /** What the app decided about her sentence. Drives clarify vs acknowledge. */
   const [verdict, setVerdict] = useState<Verdict | null>(null);
@@ -258,6 +278,9 @@ export default function Moment() {
   /** Model orderings/readings per beat. Each defaults to null → the deterministic
    *  authored value, so nothing here can leave a beat empty. */
   const [reframeReadings, setReframeReadings] = useState<string[] | null>(null);
+  /** The model's self-generation prompt, seeded as the placeholder of her own
+   *  text box at the reframe so she can reach a reading herself. Empty when none. */
+  const [reframeSelfPrompt, setReframeSelfPrompt] = useState('');
   /** The FULL ranked act pool from the model (null → authored order). The menu
    *  shows one-per-rung from this; `showAllActs` expands it to the rest when she
    *  taps "Show me other options". */
@@ -287,6 +310,9 @@ export default function Moment() {
   const [bodyPrepInList, setBodyPrepInList] = useState(false);
   // C10: "Do this later" opens a when-chooser; a pick schedules a local reminder.
   const [reminderOpen, setReminderOpen] = useState(false);
+  // After she saves a move for later: a short "Nicely done" confirmation, so the
+  // save is acknowledged instead of the chooser just vanishing.
+  const [savedLater, setSavedLater] = useState(false);
   /** She chose to act now instead of taking the twenty-minute hold. Gates the
    *  gentle "still worth twenty minutes" offer on the act menu, and only when
    *  the opening rating was high. */
@@ -371,8 +397,18 @@ export default function Moment() {
   const rewardBumped = useRef(false);
   // M28: on Done the sky dims and the moon behind the card blooms + confetti.
   const [celebrating, setCelebrating] = useState(false);
-  // Speak-to-type on the entry: each finished phrase appends to the draft.
-  const dictation = useDictation((t) => setDraft((d) => (d.trim() ? d.trim() + ' ' : '') + t));
+  // Speak-to-type on the entry: each finished phrase appends to the draft. The
+  // suppress ref lets `send` fold the in-progress phrase itself (so she can send
+  // mid-dictation without stopping the mic first) and drop the duplicate final
+  // result the recognizer emits when we stop it on that send.
+  const dictationSuppress = useRef(false);
+  const dictation = useDictation((t) => {
+    if (dictationSuppress.current) {
+      dictationSuppress.current = false;
+      return;
+    }
+    setDraft((d) => (d.trim() ? d.trim() + ' ' : '') + t);
+  });
   const beat = node(current);
 
   // How far the current state's segment is filled: the distinct beats she has
@@ -492,11 +528,13 @@ export default function Moment() {
     // earlier one never shows a stale pick or a half-open field.
     setReframePick(null);
     setReframeReadings(null);
+    setReframeSelfPrompt('');
     setClarifyMoreContext(false);
     setBodyPrepOpen(false);
     setBodyPrepInList(false);
     setMicroStep(null);
     setReminderOpen(false);
+    setSavedLater(false);
     // NOT actOrder: the ranked options are kept, so stepping back to the menu
     // shows the SAME three in the same order, not a fresh model shuffle. It is
     // reset only when the feeling it is ranked on actually changes (chooseFeeling).
@@ -517,6 +555,7 @@ export default function Moment() {
     setStreamLen(0);
     setModelEcho(null);
     setFeelingOrder(null);
+    setAiError(false);
     if (!aiOn) return;
     const her = herText.current.trim();
     if (!her) return;
@@ -525,7 +564,18 @@ export default function Moment() {
     // anything else keeps the carve. The stream holds until this settles.
     setEchoResolving(true);
     echo(provider, 'acknowledge', her)
-      .then((r) => setModelEcho(r.via === 'model' ? r.text : null))
+      .then((r) => {
+        setModelEcho(r.via === 'model' ? r.text : null);
+        // AI health gate at the entry beat. v1 is AI-required: if the model could
+        // not be reached AT ALL — timeout, HTTP error, empty, OR offline — show the
+        // "Moon AI not working" state and let her retry, rather than degrading to
+        // authored copy. (Transport 'ok' but a line rejected for grounding is NOT a
+        // failure: the model worked, we just used the safe carve.) The offline
+        // floor comes back when the authored path is built out; until then, no
+        // offline flow.
+        const t = lastAiTransport();
+        if (t === 'fail' || t === 'offline') setAiError(true);
+      })
       .catch(() => {})
       .finally(() => setEchoResolving(false));
   }, [aiOn, provider]);
@@ -655,24 +705,35 @@ export default function Moment() {
   // reminder. A denied permission (or no time) just saves it, no reminder.
   const saveForLater = async (date: Date | null) => {
     const a = chosenAct;
-    if (a) addPlannedAction(a.label).catch(() => {});
+    // Keep the drafted text with the parked move, so the home list can reopen the
+    // exact task she saved, not just its label.
+    const text = actDraft.trim();
+    if (a) addPlannedAction(a.label, text || undefined).catch(() => {});
     if (date) {
-      const ok = await scheduleActionReminder(
+      await scheduleActionReminder(
         a ? `You saved "${a.label}" for later.` : 'A response you saved is waiting.',
         date,
       );
-      setSnack(ok ? 'Saved, I will remind you' : COPY.added_today);
-    } else {
-      setSnack(COPY.added_today);
     }
     setReminderOpen(false);
     closeActDraft();
-    go('act', 'later');
+    // Show the "Nicely done" confirmation in place; Continue advances the flow.
+    setSavedLater(true);
   };
 
   const send = useCallback(() => {
-    const text = draft.trim();
+    // Fold any in-progress dictation into the text and stop the mic, so she can
+    // send in one tap without turning the speaker off first (Neha 2026-08-02).
+    // Suppress the duplicate final phrase the recognizer emits on that stop.
+    const spoken = dictation.partial.trim();
+    const live =
+      dictation.listening && spoken ? (draft.trim() ? draft.trim() + ' ' : '') + spoken : draft;
+    const text = live.trim();
     if (!text) return;
+    if (dictation.listening) {
+      dictationSuppress.current = spoken.length > 0;
+      dictation.toggle();
+    }
     tap();
 
     // One call decides all three routes. The crisis scan runs inside it, on her
@@ -688,6 +749,20 @@ export default function Moment() {
     // person and a quiet resource is shown. Runs on her raw text, before any model
     // call. Latches on: once true in a session it never flips back.
     if (scanForAbuse(text)) setDvDetected(true);
+
+    // Model crisis layer, behind the keyword floor above. Escalate-only and async
+    // so it never blocks her send: if it catches what the keywords missed, it
+    // pulls her to the crisis screen a beat later. classifyCrisis is a no-op when
+    // AI is off, and only an ACUTE read stops the flow (a historical disclosure
+    // continues). Recall-first: on any doubt the model returns crisis.
+    classifyCrisis(text)
+      .then((r) => {
+        if (r?.isCrisisMode && r.acuity === 'acute') {
+          crisisType.current = r.crisisType;
+          setCrisis(true);
+        }
+      })
+      .catch(() => {});
 
     // Her latest event text, kept for the feeling suggestions and the echo
     // correction prefill.
@@ -737,10 +812,11 @@ export default function Moment() {
       startEcho();
       setCurrent('acknowledge');
     }
-  }, [current, draft, startEcho, aiOn, provider]);
+  }, [current, draft, startEcho, aiOn, provider, dictation]);
 
   const leave = useCallback(() => {
     tap();
+    resetHold(); // don't leak an expired hold clock into the next moment
     router.back();
   }, []);
 
@@ -802,6 +878,16 @@ export default function Moment() {
     },
     [moonBloom],
   );
+
+  // The finish: sky dims, moon blooms, burst fires, then out. Fired ONLY by the
+  // final reward "Done" (Neha 2026-08-02: the celebration is earned by finishing;
+  // closing early via the X never celebrates).
+  const finishAndLeave = useCallback(() => {
+    tap();
+    setCelebrating(true);
+    moonBloom.value = withTiming(1, { duration: 900 });
+    setTimeout(leave, 1600);
+  }, [leave, moonBloom]);
 
   // C5: reward each completed settling activity, not just beat advances. The
   // done-set lives outside React (an activity screen marks itself done on its own
@@ -938,7 +1024,17 @@ export default function Moment() {
     setReframeLoading(true);
     composeReadings(provider, user)
       .then((r) => {
-        if (alive && r) setReframeReadings(r);
+        if (!alive || !r) return; // null = failure → authored smallReframes stand
+        if (r.readings.length === 0) {
+          // The model deliberately offered nothing to loosen: a real fear, grief,
+          // harm, or diffuse mood. Skip the reframe rather than show generic
+          // small-reframes that would trivialise a serious moment. small_no routes
+          // to the breath, which is the right move for a real worry.
+          go('reframe_small', 'small_no');
+          return;
+        }
+        setReframeReadings(r.readings);
+        setReframeSelfPrompt(r.selfPrompt);
       })
       .catch(() => {})
       .finally(() => {
@@ -947,7 +1043,7 @@ export default function Moment() {
     return () => {
       alive = false;
     };
-  }, [aiOn, current, reframeReadings, provider]);
+  }, [aiOn, current, reframeReadings, provider, go]);
 
   // Options PICK: rank the acts, but keep the safety invariant that one direct,
   // one prep and one self are always offered together. The model only sets which
@@ -1053,8 +1149,16 @@ export default function Moment() {
     onSend: () => void;
     withMic?: boolean;
     a11yLabel?: string;
+    // Whether to raise the keyboard on mount. On for the beats whose whole job is
+    // typing (entry, clarify); OFF where the field is a secondary option that
+    // shouldn't cover the screen until she taps it (the reframe "your own read").
+    autoFocus?: boolean;
   }) => {
-    const canSend = draft.trim().length > 0;
+    // Enabled while she is still speaking too, so she never has to tap the mic
+    // off before she can send (Neha 2026-08-02).
+    const canSend =
+      draft.trim().length > 0 ||
+      (!!opts.withMic && dictation.listening && dictation.partial.trim().length > 0);
     return (
       <View style={styles.composer}>
         <TextInput
@@ -1077,7 +1181,7 @@ export default function Moment() {
           selectionColor="rgba(196, 178, 255, 0.9)"
           multiline
           textAlignVertical="top"
-          autoFocus
+          autoFocus={opts.autoFocus ?? true}
           inputAccessoryViewID={Platform.OS === 'ios' ? ACCESSORY_ID : undefined}
           accessibilityLabel={opts.a11yLabel ?? 'What happened'}
         />
@@ -1087,8 +1191,12 @@ export default function Moment() {
               onPress={() => {
                 tap();
                 // Starting to listen: drop the keyboard so she isn't tempted to
-                // type into a field the mic now owns.
-                if (!dictation.listening) Keyboard.dismiss();
+                // type into a field the mic now owns, and clear any stale suppress
+                // flag so a fresh dictation's first phrase isn't swallowed.
+                if (!dictation.listening) {
+                  dictationSuppress.current = false;
+                  Keyboard.dismiss();
+                }
                 dictation.toggle();
               }}
               hitSlop={8}
@@ -1168,11 +1276,6 @@ export default function Moment() {
       </View>
       {/* On the finish the sky dims so the moon and the burst carry the moment. */}
       <View style={[styles.scrim, celebrating && styles.scrimDim]} pointerEvents="none" />
-      {/* THE FINISH: a big one-shot burst — bloom + sunburst + sparks flying out
-          from the moon, in her moon's hue. The payoff. */}
-      {celebrating && (
-        <RingCelebration hue={bodyHue(lifetimeLight)} originYFraction={0.32} />
-      )}
       {/* SMALL TASKS: a brief snow flurry while the "nice / well done" toast is up
           (each step, each finished settling activity). Lighter than the finish
           burst, never at the same time as it. */}
@@ -1312,6 +1415,14 @@ export default function Moment() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
+      {/* THE FINISH: a big one-shot burst — bloom + sunburst + sparks flying out
+          from the moon, in her moon's hue. Painted ABOVE the frosted card (not
+          behind it), so the glass never mutes the payoff. pointerEvents:none via
+          its own absoluteFill root, so the card underneath stays tappable. */}
+      {celebrating && (
+        <RingCelebration hue={bodyHue(lifetimeLight)} originYFraction={0.32} />
+      )}
+
       {/* A brief confirmation toast, floated at the bottom over the flow. Non-
           interactive: it says what happened, it is not a control. */}
       {snack && (
@@ -1419,8 +1530,48 @@ export default function Moment() {
       case 'raw_entry':
         return {
           // Speaker/question sticky at the top (body); the chat composer sticky
-          // at the bottom (cta), like any messaging screen.
-          body: head(COPY.raw_entry),
+          // at the bottom (cta), like any messaging screen. A good-vs-bad pair
+          // under the question teaches how to write to Moon (Neha 2026-08-02):
+          // faint x / brand check, never alarm red, so it guides without judging.
+          body: (
+            <View style={styles.entryHead}>
+              {head(COPY.raw_entry)}
+              <WhyLine>{COPY.raw_entry_why}</WhyLine>
+              {/* The example is guidance for an empty field: once she starts
+                  typing (or dictating), it fades out so it never lingers next to
+                  her own words (Neha 2026-08-02). GOOD comes first: with the
+                  keyboard up the card is short and the list can clip to one line,
+                  so the teaching example must survive, never the "bad" one alone. */}
+              {!draft.trim() && !dictation.listening && (
+                <Animated.View
+                  style={styles.entryExamples}
+                  entering={reduceMotion ? undefined : FadeIn.duration(220)}
+                  exiting={reduceMotion ? undefined : FadeOut.duration(200)}
+                >
+                  <View style={styles.entryExampleRow}>
+                    <SymbolView
+                      name="checkmark"
+                      tintColor={v3.accent}
+                      size={13}
+                      weight="semibold"
+                      style={styles.entryExampleMark}
+                    />
+                    <Text style={styles.entryExampleGood}>{goodExample}</Text>
+                  </View>
+                  <View style={styles.entryExampleRow}>
+                    <SymbolView
+                      name="xmark"
+                      tintColor={colors.textTagline}
+                      size={13}
+                      weight="semibold"
+                      style={styles.entryExampleMark}
+                    />
+                    <Text style={styles.entryExampleBad}>{COPY.raw_entry_example_bad}</Text>
+                  </View>
+                </Animated.View>
+              )}
+            </View>
+          ),
           cta: entryField({
             placeholder: COPY.raw_entry_placeholder,
             onSend: send,
@@ -1455,6 +1606,31 @@ export default function Moment() {
         // What has streamed in so far, and whether the stream has finished.
         const revealed = reduceMotion ? echoText : echoText.slice(0, streamLen);
         const streamDone = reduceMotion || streamLen >= echoText.length;
+
+        // Moon could not be reached at the entry beat (timeout/HTTP/empty, while
+        // AI is on and she is not offline). Say so and let her retry, rather than
+        // proceeding on a hollow scripted reflection. Crisis is handled before
+        // here; offline never reaches this (it keeps the authored floor).
+        if (aiError) {
+          return {
+            body: (
+              <>
+                {head(COPY.ai_not_responding)}
+                <Text style={styles.settles}>{COPY.ai_not_responding_sub}</Text>
+              </>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label={COPY.ai_retry}
+                onPress={() => {
+                  tap();
+                  startEcho();
+                }}
+              />
+            ),
+          };
+        }
 
         // She said it was wrong: a field to say it again, then re-echo.
         if (echoFixing) {
@@ -1494,6 +1670,7 @@ export default function Moment() {
             body: (
               <>
                 {head(revealed, { tone: 'said', ai: echoAi, thinking: echoResolving })}
+                {settled && <WhyLine>{COPY.ack_why}</WhyLine>}
                 {isReflection && settled && (
                   <>
                     <Text style={styles.feelingsAsk}>{COPY.ack_confirm}</Text>
@@ -1575,19 +1752,37 @@ export default function Moment() {
                     onPress={() => setOtherOpen(true)}
                   />
                 ) : (
-                  <TextInput
-                    style={styles.inputSmall}
-                    value={draft}
-                    onChangeText={setDraft}
-                    placeholder={COPY.feelings_other_hint}
-                    placeholderTextColor="rgba(255,255,255,0.30)"
-                    selectionColor="rgba(196, 178, 255, 0.9)"
-                    autoFocus
-                    inputAccessoryViewID={
-                      Platform.OS === 'ios' ? ACCESSORY_ID : undefined
-                    }
-                    accessibilityLabel="Your own word for it"
-                  />
+                  <>
+                    <TextInput
+                      style={styles.inputSmall}
+                      value={draft}
+                      onChangeText={setDraft}
+                      placeholder={COPY.feelings_other_hint}
+                      placeholderTextColor="rgba(255,255,255,0.30)"
+                      selectionColor="rgba(196, 178, 255, 0.9)"
+                      autoFocus
+                      inputAccessoryViewID={
+                        Platform.OS === 'ios' ? ACCESSORY_ID : undefined
+                      }
+                      accessibilityLabel="Your own word for it"
+                    />
+                    {/* She types, we fill: matching feeling words she can tap
+                        instead of writing from scratch. Nothing matches → no
+                        rows, and Continue still takes her verbatim word. */}
+                    {matchFeelings(draft).map((f, i) => (
+                      <OptionRow
+                        key={f}
+                        label={f}
+                        index={i}
+                        tint={selTint}
+                        onPress={() => {
+                          setDraft('');
+                          setOtherOpen(false);
+                          chooseFeeling(f);
+                        }}
+                      />
+                    ))}
+                  </>
                 )}
                   </>
                 )}
@@ -1707,35 +1902,34 @@ export default function Moment() {
           };
         }
         return {
+          // Both choices sit together under the question rather than the hero
+          // button docking at the screen bottom with a big gap above it (Neha
+          // 2026-08-02, "the gradient button ends up at the lower end, move it
+          // up"). "Now" opens the body-prep page in place; "Wait" is the
+          // recommended hold — hero gradient, so the encouraged path leads.
           body: (
             <>
               {head(COPY.make_safe_intro)}
               <View style={styles.stack}>
-                {/* "Now" opens the body-prep page (no tint: it opens a page in
-                    place, it does not advance the beat). "Wait" is the recommended
-                    hold and advances to the settling menu. */}
                 <OptionRow
                   label={COPY.make_safe_now}
                   index={0}
                   onPress={() => setBodyPrepOpen(true)}
                 />
+                <BeginButton
+                  hero
+                  fullWidth
+                  label={COPY.make_safe_wait}
+                  onPress={() => {
+                    resetActivities();
+                    resetHold(); // fresh 20:00 for this hold (also clears any stale clock)
+                    go('make_safe', 'wait');
+                  }}
+                />
               </View>
             </>
           ),
-          // "Yey I am ready" is the recommended hold and a big-commit moment, so it
-          // gets the hero CTA gradient (the heroGradient design token), not the flat
-          // begin gradient — the encouraged path reads as the primary move.
-          cta: (
-            <BeginButton
-              hero
-              fullWidth
-              label={COPY.make_safe_wait}
-              onPress={() => {
-                resetActivities();
-                go('make_safe', 'wait');
-              }}
-            />
-          ),
+          cta: null,
         };
       }
 
@@ -1797,6 +1991,30 @@ export default function Moment() {
                     </>
                   )}
                 </View>
+                {/* Her own read: a self-generation on-ramp seeded with the model's
+                    open question as the placeholder. Self-generated reappraisals
+                    stick better than served ones, so the field sits below the
+                    tappable readings, not instead of them. Only shown once the
+                    readings (and the question) have landed. */}
+                {!loadingReadings && reframeSelfPrompt ? (
+                  <View style={styles.stack}>
+                    <Text style={styles.settles}>{COPY.reframe_small_own}</Text>
+                    {entryField({
+                      placeholder: reframeSelfPrompt,
+                      a11yLabel: 'Your own read',
+                      // Don't raise the keyboard on the "Wait, let's think" page:
+                      // the readings are the point; the field waits for a tap
+                      // (Neha 2026-08-02).
+                      autoFocus: false,
+                      onSend: () => {
+                        const t = draft.trim();
+                        if (!t) return;
+                        setReframePick(t);
+                        setDraft('');
+                      },
+                    })}
+                  </View>
+                ) : null}
               </>
             ),
             cta: null,
@@ -1852,6 +2070,7 @@ export default function Moment() {
           body: (
             <>
               {head(COPY.intensity_in)}
+              <WhyLine>{COPY.intensity_why}</WhyLine>
               <ScaleButtons
                 value={intensity}
                 onChange={(n) => {
@@ -1952,6 +2171,8 @@ export default function Moment() {
             <>
               {head(COPY.options)}
               <WhyLine>{plan.science}</WhyLine>
+              {/* A divider below the intro (Neha 2026-08-02: "line" = divider). */}
+              <View style={styles.divider} />
               {/* Abuse in the picture: the confront/self-blame options are gone
                   from the menu (offerableActs), and this quiet, NON-DIAGNOSTIC
                   resource sits above what remains. General wording ("if someone
@@ -1984,6 +2205,7 @@ export default function Moment() {
                       // entry as "wait": the settling menu.
                       setSkippedHold(false);
                       resetActivities();
+                      resetHold(); // fresh 20:00 for this hold
                       go('options', 'take_hold');
                     }}
                   />
@@ -2030,25 +2252,30 @@ export default function Moment() {
                     "which response", they are ways out of the list. "Show me
                     other options" expands the menu in place (no navigation);
                     it hides once everything is shown. */}
-                {hasMore && !showAllActs && (
+                {/* A divider sets the two meta-links apart from the responses
+                    (Neha 2026-08-02: "line" = divider). */}
+                <View style={styles.divider} />
+                <View style={styles.metaLinks}>
+                  {hasMore && !showAllActs && (
+                    <Pressable
+                      onPress={() => {
+                        tap();
+                        setShowAllActs(true);
+                      }}
+                      style={styles.skipLink}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.skipLinkText}>{COPY.options_more}</Text>
+                    </Pressable>
+                  )}
                   <Pressable
-                    onPress={() => {
-                      tap();
-                      setShowAllActs(true);
-                    }}
+                    onPress={() => go('options', 'none_possible')}
                     style={styles.skipLink}
                     accessibilityRole="button"
                   >
-                    <Text style={styles.skipLinkText}>{COPY.options_more}</Text>
+                    <Text style={styles.skipLinkText}>{COPY.options_none}</Text>
                   </Pressable>
-                )}
-                <Pressable
-                  onPress={() => go('options', 'none_possible')}
-                  style={styles.skipLink}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.skipLinkText}>{COPY.options_none}</Text>
-                </Pressable>
+                </View>
                   </>
                 )}
               </View>
@@ -2112,34 +2339,41 @@ export default function Moment() {
         return {
           body: (
             <>
+              {/* Soft, permission-to-wait timer in the corner; the rationale
+                  ("wait before you react") sits under the heading. */}
+              <HoldWhisper />
               {head(COPY.activities_intro)}
-              <View style={styles.stack}>
-                <OptionRow
+              <WhyLine>{COPY.make_safe_why}</WhyLine>
+              {/* The settling activities as magic balls: a 2-col grid, each a
+                  glowing orb that clears + lights up once done (activity-ball). */}
+              <View style={styles.activityGrid}>
+                <ActivityBall
+                  kind="colour"
                   label={COPY.activities_colour}
                   index={0}
+                  active
                   done={activitiesDone.has('colour')}
-                  tint={selTint}
                   onPress={() => router.push('/paint')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="story"
                   label={COPY.activities_story}
                   index={1}
                   done={activitiesDone.has('story')}
-                  tint={selTint}
                   onPress={() => router.push('/story')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="move"
                   label={COPY.activities_move}
                   index={2}
                   done={activitiesDone.has('move')}
-                  tint={selTint}
                   onPress={() => router.push('/move')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="wind"
                   label={COPY.activities_breath}
                   index={3}
                   done={activitiesDone.has('breath')}
-                  tint={selTint}
                   // The real guided Wind Down (voice + captions), the same
                   // /session exercise as in the calm library; `hold` tells it to
                   // mark this activity done when she finishes.
@@ -2152,23 +2386,24 @@ export default function Moment() {
                 />
                 {/* C5: quick regulation, the fast body resets. Each opens a short
                     guided step in place, then marks done and earns the shine. */}
-                <OptionRow
+                <ActivityBall
+                  kind="cold"
                   label={MICRO.cold.title}
                   index={4}
                   done={activitiesDone.has('cold')}
-                  tint={selTint}
                   onPress={() => setMicroStep('cold')}
                 />
-                <OptionRow
+                <ActivityBall
+                  kind="aurora"
                   label={MICRO.shoulders.title}
                   index={5}
                   done={activitiesDone.has('shoulders')}
-                  tint={selTint}
                   onPress={() => setMicroStep('shoulders')}
                 />
-                {/* M8 (wait path): body-prep as a settling item. No tint: it opens
-                    the checklist in place rather than advancing the beat. */}
-                <OptionRow
+                {/* M8 (wait path): body-prep as a settling item, opens the
+                    checklist in place rather than advancing the beat. */}
+                <ActivityBall
+                  kind="sprout"
                   label={COPY.make_safe_care_intro}
                   index={6}
                   done={bodyReady}
@@ -2241,6 +2476,29 @@ export default function Moment() {
       case 'act': {
         const a = chosenAct;
 
+        // She saved the move for later: a short "Nicely done" so the save lands as
+        // a real moment, not the chooser silently vanishing. Continue moves on.
+        if (savedLater) {
+          return {
+            body: (
+              <View style={styles.celebrate}>
+                <Text style={styles.congrats}>Nicely done.</Text>
+                <Text style={styles.giftSub}>Saved to Today. I&apos;ll bring it back when you&apos;re ready.</Text>
+              </View>
+            ),
+            cta: (
+              <BeginButton
+                fullWidth
+                label="Continue"
+                onPress={() => {
+                  setSavedLater(false);
+                  go('act', 'later');
+                }}
+              />
+            ),
+          };
+        }
+
         // C10: the "when should I remind you" chooser, opened from Do-this-later.
         if (reminderOpen) {
           return {
@@ -2271,6 +2529,7 @@ export default function Moment() {
             body: (
               <>
                 {head(a ? personalisedLabel(a, herText.current) : COPY.options)}
+                <View style={styles.divider} />
                 <Text style={styles.settles}>{COPY.act_draft_hint}</Text>
                 {actDraftLoading ? (
                   // M2: the generation gap reads as working, not broken.
@@ -2300,23 +2559,31 @@ export default function Moment() {
                     </View>
                   </View>
                 )}
-                {/* M20: no "skip", just Done. "Do this later" opens the C10
-                    when-chooser (park on Today, optionally set a reminder). */}
-                <Pressable onPress={() => setReminderOpen(true)} style={styles.skipLink}>
-                  <Text style={styles.skipLinkText}>{COPY.act_later}</Text>
+                {/* A divider before the secondary action, so "Save for later"
+                    reads as a distinct choice from editing the draft (Neha
+                    2026-08-02). */}
+                <View style={styles.divider} />
+                {/* M20: no "skip". "Save for later" (secondary, bordered) opens
+                    the C10 when-chooser; the primary "Share" sits in the footer. */}
+                <Pressable
+                  onPress={() => setReminderOpen(true)}
+                  style={styles.secondaryBtn}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.secondaryBtnText}>{COPY.act_later}</Text>
                 </Pressable>
               </>
             ),
             cta: (
               <BeginButton
                 fullWidth
-                label={a?.channel === 'message' ? COPY.act_draft_send : COPY.act_draft_do}
+                label={COPY.act_draft_send}
                 disabled={actDraftLoading}
                 onPress={() => {
                   const text = actDraft.trim();
-                  // Hand her draft to the iOS share sheet so she picks how to send
-                  // it (Messages, WhatsApp, Mail...). Non-message acts just proceed.
-                  if (a?.channel === 'message' && text) {
+                  // Primary is always "Share": hand her draft to the iOS share
+                  // sheet so she picks how to send it (Messages, WhatsApp, Mail).
+                  if (text) {
                     Share.share({ message: text }).catch(() => {});
                   }
                   closeActDraft();
@@ -2409,13 +2676,7 @@ export default function Moment() {
             <BeginButton
               fullWidth
               label={COPY.close_done}
-              onPress={() => {
-                // M28: the sky dims, the moon blooms and confetti falls, then out.
-                tap();
-                setCelebrating(true);
-                moonBloom.value = withTiming(1, { duration: 900 });
-                setTimeout(leave, 1600);
-              }}
+              onPress={finishAndLeave}
             />
           ) : null,
         };
@@ -2485,7 +2746,10 @@ export default function Moment() {
           <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
         </>
       ),
-      cta: <BeginButton fullWidth label="Close" onPress={leave} />,
+      // "No am good, let me rephrase" returns her to her own words (setCrisis
+      // false) instead of exiting the moment — her draft is intact, so she can
+      // edit and resend (Neha 2026-08-02). Resources stay one send away.
+      cta: <BeginButton fullWidth label={CRISIS_COPY.back} onPress={() => setCrisis(false)} />,
     };
   }
 }
@@ -2710,20 +2974,15 @@ const styles = StyleSheet.create({
   // Gives the masked AI text the same row flex the plain Text had, so it wraps
   // to the card width instead of collapsing to its content.
   askFill: { flex: 1 },
-  // H1.
+  // H1 — the beat's question. `moon.title` (20 semibold, -0.2 tracking).
   ask: {
+    ...moon.title,
     flex: 1,
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 28,
     color: colors.textPrimary,
-    letterSpacing: -0.2,
   },
 
   input: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 25,
+    ...moon.body,
     color: colors.textOnDark.primary,
     // A dark, mostly-opaque well — darker than the card's frost tint (0.20), so
     // the field reads as a recessed surface and light text stays legible over
@@ -2750,9 +3009,7 @@ const styles = StyleSheet.create({
   },
   // The text itself sits transparent over the well; the composer paints the fill.
   composerInput: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 25,
+    ...moon.body,
     color: colors.textOnDark.primary,
     paddingHorizontal: spacing.xs,
     paddingTop: spacing.xs,
@@ -2779,8 +3036,7 @@ const styles = StyleSheet.create({
   },
   sendBtnOff: { backgroundColor: 'rgba(255,255,255,0.10)' },
   todo: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.tagline,
+    ...moon.caption,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: v3.activated,
@@ -2794,24 +3050,19 @@ const styles = StyleSheet.create({
     borderColor: v3.panelBorder,
   },
   accessoryDone: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
+    ...moon.bodyStrong,
     color: v3.accent,
-    letterSpacing: 0.3,
   },
   // Her own words, repeated back. Lighter than a question, and slightly
   // smaller: the app is not making a point here, it is showing it listened.
   saidLine: {
-    // The moon's spoken line. It was Light weight at 0.60 white — thin and dim,
-    // right at the readable floor, and unreadable over the moon glow. Medium
-    // weight + primary (0.95) white (DESIGN.md text ramp) makes it legible; it
-    // still reads lighter than the SemiBold question through weight, not dimness.
-    // The gradient echo (MoonText) inherits this weight too, so it thickens with
-    // it.
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 25,
-    letterSpacing: 0,
+    // The moon's spoken line. SAME SIZE as the question now (it only layers over
+    // `ask`, so dropping the size override lets it inherit the title size —
+    // Moon's voice is one consistent size, Neha 2026-08-02). It still reads
+    // lighter than the SemiBold question through WEIGHT (medium), not size or
+    // dimness. Medium + primary (0.95) white keeps it legible over the moon glow;
+    // the gradient echo (MoonText) inherits this weight too.
+    ...moon.voice,
     color: colors.textOnDark.primary,
   },
   // Closes the moon's line off, so what follows reads as a new thought rather
@@ -2822,43 +3073,50 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   settles: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 22,
+    ...moon.body,
+    color: colors.textSubtitle,
+  },
+  // The good-vs-bad example under the entry question. Fainter and smaller than a
+  // said line, so it reads as a quiet hint she can glance at, not an instruction.
+  // entryHead keeps it tight to the question (sm), not the wider beatBody gap, so
+  // the whole block stays short when the keyboard shrinks the card.
+  entryHead: { gap: spacing.sm },
+  entryExamples: { gap: spacing.xs },
+  entryExampleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  entryExampleMark: { marginTop: 3 },
+  entryExampleBad: {
+    ...moon.body,
+    flex: 1,
+    color: colors.textTagline,
+  },
+  entryExampleGood: {
+    ...moon.body,
+    flex: 1,
     color: colors.textSubtitle,
   },
   // "Body prep" heading over the self-check list: same size, more weight.
   settlesStrong: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 22,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
   },
   // The guided micro reset (cold water / relax shoulders): the shared `settles`
   // subtitle read too small here. Its own larger, brighter type — a real
   // instruction to follow, not fine print.
   microTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 26,
+    ...moon.title,
     color: colors.textPrimary,
   },
   microStep: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.emphasis,
-    lineHeight: 24,
+    ...moon.body,
     color: colors.textOnDark.primary,
   },
   feelingsAsk: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 23,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
   inputSmall: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
+    ...moon.body,
     color: colors.textOnDark.primary,
     backgroundColor: v3.panel,
     borderRadius: radius.button,
@@ -2868,6 +3126,30 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   stack: { gap: spacing.sm },
+  // Magic-ball settling grid: two orbs per row (activity-ball tiles).
+  activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  metaLinks: { gap: spacing.sm },
+  // A subtle full-width divider line (Neha 2026-08-02, "line" = a divider).
+  divider: {
+    alignSelf: 'stretch',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  // Secondary action, bordered (sibling to the primary's rounded shape) — e.g.
+  // "Save for later" on the draft screen.
+  secondaryBtn: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: 28,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  secondaryBtnText: {
+    ...moon.bodyStrong,
+    color: colors.textPrimary,
+  },
   // A question and its one-line description are ONE group: they sit tight (6),
   // while the card's 18 gap falls between groups (the description and the
   // options below). Proximity, so the line reads as belonging to the question
@@ -2878,8 +3160,7 @@ const styles = StyleSheet.create({
   // the hero and the edits read as tools, not another thing to read.
   editWithMoon: { gap: spacing.sm, marginTop: spacing.xs },
   editWithMoonLabel: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
+    ...moon.caption,
     color: colors.textSubtitle,
     paddingHorizontal: spacing.xs,
   },
@@ -2888,14 +3169,12 @@ const styles = StyleSheet.create({
   // under the draft: a right-aligned action and a centred way out.
   changeLink: { alignSelf: 'flex-end', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
   changeLinkText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
+    ...moon.bodyStrong,
     color: 'rgba(196, 178, 255, 0.9)',
   },
   skipLink: { alignSelf: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
   skipLinkText: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   // Two-up card grid for the hold activities: 48%-wide cards, space-between
@@ -2906,22 +3185,17 @@ const styles = StyleSheet.create({
   // beneath it. Generous vertical room so the ball has space to swell into.
   breathStage: { alignItems: 'center', gap: spacing.xl, paddingVertical: spacing.xxxl },
   breathLine: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.technique,
-    lineHeight: 30,
+    ...moon.voice,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: 0.2,
     minHeight: 60,
   },
   // The one quiet exit. Low emphasis: the breath is the point, this is just the
   // way out for anyone already steady.
   breathSkip: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
   breathSkipText: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
+    ...moon.body,
     color: colors.textTagline,
-    letterSpacing: 0.2,
   },
 
   // The "still worth twenty minutes" offer above the acts. Set apart with a
@@ -2935,9 +3209,7 @@ const styles = StyleSheet.create({
     borderColor: v3.panelBorder,
   },
   holdNudgeText: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 20,
+    ...moon.body,
     color: colors.textSubtitle,
   },
 
@@ -2945,17 +3217,12 @@ const styles = StyleSheet.create({
   // instruction that matters here — with the benefit a lighter line under it.
   holdGuardBlock: { alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.sm },
   holdGuard: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 27,
+    ...moon.title,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -0.2,
   },
   holdGuardBenefit: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    lineHeight: 19,
+    ...moon.caption,
     color: v3.textFaint,
     textAlign: 'center',
   },
@@ -2972,14 +3239,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   holdCardTitle: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
   },
   holdCardDesc: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    lineHeight: 20,
+    ...moon.caption,
     color: colors.textSubtitle,
   },
 
@@ -2989,17 +3253,12 @@ const styles = StyleSheet.create({
   introWrap: { gap: spacing.lg, paddingVertical: spacing.xs },
   introLead: { gap: spacing.xs, alignItems: 'center', paddingHorizontal: spacing.sm },
   introHead: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 28,
+    ...moon.title,
     color: colors.textPrimary,
-    letterSpacing: -0.2,
     textAlign: 'center',
   },
   introSub: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
+    ...moon.body,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
@@ -3036,15 +3295,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   introStepTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 23,
-    letterSpacing: 0.2,
+    ...moon.bodyStrong,
   },
   introStepSub: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 20,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   introBrand: {
@@ -3055,9 +3309,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
   },
   introBrandText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.caption,
-    letterSpacing: 0.3,
+    ...moon.captionStrong,
     color: colors.textTagline,
   },
 
@@ -3066,17 +3318,12 @@ const styles = StyleSheet.create({
   // reward, so it is generous where the rest is spare.
   celebrate: { alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
   congrats: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.technique,
-    lineHeight: 29,
+    ...moon.celebrate,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -0.2,
   },
   giftSub: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 22,
+    ...moon.body,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
@@ -3098,24 +3345,17 @@ const styles = StyleSheet.create({
   // The uncovered drawing. Fits inside the 190-tall card with room for the name.
   prizeImage: { width: 132, height: 132 },
   badgeName: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 26,
+    ...moon.title,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
   },
   reveal: { alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
   badgeWhy: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
+    ...moon.body,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
   saved: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.caption,
-    letterSpacing: 0.3,
+    ...moon.captionStrong,
     color: v3.accent,
   },
 
@@ -3140,16 +3380,12 @@ const styles = StyleSheet.create({
     borderColor: v3.panelBorder,
   },
   snackText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.body,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
   },
 
   crisisBody: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   crisisLine: {
@@ -3161,20 +3397,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fill.faint,
   },
   crisisLineLabel: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
   },
   crisisLineDetail: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
+    ...moon.caption,
     color: colors.textTertiary,
     marginTop: spacing.xs,
   },
   crisisEmergency: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    lineHeight: 18,
+    ...moon.caption,
     color: colors.textTertiary,
   },
 });

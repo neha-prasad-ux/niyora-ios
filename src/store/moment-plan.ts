@@ -19,6 +19,9 @@ export type PlannedAction = {
   at: string;
   /** ISO time she set a reminder for, if any (set from the Moon home list). */
   remindAt?: string;
+  /** The message/plan she (or the moon) drafted, so tapping it on the home can
+   *  reopen the exact task she saved, not just its label. */
+  draft?: string;
 };
 
 const STORAGE_KEY = 'niyora:moment-plan';
@@ -46,13 +49,14 @@ export async function getPlannedActions(): Promise<PlannedAction[]> {
   return parsePlannedActions(await AsyncStorage.getItem(STORAGE_KEY));
 }
 
-/** Save a move for Today. Returns the day it was filed under. */
-export async function addPlannedAction(label: string): Promise<string> {
+/** Save a move for Today. `draft` is the text she/the moon composed, kept so the
+ *  home list can reopen the exact task. Returns the day it was filed under. */
+export async function addPlannedAction(label: string, draft?: string): Promise<string> {
   const now = new Date();
   const date = now.toISOString().slice(0, 10);
   const existing = await getPlannedActions();
   const next: PlannedAction[] = [
-    { date, label, at: now.toISOString() },
+    { date, label, at: now.toISOString(), ...(draft ? { draft } : {}) },
     ...existing,
   ].slice(0, 50);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));

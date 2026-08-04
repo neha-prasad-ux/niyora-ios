@@ -11,6 +11,8 @@ import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/fonts';
 import { fontScale } from '@/theme/typography';
 import { spacing } from '@/theme/spacing';
+import { COPY } from '@/v3/moment-copy';
+import { v3 } from '@/v3/v3-theme';
 
 const FAINT = 'rgba(43,38,50,0.12)';
 
@@ -33,8 +35,29 @@ export function HoldClockBar({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+// The soft corner timer for the DARK settling menu (moment.tsx). Permission to
+// wait, not a deadline: no "left", no alarm at zero, no motion — just a faint
+// line that swaps to a reassurance when the twenty minutes are up. Same shared
+// clock as the white activity pages (HoldClockBar) via useHoldCountdown.
+export function HoldWhisper() {
+  const { remaining } = useHoldCountdown(() => {}); // 0:00 just stops
+  const done = remaining <= 0;
+  return (
+    <Text style={styles.whisper} accessibilityRole="timer">
+      {done ? COPY.hold_whisper_done : `${COPY.hold_whisper_pre} ${mmss(remaining)}`}
+    </Text>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: { flex: 1, gap: spacing.sm },
+  whisper: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: v3.textFaint,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
   label: {
     fontFamily: fonts.medium,
     fontSize: fontScale.caption,

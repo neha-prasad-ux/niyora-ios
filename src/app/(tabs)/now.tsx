@@ -27,6 +27,7 @@ import Animated, {
 
 import { CosmicBackground } from '@/components/cosmic-background';
 import { PlannedActions } from '@/components/planned-actions';
+import { getPlannedActions } from '@/store/moment-plan';
 import { FeelingLine } from '@/components/feeling-line';
 import { BAR_CONTENT_HEIGHT, BAR_MIN_BOTTOM_PAD } from '@/components/night-tab-bar';
 import { Orb } from '@/components/orb';
@@ -99,12 +100,14 @@ type Snapshot = {
   remissionLog: RemissionEntry[];
   // A Moon flow left unfinished: Home offers to pick it up where she left off.
   hasResume: boolean;
+  // Moves parked for later exist, so the "Waiting for you" cluster shows.
+  hasPlanned: boolean;
   now: Date;
 };
 
 async function loadSnapshot(): Promise<Snapshot> {
   const now = new Date();
-  const [prefs, reads, progress, moonState, ledger, periodHistory, remissionLog, checkpoint] =
+  const [prefs, reads, progress, moonState, ledger, periodHistory, remissionLog, checkpoint, planned] =
     await Promise.all([
       getPmsPrefs(),
       getPmsReads(),
@@ -114,6 +117,7 @@ async function loadSnapshot(): Promise<Snapshot> {
       getPeriodHistory(),
       getRemissionLog(),
       getMomentCheckpoint().catch(() => null),
+      getPlannedActions().catch(() => []),
     ]);
   return {
     prefs,
@@ -124,6 +128,7 @@ async function loadSnapshot(): Promise<Snapshot> {
     periodHistory,
     remissionLog,
     hasResume: checkpoint != null,
+    hasPlanned: planned.length > 0,
     now,
   };
 }
@@ -173,6 +178,11 @@ export default function NowScreen() {
 
   // One snapshot feeds the whole screen; refreshed on focus and on foreground.
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  // Live "waiting for you" count from PlannedActions, so the divider hides the
+  // instant the last parked move is ticked off (not on the next refocus). Null
+  // until it first reports; falls back to the snapshot's hasPlanned before then.
+  const [plannedLive, setPlannedLive] = useState<boolean | null>(null);
+  const onPlannedCount = useCallback((n: number) => setPlannedLive(n > 0), []);
   // Bumped on every genuine open (focus / foreground) to re-key the feeling line
   // so each arrival draws a fresh emotion.
   const [openSeed, setOpenSeed] = useState(0);
@@ -463,6 +473,11 @@ export default function NowScreen() {
                       </View>
                     </LinearGradient>
                   </Pressable>
+                  {/* A divider sets the "waiting for you" cluster (resume + the
+                      Later list) apart from the primary ask above. */}
+                  {(snapshot?.hasResume || (plannedLive ?? snapshot?.hasPlanned)) && (
+                    <View style={styles.homeDivider} />
+                  )}
                   {/* A flow she left unfinished: a quiet second line under the
                       CTA to pick it up where she left off. Never competes with
                       the primary ask — it only shows when there is one to resume,
@@ -470,7 +485,7 @@ export default function NowScreen() {
                   {snapshot?.hasResume && (
                     <View style={styles.resumeRow}>
                       <Pressable
-                        style={styles.resumeWrap}
+                        style={styles.resumeChip}
                         onPress={() => {
                           Haptics.selectionAsync().catch(() => {});
                           router.push('/moment?resume=1' as Href);
@@ -478,6 +493,12 @@ export default function NowScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Continue where you left off"
                       >
+                        {/* A pink liquid-glass chip so the resume reads as a real,
+                            tappable thing on the sky, not faint text (Neha
+                            2026-08-02, "it's not visible"). */}
+                        <BlurView intensity={18} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+                        <View pointerEvents="none" style={styles.resumeChipTint} />
+                        <SymbolView name="arrow.uturn.right" size={13} weight="semibold" tintColor="#F7C4D6" />
                         <Text style={styles.resumeText}>Continue where you left off</Text>
                       </Pressable>
                       <Pressable
@@ -499,7 +520,7 @@ export default function NowScreen() {
                     </View>
                   )}
                   {/* Moves she parked for later, with an optional reminder time. */}
-                  <PlannedActions />
+                  <PlannedActions onCount={onPlannedCount} />
                 </Animated.View>
               </View>
             </Animated.View>
@@ -643,6 +664,12 @@ const styles = StyleSheet.create({
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
   },
+  homeDivider: {
+    alignSelf: 'stretch',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginTop: spacing.lg,
+  },
   // The resume line: a quiet text link under the CTA, secondary by design, with
   // a dismiss × beside it so she can drop the unfinished session.
   resumeRow: {
@@ -652,11 +679,32 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  resumeWrap: { paddingVertical: spacing.xs },
+  resumeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 999,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(242,162,192,0.5)',
+  },
+  // Pink frost fill behind the blur, explicit props (this SDK's StyleSheet type
+  // has no absoluteFillObject — AGENTS.md).
+  resumeChipTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(242,162,192,0.16)',
+  },
   resumeText: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    color: colors.textOnDark.secondary,
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
+    color: colors.textOnDark.primary,
     letterSpacing: 0.3,
   },
   // The crossing line sits over the bloom, near the moon's centre.

@@ -146,7 +146,9 @@ export function PhaseProgress({ current, fill = 0 }: { current: Phase; fill?: nu
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: spacing.sm },
+  // Tight gap: the labels sit right under their bars (Neha 2026-08-02, "too much
+  // space between the bar and Reflect/Regulate/Respond").
+  wrap: { gap: spacing.xs },
   track: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // The empty track, and the fill that grows inside it.
   segTrack: {

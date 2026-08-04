@@ -32,8 +32,10 @@ describe('option labels are personalised by grounded fill-in only', () => {
   it('fills the person into person-addressing acts, leaves the rest authored', () => {
     // A = "Say it to them" → her pronoun filled in
     expect(personalisedLabel(act('A'), 'I feel he keeps brushing me off')).toBe('Tell him how you feel');
-    // C = "Hold a line"
-    expect(personalisedLabel(act('C'), 'my sister crossed a line')).toBe('Hold your line with your sister');
+    // C = "Hold a line" (label reworded 2026-08-02)
+    expect(personalisedLabel(act('C'), 'my sister crossed a line')).toBe(
+      "Tell your sister what's not okay",
+    );
     // I = "Work out what I want" has no person slot → authored label unchanged
     expect(personalisedLabel(act('I'), 'I feel he brushed me off')).toBe(act('I').label);
   });

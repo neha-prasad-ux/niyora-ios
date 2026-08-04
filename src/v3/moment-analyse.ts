@@ -228,3 +228,17 @@ export function offerFeelings(herText: string, count = 3): string[] {
   scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
   return scored.slice(0, count).map((s) => s.label);
 }
+
+/** Type-ahead for the "Other" feeling field: labels whose own word or a cue
+ *  contains what she has typed. Empty when nothing matches, so her verbatim word
+ *  still stands. Substring (not prefix) so "alone" surfaces Lonely via its cue.
+ *  Two-char floor keeps a single keystroke from lighting up half the list. */
+export function matchFeelings(query: string, count = 4): string[] {
+  const q = query.toLowerCase().replace(/['’]/g, '').trim();
+  if (q.length < 2) return [];
+  return FEELING_SET.filter(
+    (f) => f.label.toLowerCase().includes(q) || f.cues.some((c) => c.includes(q)),
+  )
+    .slice(0, count)
+    .map((f) => f.label);
+}

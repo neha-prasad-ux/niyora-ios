@@ -46,7 +46,7 @@ export function personRef(herText: string): string | null {
 const PERSONALISED: Record<string, (p: string) => string> = {
   A: (p) => `Tell ${p} how you feel`, // Say it to them
   B: (p) => `Ask ${p} for what you need`, // Ask for the thing
-  C: (p) => `Hold your line with ${p}`, // Hold a line
+  C: (p) => `Tell ${p} what's not okay`, // Hold a line
   D: (p) => `Own your part with ${p}`, // Own my part
 };
 
@@ -95,17 +95,17 @@ const cards = (science: string): OptionPlan => ({ science, composer: 'cards' });
 const PLANS: Record<string, OptionPlan> = {
   // --- relational wounds: fill-in composer ---
   Dismissed: fill(
-    'Being talked over feels bad, and that is real. Saying clearly what you needed helps you get heard next time.',
+    "It stings to get talked over. Say what you needed, plainly, and you're way more likely to get heard.",
     'Dismissed',
     ['I was talked over', 'my point was skipped', 'I got interrupted'],
   ),
   'Not taken seriously': fill(
-    'When you are brushed off, you want to prove yourself. One clear line about the effect works better than that.',
+    "When you get brushed off, you want to prove yourself. One clear line about how it felt does more.",
     'Not taken seriously',
     ['it was made a joke', "I didn't get credit", 'I was laughed off'],
   ),
   Hurt: fill(
-    'Saying the hurt out loud makes it smaller. What you say once you feel calmer will come out better.',
+    "Saying it out loud makes it lighter. It'll come out better once you've cooled off a little.",
     'Hurt',
     ['I was left out', 'you forgot', 'the plan changed without me'],
   ),
@@ -115,27 +115,27 @@ const PLANS: Record<string, OptionPlan> = {
     ['the plan was cancelled', 'it slipped again', 'I was left waiting'],
   ),
   Betrayed: fill(
-    'Broken trust cuts deep, and that is fair. Say how it landed before you decide anything bigger.',
+    "Broken trust really hurts, and that's fair. Say how it felt before you decide anything big.",
     'Betrayed',
     ['you went behind my back', 'I found out', 'a promise was broken'],
   ),
   Rejected: fill(
-    'A no can feel like a verdict on you. It is one moment, not the whole story of your worth.',
+    "A no can feel like it's about you. It's one moment, it's not the whole story of who you are.",
     'Rejected',
     ['I was turned down', 'I was left on read', 'I was not included'],
   ),
   Abandoned: fill(
-    'Being left brings up old fear. Say plainly what you need, rather than testing whether they stay.',
+    "Being left can bring up a lot. Just say what you need, instead of testing whether they stay.",
     'Abandoned',
     ['you left', 'I was on my own', 'no one showed up'],
   ),
   Small: fill(
-    'Feeling unseen makes you want to hide or to shout. A clear, simple ask sits between the two.',
+    "Feeling invisible makes you want to hide or blow up. A simple, clear ask sits right in the middle.",
     'Small',
     ['I was left out', 'no one asked me', 'I was spoken over'],
   ),
   Guilty: fill(
-    'Guilt can mean you care. Own your part simply, without tearing yourself down for it.',
+    "Guilt usually means you care. Own your part simply, and go easy on yourself.",
     'Guilty',
     ['I let you down', 'I said something I regret', 'I forgot'],
   ),
@@ -184,8 +184,10 @@ const PLANS: Record<string, OptionPlan> = {
   ),
 };
 
+// Fallback for any feeling not in the table above (Neha 2026-08-02: keep the 24
+// tailored lines, use her generic line only here).
 export const DEFAULT_PLAN: OptionPlan = cards(
-  'You named the feeling and calmed down. Now, does one of these feel like the right response?',
+  'Knowing next steps is nice, you can pick any.',
 );
 
 /** The plan for a named feeling. Falls back to the calming-cards default for any

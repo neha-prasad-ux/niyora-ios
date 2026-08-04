@@ -95,14 +95,16 @@ export function scanForAbuse(text: string): boolean {
  */
 export const DV_RESOURCE = {
   intro: 'Support lines for this are free, confidential, and used to exactly this.', // [SAFETY]
-  label: 'Call or text a support line', // [SAFETY]
-  detail: 'National Domestic Violence Hotline · 24/7', // [SAFETY]
+  label: 'Text a support line', // [SAFETY] Neha 2026-08-02: text, not a call
+  detail: 'Text START to 88788 · National DV Hotline · 24/7', // [SAFETY]
 } as const;
 
-// US National Domestic Violence Hotline: call 1-800-799-7233 (text START to
-// 88788). [SAFETY] localise before release; a resource that dials the wrong
+// US National Domestic Violence Hotline. DEFAULTS TO TEXT, not a call (Neha
+// 2026-08-02): a call log is a trace an abuser can find on a shared phone, and a
+// text to 88788 is the lower-risk contact. Voice line is 1-800-799-7233 if ever
+// needed. [SAFETY] localise before release; a resource that reaches the wrong
 // place is worse than none.
-export const DV_URL = 'tel:18007997233';
+export const DV_URL = 'sms:88788';
 
 /** Open the DV support line. Silent on failure — a dead link must not raise a
  *  dialog in front of her. */
@@ -140,7 +142,7 @@ export const CRISIS_COPY = {
     { label: 'findahelpline.com', detail: 'Free support lines, by country' },
   ],
   emergency: 'If you are in immediate danger, call your local emergency number.',
-  back: 'Back to what you were writing',
+  back: 'No am good, let me rephrase', // [NEHA] 2026-08-02
 } as const;
 
 // The three lines' actions, matched to CRISIS_COPY.lines BY ORDER: the 988

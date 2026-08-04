@@ -180,12 +180,12 @@ export type Act = {
 export const ACTS: readonly Act[] = [
   { id: 'A', rung: 'direct', label: 'Say it to them', evidence: 'assertiveness', confrontational: true, universalLine: true, channel: 'message' },
   { id: 'B', rung: 'direct', label: 'Ask for the thing', evidence: null, confrontational: true, channel: 'message' },
-  { id: 'C', rung: 'direct', label: 'Hold a line', evidence: 'refusal', confrontational: true },
+  { id: 'C', rung: 'direct', label: "Say what's not okay", evidence: 'refusal', confrontational: true },
   { id: 'D', rung: 'direct', label: 'Own my part', evidence: 'recipient_only' },
-  { id: 'E', rung: 'prep', label: 'Find out', evidence: null },
+  { id: 'E', rung: 'prep', label: 'Get the full story', evidence: null },
   { id: 'F', rung: 'prep', label: 'Get it ready', evidence: null },
   { id: 'G', rung: 'prep', label: 'Tell one person', evidence: 'listener_dependent', channel: 'message' },
-  { id: 'H', rung: 'prep', label: 'Get someone whose job it is', evidence: null },
+  { id: 'H', rung: 'prep', label: 'Bring in the right person', evidence: null },
   { id: 'I', rung: 'prep', label: 'Work out what I want', evidence: null },
   { id: 'J', rung: 'self', label: 'Take something off my plate', evidence: null },
   { id: 'K', rung: 'self', label: 'Let it be', evidence: null },
@@ -269,6 +269,7 @@ export const COPY = {
 
   // --- entry -------------------------------------------------------------
   raw_entry: 'Tell me what happened', // [MAP]
+  raw_entry_why: 'Let us put experience into words, step 1 to feel better.', // [NEHA] 2026-08-02
   // Neha 2026-07-27, shortened from "Tell the issue in your words, let us work
   // on handling it together". Keeps both halves: her words, and that the next
   // part is shared. "Handle" rather than "fix", because the flow does not
@@ -281,19 +282,40 @@ export const COPY = {
   // real to work with; "I feel terrible" gives them nothing.
   raw_entry_placeholder:
     "In your own words. What was said or done, and by whom. We'll handle it together.", // [NEHA]
+  // A good-vs-bad pair under the question, so she learns what kind of sentence
+  // the flow can work with (everything downstream is carved from HER words: a
+  // concrete "what was said or done" gives it something real; a bare feeling
+  // gives it nothing). Kept in the moon's lowercase voice, faint x / brand check,
+  // never alarm red, so it teaches without reading as "you did it wrong".
+  raw_entry_example_bad: 'everything is annoying me', // [DRAFT]
+  // One good example per chat-open, rotating, so she meets the range over time
+  // (partner / family / work) without three lines crowding the screen.
+  raw_entry_examples_good: [
+    'he said i was overreacting when i asked for help, and i got pissed',
+    "my mom made a comment about my body at dinner and i couldn't shake it",
+    'she took credit for my work in the meeting and i just froze',
+  ], // [DRAFT]
   safe_check: 'Are you safe right now?', // [SAFETY]
   safe_yes: "I'm safe", // [SAFETY]
   safe_no: 'Not really', // [SAFETY]
   intensity_in: 'How big does it feel right now?', // [MAP]
+  intensity_why: 'Good to know how strong you feel this before you go ahead.', // [NEHA] 2026-08-02
 
   // --- naming ------------------------------------------------------------
   // The echo confirm (Neha 2026-07-28): the moon says her words back, and she
   // says whether it landed before anything moves on. "No" opens a field to say
   // it again; only "yes" reveals the naming.
   ack_confirm: 'Did I get that right?', // [DRAFT]
+  ack_why: 'Am AI, but I tuned to listen.', // [NEHA] 2026-08-02
   ack_yes: "Yes, that's it", // [DRAFT]
   ack_no: 'No, not quite', // [DRAFT]
   ack_fix: 'Tell me again, in your words.', // [DRAFT]
+  // Shown when Moon AI cannot be reached at the entry beat (v1: any failure incl.
+  // offline; crisis is handled before this). v1 is AI-required, so we say so and
+  // let her retry rather than degrading to authored copy. [DRAFT] 2026-08-02.
+  ai_not_responding: "Moon AI isn't working right now", // [DRAFT]
+  ai_not_responding_sub: 'Refresh, or try again in a moment. If it keeps happening, reach out at neha@niyora.com.', // [DRAFT]
+  ai_retry: 'Try again', // [DRAFT]
 
   together: "You're not in this alone tonight.", // [MAP]
   // Neha 2026-07-27, replacing the map's "putting words to it settles it".
@@ -330,16 +352,20 @@ export const COPY = {
   // of three readings, and a woman who believes none of them either picks the
   // least wrong one, which corrupts the answer, or leaves.
   reframe_small_none: 'None of these are true', // [NEHA] 2026-07-29
+  // The self-generation on-ramp label, above the text field seeded with the
+  // model's open question. A reappraisal she reaches herself sticks better than
+  // one handed to her. [DRAFT] awaiting Neha's pass.
+  reframe_small_own: 'Or find your own read', // [DRAFT] 2026-08-02
   reframe_small_check: 'Are you feeling any better?', // [NEHA] 2026-07-29
   // Not "reframe" (our word, not hers) and not a claim about her body: a soft,
   // hedged reason for asking her to try another angle at all.
-  reframe_small_why: 'Sometimes we lock onto one version of it, and seeing another angle helps.', // [NEHA] 2026-07-29
+  reframe_small_why: 'How you see a situation changes your emotions.', // [NEHA] 2026-08-02
   reframe_small_yes: 'Yes, I am', // [NEHA] 2026-07-29
   // The middle answer, so she is never cornered into claiming it helped or that
   // it did nothing. It lands the same as "yes": the closing rating reads the delta.
   reframe_small_little: 'A little bit', // [NEHA] 2026-07-29
   reframe_small_no: 'Not really', // [NEHA] 2026-07-29
-  feelings_why: 'Naming it is the part that takes the edge off. Picking roughly right is enough.', // [DRAFT]
+  feelings_why: 'Let us recognise the exact feeling, that clarity matters.', // [NEHA] 2026-08-02
 
   // --- body --------------------------------------------------------------
   // The body check (slept / moved / eaten) and its follow-ups were removed
@@ -381,7 +407,14 @@ export const COPY = {
   // Shown only while the three are not all ticked: the honest way out when her
   // body is not ready, so the gate never traps her into ticking something false.
   make_safe_care_defer: 'I will come back to this later', // [NEHA] 2026-07-30
-  make_safe_why: "Let's distract ourselves, then respond to the situation.", // [NEHA] 2026-07-29
+  // Reframed to "wait before you react" (Neha 2026-08-02), the rationale for the
+  // hold. [DRAFT] — her final wording wins. Was "Let's distract ourselves...".
+  make_safe_why: "It's nice to give yourself 20 minutes to calm down and respond thoughtfully.", // [NEHA] 2026-08-02
+  // The soft corner timer on the settling menu: a gentle challenge, not a
+  // deadline. Pre renders as "can you wait 18:42"; done swaps in at zero (no
+  // alarm, no celebration — the one celebration lives at close). [DRAFT].
+  hold_whisper_pre: 'can you wait', // [DRAFT] 2026-08-02
+  hold_whisper_done: 'you waited it out', // [DRAFT] 2026-08-02
   make_safe_ask: 'Do you want to react now?', // [NEHA] (unused since the challenge reframe)
   // Both un-shamed, and the skip is now framed as a valid state rather than a
   // failure: "I am calm to respond now" (Neha, 2026-07-29) says she is ready to
@@ -390,7 +423,7 @@ export const COPY = {
   make_safe_now: 'I am calm to respond now', // [NEHA] 2026-07-29
   // The settling menu (Neha 2026-07-29): four ways to fill the wait, done in any
   // order, none required. "I am ready to respond" is the un-shamed exit.
-  activities_intro: "Let's settle first. Do as many as you like.", // [NEHA] 2026-07-29
+  activities_intro: 'Try these activities', // [NEHA] 2026-08-02
   activities_colour: 'Colour & share', // [NEHA] 2026-07-29
   activities_story: 'A story', // [NEHA] 2026-07-29
   activities_move: 'Move your body', // [NEHA] 2026-07-29
@@ -492,12 +525,12 @@ export const COPY = {
   // do it. "Now" carries it out (opens Messages for a message act); "later"
   // steps out to Today; "another" reopens the menu. Order is hers.
   act_now: 'I will do it now', // [NEHA] 2026-07-29
-  act_later: 'Later', // [NEHA] 2026-07-29
+  act_later: 'Save for later', // [NEHA] 2026-08-02
   act_another: "Let's try another option", // [NEHA] 2026-07-29
 
   // The draft step (Gemini): when she picks "now", the moon writes a start she
   // can change, then send or do. All [DRAFT], awaiting Neha's voice.
-  act_draft_hint: 'A start, in your words. Change anything.', // [DRAFT]
+  act_draft_hint: 'Here is a draft you can edit', // [NEHA] 2026-08-02
   act_draft_loading: 'Writing you a start', // [DRAFT]
   act_draft_change_ph: 'Tell the moon what to change', // [DRAFT] (unused since M19 buttons)
   act_draft_change: 'Edit with Moon', // [DRAFT] label over the quick-rewrite chips
