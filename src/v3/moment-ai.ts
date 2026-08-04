@@ -41,6 +41,12 @@ export const NO_PROVIDER: MomentProvider = {
 };
 
 const TIMEOUT_MS = 5000;
+// Compose slots (reframe readings, act draft, revise) generate several sentences
+// of JSON, which takes noticeably longer than a one-line echo/pick. At the flat
+// 5s budget the reframe times out on a real device and silently falls back to the
+// generic authored smallReframes, so its own bespoke readings never show. Give
+// the compose slots real headroom; a loading state covers the extra wait.
+const COMPOSE_TIMEOUT_MS = 12000;
 
 // How many words the echo may introduce that are not in her text. The default
 // grounding budget is 2; the echo runs a little looser (4) ON PURPOSE, so the
@@ -196,7 +202,7 @@ export async function compose(
 ): Promise<string | null> {
   const raw = userText.trim();
   if (!raw) return null;
-  const out = await provider.generate(slot, raw, TIMEOUT_MS).catch(() => null);
+  const out = await provider.generate(slot, raw, COMPOSE_TIMEOUT_MS).catch(() => null);
   return out ? out.trim() : null;
 }
 
@@ -222,7 +228,11 @@ export async function composeReadings(
   const out = await compose(provider, 'reframe_small', userText);
   if (!out) return null;
   try {
-    const j = JSON.parse(out.replace(/^```json\s*|```$/g, '').trim());
+    // The model often wraps the JSON in ```json fences or adds a stray newline.
+    // Slice from the first "{" to the last "}" so any wrapper is dropped, rather
+    // than relying on an exact fence pattern (which fails on the smallest drift).
+    const body = out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1);
+    const j = JSON.parse(body);
     const readings = Array.isArray(j?.readings)
       ? j.readings.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3)
       : [];
