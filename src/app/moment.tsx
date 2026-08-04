@@ -387,6 +387,11 @@ export default function Moment() {
   /** The in-flight concrete-event check, so the rating step can await it rather
    *  than reading a still-pending null and waving a vague entry through. */
   const eventCheckPromise = useRef<Promise<boolean | null> | null>(null);
+  /** The reframe readings, generated in the BACKGROUND the moment she sends her
+   *  entry, so the ~3-5s compose runs during the rating + echo + feelings beats
+   *  and the reframe is ready (instant) when she reaches it, rather than making
+   *  her wait or timing out into the generic authored set (Neha 2026-08-03). */
+  const reframePrefetch = useRef<ReturnType<typeof composeReadings> | null>(null);
   // C3: counts forward steps, to rotate the per-step praise line.
   const stepN = useRef(0);
   // M9-14 reward: the gift-scratch drawings are awarded one by one IN ORDER. The
@@ -529,6 +534,7 @@ export default function Moment() {
     setReframePick(null);
     setReframeReadings(null);
     setReframeSelfPrompt('');
+    reframePrefetch.current = null; // drop a warmed reframe tied to the old text
     setClarifyMoreContext(false);
     setBodyPrepOpen(false);
     setBodyPrepInList(false);
@@ -795,6 +801,14 @@ export default function Moment() {
           eventCheck.current = r;
         }).catch(() => {});
       }
+      // Warm the reframe now, on her raw event, so it generates while she rates,
+      // reads the echo and names the feeling. The reframe beat awaits this instead
+      // of starting its own call, so it lands instantly (or times out far less).
+      // Feeling is not chosen yet here; the reframe is situation-based, so a
+      // default is fine and the beat can still refine if it ever needs to.
+      reframePrefetch.current = aiOn
+        ? composeReadings(provider, `she wrote: "${text}"\nshe feels: ${chosenFeeling.current || 'upset'}`)
+        : null;
       setCurrent('intensity_in');
       return;
     }
@@ -1019,10 +1033,14 @@ export default function Moment() {
     // week talking") it becomes a claim she is asked to endorse, and against a
     // real grievance that reads as "it's just your hormones". The cycle steer
     // stays on the act beats; the reframe never explains her feeling away.
-    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}`;
     let alive = true;
     setReframeLoading(true);
-    composeReadings(provider, user)
+    // Use the reading generated in the background at send-time if it is there;
+    // only start a fresh call if the prefetch is missing (e.g. she arrived by a
+    // path that did not warm it). Either way the same routing runs on arrival.
+    const user = `she wrote: "${her}"\nshe feels: ${chosenFeeling.current || 'upset'}`;
+    const pending = reframePrefetch.current ?? composeReadings(provider, user);
+    pending
       .then((r) => {
         if (!alive || !r) return; // null = failure → authored smallReframes stand
         if (r.readings.length === 0) {
