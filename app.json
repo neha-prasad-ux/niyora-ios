@@ -59,7 +59,7 @@
         "expo-audio",
         {
           "enableBackgroundPlayback": false,
-          "microphonePermission": false
+          "microphonePermission": "Niyora uses the microphone so you can speak what happened instead of typing."
         }
       ],
       [
