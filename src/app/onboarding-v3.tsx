@@ -72,7 +72,9 @@ import { SymbolView } from 'expo-symbols';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { Orb } from '@/components/orb';
+import { CosmicBackground } from '@/components/cosmic-background';
 import { colors } from '@/theme/colors';
+import { glass } from '@/theme/glass';
 import { fontScale } from '@/theme/typography';
 import { fonts } from '@/theme/fonts';
 import { radius, spacing, pageGutter } from '@/theme/spacing';
@@ -230,6 +232,11 @@ function toYmd(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+// Steps that render their OWN prominent hero orb (or an animated one), so the
+// persistent background moon is suppressed on them to avoid a double moon.
+// Every other step is a content screen that now glows over the shared moon.
+const HERO_ORB_STEPS = new Set<StepId>(['splash', 'privacy', 'moon_intro', 'loading', 'reminder']);
 
 export default function OnboardingV3Screen() {
   // Retake mode (entered from My Soul with ?mode=retake): question steps only,
@@ -450,6 +457,31 @@ export default function OnboardingV3Screen() {
   return (
     <View style={styles.root}>
       <BackgroundGradient />
+      {/* A faint starfield across the whole flow. On content screens it sits
+          behind the moon + frost as subtle texture; on the hero-orb screens
+          (splash etc.), where the frost is suppressed, the stars read clearly. */}
+      <CosmicBackground />
+      {/* The persistent moon AND the full-page frost render only on the content
+          screens. The moon is one glowing orb behind the WHOLE flow so every
+          content screen frosts over the same moon (the Home / Moon-chat
+          composition). Both are suppressed on the steps that carry their own hero
+          orb, so those keep a crisp composition (a dropping moon over stars, not
+          a muted glow under a dark sheet). */}
+      {!HERO_ORB_STEPS.has(step) ? (
+        <>
+          <View pointerEvents="none" style={styles.bgMoon}>
+            <Orb size={200} warmHalo still brightness={0.7} />
+          </View>
+          {/* The whole page is one frosted glass layer: a single full-screen blur
+              + dark tint over the moon, so it glows softly through. Step content
+              renders in front and stays crisp, and the blur only samples the
+              static moon behind, so it never re-computes on scroll. Heavier blur
+              + darker tint than the chat, since onboarding's moon is persistent
+              behind every screen and would otherwise wash out the text. */}
+          <BlurView intensity={40} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+          <View pointerEvents="none" style={styles.pageTint} />
+        </>
+      ) : null}
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.topBar}>
           <Pressable
@@ -753,7 +785,7 @@ function Splash({ onNext }: { onNext: () => void }) {
       {/* Orb hero drops into the space below the brand block. */}
       <View style={styles.orbArea}>
         <Animated.View style={orbStyle}>
-          <Orb size={220} />
+          <Orb size={220} warmHalo />
         </Animated.View>
       </View>
       <View style={styles.footer}>
@@ -880,7 +912,7 @@ function FactSpectrum({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
         <SpectrumBar width={sw} height={Math.round((sw * 88) / 320)} />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.testCardWrap}>
-        <Panel>
+        <Panel hero>
           <Text style={styles.testHeading}>The quick test</Text>
           <View style={styles.expectList}>
             {steps.map((label, i) => (
@@ -1010,7 +1042,7 @@ function FactHormones({ answers, update, onNext }: { answers: V3Answers; update:
         <HormoneCurve />
       </Animated.View>
       <Animated.View entering={FadeInDown.delay(360).duration(500)} style={styles.hormoneCardWrap}>
-        <Panel style={styles.hormoneCard}>
+        <Panel hero style={styles.hormoneCard}>
           <Text style={styles.factLine}>
             Everyone&apos;s hormones drop, but the ones with a{' '}
             <Text style={styles.factEmph}>more sensitive brain</Text> get PMS
@@ -1375,7 +1407,7 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
     >
       {/* Hero — severity on the mild -> PMDD spectrum. The only tinted card. */}
       <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
-        <Panel accent={levelColor}>
+        <Panel hero accent={levelColor}>
           <Text style={styles.cardHeadingText}>Your PMS reads as</Text>
           <Text style={[styles.resultLevel, { color: levelColor }]}>{levelWord}</Text>
           <View style={styles.graphFill}>
@@ -1449,7 +1481,7 @@ function Compare({
   return (
     <StepLayout footer={<BeginButton fullWidth label="Done" onPress={onDone} />}>
       <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
-        <Panel accent={levelColor}>
+        <Panel hero accent={levelColor}>
           <Text style={styles.cardHeadingText}>Your PMS now reads as</Text>
           <Text style={[styles.resultLevel, { color: levelColor }]}>
             {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -1666,7 +1698,7 @@ function Plan({
           title="Talk to Moon"
           sub="Think it through together, and pick what actually helps"
         />
-        <Panel accent={v3.accent} style={styles.moonPlanCard}>
+        <Panel hero accent={v3.accent} style={styles.moonPlanCard}>
           <Orb size={46} still />
           <View style={styles.planItemText}>
             <Text style={styles.moonPlanTitle}>One tap from your home screen</Text>
@@ -2154,10 +2186,12 @@ function colorAlpha(color: string, alpha: number): string {
 // hero); leave it off for the neutral default.
 function Panel({
   accent,
+  hero,
   style,
   children,
 }: {
   accent?: string;
+  hero?: boolean;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 }) {
@@ -2165,6 +2199,19 @@ function Panel({
     <View
       style={[styles.panel, accent ? { borderColor: colorAlpha(accent, 0.35) } : null, style]}
     >
+      {/* The blur lives ONCE at the page root (a full-screen frost over the
+          moon), so a panel is just a light raised surface on that glass — no
+          per-card BlurView. `hero` lifts a touch stronger for the primary card;
+          the top-left gloss gives both the glass sheen. */}
+      <View pointerEvents="none" style={hero ? styles.panelFillHero : styles.panelFill} />
+      <LinearGradient
+        colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+        locations={[0, 0.28, 0.62]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        pointerEvents="none"
+        style={StyleSheet.absoluteFill}
+      />
       {children}
     </View>
   );
@@ -2227,6 +2274,20 @@ function DegreeChoice({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.backgroundBottom },
+  // The persistent background moon: upper-centre so its bloom sits behind the
+  // hero card while the title stays in the softer halo above the core.
+  bgMoon: { position: 'absolute', top: '12%', left: 0, right: 0, alignItems: 'center' },
+  // The full-page frost tint over the blurred moon. Matches the Moon-AI CHAT
+  // card exactly (`rgba(10,8,16,0.50)`, not Home's lighter 0.20) so text stays
+  // accessible over the moon and the tint is consistent with the chat surface.
+  pageTint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10,8,16,0.62)',
+  },
   safe: { flex: 1, paddingHorizontal: pageGutter, paddingBottom: spacing.sm },
   topBar: {
     flexDirection: 'row',
@@ -2540,11 +2601,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    borderColor: colors.border.strong,
+    // Dark glass rows (matching the chips, segments and radios).
+    backgroundColor: 'rgba(10,8,16,0.45)',
   },
   privacyRowLabel: {
-    fontFamily: fonts.light,
+    fontFamily: fonts.medium,
     fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     letterSpacing: 0.2,
@@ -2800,11 +2862,11 @@ const styles = StyleSheet.create({
   // Symptom question: Emotional / Body groups, each a left label over left-aligned chips.
   symptomGroup: { width: '100%', maxWidth: 420, alignSelf: 'center', marginBottom: spacing.xl },
   groupLabel: {
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
     fontSize: fontScale.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: colors.textTagline,
+    color: colors.textSubtitle,
     marginBottom: spacing.md,
   },
   symptomChips: {
@@ -2819,22 +2881,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.base,
+    borderColor: colors.border.strong,
+    // Dark glass pills (like the Moon-chat option rows), not a faint white fill,
+    // so the many chips read clearly over the moon instead of washing out.
+    backgroundColor: 'rgba(10,8,16,0.45)',
   },
   chipOn: {
     backgroundColor: colors.selectedFill,
     borderColor: colors.beginBorder,
   },
-  chipLabel: { fontFamily: fonts.light, fontSize: fontScale.body, color: colors.textPrimary },
-  chipLabelOn: { fontFamily: fonts.medium, color: colors.textPrimary },
+  chipLabel: { fontFamily: fonts.medium, fontSize: fontScale.body, color: colors.textPrimary },
+  chipLabelOn: { fontFamily: fonts.semibold, color: colors.textPrimary },
 
   // Sliders
   // Degree pickers: a stacked list of rows, each a labeled segmented control.
   sliders: { width: '100%', maxWidth: 360, gap: spacing.xxl, marginVertical: spacing.sm },
   choice: { alignItems: 'flex-start' },
   choiceLabel: {
-    fontFamily: fonts.light,
+    fontFamily: fonts.medium,
     fontSize: fontScale.cardTitle,
     color: colors.textPrimary,
     marginBottom: spacing.md,
@@ -2854,8 +2918,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.base,
+    borderColor: colors.border.strong,
+    // Dark glass segments (matching the chips) so they read clearly over the
+    // moon instead of washing out.
+    backgroundColor: 'rgba(10,8,16,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2864,13 +2930,13 @@ const styles = StyleSheet.create({
     borderColor: colors.beginBorder,
   },
   segmentLabel: {
-    fontFamily: fonts.light,
+    fontFamily: fonts.medium,
     fontSize: fontScale.bodyLg,
     color: colors.textPrimary,
     textAlign: 'center',
   },
   segmentLabelOn: {
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
   },
 
   // Radio
@@ -2880,14 +2946,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.control,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    borderColor: colors.border.strong,
+    // Dark glass rows (matching the chips + segments) so they read over the moon.
+    backgroundColor: 'rgba(10,8,16,0.45)',
   },
   radioOn: {
     borderColor: colors.beginBorder,
     backgroundColor: colors.selectedFill,
   },
-  radioLabel: { fontFamily: fonts.light, fontSize: fontScale.bodyLg, color: colors.textPrimary },
+  radioLabel: { fontFamily: fonts.medium, fontSize: fontScale.bodyLg, color: colors.textPrimary },
 
 
 
@@ -2899,9 +2966,28 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: spacing.lg,
     borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden', // clip the blur / tint / gloss layers to the rounded card
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: v3.panelBorder,
-    backgroundColor: v3.panel,
+    borderColor: glass.border,
+  },
+  // A panel is a light raised surface on the already-frosted page: a faint white
+  // lift so it reads above the glass without its own blur. `hero` lifts stronger.
+  panelFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  panelFillHero: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   // Wrapper that carries the entrance animation + inter-card spacing so the
   // Panel itself stays layout-only.

@@ -148,7 +148,7 @@ export function HormoneCurve({ width = 320, height = 190 }: { width?: number; he
 
 // The reacting (PMS) brain's colour: a soft red, distinct from the cool blue of
 // the calm brain.
-const BRAIN_REACTS = '#FF6B6B';
+const BRAIN_REACTS = 'hsl(342, 64%, 66%)';
 
 // A single brain glyph placed at (cx, cy) in SVG user space, scaled to `size`.
 // The reacting brain pulses a soft glow; the calm one stays still.
@@ -430,15 +430,13 @@ export function SpectrumBar({
   return (
     <Svg viewBox={`0 0 ${W} ${H}`} width={width} height={height}>
       <Defs>
-        {/* Full visible-light rainbow, red (mild) to violet (PMDD). */}
+        {/* Cosmic ramp, amber (mild) to deep violet (PMDD). */}
         <LinearGradient id="v3-spectrum" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor="#FF3B30" />
-          <Stop offset="0.17" stopColor="#FF9500" />
-          <Stop offset="0.34" stopColor="#FFD60A" />
-          <Stop offset="0.5" stopColor="#34C759" />
-          <Stop offset="0.66" stopColor="#32ADE6" />
-          <Stop offset="0.83" stopColor="#0A84FF" />
-          <Stop offset="1" stopColor="#8E5BFF" />
+          <Stop offset="0" stopColor="hsl(35, 70%, 62%)" />
+          <Stop offset="0.28" stopColor="hsl(342, 64%, 66%)" />
+          <Stop offset="0.55" stopColor="hsl(300, 52%, 58%)" />
+          <Stop offset="0.78" stopColor="hsl(275, 55%, 62%)" />
+          <Stop offset="1" stopColor="hsl(270, 50%, 45%)" />
         </LinearGradient>
         {/* Gloss: soft white in the middle, transparent at the edges. */}
         <LinearGradient id="v3-sheen" x1="0" y1="0" x2="1" y2="0">

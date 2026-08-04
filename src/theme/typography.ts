@@ -158,3 +158,66 @@ export const typography = {
     letterSpacing: 0.5,
   } satisfies TextStyle,
 } as const;
+
+// ── Moon flow scale ───────────────────────────────────────────────────────────
+// The moment flow (`moment.tsx`) and onboarding share ONE small scale so Moon's
+// voice, headings, body and labels stay consistent across every card. FOUR sizes
+// only — 26 · 20 · 16 · 12 — where WEIGHT carries emphasis within a size and
+// COLOR carries the quiet/subtitle tier (a subtitle is `body` dimmed, never
+// `body` shrunk). Headings run a tight -0.2 tracking for the calm, display feel.
+// Buttons reuse `typography.label` above; compose a role + only override color:
+//     <Text style={[moon.title, { color: colors.textPrimary }]}>
+export const moon = {
+  // The one loud moment: the finish celebration. Nothing else in the flow is
+  // this big (Neha 2026-08-03 — celebration stays 26, everything else steps down).
+  celebrate: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.heading, // 26
+    lineHeight: 30,
+    letterSpacing: -0.2,
+  } satisfies TextStyle,
+  // The beat's question, every screen heading, and the full-screen breath line.
+  title: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.title, // 20
+    lineHeight: 26,
+    letterSpacing: -0.2,
+  } satisfies TextStyle,
+  // Moon's spoken / echoed line: the SAME size as the question, lighter by weight
+  // (Neha 2026-08-02 — the voice is one consistent size, distinguished by weight).
+  voice: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.title, // 20
+    lineHeight: 26,
+    letterSpacing: 0,
+  } satisfies TextStyle,
+  // All reading text: sublines, inputs, instructions, descriptions. A subtitle is
+  // this role in a dimmer color, not a smaller size.
+  body: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.emphasis, // 16
+    lineHeight: 24,
+    letterSpacing: 0.2,
+  } satisfies TextStyle,
+  // Emphasised body: strong labels, a heading inside a card, the snackbar.
+  bodyStrong: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.emphasis, // 16
+    lineHeight: 24,
+    letterSpacing: 0.15,
+  } satisfies TextStyle,
+  // Fine print: descriptions, benefits, quiet hints.
+  caption: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption, // 12
+    lineHeight: 17,
+    letterSpacing: 0.2,
+  } satisfies TextStyle,
+  // Meta labels: "Saved to your Soul", the brand signature, small-caps tags.
+  captionStrong: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption, // 12
+    lineHeight: 17,
+    letterSpacing: 0.3,
+  } satisfies TextStyle,
+} as const;

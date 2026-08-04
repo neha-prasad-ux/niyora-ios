@@ -116,8 +116,7 @@ import { useDictation } from '@/hooks/use-dictation';
 import type { MoonState } from '@/lib/moon-light';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
-import { fonts } from '@/theme/fonts';
-import { fontScale } from '@/theme/typography';
+import { moon } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import { advance, ENTRY, node, type NodeId, type Phase } from '@/v3/moment-flow';
@@ -2975,20 +2974,15 @@ const styles = StyleSheet.create({
   // Gives the masked AI text the same row flex the plain Text had, so it wraps
   // to the card width instead of collapsing to its content.
   askFill: { flex: 1 },
-  // H1.
+  // H1 — the beat's question. `moon.title` (20 semibold, -0.2 tracking).
   ask: {
+    ...moon.title,
     flex: 1,
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 28,
     color: colors.textPrimary,
-    letterSpacing: -0.2,
   },
 
   input: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 25,
+    ...moon.body,
     color: colors.textOnDark.primary,
     // A dark, mostly-opaque well — darker than the card's frost tint (0.20), so
     // the field reads as a recessed surface and light text stays legible over
@@ -3015,9 +3009,7 @@ const styles = StyleSheet.create({
   },
   // The text itself sits transparent over the well; the composer paints the fill.
   composerInput: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 25,
+    ...moon.body,
     color: colors.textOnDark.primary,
     paddingHorizontal: spacing.xs,
     paddingTop: spacing.xs,
@@ -3044,8 +3036,7 @@ const styles = StyleSheet.create({
   },
   sendBtnOff: { backgroundColor: 'rgba(255,255,255,0.10)' },
   todo: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.tagline,
+    ...moon.caption,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: v3.activated,
@@ -3059,10 +3050,8 @@ const styles = StyleSheet.create({
     borderColor: v3.panelBorder,
   },
   accessoryDone: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
+    ...moon.bodyStrong,
     color: v3.accent,
-    letterSpacing: 0.3,
   },
   // Her own words, repeated back. Lighter than a question, and slightly
   // smaller: the app is not making a point here, it is showing it listened.
@@ -3073,8 +3062,7 @@ const styles = StyleSheet.create({
     // lighter than the SemiBold question through WEIGHT (medium), not size or
     // dimness. Medium + primary (0.95) white keeps it legible over the moon glow;
     // the gradient echo (MoonText) inherits this weight too.
-    fontFamily: fonts.medium,
-    letterSpacing: 0,
+    ...moon.voice,
     color: colors.textOnDark.primary,
   },
   // Closes the moon's line off, so what follows reads as a new thought rather
@@ -3085,9 +3073,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   settles: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 22,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   // The good-vs-bad example under the entry question. Fainter and smaller than a
@@ -3099,51 +3085,38 @@ const styles = StyleSheet.create({
   entryExampleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   entryExampleMark: { marginTop: 3 },
   entryExampleBad: {
+    ...moon.body,
     flex: 1,
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 20,
     color: colors.textTagline,
   },
   entryExampleGood: {
+    ...moon.body,
     flex: 1,
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 20,
     color: colors.textSubtitle,
   },
   // "Body prep" heading over the self-check list: same size, more weight.
   settlesStrong: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 22,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
   },
   // The guided micro reset (cold water / relax shoulders): the shared `settles`
   // subtitle read too small here. Its own larger, brighter type — a real
   // instruction to follow, not fine print.
   microTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 26,
+    ...moon.title,
     color: colors.textPrimary,
   },
   microStep: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.emphasis,
-    lineHeight: 24,
+    ...moon.body,
     color: colors.textOnDark.primary,
   },
   feelingsAsk: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 23,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
   inputSmall: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
+    ...moon.body,
     color: colors.textOnDark.primary,
     backgroundColor: v3.panel,
     borderRadius: radius.button,
@@ -3174,10 +3147,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.28)',
   },
   secondaryBtnText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
-    letterSpacing: 0.3,
   },
   // A question and its one-line description are ONE group: they sit tight (6),
   // while the card's 18 gap falls between groups (the description and the
@@ -3189,8 +3160,7 @@ const styles = StyleSheet.create({
   // the hero and the edits read as tools, not another thing to read.
   editWithMoon: { gap: spacing.sm, marginTop: spacing.xs },
   editWithMoonLabel: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
+    ...moon.caption,
     color: colors.textSubtitle,
     paddingHorizontal: spacing.xs,
   },
@@ -3199,14 +3169,12 @@ const styles = StyleSheet.create({
   // under the draft: a right-aligned action and a centred way out.
   changeLink: { alignSelf: 'flex-end', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
   changeLinkText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
+    ...moon.bodyStrong,
     color: 'rgba(196, 178, 255, 0.9)',
   },
   skipLink: { alignSelf: 'center', paddingVertical: spacing.sm, marginTop: spacing.xs },
   skipLinkText: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   // Two-up card grid for the hold activities: 48%-wide cards, space-between
@@ -3217,22 +3185,17 @@ const styles = StyleSheet.create({
   // beneath it. Generous vertical room so the ball has space to swell into.
   breathStage: { alignItems: 'center', gap: spacing.xl, paddingVertical: spacing.xxxl },
   breathLine: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.technique,
-    lineHeight: 30,
+    ...moon.voice,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: 0.2,
     minHeight: 60,
   },
   // The one quiet exit. Low emphasis: the breath is the point, this is just the
   // way out for anyone already steady.
   breathSkip: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.xs },
   breathSkipText: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
+    ...moon.body,
     color: colors.textTagline,
-    letterSpacing: 0.2,
   },
 
   // The "still worth twenty minutes" offer above the acts. Set apart with a
@@ -3246,9 +3209,7 @@ const styles = StyleSheet.create({
     borderColor: v3.panelBorder,
   },
   holdNudgeText: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 20,
+    ...moon.body,
     color: colors.textSubtitle,
   },
 
@@ -3256,17 +3217,12 @@ const styles = StyleSheet.create({
   // instruction that matters here — with the benefit a lighter line under it.
   holdGuardBlock: { alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.sm },
   holdGuard: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 27,
+    ...moon.title,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -0.2,
   },
   holdGuardBenefit: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    lineHeight: 19,
+    ...moon.caption,
     color: v3.textFaint,
     textAlign: 'center',
   },
@@ -3283,14 +3239,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   holdCardTitle: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.cardTitle,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
   },
   holdCardDesc: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    lineHeight: 20,
+    ...moon.caption,
     color: colors.textSubtitle,
   },
 
@@ -3300,17 +3253,12 @@ const styles = StyleSheet.create({
   introWrap: { gap: spacing.lg, paddingVertical: spacing.xs },
   introLead: { gap: spacing.xs, alignItems: 'center', paddingHorizontal: spacing.sm },
   introHead: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 28,
+    ...moon.title,
     color: colors.textPrimary,
-    letterSpacing: -0.2,
     textAlign: 'center',
   },
   introSub: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
+    ...moon.body,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
@@ -3347,15 +3295,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   introStepTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.cardTitle,
-    lineHeight: 23,
-    letterSpacing: 0.2,
+    ...moon.bodyStrong,
   },
   introStepSub: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 20,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   introBrand: {
@@ -3366,9 +3309,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
   },
   introBrandText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.caption,
-    letterSpacing: 0.3,
+    ...moon.captionStrong,
     color: colors.textTagline,
   },
 
@@ -3377,17 +3318,12 @@ const styles = StyleSheet.create({
   // reward, so it is generous where the rest is spare.
   celebrate: { alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.sm },
   congrats: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.technique,
-    lineHeight: 29,
+    ...moon.celebrate,
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -0.2,
   },
   giftSub: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.bodyLg,
-    lineHeight: 22,
+    ...moon.body,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
@@ -3409,24 +3345,17 @@ const styles = StyleSheet.create({
   // The uncovered drawing. Fits inside the 190-tall card with room for the name.
   prizeImage: { width: 132, height: 132 },
   badgeName: {
-    fontFamily: fonts.semibold,
-    fontSize: fontScale.title,
-    lineHeight: 26,
+    ...moon.title,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
   },
   reveal: { alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
   badgeWhy: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
+    ...moon.body,
     color: colors.textSubtitle,
     textAlign: 'center',
   },
   saved: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.caption,
-    letterSpacing: 0.3,
+    ...moon.captionStrong,
     color: v3.accent,
   },
 
@@ -3451,16 +3380,12 @@ const styles = StyleSheet.create({
     borderColor: v3.panelBorder,
   },
   snackText: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.body,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
-    letterSpacing: 0.2,
   },
 
   crisisBody: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
+    ...moon.body,
     color: colors.textSubtitle,
   },
   crisisLine: {
@@ -3472,20 +3397,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.fill.faint,
   },
   crisisLineLabel: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.bodyLg,
+    ...moon.bodyStrong,
     color: colors.textPrimary,
   },
   crisisLineDetail: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
+    ...moon.caption,
     color: colors.textTertiary,
     marginTop: spacing.xs,
   },
   crisisEmergency: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    lineHeight: 18,
+    ...moon.caption,
     color: colors.textTertiary,
   },
 });
