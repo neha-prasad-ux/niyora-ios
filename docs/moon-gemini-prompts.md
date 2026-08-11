@@ -1,5 +1,10 @@
 # Moon AI prompts (Gemini)
 
+> **Source of truth: `src/lib/moment-gemini.ts`.** The live prompts are the `VOICE`
+> block, `REFLECT_SAFETY` tail, and `SLOT_INSTRUCTION` map in that file — that is what
+> actually runs, and it is typechecked and versioned with the flow. This document is
+> intent and reference only; it may lag the code. Edit the prompts in code, not here.
+
 Per-step prompts for the Moon flow. Prepend the voice block to every step. `she`
 guardrails (echo / pick / never invent facts) stay enforced in code as a backstop.
 
@@ -142,6 +147,63 @@ Current: "{{currentText}}"
 Her note: "{{herNote}}"
 ```
 Output: the revised draft, no quotes. Max 2 lines.
+
+---
+
+## 8. Reflect cards (`reflect_*`, v3/reflect-cards.ts)
+
+The Reflect spine (`routeCards`) picks cards per thought. Only the `draft` and
+`guess` cards call AI; `question` cards echo her own words and need no model.
+All reflect slots share `REFLECT_SAFETY`: every line ADDS a possibility beside
+her feeling, never subtracts it, never tells her how she feels, no "just", no
+"you are overreacting", no cycle-blaming. `moment-ai.ts#reflectCard(provider,
+slot, user)` maps draft slots to `{ line }` and guess slots to `{ options }`;
+an empty result falls back to the card's authored copy. Same 12s compose budget
+as the reframe. Cycle context, when she is in her window, arrives already inside
+`user` (Agent A appends `CYCLE_NOTE`); the prompts must not blame the cycle.
+
+### `reflect_outside` (draft) — self-distancing
+```
+Rewrite her own thought in the third person (a name or "she") so she reads it
+from the outside. Viewpoint change only: keep the meaning and her facts, do not
+judge whether she is right, do not add why she feels it, do not soften. One short
+line, no quotes.
+```
+Output: one line → `{ line }`. No decline.
+
+### `reflect_friend` (draft) — self-compassion
+```
+The warm, honest thing she would tell a friend who said the exact same thing.
+Kind and true, not fake cheer, never "don't worry". One short line, no quotes.
+```
+Output: one line → `{ line }`. No decline.
+
+### `reflect_simpler` (guess) — a plainer outside reason
+```
+2 or 3 short, plainer outside reasons the situation could have, not about her
+being at fault (e.g. "he's been buried at work"). Each a maybe, never a claim
+about what happened. Concrete, one line each. Empty array if nothing specific
+fits. Return only JSON: {"options": ["...", "..."]}
+```
+Output: `{ options }` capped at 3; `[]` = decline.
+
+### `reflect_also_true` (guess) — softened catastrophizing
+```
+2 or 3 short, more likely ways this could go instead of her worst case, each
+honest, each set BESIDE her fear (not "you're wrong to fear it"). Concrete, one
+line each. Empty array if nothing specific fits. Return only JSON:
+{"options": ["...", "..."]}
+```
+Output: `{ options }` capped at 3; `[]` = decline.
+
+### `reflect_pattern` (draft) — recurring theme
+```
+Given her thought now + a short list of past themes in `user`, name the theme
+that clearly recurs in one gentle line (e.g. "this keeps coming back to the
+deadline"). Only on a real recurrence. Reply with only the word "none" if
+nothing genuinely repeats. One short line, no quotes.
+```
+Output: one line → `{ line }`; "none" → decline (`{}`) → authored copy.
 
 ---
 

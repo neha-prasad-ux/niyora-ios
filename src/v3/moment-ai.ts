@@ -276,3 +276,107 @@ export async function revise(
   const user = `current: "${currentText.trim()}"\nher note: "${herNote.trim()}"`;
   return compose(provider, 'revise', user);
 }
+
+// Draft slots return one editable line; every other reflect slot is a guess and
+// returns a JSON options array. Kept as a set so the verb stays one function.
+const REFLECT_DRAFT_SLOTS = new Set(['reflect_friend', 'reflect_pattern']);
+
+/**
+ * The reflect cards (v3/reflect-cards.ts). One verb for both card modes:
+ *   draft -> { line }    the model's line, or undefined when it declines
+ *                        (reflect_pattern replies "none" on no real recurrence)
+ *   guess -> { options } up to 3 tappable options, or [] when it declines
+ *
+ * Uses the same compose plumbing and 12s budget as the reframe. Declines
+ * gracefully on timeout / parse-fail (empty result, never throws), so an absent
+ * or off provider (NO_PROVIDER) lands on the card's authored copy.
+ */
+export async function reflectCard(
+  provider: MomentProvider,
+  slot: string,
+  user: string,
+): Promise<{ line?: string; options?: string[] }> {
+  const draft = REFLECT_DRAFT_SLOTS.has(slot);
+  const out = await compose(provider, slot, user);
+  if (!out) return draft ? {} : { options: [] };
+
+  if (draft) {
+    const line = out.replace(/^["']|["']$/g, '').trim();
+    // reflect_pattern declines by replying "none" when nothing genuinely recurs.
+    if (!line || /^none\b/i.test(line)) return {};
+    return { line };
+  }
+
+  // guess: parse the JSON options array the same defensive way composeReadings
+  // does (slice first "{" to last "}" so any fence/stray text is dropped).
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const options = Array.isArray(j?.options)
+      ? j.options.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3)
+      : [];
+    return { options };
+  } catch {
+    return { options: [] };
+  }
+}
+
+/**
+ * Fact-sort split (reflect_factsort): break her thought into 2-4 claims, each
+ * marked fact (observable) or read (her interpretation). Same compose plumbing
+ * and budget. Declines to an empty list on timeout / parse-fail / AI-off, so the
+ * caller can fall back to the plain question echo.
+ */
+export async function factSort(
+  provider: MomentProvider,
+  user: string,
+): Promise<{ text: string; fact: boolean }[]> {
+  const out = await compose(provider, 'reflect_factsort', user);
+  if (!out) return [];
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    if (!Array.isArray(j?.claims)) return [];
+    return j.claims
+      .map((c: { text?: unknown; fact?: unknown }) => ({
+        text: String(c?.text ?? '').trim(),
+        fact: c?.fact === true,
+      }))
+      .filter((c: { text: string }) => c.text.length > 0)
+      .slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Reflective chat (reflect_chat): one short reflecting turn in the bounded
+ * back-and-forth on the fact-sort result. Empty on decline / AI-off. The caller
+ * crisis-guards her message before ever calling this; the slot itself is barred
+ * from advice, diagnosis, and medical/money guidance.
+ */
+export async function reflectChat(provider: MomentProvider, user: string): Promise<string> {
+  const out = await compose(provider, 'reflect_chat', user);
+  if (!out) return '';
+  return out.replace(/^["']|["']$/g, '').trim();
+}
+
+/**
+ * Fact-sort advice (reflect_factsort_advise): after she sorts, a gentler line per
+ * read (in order) and one help line for the facts. Empty on decline.
+ */
+export async function factSortAdvise(
+  provider: MomentProvider,
+  user: string,
+): Promise<{ reads: string[]; help: string }> {
+  const out = await compose(provider, 'reflect_factsort_advise', user);
+  if (!out) return { reads: [], help: '' };
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const reads = Array.isArray(j?.reads)
+      ? j.reads.map((s: unknown) => String(s).trim()).filter(Boolean)
+      : [];
+    const help = typeof j?.help === 'string' ? j.help.trim() : '';
+    return { reads, help };
+  } catch {
+    return { reads: [], help: '' };
+  }
+}

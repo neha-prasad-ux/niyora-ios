@@ -15,6 +15,7 @@
 import Constants from 'expo-constants';
 import { MOMENT_AI } from '@/config/features';
 import { NO_PROVIDER, type MomentProvider } from '@/v3/moment-ai';
+import { scrub } from './pii';
 
 // Read from app.config.js `extra` (embedded via expo-constants), NOT
 // process.env.EXPO_PUBLIC_*: the EXPO_PUBLIC inlining was not reaching the
@@ -39,6 +40,16 @@ const VOICE = [
   '- Use only what she wrote. Never invent a fact, a person, or a detail about her or anyone else.',
   '- Warm and quiet, never chirpy or performative. You are here to help her feel met and make her own call, never to impress and never to win.',
 ].join('\n');
+
+// Shared tail for the reflect-card slots (see v3/reflect-cards.ts). The safety
+// rules from that file's header, in one place so every card inherits them. Kept
+// OUT of VOICE on purpose: "adds a possibility" is wrong for acknowledge/feelings,
+// so it must not leak into the non-reflect slots.
+const REFLECT_SAFETY =
+  'Every line ADDS a possibility beside her feeling, it never takes it away and ' +
+  'never tells her how she feels. No "just", no "you are overreacting", nothing ' +
+  'that shrinks or dismisses what she wrote. If her feeling is tied to her cycle, ' +
+  'do not blame it on that.';
 
 // One instruction per slot. The caller hands over the user turn (her words, and
 // for pick slots the option menu); this maps the slot to the right system.
@@ -106,6 +117,123 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'everything true to what she wrote. If her note asks to be more direct, make it clearer and ' +
     'plainer, never harsher or more accusing. Same rules: plain, no blame, no advice, max 2 lines. ' +
     'Reply with only the revised draft.',
+  // --- Reflect cards (v3/reflect-cards.ts). Draft slots return one line; guess
+  // slots return a JSON options array. Empty result => authored fallback. ---
+  reflect_friend:
+    'She wrote this about herself. Write the warm, honest thing she would tell a friend who said the exact same ' +
+    'thing. Kind and true, self-compassion, not fake cheer, never "do not worry". One short line, no quotes. ' +
+    'Reply with only the line. ' + REFLECT_SAFETY,
+  reflect_simpler:
+    'Offer 2 or 3 short, plainer outside reasons the situation could have, ones that are not about her being at ' +
+    'fault (for example he has been buried at work). Each is a maybe she can weigh, never a claim about what ' +
+    'happened. Concrete, not vague, one short line each. If nothing specific fits, return an empty array. Return ' +
+    'only JSON: {"options": ["...", "..."]}. ' + REFLECT_SAFETY,
+  reflect_also_true:
+    'She is bracing for the worst. Offer 2 or 3 short, more likely ways this could go instead, each one honest. ' +
+    'Each is also possible, set beside her fear, not a claim that she is wrong to fear it. Concrete, not vague, ' +
+    'one short line each. If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", ' +
+    '"..."]}. ' + REFLECT_SAFETY,
+  reflect_pattern:
+    'You are given her thought now and a short list of themes from her past entries. If the same theme clearly ' +
+    'comes back, name it in one gentle line (for example this keeps coming back to the deadline). Only if it is a ' +
+    'real recurrence. If nothing genuinely repeats, reply with only the word none. One short line, no quotes. ' +
+    REFLECT_SAFETY,
+  reflect_need:
+    'Under the situation she described, what might she actually NEED right now? Offer 2 or 3 short, plain guesses ' +
+    '(for example to feel heard, a bit of rest, some space, to know it was not her fault). Each a maybe grounded in ' +
+    'what she wrote, never a claim or an instruction, one short line. Name a need, do not tell her to do anything. ' +
+    'If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_helping:
+    'She is gripping a thought or worry. Not whether it is true, but whether holding it so tightly right now is ' +
+    'doing anything FOR her. Offer 2 or 3 short, honest reads of what carrying it is costing her and what might ' +
+    'ease if she let it sit a little lighter, grounded in what she wrote. Each a gentle maybe, never an instruction ' +
+    'to "let it go" or "stop thinking about it", one short line. If nothing fits, return an empty array. Return only ' +
+    'JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_wise:
+    'Assume she already holds part of the answer under the noise. Offer 2 or 3 short reads of what the calm, steady ' +
+    'part of her most likely already knows about this, grounded in what she wrote. Each a gentle maybe pointing in ' +
+    'her own direction, never telling her what to do, one short line. If nothing fits, return an empty array. Return ' +
+    'only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_rule:
+    'Under her upset there may be a rigid rule or a "should" (I should have, they should have, it should be this ' +
+    'way). Name 2 or 3 of those rules gently, and where they might come from, so she can SEE the rule instead of ' +
+    'only feeling it. Each a maybe, never telling her the rule is right or wrong, one short line. If nothing fits, ' +
+    'return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_handle:
+    'She is bracing for a worst case. Do NOT argue the fear away or say it will not happen. Instead take the worst ' +
+    'as if it came true, and offer 2 or 3 short, honest reads of how she could get through it or what would still ' +
+    'be true and steady for her, grounded in her own strengths and what she wrote. Each a maybe, never a promise ' +
+    'that it will be fine, one short line. If nothing fits, return an empty array. Return only JSON: {"options": ' +
+    '["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_shame:
+    'She may be turning one thing that happened into a verdict on who she is as a person. Offer 2 or 3 short reads ' +
+    'that separate the THING (a thing done or said, which can be faced or repaired) from a whole-person judgment ' +
+    '(who she is). Each grounded in what she wrote, a gentle maybe, never agreeing that she is bad, one short line. ' +
+    'If nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_signal:
+    'Read what her feeling might be POINTING TO, do not reframe it. A feeling usually flags something that matters ' +
+    '(anger a line crossed, dread something coming she cares about, hurt something she values). Offer 2 or 3 short ' +
+    'reads of what this feeling could be telling her, grounded in what she wrote. Each a maybe, never a diagnosis ' +
+    'and never an instruction, one short line. If nothing fits, return an empty array. Return only JSON: {"options": ' +
+    '["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_future:
+    'Speak from the view of the version of her who has ALREADY come through this. Offer 2 or 3 short reads of what ' +
+    'that self might want her to know or hold onto now. This must NEVER say the feeling will pass, that it will not ' +
+    'matter, that it is small, or "at least" anything — it takes the moment fully seriously and speaks from having ' +
+    'lived through it, not from minimizing it. Each grounded in what she wrote, a gentle maybe, one short line. If ' +
+    'nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_middle:
+    'She is thinking in all-or-nothing terms (for example "I always ruin everything"). The truth usually sits in ' +
+    'the middle. Offer 2 or 3 short middle-ground readings that land BETWEEN the all-good and the all-bad, grounded ' +
+    'in what she wrote. Concrete, each a maybe, one short line. If nothing specific fits, return an empty array. ' +
+    'Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_agency:
+    'Given what she wrote, help her see how much of this she can actually work on. Offer 2 or 3 short, concrete ' +
+    'lines: at least one thing that IS in her power to act on, and at least one part that is not hers to move. ' +
+    'Never blame her, never assign her the whole load. Each a maybe, one short line. If nothing specific fits, ' +
+    'return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
+  reflect_factsort:
+    'Split what she wrote into its separate claims: 2 to 4 short lines, in her own plain words, cleaned of spelling ' +
+    'and grammar slips but keeping her meaning and her charged words. Mark each line fact:true ONLY when it is a ' +
+    'plain observable event, just what happened or was plainly done, with no motive or meaning attached. Mark ' +
+    'fact:false for anything that is her interpretation, an assumption, a guess at WHY someone acted or what they ' +
+    'really meant, a claim about what WOULD have happened, or a judgment. Reporting a motive someone stated is still ' +
+    'fact:false, because whether it is true is not observable. When unsure, use fact:false. Never merge a fact and a ' +
+    'feeling into one line. Judge from her words only, never her cycle. Return only JSON: ' +
+    '{"claims":[{"text":"...","fact":true},{"text":"...","fact":false}]}. ' +
+    REFLECT_SAFETY,
+  reflect_chat:
+    'You are reflecting WITH her about the thought she brought, in a short back-and-forth. She has just said the ' +
+    'latest line. FIRST decide if what she wrote is actually about her feelings, a person, or her situation. If it ' +
+    'is NOT — a factual or trivia question (maths, general knowledge, definitions), a request to do a task, or ' +
+    'anything off-topic — do NOT reflect on it and do NOT wrap it in feeling language. Warmly say that is not really ' +
+    'what you are here for, and bring her back to what is on her mind (you may give one plain short answer to ' +
+    'something trivial first, but never turn it into an emotional reading). OTHERWISE, when she is bringing ' +
+    'something real: reply with ONE short turn, max 2 sentences. ALWAYS offer a concrete new way to see it, a gentle ' +
+    'maybe about her thinking or the situation, so she leaves the turn with a fresh angle. Never reply with only a ' +
+    'question, and never just mirror her words back: each time she asks again, give a genuinely DIFFERENT angle, not ' +
+    'the same one reworded. You may add one short question after the perspective, never instead of it. Keep her in ' +
+    'charge, stay tentative (a maybe, not a verdict). NEVER give advice, instructions, a plan, a diagnosis, or any ' +
+    'medical or money guidance, and never tell her what to do. If the turn number you are given is 3 or higher, ' +
+    'still give the fresh angle, then gently invite her to sit with what she has seen. Reply with only your line. ' +
+    REFLECT_SAFETY,
+  reflect_factsort_advise:
+    'She has sorted her claims into facts and reads. For EACH read (her interpretation), in the same order given, ' +
+    'offer one gentler, more tentative way to hold it, a maybe about her own thinking, never a claim about what ' +
+    'happened, max 16 words. For the facts together, give ONE short warm line that helps her act on or sit with what ' +
+    'is actually true, max 20 words; if there are no facts, return an empty help string. Return only JSON: ' +
+    '{"reads":["...","..."],"help":"..."}. ' +
+    REFLECT_SAFETY,
 };
 
 // The generated text lives in the `model_output` step, whose `content` array
@@ -152,44 +280,75 @@ async function callGemini(
   track = true,
 ): Promise<string | null> {
   if (!GEMINI_KEY) return null;
+  // PII scrub: her words leave the device only here, so redact emails / phones /
+  // named people before send and restore the real words in the reply. This is the
+  // single choke point that covers every caller (reflection + crisis check).
+  const { text: scrubbed, restore } = scrub(user);
   const set = (t: AiTransport) => {
     if (track) lastTransport = t;
   };
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-      signal: ctrl.signal,
-      body: JSON.stringify({
-        model: MODEL,
-        system_instruction: system,
-        input: user,
-        // thinking_level 'minimal' keeps a gemini-3 model from spending its whole
-        // token budget (and seconds of latency) on reasoning before a one-line
-        // reply. Low temperature: she needs steadiness, not surprise.
-        generation_config: { temperature: 0.6, max_output_tokens: 256, thinking_level: 'minimal' },
-      }),
-    });
-    if (!res.ok) {
-      set('fail');
+  const body = JSON.stringify({
+    model: MODEL,
+    system_instruction: system,
+    input: scrubbed,
+    // thinking_level 'minimal' keeps a gemini-3 model from spending its whole
+    // token budget (and seconds of latency) on reasoning before a one-line
+    // reply. Low temperature: she needs steadiness, not surprise.
+    generation_config: { temperature: 0.6, max_output_tokens: 256, thinking_level: 'minimal' },
+  });
+
+  // One HTTP attempt, classifying HOW it failed so the loop below knows whether a
+  // retry is worth it. 'offline' means the network is down (never retry); a non-ok
+  // status, a timeout/abort, or an empty body are all transient here.
+  const attempt = async (): Promise<
+    { ok: true; text: string } | { ok: false; offline: boolean }
+  > => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+        signal: ctrl.signal,
+        body,
+      });
+      if (!res.ok) return { ok: false, offline: false };
+      const text = readOutput(await res.json());
+      if (text.trim()) return { ok: true, text: text.trim() };
+      return { ok: false, offline: false };
+    } catch (e) {
+      // A timeout (AbortError) is "not responding", not offline.
+      return { ok: false, offline: isOfflineError(e) };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  // Up to two attempts. A concurrent burst of beat calls (has_event + crisis +
+  // reflect prefetch fire together, feelings a beat later) makes the model throw
+  // transient 429s / timeouts — on device feelings and reflect_friend fail often
+  // while their neighbours succeed. A single retry, after a short JITTERED pause
+  // so it lands outside the burst window, recovers most of them. Offline never
+  // retries. ponytail: fixed 2-attempt cap; per-slot backoff only if it still falls short.
+  for (let i = 0; i < 2; i++) {
+    const r = await attempt();
+    if (r.ok) {
+      set('ok');
+      return restore(r.text); // put her real words back into the reply
+    }
+    if (r.offline) {
+      set('offline');
       return null;
     }
-    const text = readOutput(await res.json());
-    if (text.trim()) {
-      set('ok');
-      return text.trim();
+    if (i === 0) {
+      await new Promise((res) => setTimeout(res, 350 + Math.floor(Math.random() * 350)));
+      continue;
     }
     set('fail');
     return null;
-  } catch (e) {
-    // A timeout (AbortError) is "not responding", not offline.
-    set(isOfflineError(e) ? 'offline' : 'fail');
-    return null;
-  } finally {
-    clearTimeout(timer);
   }
+  set('fail');
+  return null;
 }
 
 const geminiProvider: MomentProvider = {

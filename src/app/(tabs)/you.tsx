@@ -101,6 +101,7 @@ import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
 import { getRewardCount } from '@/store/reward-progress';
+import { getMoments, feelingCounts, type MomentRecord } from '@/store/moment-history';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { CRISIS_COPY } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
@@ -143,6 +144,8 @@ export default function MySoulScreen() {
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
   // How many gift-reward drawings she has earned (in order), for the Soul grid.
   const [rewardCount, setRewardCount] = useState(0);
+  // The real feelings she has named and worked through, from on-device history.
+  const [moments, setMoments] = useState<MomentRecord[]>([]);
   const {
     isPaired,
     macSoulState,
@@ -157,6 +160,9 @@ export default function MySoulScreen() {
       let active = true;
       getRewardCount().then((n) => {
         if (active) setRewardCount(n);
+      }).catch(() => {});
+      getMoments().then((m) => {
+        if (active) setMoments(m);
       }).catch(() => {});
       getMoonState().then((s) => {
         if (active) {
@@ -396,6 +402,9 @@ export default function MySoulScreen() {
 
               <SectionEyebrow title="Your badges" />
               <DrawingsCard earned={rewardCount} />
+
+              <SectionEyebrow title="Emotions you've worked through" />
+              <EmotionsCard moments={moments} />
 
               {/* Eyebrow above the card, matching "Your badges"/"Your growth". */}
               <SectionEyebrow title="You & Niyora" />
@@ -661,6 +670,72 @@ function DrawingsCard({ earned }: { earned: number }) {
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+// The constellations she has actually named, most worked-through first. Each
+// feeling belongs to one constellation (FEELING_SET), and a moment carries it,
+// so we just tally by constellation. (docs/moon-ai-constellations.md)
+function constellationGroups(
+  moments: readonly MomentRecord[],
+): { constellation: string; count: number }[] {
+  const by = new Map<string, number>();
+  for (const m of moments) {
+    if (!m.constellation) continue;
+    by.set(m.constellation, (by.get(m.constellation) ?? 0) + 1);
+  }
+  return [...by.entries()]
+    .map(([constellation, count]) => ({ constellation, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// The real feelings she has named and worked through, gathered on-device. The
+// feelings come most-worked-through first (feelingCounts), then the
+// constellations those feelings belong to — each one "rising" in her sky as she
+// names the emotions inside it. No badge PNGs are wired yet (Neha is sourcing
+// them), so the constellations surface as lit names rather than art.
+function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
+  if (moments.length === 0) {
+    return (
+      <View style={styles.card}>
+        <GlassCardBg />
+        <Text style={styles.cardCopy}>
+          The feelings you name and work through will gather here, like stars finding their shape.
+        </Text>
+      </View>
+    );
+  }
+  const feelings = feelingCounts(moments);
+  const constellations = constellationGroups(moments);
+  return (
+    <View style={styles.card}>
+      <GlassCardBg />
+      <View style={styles.emotionChips}>
+        {feelings.map(({ feeling, count }) => (
+          <View key={feeling} style={styles.emotionChip}>
+            <View style={styles.emotionStar} />
+            <Text style={styles.emotionChipLabel}>{feeling}</Text>
+            {count > 1 && <Text style={styles.emotionChipCount}>{count}</Text>}
+          </View>
+        ))}
+      </View>
+      {constellations.length > 0 && (
+        <>
+          <Text style={styles.emotionSub}>Rising in your sky</Text>
+          <View style={styles.emotionChips}>
+            {constellations.map(({ constellation, count }) => (
+              <View key={constellation} style={styles.emotionChip}>
+                <View style={styles.emotionStarLit} />
+                <Text style={styles.emotionChipLabel}>
+                  {constellation.charAt(0).toUpperCase() + constellation.slice(1)}
+                </Text>
+                <Text style={styles.emotionChipCount}>{count}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -1862,6 +1937,56 @@ const styles = StyleSheet.create({
     fontFamily: fonts.light,
     color: colors.textOnDark.tertiary,
     lineHeight: 18,
+  },
+  // Emotions worked-through: her named feelings, then the constellations they
+  // belong to, as wrapping lit pills. No badge art yet, so names carry it.
+  emotionChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  emotionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: glass.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  emotionStar: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#C6CFE6',
+  },
+  emotionStarLit: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#E7C878',
+  },
+  emotionChipLabel: {
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
+    color: colors.textPrimary,
+  },
+  emotionChipCount: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.faint,
+    fontVariant: ['tabular-nums'],
+  },
+  emotionSub: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.faint,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   // Check-in card
   checkInHeader: {

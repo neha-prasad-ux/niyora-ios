@@ -46,14 +46,13 @@ export type NodeId =
   | 'raw_entry'
   | 'safe_check'
   | 'crisis_handoff'
-  | 'intensity_in'
   // naming
   | 'clarify'
   | 'acknowledge'
   | 'together'
   | 'naming_science'
   | 'feelings'
-  | 'reframe_small'
+  | 'reflect'
   // settle
   | 'breathe'
   // the hold
@@ -115,11 +114,18 @@ export type FlowNode = {
 export const MOMENT_FLOW: FlowNode[] = [
   // --- entry ---------------------------------------------------------------
   {
+    id: 'intro',
+    owner: 'authored',
+    phase: 'reflect',
+    next: 'raw_entry',
+    note: 'The 3-beat Reflect / Regulate / Respond preview, shown once at flow start so she knows the shape (INTRO_BEATS). Was skipped 2026-07-31; brought back 2026-08-09 with the reflect-card rebuild.',
+  },
+  {
     id: 'raw_entry',
     owner: 'ui',
     phase: 'reflect',
     next: 'clarify',
-    note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held. A clear entry skips clarify straight to intensity_in (screen logic); a thin one clarifies first, so she only rates once we understand what happened.',
+    note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held. A clear entry goes straight to the echo (acknowledge); a thin one clarifies first. The upfront 0-10 rating was cut 2026-08-09 (felt arbitrary/boring).',
   },
   {
     id: 'safe_check',
@@ -138,22 +144,14 @@ export const MOMENT_FLOW: FlowNode[] = [
     terminal: true,
     note: 'STOPS the flow. Counts as a completed session for the badge: every ending counts except abandonment.',
   },
-  {
-    id: 'intensity_in',
-    owner: 'ui',
-    phase: 'reflect',
-    next: 'acknowledge',
-    note: '0 to 10, taken BEFORE acknowledge because acknowledge is one of the things being measured, but AFTER clarify (Neha 2026-08-01) so she only rates once we understand what happened. Also routes big vs small, rather than asking her the same thing twice.',
-  },
-
   // --- naming --------------------------------------------------------------
   {
     id: 'clarify',
     owner: 'echo',
     phase: 'reflect',
     slot: 'clarify',
-    next: 'intensity_in',
-    note: 'Only when her entry is thin. Asks for the concrete thing using her own words, then she rates (intensity_in) and it is said back (acknowledge).',
+    next: 'acknowledge',
+    note: 'Only when her entry is thin. Asks for the concrete thing using her own words, then it is said back (acknowledge).',
   },
   {
     id: 'acknowledge',
@@ -176,9 +174,9 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'pick',
     phase: 'reflect',
     slot: 'feelings',
-    next: 'reframe_small',
+    next: 'reflect',
     why: true,
-    note: 'Three from the 22 approved words. Ranking a list already written, so a suppression is an array filter.',
+    note: 'Three from the 22 approved words. Ranking a list already written, so a suppression is an array filter. Rendered inside acknowledge as the AI feeling GUESS (Moon proposes, she confirms), skipped when she already named a feeling in her text.',
   },
   // name_reward and feel_heard were removed 2026-07-28 (Neha): the screen has
   // always jumped from the merged acknowledge card straight to the reframe, so
@@ -186,14 +184,12 @@ export const MOMENT_FLOW: FlowNode[] = [
   // a feeling is not a hard act, and light is for acts, not states -- and
   // feel_heard was a second echo on top of the one acknowledge already carries.
   {
-    id: 'reframe_small',
+    id: 'reflect',
     owner: 'authored',
     phase: 'reflect',
-    branches: [
-      { when: 'small_lands', next: 'make_safe' },
-      { when: 'small_no', next: 'breathe' },
-    ],
-    note: 'EVERYONE gets this, not only small emotions (Neha, 2026-07-27, overriding the map). Authored: a gentler reading is new content however gently phrased. She PICKS which of three is true, so the app never asserts one; the model may eventually rank them and may never write one. Routing settled 2026-07-29 (Neha): a better FEELING does not resolve the SITUATION, so no answer dead-ends on the closing rating. "yes"/"a little bit" go STRAIGHT to the challenge (small_lands -> make_safe), skipping the breath because she just said she is calmer; "not really" takes the breath first (small_no -> breathe -> make_safe). Both converge on the challenge, then the "no one right move" action menu, and the closing rating stays at the true end where the delta means something. The earlier "big" branch was dropped because it routed to the same breath as small_no.',
+    why: true,
+    next: 'make_safe',
+    note: 'The reflect-card system (2026-08-09), replacing the old late-arriving reframe. detectSignals + routeCards order a set of REFLECT_CARDS; the screen shows one at a time. draft/guess cards are AI-drafted (per-card slot, called via reflectCard/compose — owner stays authored because it is a draft she rules on, never an asserted fact, exactly like the old reframe); question cards echo HER words with no AI call. An additive "no" walks to the next card; a reality "no" backs off and validates and STOPS. Any acceptance, validation or exhaustion converges on make_safe (regulate). EVERYONE reaches it, and it is now the FIRST thing after naming, not the fifth screen.',
   },
 
   // --- settle ---------------------------------------------------------------
@@ -219,8 +215,8 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'ui',
     phase: 'regulate',
     why: true,
-    next: 'make_safe',
-    note: 'In for four, out for six, so the exhale is the long half. Count only, no vagus claim. EVERYONE gets this, not only the high lane (Neha, 2026-07-27).',
+    next: 'activities',
+    note: 'In for four, out for six, so the exhale is the long half. Count only, no vagus claim. The settling breath on the regulate path: make_safe "wait" (she chose to settle) leads here, then on to the settling menu. Regulate is optional now — only if she picks it at the SETTLE gate.',
   },
   {
     id: 'make_safe',
@@ -228,10 +224,10 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'regulate',
     why: true,
     branches: [
-      { when: 'wait', next: 'activities' },
+      { when: 'wait', next: 'breathe' },
       { when: 'now', next: 'lane_split' },
     ],
-    note: 'The hold. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" opens the settling menu (`activities`): ways to fill the wait, none forced, "I am ready to respond" the exit — then the readiness check. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
+    note: 'The SETTLE gate (2026-08-09): "want a moment to settle before you respond?". Regulate is optional and tied to responding. "Yes" (wait) takes the settling breath then the menu; "no" (now) goes straight to responding. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" opens the settling menu (`activities`): ways to fill the wait, none forced, "I am ready to respond" the exit — then the readiness check. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
   },
   // The LANE SPLIT and the low and mixed lanes were removed 2026-07-27 at
   // Neha's call. make_safe now goes straight to the hold or straight to the
@@ -435,7 +431,7 @@ export function advance(id: NodeId, key?: string): NodeId | null {
 /** The beats that call the model, and the corpus slot each is sent as. */
 export const MODEL_NODES = MOMENT_FLOW.filter((n) => n.slot != null);
 
-// Home is the front door now (its own reflect→regulate→respond framing + feeling
-// ask), so the flow opens straight on "tell me what happened", skipping the old
-// intro preview (Neha 2026-07-31).
-export const ENTRY: NodeId = 'raw_entry';
+// The flow opens on the 3-beat Reflect / Regulate / Respond intro (brought back
+// 2026-08-09 with the reflect-card rebuild) so she knows the shape before the
+// first question, then straight to "tell me what happened".
+export const ENTRY: NodeId = 'intro';

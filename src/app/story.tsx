@@ -78,7 +78,13 @@ export default function StoryScreen() {
           <Text style={styles.story}>{STORIES[i]}</Text>
         </ScrollView>
         <View style={styles.footer}>
-          <Pressable onPress={another} hitSlop={8} accessibilityRole="button" style={styles.another}>
+          <Pressable
+            onPress={another}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Another one"
+            style={({ pressed }) => [styles.another, pressed && styles.anotherPressed]}
+          >
             <Text style={styles.anotherText}>Another one</Text>
           </Pressable>
           <BeginButton fullWidth label="Done" onPress={done} />
@@ -116,11 +122,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.md, alignItems: 'center' },
-  another: { paddingVertical: spacing.xs },
+  // Secondary action: a quiet outline capsule that mirrors the primary Done
+  // button's shape but reads as recessive against its filled gradient.
+  another: {
+    alignSelf: 'stretch',
+    paddingVertical: spacing.md,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(43, 38, 50, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  anotherPressed: { opacity: 0.6 },
   anotherText: {
     fontFamily: fonts.medium,
     fontSize: fontScale.body,
-    color: colors.paper.inkFaint,
-    textDecorationLine: 'underline',
+    color: colors.paper.inkSoft,
   },
 });

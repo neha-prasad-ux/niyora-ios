@@ -15,6 +15,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
       "env": { "EXPO_PUBLIC_MOMENT_AI": "1", "EXPO_PUBLIC_GEMINI_MODEL": "gemini-3.6-flash" },
       "ios": {
         "buildConfiguration": "Release"
@@ -23,7 +24,13 @@
     "preview": {
       "distribution": "internal",
       "autoIncrement": true,
-      "env": { "NIYORA_HEALTHKIT": "1", "EXPO_PUBLIC_STRESS_EXPERIMENT": "1" },
+      "environment": "preview",
+      "env": {
+        "NIYORA_HEALTHKIT": "1",
+        "EXPO_PUBLIC_STRESS_EXPERIMENT": "1",
+        "EXPO_PUBLIC_MOMENT_AI": "1",
+        "EXPO_PUBLIC_GEMINI_MODEL": "gemini-3.6-flash"
+      },
       "ios": {
         "buildConfiguration": "Release"
       }

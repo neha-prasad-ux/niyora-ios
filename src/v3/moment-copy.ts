@@ -306,7 +306,7 @@ export const COPY = {
   // says whether it landed before anything moves on. "No" opens a field to say
   // it again; only "yes" reveals the naming.
   ack_confirm: 'Did I get that right?', // [DRAFT]
-  ack_why: 'Am AI, but I tuned to listen.', // [NEHA] 2026-08-02
+  ack_why: "I'm AI, but I'm tuned to listen.", // [NEHA] 2026-08-02
   ack_yes: "Yes, that's it", // [DRAFT]
   ack_no: 'No, not quite', // [DRAFT]
   ack_fix: 'Tell me again, in your words.', // [DRAFT]
@@ -365,7 +365,7 @@ export const COPY = {
   // it did nothing. It lands the same as "yes": the closing rating reads the delta.
   reframe_small_little: 'A little bit', // [NEHA] 2026-07-29
   reframe_small_no: 'Not really', // [NEHA] 2026-07-29
-  feelings_why: 'Let us recognise the exact feeling, that clarity matters.', // [NEHA] 2026-08-02
+  feelings_why: 'Naming it takes some of the edge off.', // [NEHA] 2026-08-02
 
   // --- body --------------------------------------------------------------
   // The body check (slept / moved / eaten) and its follow-ups were removed
@@ -513,7 +513,7 @@ export const COPY = {
   // --- the act -----------------------------------------------------------
   // Neha 2026-07-29: leads with the doing ("let's respond") and reassures with
   // no-right-answer, which is the same sense the old line carried, reworded.
-  options: "Now that you're calm, let's respond. Does any of these look good to you?", // [NEHA] 2026-08-01
+  options: 'What do you want to do?', // [NEHA] 2026-08-01
   options_why: 'There is no right or wrong move here.', // [NEHA] 2026-07-29
   options_more: 'Show me other options', // [NEHA] 2026-08-01
   // The escape hatch, reworded to say plainly what it means: she is not in a

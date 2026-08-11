@@ -23,7 +23,9 @@ export type MomentCheckpoint = {
   history: NodeId[];
   herText: string;
   chosenFeeling: string;
-  baseline: number | null;
+  /** Where she is in the routed reflect-card list, so a resume into `reflect`
+   *  lands on the same card. The list itself is re-derived from herText. */
+  reflectIdx: number;
   verdict: Verdict | null;
   chosenAct: Act | null;
   skippedHold: boolean;

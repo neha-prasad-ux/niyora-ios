@@ -13,12 +13,13 @@
 // is FILLED (the ink), not stroked like the old flower, and needs evenOdd fill.
 // Swap in new SVGs by adding art files; nothing here is penguin-specific.
 
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
   Share,
   StyleSheet,
+  Text,
   TextInput,
   View,
   useWindowDimensions,
@@ -41,10 +42,13 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useDerivedValue,
   useSharedValue,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -258,6 +262,12 @@ export type ColorFillProps = {
   /** Which outline she is colouring. Defaults to the penguin. Change it by
    *  remounting (key), so strokes and caption reset cleanly for the new drawing. */
   drawing?: Drawing;
+  /** First-run only: when true, show the "Drag to colour" nudge (a label over the
+   *  drawing plus one gentle pulse), since nothing else says the outline is
+   *  paintable. Cleared by `onHintDone` on her first touch. */
+  hint?: boolean;
+  /** Called on her first touch (or draw) so the parent can hide the nudge. */
+  onHintDone?: () => void;
 };
 
 export const ColorFill = forwardRef<ColorFillHandle, ColorFillProps>(function ColorFill(props, ref) {
@@ -309,9 +319,35 @@ export const ColorFill = forwardRef<ColorFillHandle, ColorFillProps>(function Co
   // True only for the instant we snapshot, so the baked caption is drawn then.
   const [capturing, setCapturing] = useState(false);
 
+  // The first-run nudge: a gentle scale pulse on the card (two soft breaths, then
+  // it settles) as the wordless "touch me" cue, paired with the label overlay
+  // below. `hintPulse` drives just the Canvas wrapper's transform, so only the
+  // Polaroid breathes, not the tools or caption.
+  const hintPulse = useSharedValue(0);
+  const hintStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + hintPulse.value * 0.03 }] }));
+  useEffect(() => {
+    if (!props.hint) return;
+    // Two up/down breaths (4 legs), then rest at 0.
+    hintPulse.value = withRepeat(
+      withSequence(withTiming(1, { duration: 620 }), withTiming(0, { duration: 620 })),
+      2,
+      false,
+    );
+    return () => cancelAnimation(hintPulse);
+  }, [props.hint]);
+  // Her first touch (a tap or a drawn stroke) is the dismiss: stop the pulse and
+  // tell the parent to drop the label. Idempotent, so later strokes do nothing.
+  const dismissHint = () => {
+    if (!props.hint) return;
+    cancelAnimation(hintPulse);
+    hintPulse.value = withTiming(0, { duration: 150 });
+    props.onHintDone?.();
+  };
+
   const begin = (x: number, y: number) => {
     // Starting to draw puts the caption keyboard away, so the page is hers again.
     Keyboard.dismiss();
+    dismissHint();
     Haptics.selectionAsync().catch(() => {});
     setPts([{ x, y }]);
   };
@@ -439,7 +475,7 @@ export const ColorFill = forwardRef<ColorFillHandle, ColorFillProps>(function Co
        onLayout={(e) => setMeasuredH(e.nativeEvent.layout.height)}
      >
       <GestureDetector gesture={gesture}>
-        <View style={{ width: w, height: cardH }}>
+        <Animated.View style={[{ width: w, height: cardH }, hintStyle]}>
           <Canvas ref={canvasRef} style={{ width: w, height: cardH }}>
             {/* The white Polaroid card. */}
             <Fill color={PAPER} />
@@ -485,8 +521,17 @@ export const ColorFill = forwardRef<ColorFillHandle, ColorFillProps>(function Co
               <BakedCaption text={caption} font={skFont} w={w} y={PAD + photoH + BAND * 0.62} />
             )}
           </Canvas>
-        </View>
+        </Animated.View>
       </GestureDetector>
+      {/* First-run nudge: a soft pill over the drawing telling her the outline is
+          paintable. pointerEvents none so her first touch falls straight through
+          to the draw gesture (which dismisses it). Sits below the photo centre so
+          it never hides the drawing's face. */}
+      {props.hint && (
+        <View style={[styles.hint, { top: PAD + photoH * 0.66, width: w }]} pointerEvents="none">
+          <Text style={styles.hintText}>Drag to colour</Text>
+        </View>
+      )}
       {/* Undo / redo, over the top-left corner of the photo. box-none so only the
           two buttons catch touches; the rest of the corner still draws. */}
       <View style={[styles.history, { top: PAD + 6, left: PAD + 6 }]} pointerEvents="box-none">
@@ -584,6 +629,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
   },
   roundOff: { opacity: 0.3 },
+  // The first-run "Drag to colour" pill, centred over the lower drawing.
+  hint: { position: 'absolute', left: 0, alignItems: 'center', justifyContent: 'center' },
+  hintText: {
+    fontFamily: HAND_FONT,
+    fontSize: fontScale.title,
+    color: '#3E3947',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
   // The caption sits in the Polaroid's bottom band, centered in its white space.
   band: {
     position: 'absolute',

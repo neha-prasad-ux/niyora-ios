@@ -109,26 +109,25 @@ describe('who owns the words', () => {
 });
 
 describe('the beats the evidence turns on', () => {
-  it('takes the baseline rating BEFORE the echo', () => {
-    // acknowledge is one of the things being measured, so a baseline after it
-    // is already post-treatment and the delta understates the flow.
+  it('has no upfront 0-10 rating, and never re-quizzes her at the end', () => {
+    // The upfront `intensity_in` rating was cut 2026-08-09 (felt arbitrary and
+    // boring); the closing `intensity_out` rating went 2026-08-01. Neither the
+    // opening nor the close pulls her into rating her feelings.
+    expect(ALL).not.toContain('intensity_in');
+    expect(ALL).not.toContain('intensity_out');
+    // The flow ends on a warm sendoff, then the reward.
+    expect(ALL).toContain('sendoff');
+  });
+
+  it('opens on the 3-beat intro and reaches the echo', () => {
+    expect(ENTRY).toBe('intro');
     const order: NodeId[] = [];
     let cur: NodeId | null = ENTRY;
     while (cur && order.length < 12) {
       order.push(cur);
       cur = advance(cur);
     }
-    expect(order.indexOf('intensity_in')).toBeGreaterThan(-1);
-    expect(order.indexOf('intensity_in')).toBeLessThan(order.indexOf('acknowledge'));
-  });
-
-  it('rates intensity once, at the opening, and never re-quizzes her at the end', () => {
-    // The closing "And now?" 0-10 rating was removed 2026-08-01 (Neha): ending on
-    // a self-check pulls her back into monitoring when she should disengage.
-    expect(ALL).toContain('intensity_in');
-    expect(ALL).not.toContain('intensity_out');
-    // The flow ends on a warm sendoff, then the reward.
-    expect(ALL).toContain('sendoff');
+    expect(order.indexOf('acknowledge')).toBeGreaterThan(order.indexOf('intro'));
   });
 
   // The body check (slept / moved / eaten) was removed 2026-07-27. If it comes
@@ -140,17 +139,22 @@ describe('the beats the evidence turns on', () => {
     expect(ALL.filter((id) => id.startsWith('body_'))).toEqual([]);
   });
 
-  it('sends everyone through the reframe, not only small moments', () => {
-    // Was gated on the opening rating; now every path from the feeling lands
-    // here, so it cannot be reached by only half the women who arrive.
-    const r = node('reframe_small');
-    // Two destinations since 2026-07-29: "yes"/"a little bit" (small_lands) go
-    // straight to the challenge, "not really" (small_no) takes the breath first.
-    // Both converge on make_safe; a better feeling no longer dead-ends the flow
-    // on the closing rating. The old "it's bigger than that" ('big') exit was
-    // dropped because it routed to the same breath as small_no.
-    expect(r.branches?.map((b) => b.when).sort()).toEqual(['small_lands', 'small_no']);
+  it('sends everyone through reflect, first thing after naming', () => {
+    // The reflect-card system (2026-08-09) replaced the late reframe. Every main
+    // path lands here, and it converges on make_safe (regulate) whichever card
+    // she accepts, walks past, or has validated.
+    const r = node('reflect');
+    expect(r.branches).toBeUndefined();
+    expect(r.next).toBe('make_safe');
     expect(r.note ?? '').toMatch(/everyone/i);
+    // It is reachable by walking the straight-line graph from the entry.
+    const order: NodeId[] = [];
+    let cur: NodeId | null = ENTRY;
+    while (cur && order.length < 12) {
+      order.push(cur);
+      cur = advance(cur);
+    }
+    expect(order).toContain('reflect');
   });
 
   it('gives "none of these feel possible" a full ending, not a dead end', () => {
