@@ -28,6 +28,7 @@ import { recordAnswer } from '../store/nudge-history';
 import { getReminder } from '../store/reminder-prefs';
 import { useStressTick } from '../hooks/use-stress-tick';
 import { FM_EXPERIMENT, STRESS_EXPERIMENT } from '../config/features';
+import { startAppCheck } from '../lib/firebase';
 import { duration } from '../theme/motion';
 
 // One calm-fade config for every full-screen push that should dissolve rather
@@ -41,6 +42,9 @@ const CALM_FADE = {
 } as const;
 
 SplashScreen.preventAutoHideAsync();
+
+// Attest the app before any AI Logic call (no-op if Firebase isn't configured).
+startAppCheck();
 
 export default function RootLayout() {
   const [loaded] = useFonts({

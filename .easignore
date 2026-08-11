@@ -1,0 +1,8 @@
+# Keep the EAS upload small. This lists what NOT to send to the build servers.
+# Do NOT add `ios/` — this is a bare workflow and the native project is required.
+# The proxy is a separate backend, deployed on its own (see proxy/README.md); it
+# never belongs in the app build.
+proxy/
+ios/build/
+**/*.log
+.DS_Store

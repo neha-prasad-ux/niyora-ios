@@ -4,28 +4,47 @@
 //
 // Cloud, not on-device: this replaces the Gemma seam (src/lib/reflect-model).
 // The product guardrails do NOT live here. echo() and pick() in moment-ai wrap
-// whatever this returns, so a bad or absent key degrades to authored copy and
-// the flow still completes. Everything here can return null, and null is never
-// an error.
+// whatever this returns, so an absent or failed model degrades to authored copy
+// and the flow still completes. Everything here can return null, and null is
+// never an error.
 //
-// Safe by default: with no key or the flag off, getMomentProvider() returns
-// NO_PROVIDER and the flow is byte-identical to the deterministic build. Set
-// EXPO_PUBLIC_MOMENT_AI=1 and EXPO_PUBLIC_GEMINI_API_KEY=... to light it up.
+// The app holds NO Google key. It calls Gemini through Firebase AI Logic: auth is
+// the Firebase project (GoogleService-Info.plist baked into the build), and App
+// Check (Apple App Attest, started in src/lib/firebase.ts) attests the request so
+// the Vertex endpoint accepts only the real Niyora app. The Vertex backend means
+// Google Cloud enterprise terms apply: her words are not used for training and
+// not human-reviewed by default. See docs/launch-prep.md gate #1.
+//
+// Safe by default: with the flag off or Firebase not configured in the build,
+// getMomentProvider() returns NO_PROVIDER and the flow is byte-identical to the
+// deterministic build. Set EXPO_PUBLIC_MOMENT_AI=1 to light it up.
 
-import Constants from 'expo-constants';
+import { getApp } from '@react-native-firebase/app';
+import { getAI, getGenerativeModel, VertexAIBackend } from '@react-native-firebase/ai';
 import { MOMENT_AI } from '@/config/features';
 import { NO_PROVIDER, type MomentProvider } from '@/v3/moment-ai';
 import { scrub } from './pii';
 
-// Read from app.config.js `extra` (embedded via expo-constants), NOT
-// process.env.EXPO_PUBLIC_*: the EXPO_PUBLIC inlining was not reaching the
-// production bundle, so the key came out empty and the provider was stripped.
-const extra = (Constants.expoConfig?.extra ?? {}) as { geminiKey?: string; geminiModel?: string };
-const GEMINI_KEY = extra.geminiKey ?? '';
-const MODEL = extra.geminiModel ?? 'gemini-3.6-flash';
-// The Interactions API. generateContent is deprecated for new keys (404s with a
-// migrate-to-interactions notice), so this is the only path that answers.
-const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+const LOCATION = 'us-central1';
+const MODEL = 'gemini-3.6-flash';
+
+// One AI handle for the app, created lazily on first use. Firebase must be
+// configured (a GoogleService-Info.plist in the build) or getApp() throws; we
+// catch that and stay unconfigured, so a build with no Firebase config degrades
+// to authored copy exactly like the old no-key path did.
+let ai: ReturnType<typeof getAI> | null = null;
+let configured: boolean | null = null;
+function getModelHandle() {
+  if (configured === false) return null;
+  try {
+    if (!ai) ai = getAI(getApp(), { backend: new VertexAIBackend(LOCATION) });
+    configured = true;
+    return ai;
+  } catch {
+    configured = false;
+    return null;
+  }
+}
 
 // The shared voice, prepended to every slot as the system turn. This is the
 // Voice block from the 2026-08-02 rework: persona + the universal tone bans that
@@ -236,24 +255,6 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     REFLECT_SAFETY,
 };
 
-// The generated text lives in the `model_output` step, whose `content` array
-// holds the text blocks. gemini-3 also emits a `thought` step we ignore. (The
-// SDK's `output_text` convenience does this join for us; on raw fetch we do it.)
-function readOutput(json: unknown): string {
-  const steps = (json as { steps?: unknown })?.steps;
-  if (!Array.isArray(steps)) return '';
-  let out = '';
-  for (const step of steps) {
-    if ((step as { type?: string })?.type !== 'model_output') continue;
-    const content = (step as { content?: unknown }).content;
-    if (!Array.isArray(content)) continue;
-    for (const block of content) {
-      if ((block as { type?: string })?.type === 'text') out += (block as { text?: string }).text ?? '';
-    }
-  }
-  return out;
-}
-
 // Transport outcome of the last TRACKED call (the beat generations), so the flow
 // can tell "Moon isn't responding" (fail: timeout/HTTP/empty) apart from "she is
 // offline" (network unreachable) apart from success. Only beat calls track;
@@ -279,7 +280,8 @@ async function callGemini(
   timeoutMs: number,
   track = true,
 ): Promise<string | null> {
-  if (!GEMINI_KEY) return null;
+  const handle = getModelHandle();
+  if (!handle) return null;
   // PII scrub: her words leave the device only here, so redact emails / phones /
   // named people before send and restore the real words in the reply. This is the
   // single choke point that covers every caller (reflection + crisis check).
@@ -287,34 +289,33 @@ async function callGemini(
   const set = (t: AiTransport) => {
     if (track) lastTransport = t;
   };
-  const body = JSON.stringify({
+  // A fresh model per call: the system prompt varies by slot, and constructing a
+  // GenerativeModel is cheap (no network). Low temperature: she needs steadiness,
+  // not surprise. thinkingBudget 0 keeps a gemini-3 model from spending its token
+  // budget (and seconds) on reasoning before a one-line reply.
+  const model = getGenerativeModel(handle, {
     model: MODEL,
-    system_instruction: system,
-    input: scrubbed,
-    // thinking_level 'minimal' keeps a gemini-3 model from spending its whole
-    // token budget (and seconds of latency) on reasoning before a one-line
-    // reply. Low temperature: she needs steadiness, not surprise.
-    generation_config: { temperature: 0.6, max_output_tokens: 256, thinking_level: 'minimal' },
+    systemInstruction: system,
+    generationConfig: {
+      temperature: 0.6,
+      maxOutputTokens: 256,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   });
 
-  // One HTTP attempt, classifying HOW it failed so the loop below knows whether a
-  // retry is worth it. 'offline' means the network is down (never retry); a non-ok
-  // status, a timeout/abort, or an empty body are all transient here.
+  // One attempt, classifying HOW it failed so the loop below knows whether a
+  // retry is worth it. 'offline' means the network is down (never retry); a
+  // timeout/abort, a safety block (text() throws with no candidate), or an empty
+  // body are all transient here.
   const attempt = async (): Promise<
     { ok: true; text: string } | { ok: false; offline: boolean }
   > => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-        signal: ctrl.signal,
-        body,
-      });
-      if (!res.ok) return { ok: false, offline: false };
-      const text = readOutput(await res.json());
-      if (text.trim()) return { ok: true, text: text.trim() };
+      const res = await model.generateContent(scrubbed, { signal: ctrl.signal });
+      const text = res.response.text().trim();
+      if (text) return { ok: true, text };
       return { ok: false, offline: false };
     } catch (e) {
       // A timeout (AbortError) is "not responding", not offline.
@@ -365,9 +366,10 @@ const geminiProvider: MomentProvider = {
 };
 
 /** The provider the Moon flow should use. NO_PROVIDER (authored fallback) unless
- *  the flag is on AND a key is present, so the store build ships no AI. */
+ *  the flag is on AND Firebase is configured in this build, so a build with no
+ *  Firebase config (or the store build with the flag off) ships no AI. */
 export function getMomentProvider(): MomentProvider {
-  if (!MOMENT_AI || !GEMINI_KEY) return NO_PROVIDER;
+  if (!MOMENT_AI || !getModelHandle()) return NO_PROVIDER;
   return geminiProvider;
 }
 
@@ -405,7 +407,7 @@ const CRISIS_SYSTEM = [
 /** Model crisis read, or null on any failure (the keyword floor still stands).
  *  Escalate-only: the caller may use this to turn crisis ON, never off. */
 export async function classifyCrisis(herText: string): Promise<CrisisRead | null> {
-  if (!MOMENT_AI || !GEMINI_KEY) return null;
+  if (!MOMENT_AI || !getModelHandle()) return null;
   const raw = herText.trim();
   if (!raw) return null;
   const out = await callGemini(CRISIS_SYSTEM, raw, 4000, false);

@@ -6,12 +6,16 @@
   "dependencies": {
     "@expo/ui": "~56.0.18",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-firebase/ai": "^26.2.0",
+    "@react-native-firebase/app": "^26.2.0",
+    "@react-native-firebase/app-check": "^26.2.0",
     "@shopify/react-native-skia": "2.6.2",
     "crypto-js": "^4.2.0",
     "expo": "~56.0.12",
     "expo-asset": "~56.0.17",
     "expo-audio": "~56.0.12",
     "expo-blur": "~56.0.3",
+    "expo-build-properties": "~56.0.25",
     "expo-clipboard": "~56.0.4",
     "expo-constants": "~56.0.16",
     "expo-dev-client": "~56.0.20",
@@ -75,7 +79,9 @@
   "expo": {
     "autolinking": {
       "nativeModulesDir": "./modules",
-      "exclude": ["niyora-gemma"]
+      "exclude": [
+        "niyora-gemma"
+      ]
     }
   }
 }

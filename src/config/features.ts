@@ -48,10 +48,10 @@ export const FM_EXPERIMENT = __DEV__ || process.env.EXPO_PUBLIC_FM_EXPERIMENT ==
 // available (model not bundled, MediaPipe not linked) degrades to scripted.
 export const REFLECT_AI = process.env.EXPO_PUBLIC_REFLECT_AI === '1';
 
-// Gemini in the Moon flow (moment.tsx). Gates the cloud provider behind the
-// MomentProvider port. OFF by default so the store build ships NO AI and every
-// beat runs its deterministic/authored line. A test build lights it up with
-// EXPO_PUBLIC_MOMENT_AI=1 AND an EXPO_PUBLIC_GEMINI_API_KEY; with either missing,
-// getMomentProvider() returns NO_PROVIDER and the flow is byte-identical to the
-// deterministic build. Replaces the on-device Gemma seam (REFLECT_AI).
+// Cloud AI in the Moon flow (moment.tsx), via Firebase AI Logic (src/lib/
+// moment-gemini.ts). Gates the cloud provider behind the MomentProvider port. OFF
+// by default so the store build ships NO AI and every beat runs its deterministic/
+// authored line. A build lights it up with EXPO_PUBLIC_MOMENT_AI=1 AND Firebase
+// configured (GoogleService-Info.plist); with either missing, getMomentProvider()
+// returns NO_PROVIDER and the flow is byte-identical to the deterministic build.
 export const MOMENT_AI = Constants.expoConfig?.extra?.momentAi === true;
