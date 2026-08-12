@@ -110,7 +110,7 @@ export function PrepCard({ onCalm }: { onCalm: () => void }) {
     // 'build' is this very page — the sheet just closes.
     if (key === 'checklist') router.push('/pms-readiness' as Href);
     else if (key === 'calm') onCalm();
-    else if (key === 'steady') router.push('/steady-yourself' as Href);
+    else if (key === 'steady') router.push('/moment' as Href);
     else if (key === 'care') router.push('/periods-care' as Href);
   };
 

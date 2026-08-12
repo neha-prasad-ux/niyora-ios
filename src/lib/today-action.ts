@@ -167,16 +167,15 @@ export function weakestLever(reads: PmsRead[]): Lever | null {
 
 // --- Ask content ---------------------------------------------------------
 
-// The PMS-days coached action: the in-the-moment Steady-yourself flow. During
-// the window the home shows this ONE action — the readiness checklist moved to
-// Grow and the pre-PMS notification — so a rough moment always has one
-// science-backed way through it, a single tap from home.
+// The PMS-days coached action: opens the Moon chat (/moment). During the window
+// the home shows this ONE action — the readiness checklist moved to Grow and the
+// pre-PMS notification — so a rough moment is always one tap from home.
 const STEADY_ACTION: TodayAction = {
   id: 'steady',
   kind: 'steady',
   title: 'Cried, fought, or snapped?',
-  caption: 'Science can help you move through it',
-  route: '/steady-yourself',
+  caption: 'Talk to Moon',
+  route: '/moment',
 };
 
 const DONE_ACTION: TodayAction = {

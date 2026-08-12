@@ -30,24 +30,6 @@ export const STRESS_EXPERIMENT = process.env.EXPO_PUBLIC_STRESS_EXPERIMENT === '
 // ships — with no way to answer, moons would dim with no way to brighten.
 export const RECALL_FADING = false;
 
-// The "Rough moment" on-device AI CBT session (Apple Foundation Models spike).
-// Gates ONLY the dev spike probe (fm-probe) now — the Reflect session itself
-// ships as part of the Steady-yourself flow, scripted (see REFLECT_AI). ON in
-// dev so the probe is reachable from Metro.
-export const FM_EXPERIMENT = __DEV__ || process.env.EXPO_PUBLIC_FM_EXPERIMENT === '1';
-
-// On-device AI inside the Reflect ("start fresh") session. Gated behind an
-// experiment flag so the store build still ships with NO AI (env unset → every
-// beat runs its scripted line, the flow completes on any device), while a test
-// build can light it up by setting EXPO_PUBLIC_REFLECT_AI=1.
-//
-// `modelTurn` in rough-moment.tsx is the single seam; it calls ReflectModel
-// (src/lib/reflect-model.ts), which prefers on-device Gemma (niyora-gemma /
-// LiteRT-LM — runs on the A16 test phone) and falls back to Apple Foundation
-// Models, then to scripted. Even with this ON, a device where no model is
-// available (model not bundled, MediaPipe not linked) degrades to scripted.
-export const REFLECT_AI = process.env.EXPO_PUBLIC_REFLECT_AI === '1';
-
 // Cloud AI in the Moon flow (moment.tsx), via Firebase AI Logic (src/lib/
 // moment-gemini.ts). Gates the cloud provider behind the MomentProvider port. OFF
 // by default so the store build ships NO AI and every beat runs its deterministic/

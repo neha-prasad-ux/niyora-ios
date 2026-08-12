@@ -145,10 +145,10 @@ export async function scheduleCombackNudge(): Promise<void> {
 // at the readiness checklist (kit + partner heads-up live around it); the
 // in-window and break-over beats point at the in-the-moment steady flow. null
 // means no deep link (the comeback/stress nudges route themselves in _layout).
-export function notificationRoute(id: string): '/pms-readiness' | '/steady-yourself' | null {
+export function notificationRoute(id: string): '/pms-readiness' | '/moment' | null {
   if (id.startsWith('niyora-pms-prep-')) return '/pms-readiness';
-  if (id.startsWith('niyora-pms-day-')) return '/steady-yourself';
-  if (id === BREAK_OVER_ID) return '/steady-yourself';
+  if (id.startsWith('niyora-pms-day-')) return '/moment';
+  if (id === BREAK_OVER_ID) return '/moment';
   return null;
 }
 
