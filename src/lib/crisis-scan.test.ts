@@ -3,7 +3,7 @@
 // about others must never trigger (or she learns the feature can't hold the
 // very thing it exists for).
 
-import { CRISIS_COPY, scanForCrisis, scanForAbuse, DV_RESOURCE } from './crisis-scan';
+import { CRISIS_COPY, scanForCrisis, scanForAbuse, DV_RESOURCE, DV_INTL_URL } from './crisis-scan';
 
 describe('the abuse scan catches physical violence, not idioms', () => {
   it.each([
@@ -32,9 +32,27 @@ describe('the abuse scan catches physical violence, not idioms', () => {
   });
 
   it('DV_RESOURCE is present, quiet, and non-diagnostic (no "you are being abused")', () => {
-    const all = [DV_RESOURCE.intro, DV_RESOURCE.label, DV_RESOURCE.detail].join(' ');
+    const all = [
+      DV_RESOURCE.intro,
+      DV_RESOURCE.label,
+      DV_RESOURCE.detail,
+      DV_RESOURCE.intlLabel,
+      DV_RESOURCE.intlDetail,
+    ].join(' ');
     expect(all).not.toMatch(/!/);
     expect(all.toLowerCase()).not.toMatch(/you are being abused|we (detected|noticed)/);
+  });
+
+  it('DV_RESOURCE labels the US line and offers a non-US fallback (audit M-2)', () => {
+    // The US short-code is labelled US, so a non-US user is not left thinking a
+    // dead text is her only option...
+    expect(DV_RESOURCE.detail).toMatch(/\bUS\b/);
+    expect(DV_RESOURCE.detail).toContain('88788');
+    // ...and a by-country directory sits beside it.
+    expect(`${DV_RESOURCE.intlLabel} ${DV_RESOURCE.intlDetail}`.toLowerCase()).toContain(
+      'findahelpline',
+    );
+    expect(DV_INTL_URL).toBe('https://findahelpline.com');
   });
 });
 

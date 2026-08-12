@@ -120,20 +120,32 @@ export function scanForAbuse(text: string): boolean {
 export const DV_RESOURCE = {
   intro: 'Support lines for this are free, confidential, and used to exactly this.', // [SAFETY]
   label: 'Text a support line', // [SAFETY] Neha 2026-08-02: text, not a call
-  detail: 'Text START to 88788 · National DV Hotline · 24/7', // [SAFETY]
+  detail: 'Text START to 88788 · National DV Hotline · US, 24/7', // [SAFETY] US line, now labelled (audit M-2)
+  // [SAFETY] Non-US fallback (audit M-2). The 88788 short-code is US-only and
+  // does nothing on another carrier, so a by-country directory sits beside it,
+  // mirroring the findahelpline line in CRISIS_COPY.
+  intlLabel: 'Find a line for your country',
+  intlDetail: 'findahelpline.com · free, by country',
 } as const;
 
 // US National Domestic Violence Hotline. DEFAULTS TO TEXT, not a call (Neha
 // 2026-08-02): a call log is a trace an abuser can find on a shared phone, and a
 // text to 88788 is the lower-risk contact. Voice line is 1-800-799-7233 if ever
-// needed. [SAFETY] localise before release; a resource that reaches the wrong
-// place is worse than none.
+// needed. [SAFETY] US-only; the intl directory below covers everyone else.
 export const DV_URL = 'sms:88788&body=START';
+// [SAFETY] International fallback (audit M-2): the by-country directory, for a
+// user the US short-code cannot reach. Same directory as the crisis screen.
+export const DV_INTL_URL = 'https://findahelpline.com';
 
 /** Open the DV support line. Silent on failure — a dead link must not raise a
  *  dialog in front of her. */
 export function openDvLine(): void {
   Linking.openURL(DV_URL).catch(() => {});
+}
+
+/** Open the international by-country directory (audit M-2). Silent on failure. */
+export function openDvIntlLine(): void {
+  Linking.openURL(DV_INTL_URL).catch(() => {});
 }
 
 /** Lowercase, unify apostrophes, collapse punctuation to spaces. */

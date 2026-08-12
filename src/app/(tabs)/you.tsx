@@ -103,7 +103,7 @@ import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
 import { getRewardCount } from '@/store/reward-progress';
 import { getMoments, feelingCounts, type MomentRecord } from '@/store/moment-history';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
-import { CRISIS_COPY } from '@/lib/crisis-scan';
+import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
 import { compareReads, deriveLevel, levelActivation } from '@/v3/v3-content';
 import { waveTint } from '@/v3/v3-graphics';
@@ -115,13 +115,9 @@ function effectiveSoul(
   return isPaired ? freshSoul(macSoulState) : null;
 }
 
-// The three crisis lines' actions, matched to CRISIS_COPY.lines by order:
-// 988 lifeline, the Crisis Text Line, and the by-country directory.
-const CRISIS_URLS = ['tel:988', 'sms:741741', 'https://findahelpline.com'];
-function openCrisisLine(index: number): void {
-  const url = CRISIS_URLS[index];
-  if (url) Linking.openURL(url).catch(() => {});
-}
+// openCrisisLine is imported from crisis-scan.ts (audit M-3): the URLs used to be
+// re-declared here and could silently drift from the canonical list (and missed
+// the HOME body-prefill the canonical Crisis Text Line link now carries).
 
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);

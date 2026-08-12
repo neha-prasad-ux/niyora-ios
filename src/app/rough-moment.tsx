@@ -46,14 +46,10 @@ import { fontScale } from '@/theme/typography';
 import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import { ReflectModel, reflectDebug } from '@/lib/reflect-model';
-import {
-  CRISIS_COPY,
-  openCrisisLine,
-  DV_CRISIS_COPY,
-  openDvCrisisLine,
-  scanForCrisis,
-} from '@/lib/crisis-scan';
-import { classifyCrisis, type CrisisType } from '@/lib/moment-gemini';
+import { scanForCrisis } from '@/lib/crisis-scan';
+import { runAiCrisisGuard } from '@/lib/crisis-guard';
+import { CrisisSheet } from '@/components/CrisisSheet';
+import { type CrisisType } from '@/lib/moment-gemini';
 import { echoBlocked, groundedReflection, isGrounded } from '@/lib/ground-floor';
 import { REFLECT_AI } from '@/config/features';
 import { recordLight } from '@/store/light-ledger';
@@ -140,8 +136,26 @@ export default function RoughMoment() {
   // Set by the AI recall layer (audit H-3) so the crisis sheet can show DV/safety
   // resources for an acute violence disclosure instead of the suicide screen.
   const crisisType = useRef<CrisisType | null>(null);
+  // The AI/abuse guard resolves a beat after the send; guard against a setState
+  // landing after she has already left the screen.
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
 
   const insets = useSafeAreaInsets();
+
+  /** Hand off to the crisis sheet. The flow stops here: the held session is
+   *  dropped (a disclosure must not be resumable) and the chips clear. Called by
+   *  the keyword floor (type null → suicide-shaped sheet) and by the shared AI/
+   *  abuse guard (type set → DV sheet for a violence disclosure). Escalate-only:
+   *  it only ever turns crisis ON. */
+  const handOffToCrisis = useCallback((type: CrisisType | null) => {
+    if (!mounted.current) return;
+    crisisType.current = type;
+    ended.current = true;
+    clearSession();
+    setChips([]);
+    setCrisis(true);
+  }, []);
 
   /** Leaving for good: the ✕ and DONE both mean "this session is over", so the
    *  held snapshot goes with them. Backgrounding is not this — that is the flow
@@ -378,28 +392,20 @@ export default function RoughMoment() {
     // anything: the triggering message must never reach a model call, and a
     // session that turned into a disclosure must not be held anywhere.
     if (scanForCrisis(text)) {
-      ended.current = true;
-      clearSession();
-      setChips([]);
-      setCrisis(true);
+      handOffToCrisis(null);
       return;
     }
 
-    // AI recall (audit H-3): the keyword floor above is the guaranteed net, but it
-    // only catches phrasings on the list. This escalate-only, fire-and-forget check
-    // catches the subtler self-harm / violence the keywords miss. It never blocks
-    // her flow; if it fires it stops the session and shows the resources.
-    classifyCrisis(text)
-      .then((r) => {
-        if (r?.isCrisisMode && r.acuity === 'acute') {
-          crisisType.current = r.crisisType;
-          ended.current = true;
-          clearSession();
-          setChips([]);
-          setCrisis(true);
-        }
-      })
-      .catch(() => {});
+    // The shared AI-recall guard (audit H-3 + shared-guard refactor). The keyword
+    // floor above is the guaranteed net; this catches the subtler self-harm the
+    // keyword list misses (escalate-only, a beat later). NO onAbuse here
+    // (Neha 2026-08-12): a plain physical-abuse mention must NOT pop the DV sheet
+    // and stop the reflect session — that is loud on a shared/monitored phone,
+    // against the disclosure-minimising design. Genuine ACUTE violence still
+    // escalates via the AI crisis net (onEscalate). Never blocks her flow.
+    runAiCrisisGuard(text, {
+      onEscalate: (type) => handOffToCrisis(type),
+    });
 
     compact.current.ventExcerpt = ventExcerpt(text);
     setChips([]);
@@ -503,36 +509,14 @@ export default function RoughMoment() {
                 model — just people she can reach. Her message stays on screen
                 above this, because deleting what she wrote would read as the
                 app recoiling from her. */}
-            {crisis &&
-              (() => {
-                // Type-aware (audit H-1/H-3): an acute violence disclosure shows the
-                // DV/safety resources, not the 988 suicide screen. Keyword-floor hits
-                // leave crisisType null, which is the suicide-shaped default.
-                const isDv =
-                  crisisType.current === 'violence_to_her' ||
-                  crisisType.current === 'child_harmed';
-                const copy = isDv ? DV_CRISIS_COPY : CRISIS_COPY;
-                const openLine = isDv ? openDvCrisisLine : openCrisisLine;
-                return (
-                  <View style={styles.crisisSheet}>
-                    <Text style={styles.crisisTitle}>{copy.title}</Text>
-                    <Text style={styles.crisisBody}>{copy.body}</Text>
-                    {copy.lines.map((line, i) => (
-                      <Pressable
-                        key={line.label}
-                        style={styles.crisisLine}
-                        onPress={() => openLine(i)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${line.label}. ${line.detail}`}
-                      >
-                        <Text style={styles.crisisLineLabel}>{line.label}</Text>
-                        <Text style={styles.crisisLineDetail}>{line.detail}</Text>
-                      </Pressable>
-                    ))}
-                    <Text style={styles.crisisEmergency}>{copy.emergency}</Text>
-                  </View>
-                );
-              })()}
+            {crisis && (
+              // Type-aware, shared CrisisSheet (audit H-1/H-3): an acute violence
+              // disclosure shows the DV/safety resources, the keyword floor
+              // (crisisType null) the 988 suicide screen.
+              <View style={styles.crisisSheet}>
+                <CrisisSheet crisisType={crisisType.current} />
+              </View>
+            )}
           </ScrollView>
 
           {/* She can type it out, or tap one of the core thoughts. Typing runs
@@ -764,6 +748,9 @@ const styles = StyleSheet.create({
   },
   // Crisis panel: same shape as the Soul tab's resource sheet, so the one
   // surface she may have seen before looks the same when it matters most.
+  // Crisis panel container: same shape as the Soul tab's resource sheet, so the
+  // one surface she may have seen before looks the same when it matters most.
+  // The inner rows moved into the shared CrisisSheet component.
   crisisSheet: {
     marginTop: spacing.md,
     borderRadius: radius.card,
@@ -772,42 +759,5 @@ const styles = StyleSheet.create({
     backgroundColor: v3.panel,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
-  },
-  crisisTitle: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.title,
-    color: colors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  crisisBody: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
-    color: colors.textSubtitle,
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  crisisLine: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.control,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.faint,
-    marginBottom: spacing.sm,
-  },
-  crisisLineLabel: { fontFamily: fonts.medium, fontSize: fontScale.bodyLg, color: colors.textPrimary },
-  crisisLineDetail: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    color: colors.textTertiary,
-    marginTop: spacing.xs,
-  },
-  crisisEmergency: {
-    fontFamily: fonts.regular,
-    fontSize: fontScale.caption,
-    lineHeight: 18,
-    color: colors.textTertiary,
-    marginTop: spacing.sm,
   },
 });

@@ -2,7 +2,7 @@
 // -- nothing is stored or sent. She writes anything, hits "Disappear", and it
 // dissolves away, like it never happened.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -26,6 +26,9 @@ import { fonts } from '@/theme/fonts';
 import { fontScale } from '@/theme/typography';
 import { radius, spacing } from '@/theme/spacing';
 import { scanForCrisis, CRISIS_COPY } from '@/lib/crisis-scan';
+import { runAiCrisisGuard } from '@/lib/crisis-guard';
+import { CrisisSheet } from '@/components/CrisisSheet';
+import type { CrisisType } from '@/lib/moment-gemini';
 import type { Activity } from '@/models/activities';
 import { Pill } from '@/components/Pill';
 
@@ -36,6 +39,14 @@ export function WriteView({ activity, onComplete }: Props) {
   const [crisis, setCrisis] = useState(false);
   const fade = useSharedValue(1);
   const insets = useSafeAreaInsets();
+  // Which resources the sheet shows: null (default) is the suicide screen; the
+  // AI/abuse guard sets a DV type for a violence disclosure.
+  const crisisType = useRef<CrisisType | null>(null);
+  // The AI recall resolves a beat after "Disappear"; guard a setState landing
+  // after the field has dissolved and unmounted, and let it cancel the dissolve.
+  const mounted = useRef(true);
+  const handedOff = useRef(false);
+  useEffect(() => () => { mounted.current = false; }, []);
 
   const onDisappear = () => {
     // Drop the keyboard so it slides away with the words, instead of sitting
@@ -48,21 +59,51 @@ export function WriteView({ activity, onComplete }: Props) {
     // data: 82% of crisis instances were surfaced by DETECTION, only 18% by the
     // user saying so.
     //
-    // The scan is a list operation over static phrases (crisis-scan.ts), never
-    // a model call, and the copy it shows is human-written and never generated.
     // The text still never leaves the device and is still never stored; we read
     // it in memory and drop it.
     //
-    // Deliberately does NOT dissolve first: the words stay on screen under the
-    // message, because making them vanish at the moment she is shown a helpline
-    // reads as the app recoiling from what she said.
-    if (scanForCrisis(text)) {
+    // Deliberately does NOT dissolve first when a hand-off fires: the words stay
+    // on screen under the message, because making them vanish at the moment she
+    // is shown a helpline reads as the app recoiling from what she said.
+    const handOff = (type: CrisisType | null) => {
+      if (!mounted.current) return;
+      handedOff.current = true;
+      crisisType.current = type;
+      fade.value = 1; // cancel any in-flight dissolve; the words sit under the sheet
       setCrisis(true);
+    };
+
+    // 1. Keyword floor: deterministic, synchronous, the guaranteed offline net.
+    if (scanForCrisis(text)) {
+      handOff(null);
       return;
     }
-    fade.value = withTiming(0, { duration: 850, easing: Easing.in(Easing.cubic) }, (done) => {
-      if (done) runOnJS(onComplete)();
+
+    // 2. The shared AI-recall guard (audit H-3). Fired BEFORE the fade so a
+    //    subtler self-harm read the keyword list missed can still cancel the
+    //    dissolve and show the resources (escalate-only). NO onAbuse here
+    //    (Neha 2026-08-12): a plain physical-abuse mention must NOT pop the DV
+    //    sheet on this ephemeral field — that is loud on a shared/monitored phone,
+    //    against the disclosure-minimising design. Genuine ACUTE violence still
+    //    escalates via the AI crisis net (onEscalate). If it resolves after the
+    //    words dissolved and the field unmounted, `mounted` makes it a safe no-op.
+    runAiCrisisGuard(text, {
+      onEscalate: (type) => handOff(type),
     });
+
+    // 3. The dissolve runs concurrently with the AI recall. It only dismisses if
+    //    nothing handed off in the meantime (and we are still mounted).
+    fade.value = withTiming(0, { duration: 850, easing: Easing.in(Easing.cubic) }, (done) => {
+      if (done) runOnJS(dismissIfClear)();
+    });
+  };
+
+  // ponytail: on this ephemeral field the model call usually loses the race
+  // against the 850ms fade, so the AI net here is best-effort; the strengthened
+  // keyword floor (crisis-scan.ts) is the real guarantee. Upgrade path: hold the
+  // dismiss behind the guard with a short cap if the AI net needs to be reliable.
+  const dismissIfClear = () => {
+    if (!handedOff.current && mounted.current) onComplete();
   };
   // Magic dissolve: the words lift, swell a touch, and fade into the air.
   const fadeStyle = useAnimatedStyle(() => ({
@@ -97,16 +138,10 @@ export function WriteView({ activity, onComplete }: Props) {
         />
       </Animated.View>
       {crisis ? (
+        // Shared, type-aware sheet: keyword floor + AI suicide read → 988 screen;
+        // an acute violence / abuse disclosure → the DV/safety resources.
         <View style={styles.crisis}>
-          <Text style={styles.crisisTitle}>{CRISIS_COPY.title}</Text>
-          <Text style={styles.crisisBody}>{CRISIS_COPY.body}</Text>
-          {CRISIS_COPY.lines.map((l) => (
-            <View key={l.label} style={styles.crisisRow}>
-              <Text style={styles.crisisLine}>{l.label}</Text>
-              <Text style={styles.crisisDetail}>{l.detail}</Text>
-            </View>
-          ))}
-          <Text style={styles.crisisDetail}>{CRISIS_COPY.emergency}</Text>
+          <CrisisSheet crisisType={crisisType.current} />
         </View>
       ) : null}
       <View style={styles.actions}>
@@ -118,38 +153,13 @@ export function WriteView({ activity, onComplete }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
+  // Container for the shared CrisisSheet (its inner rows carry their own styles).
   crisis: {
     marginHorizontal: spacing.xl,
     marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.control,
     backgroundColor: colors.fill.faint,
-  },
-  crisisTitle: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.emphasis,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  crisisBody: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.body,
-    lineHeight: 21,
-    color: colors.textSubtitle,
-    marginBottom: spacing.sm,
-  },
-  crisisRow: { marginBottom: spacing.sm },
-  crisisLine: {
-    fontFamily: fonts.medium,
-    fontSize: fontScale.body,
-    lineHeight: 21,
-    color: colors.textPrimary,
-  },
-  crisisDetail: {
-    fontFamily: fonts.light,
-    fontSize: fontScale.caption,
-    lineHeight: 18,
-    color: colors.textSubtitle,
   },
   title: {
     fontFamily: fonts.medium,

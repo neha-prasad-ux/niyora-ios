@@ -87,15 +87,9 @@ import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
 import { getIntroSeen, setIntroSeen } from '@/store/intro-seen';
-import {
-  CRISIS_COPY,
-  openCrisisLine,
-  DV_CRISIS_COPY,
-  openDvCrisisLine,
-  scanForAbuse,
-  DV_RESOURCE,
-  openDvLine,
-} from '@/lib/crisis-scan';
+import { CRISIS_COPY, scanForAbuse, DV_RESOURCE, openDvLine, openDvIntlLine } from '@/lib/crisis-scan';
+import { runAiCrisisGuard } from '@/lib/crisis-guard';
+import { CrisisSheet } from '@/components/CrisisSheet';
 import {
   analyse,
   FEELING_SET,
@@ -135,7 +129,7 @@ import {
   type ReflectCardId,
 } from '@/v3/reflect-cards';
 import { optionPlanFor, personalisedLabel } from '@/v3/option-plan';
-import { getMomentProvider, classifyCrisis, lastAiTransport, type CrisisType } from '@/lib/moment-gemini';
+import { getMomentProvider, lastAiTransport, type CrisisType } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
@@ -1031,25 +1025,19 @@ export default function Moment() {
       return;
     }
 
-    // Physical-abuse disclosure: does NOT stop the flow (she keeps the reflect/
-    // regulate help), but from here the respond menu drops every act aimed at the
-    // person and a quiet resource is shown. Runs on her raw text, before any model
-    // call. Latches on: once true in a session it never flips back.
-    if (scanForAbuse(text)) setDvDetected(true);
-
-    // Model crisis layer, behind the keyword floor above. Escalate-only and async
-    // so it never blocks her send: if it catches what the keywords missed, it
-    // pulls her to the crisis screen a beat later. classifyCrisis is a no-op when
-    // AI is off, and only an ACUTE read stops the flow (a historical disclosure
-    // continues). Recall-first: on any doubt the model returns crisis.
-    classifyCrisis(text)
-      .then((r) => {
-        if (r?.isCrisisMode && r.acuity === 'acute') {
-          crisisType.current = r.crisisType;
-          setCrisis(true);
-        }
-      })
-      .catch(() => {});
+    // The AI-recall + abuse half of the guard (shared crisis-guard.ts, used by
+    // every free-text surface so coverage can't drift). Abuse does NOT stop the
+    // flow here: she keeps the reflect/regulate help, but the respond menu drops
+    // every act aimed at the person and a quiet resource is shown (latches on).
+    // The model crisis layer is escalate-only and async, so it never blocks her
+    // send; only an ACUTE read pulls her to the crisis screen a beat later.
+    runAiCrisisGuard(text, {
+      onAbuse: () => setDvDetected(true),
+      onEscalate: (type) => {
+        crisisType.current = type;
+        setCrisis(true);
+      },
+    });
 
     // Her latest event text, kept for the feeling suggestions and the echo
     // correction prefill.
@@ -1530,15 +1518,13 @@ export default function Moment() {
       setCrisis(true);
       return;
     }
-    if (scanForAbuse(msg)) setDvDetected(true);
-    classifyCrisis(msg)
-      .then((r) => {
-        if (r?.isCrisisMode && r.acuity === 'acute') {
-          crisisType.current = r.crisisType;
-          setCrisis(true);
-        }
-      })
-      .catch(() => {});
+    runAiCrisisGuard(msg, {
+      onAbuse: () => setDvDetected(true),
+      onEscalate: (type) => {
+        crisisType.current = type;
+        setCrisis(true);
+      },
+    });
     setDraft('');
     const nextLog: ChatTurn[] = [...chatLog, { role: 'you' as const, text: msg }];
     setChatLog(nextLog);
@@ -2217,6 +2203,15 @@ export default function Moment() {
                   setCrisis(true);
                   return;
                 }
+                // Same crisis guard as every other entry point (audit M-1): this
+                // re-entry field used to run only the keyword floor.
+                runAiCrisisGuard(t, {
+                  onAbuse: () => setDvDetected(true),
+                  onEscalate: (type) => {
+                    crisisType.current = type;
+                    setCrisis(true);
+                  },
+                });
                 herText.current = t;
                 setVerdict(v);
                 setDraft('');
@@ -2793,15 +2788,13 @@ export default function Moment() {
             setCrisis(true);
             return;
           }
-          if (scanForAbuse(text)) setDvDetected(true);
-          classifyCrisis(text)
-            .then((r) => {
-              if (r?.isCrisisMode && r.acuity === 'acute') {
-                crisisType.current = r.crisisType;
-                setCrisis(true);
-              }
-            })
-            .catch(() => {});
+          runAiCrisisGuard(text, {
+            onAbuse: () => setDvDetected(true),
+            onEscalate: (type) => {
+              crisisType.current = type;
+              setCrisis(true);
+            },
+          });
           setDraft('');
           Keyboard.dismiss(); // drop the keyboard so the new reads + chips show
           // Adding context PIVOTS the reflection: clear the stale reads and
@@ -2836,15 +2829,13 @@ export default function Moment() {
             setCrisis(true);
             return;
           }
-          if (scanForAbuse(text)) setDvDetected(true);
-          classifyCrisis(text)
-            .then((r) => {
-              if (r?.isCrisisMode && r.acuity === 'acute') {
-                crisisType.current = r.crisisType;
-                setCrisis(true);
-              }
-            })
-            .catch(() => {});
+          runAiCrisisGuard(text, {
+            onAbuse: () => setDvDetected(true),
+            onEscalate: (type) => {
+              crisisType.current = type;
+              setCrisis(true);
+            },
+          });
           setDraft('');
           Keyboard.dismiss(); // drop the keyboard so the new line + chips show
           reflectSteer.current = text;
@@ -3071,6 +3062,17 @@ export default function Moment() {
                     onPress={() => {
                       tap();
                       openDvLine();
+                    }}
+                  />
+                  {/* The US line, now labelled US, and a by-country directory for
+                      everyone the short-code can't reach (audit M-2). */}
+                  <Text style={styles.holdNudgeText}>{DV_RESOURCE.detail}</Text>
+                  <OptionRow
+                    label={DV_RESOURCE.intlLabel}
+                    tint={selTint}
+                    onPress={() => {
+                      tap();
+                      openDvIntlLine();
                     }}
                   />
                 </View>
@@ -3620,38 +3622,18 @@ export default function Moment() {
   }
 
   function Crisis() {
-    // Type-aware (audit H-1): an acute violence / child-harm escalation must show
-    // the DV/safety resources, not the 988 suicide screen. Everything else (and
-    // the default) keeps the suicide-oriented copy. crisisType is set at every
-    // escalation point; it is null for the keyword floor, which is suicide-shaped.
-    const isDv =
-      crisisType.current === 'violence_to_her' || crisisType.current === 'child_harmed';
-    const copy = isDv ? DV_CRISIS_COPY : CRISIS_COPY;
-    const openLine = isDv ? openDvCrisisLine : openCrisisLine;
+    // Type-aware sheet, now the shared CrisisSheet (audit H-1 + the shared-
+    // component refactor): an acute violence / child-harm escalation shows the
+    // DV/safety resources, the keyword floor (crisisType null) the 988 suicide
+    // screen. The branch lives in one place so it can't drift per screen.
     return {
-      body: (
-        <>
-          <Text style={styles.ask}>{copy.title}</Text>
-          <Text style={styles.crisisBody}>{copy.body}</Text>
-          {copy.lines.map((line, i) => (
-            <Pressable
-              key={line.label}
-              style={styles.crisisLine}
-              onPress={() => openLine(i)}
-              accessibilityRole="button"
-              accessibilityLabel={`${line.label}. ${line.detail}`}
-            >
-              <Text style={styles.crisisLineLabel}>{line.label}</Text>
-              <Text style={styles.crisisLineDetail}>{line.detail}</Text>
-            </Pressable>
-          ))}
-          <Text style={styles.crisisEmergency}>{copy.emergency}</Text>
-        </>
-      ),
+      body: <CrisisSheet crisisType={crisisType.current} />,
       // "No am good, let me rephrase" returns her to her own words (setCrisis
       // false) instead of exiting the moment — her draft is intact, so she can
-      // edit and resend (Neha 2026-08-02). Resources stay one send away.
-      cta: <BeginButton fullWidth label={copy.back} onPress={() => setCrisis(false)} />,
+      // edit and resend (Neha 2026-08-02). Resources stay one send away. This is
+      // the ONLY setCrisis(false): the AI/keyword layer may only turn crisis ON.
+      // The back label is identical across both copies, so CRISIS_COPY.back fits.
+      cta: <BeginButton fullWidth label={CRISIS_COPY.back} onPress={() => setCrisis(false)} />,
     };
   }
 }
@@ -4538,30 +4520,6 @@ const styles = StyleSheet.create({
     ...moon.bodyStrong,
     color: colors.textPrimary,
   },
-
-  crisisBody: {
-    ...moon.body,
-    color: colors.textSubtitle,
-  },
-  crisisLine: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.control,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border.base,
-    backgroundColor: colors.fill.faint,
-  },
-  crisisLineLabel: {
-    ...moon.bodyStrong,
-    color: colors.textPrimary,
-  },
-  crisisLineDetail: {
-    ...moon.caption,
-    color: colors.textTertiary,
-    marginTop: spacing.xs,
-  },
-  crisisEmergency: {
-    ...moon.caption,
-    color: colors.textTertiary,
-  },
+  // The crisis-sheet styles (crisisBody/crisisLine/...) moved into the shared
+  // CrisisSheet component; the beat just renders <CrisisSheet /> now.
 });
