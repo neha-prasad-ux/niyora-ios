@@ -87,7 +87,15 @@ import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
 import { getIntroSeen, setIntroSeen } from '@/store/intro-seen';
-import { CRISIS_COPY, openCrisisLine, scanForAbuse, DV_RESOURCE, openDvLine } from '@/lib/crisis-scan';
+import {
+  CRISIS_COPY,
+  openCrisisLine,
+  DV_CRISIS_COPY,
+  openDvCrisisLine,
+  scanForAbuse,
+  DV_RESOURCE,
+  openDvLine,
+} from '@/lib/crisis-scan';
 import {
   analyse,
   FEELING_SET,
@@ -3612,16 +3620,24 @@ export default function Moment() {
   }
 
   function Crisis() {
+    // Type-aware (audit H-1): an acute violence / child-harm escalation must show
+    // the DV/safety resources, not the 988 suicide screen. Everything else (and
+    // the default) keeps the suicide-oriented copy. crisisType is set at every
+    // escalation point; it is null for the keyword floor, which is suicide-shaped.
+    const isDv =
+      crisisType.current === 'violence_to_her' || crisisType.current === 'child_harmed';
+    const copy = isDv ? DV_CRISIS_COPY : CRISIS_COPY;
+    const openLine = isDv ? openDvCrisisLine : openCrisisLine;
     return {
       body: (
         <>
-          <Text style={styles.ask}>{CRISIS_COPY.title}</Text>
-          <Text style={styles.crisisBody}>{CRISIS_COPY.body}</Text>
-          {CRISIS_COPY.lines.map((line, i) => (
+          <Text style={styles.ask}>{copy.title}</Text>
+          <Text style={styles.crisisBody}>{copy.body}</Text>
+          {copy.lines.map((line, i) => (
             <Pressable
               key={line.label}
               style={styles.crisisLine}
-              onPress={() => openCrisisLine(i)}
+              onPress={() => openLine(i)}
               accessibilityRole="button"
               accessibilityLabel={`${line.label}. ${line.detail}`}
             >
@@ -3629,13 +3645,13 @@ export default function Moment() {
               <Text style={styles.crisisLineDetail}>{line.detail}</Text>
             </Pressable>
           ))}
-          <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
+          <Text style={styles.crisisEmergency}>{copy.emergency}</Text>
         </>
       ),
       // "No am good, let me rephrase" returns her to her own words (setCrisis
       // false) instead of exiting the moment — her draft is intact, so she can
       // edit and resend (Neha 2026-08-02). Resources stay one send away.
-      cta: <BeginButton fullWidth label={CRISIS_COPY.back} onPress={() => setCrisis(false)} />,
+      cta: <BeginButton fullWidth label={copy.back} onPress={() => setCrisis(false)} />,
     };
   }
 }

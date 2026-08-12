@@ -52,6 +52,14 @@ describe('scanForCrisis · must trigger', () => {
     'I might just end it all tonight',
     'kms',
     'honestly?? I WANT TO DIE.',
+    // audit C-1: concrete self-harm methods the floor used to miss
+    'I keep thinking about how to hang myself',
+    'maybe I should just overdose',
+    'I want to take all my pills tonight',
+    'I could just jump in front of a train',
+    'sometimes I want to shoot myself',
+    'I think about slitting my wrists',
+    'I dont want to wake up tomorrow',
   ])('%s', (text) => {
     expect(scanForCrisis(text)).toBe(true);
   });
@@ -77,6 +85,12 @@ describe('scanForCrisis · must NOT trigger (venting hyperbole, common in this d
     'he said he wants to die on that hill, fine',
     'I want to end this argument',
     'the fight hurt me so much',
+    // C-1 deliberately did NOT add "kill me" / "want it to be over": they collide
+    // with everyday venting. These must stay quiet or the crisis screen cries wolf.
+    'this traffic is going to kill me',
+    'kill me, another Monday already',
+    'I just want this meeting to be over',
+    'I want this day to be over',
     '',
     'ugh',
   ])('%s', (text) => {

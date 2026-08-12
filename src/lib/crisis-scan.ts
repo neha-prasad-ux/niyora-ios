@@ -45,6 +45,30 @@ const CRISIS_PHRASES = [
   'cutting myself',
   'end it all',
   'kms',
+  // Added 2026-08-12 (crisis audit C-1): concrete self-harm methods the floor
+  // missed. Offline / on any AI failure this list is the ONLY net, so these must
+  // be here, not left to the model. All self-directed, so over-trigger risk is
+  // low. Deliberately NOT adding the audit's "kill me" / "want it to be over":
+  // those collide with everyday venting ("this traffic will kill me", "want this
+  // day to be over"), and firing the crisis screen on hyperbole is the one thing
+  // this file's design forbids (see the venting note above).
+  'hang myself',
+  'hanging myself',
+  'overdose',
+  'over dose',
+  'od on',
+  'take all my pills',
+  'all these pills',
+  'jump off',
+  'jump in front',
+  'shoot myself',
+  'slit my wrists',
+  'slit my wrist',
+  'slitting my wrists',
+  'slitting my wrist',
+  'dont want to wake up',
+  'don’t want to wake up',
+  'do not want to wake up',
 ] as const;
 
 // --- physical-abuse disclosure -------------------------------------------
@@ -104,7 +128,7 @@ export const DV_RESOURCE = {
 // text to 88788 is the lower-risk contact. Voice line is 1-800-799-7233 if ever
 // needed. [SAFETY] localise before release; a resource that reaches the wrong
 // place is worse than none.
-export const DV_URL = 'sms:88788';
+export const DV_URL = 'sms:88788&body=START';
 
 /** Open the DV support line. Silent on failure — a dead link must not raise a
  *  dialog in front of her. */
@@ -149,11 +173,42 @@ export const CRISIS_COPY = {
 // lifeline, the Crisis Text Line, and the by-country directory. Kept next to
 // the copy so a line and its number can never drift apart — a resource row
 // that dials the wrong place is worse than no row.
-export const CRISIS_URLS = ['tel:988', 'sms:741741', 'https://findahelpline.com'] as const;
+// Crisis Text Line only engages when the first message is the keyword HOME; the
+// body= prefill fills it so a distressed user does not have to (audit M-4). If an
+// iOS build ignores body= the composer still opens to the right number, so this
+// only ever helps.
+export const CRISIS_URLS = ['tel:988', 'sms:741741&body=HOME', 'https://findahelpline.com'] as const;
 
 /** Open a crisis line by its index in CRISIS_COPY.lines. Silent on failure:
  *  a dead link must not put an error dialog in front of her. */
 export function openCrisisLine(index: number): void {
   const url = CRISIS_URLS[index];
+  if (url) Linking.openURL(url).catch(() => {});
+}
+
+// [SAFETY] Shown INSTEAD of CRISIS_COPY when the AI escalates an acute
+// violence/child-harm disclosure (crisisType violence_to_her / child_harmed).
+// The 988 suicide screen is the wrong response to "he is hurting me" — she needs
+// the DV line and a safety framing (audit H-1). Framed around safety, not a
+// finding about her. Text-first for the DV line: a call log is a trace an abuser
+// can find on a shared phone (same reasoning as DV_URL). Numbers verified US and
+// kept here beside the copy so they can never drift.
+export const DV_CRISIS_COPY = {
+  title: 'Your safety comes first right now',
+  body: 'What you wrote sounds frightening, and no app should hold it alone. People trained for exactly this can help, free and confidential.',
+  lines: [
+    { label: 'Text START to 88788', detail: 'National DV Hotline · US, 24/7' },
+    { label: 'Call 1-800-422-4453', detail: 'Childhelp abuse hotline · US, 24/7' },
+    { label: 'findahelpline.com', detail: 'Free support lines, by country' },
+  ],
+  emergency: 'If you or a child is in immediate danger, call 911 or your local emergency number.',
+  back: 'No am good, let me rephrase',
+} as const;
+
+export const DV_CRISIS_URLS = ['sms:88788&body=START', 'tel:1-800-422-4453', 'https://findahelpline.com'] as const;
+
+/** Open a DV/safety line by its index in DV_CRISIS_COPY.lines. Silent on failure. */
+export function openDvCrisisLine(index: number): void {
+  const url = DV_CRISIS_URLS[index];
   if (url) Linking.openURL(url).catch(() => {});
 }

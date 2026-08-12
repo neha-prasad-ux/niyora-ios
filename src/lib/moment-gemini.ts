@@ -335,13 +335,15 @@ async function callGemini(
     }
   };
 
-  // Up to two attempts. A concurrent burst of beat calls (has_event + crisis +
+  // Up to three attempts. A concurrent burst of beat calls (has_event + crisis +
   // reflect prefetch fire together, feelings a beat later) makes the model throw
   // transient 429s / timeouts — on device feelings and reflect_friend fail often
-  // while their neighbours succeed. A single retry, after a short JITTERED pause
-  // so it lands outside the burst window, recovers most of them. Offline never
-  // retries. ponytail: fixed 2-attempt cap; per-slot backoff only if it still falls short.
-  for (let i = 0; i < 2; i++) {
+  // while their neighbours succeed, which reads as "AI stops in between". Each
+  // retry waits a short JITTERED pause so it lands outside the burst window; the
+  // second retry recovers the tail the first misses. Offline never retries.
+  // ponytail: fixed 3-attempt cap; per-slot backoff only if it still falls short.
+  const ATTEMPTS = 3;
+  for (let i = 0; i < ATTEMPTS; i++) {
     const r = await attempt();
     if (r.ok) {
       set('ok');
@@ -351,7 +353,7 @@ async function callGemini(
       set('offline');
       return null;
     }
-    if (i === 0) {
+    if (i < ATTEMPTS - 1) {
       await new Promise((res) => setTimeout(res, 350 + Math.floor(Math.random() * 350)));
       continue;
     }
@@ -428,6 +430,14 @@ export async function classifyCrisis(herText: string): Promise<CrisisRead | null
     if (__DEV__) console.log(`[moon-ai] crisis · ${j.crisisType} · ${j.acuity} · block=${j.isCrisisMode}`);
     return j as CrisisRead;
   } catch {
+    // Recall-first (audit H-2c): if the reply was unparseable but the model still
+    // signalled a block in the raw text, honour that rather than dropping to null.
+    // The classifier's own instruction is "when unsure, treat it as a crisis", so a
+    // malformed-but-alarming reply should escalate, not silently pass. Acute so the
+    // flow actually stops; type unknown -> the suicide-shaped screen (the safe default).
+    if (/["']?isCrisisMode["']?\s*:\s*true/i.test(out)) {
+      return { crisisType: 'none', acuity: 'acute', isCrisisMode: true, crisisScore: 100 };
+    }
     return null;
   }
 }

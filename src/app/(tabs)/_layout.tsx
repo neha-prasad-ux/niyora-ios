@@ -30,7 +30,13 @@ export default function TabsLayout() {
         // the selection pill gliding along the bar. (The bottom-tab navigator
         // fades at its own fixed speed · only full-screen stack pushes take a
         // tunable duration, the calm fade in the root _layout.)
-        screenOptions={{ headerShown: false, animation: 'fade' }}
+        //
+        // lazy:false is REQUIRED with animation:'fade'. Lazy tabs don't render
+        // until first focus, and the fade reveals the screen a frame before it
+        // paints, so Soul/Grow flashed blank on first visit (fine after, once
+        // mounted). Rendering all three eagerly means the fade dissolves into
+        // real content. Cheap for a 3-tab app.
+        screenOptions={{ headerShown: false, animation: 'fade', lazy: false }}
       >
         <Tabs.Screen
           name="now"
