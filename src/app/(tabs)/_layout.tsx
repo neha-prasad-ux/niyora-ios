@@ -26,17 +26,19 @@ export default function TabsLayout() {
       <Tabs
         initialRouteName="now"
         tabBar={(props) => <NightTabBar {...props} />}
+        // detachInactiveScreens={false} fixes the blank Grow/Soul bug. With the
+        // `animation: 'fade'` cross-fade AND the default screen detachment, a
+        // re-shown tab scene races the fade and comes back at opacity 0 — an
+        // invisible screen (you see the light container behind it) that only
+        // "appears" after switching tabs a few times. Keeping inactive scenes
+        // attached removes the race, so the cross-fade stays and the screens
+        // render. This is the documented react-navigation workaround:
+        // github.com/react-navigation/react-navigation/issues/12755 (+ #12721).
+        // Cheap: only 3 tabs stay mounted.
+        detachInactiveScreens={false}
         // Screens cross-fade so a tab switch is one soft dissolve, matched by
-        // the selection pill gliding along the bar. (The bottom-tab navigator
-        // fades at its own fixed speed · only full-screen stack pushes take a
-        // tunable duration, the calm fade in the root _layout.)
-        //
-        // lazy:false is REQUIRED with animation:'fade'. Lazy tabs don't render
-        // until first focus, and the fade reveals the screen a frame before it
-        // paints, so Soul/Grow flashed blank on first visit (fine after, once
-        // mounted). Rendering all three eagerly means the fade dissolves into
-        // real content. Cheap for a 3-tab app.
-        screenOptions={{ headerShown: false, animation: 'fade', lazy: false }}
+        // the selection pill gliding along the bar.
+        screenOptions={{ headerShown: false, animation: 'fade' }}
       >
         <Tabs.Screen
           name="now"
