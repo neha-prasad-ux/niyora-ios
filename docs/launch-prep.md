@@ -1,5 +1,7 @@
 # Niyora launch prep — handoff (2026-08-11)
 
+> **➡️ START HERE:** `docs/handover-2026-08-12.md` is the current state (gate #1 done + live on TestFlight 33, crisis pass done, Moon reflection redesign in-flight, consent screen to build). This file below is the older gate-by-gate reference.
+
 Pick-up doc for a fresh session focused on getting Niyora from "internal testing" to "public App Store launch." Everything from the 2026-08-10/11 marathon is committed on `build/testflight-1.0.0-b20` (commit `da29ddd`): reflect redesign, on-device moment memory (store + My Soul + thread pickup + pattern card + AES-Keychain encryption), PMS auto-banner (no tone change), PII self-intro-name scrub, keyboard/mic/scratch fixes, EAS config. tsc clean, 759 tests pass.
 
 ## Where things stand
