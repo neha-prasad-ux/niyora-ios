@@ -46,7 +46,14 @@ import { fontScale } from '@/theme/typography';
 import { spacing, radius, pageGutter } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import { ReflectModel, reflectDebug } from '@/lib/reflect-model';
-import { CRISIS_COPY, openCrisisLine, scanForCrisis } from '@/lib/crisis-scan';
+import {
+  CRISIS_COPY,
+  openCrisisLine,
+  DV_CRISIS_COPY,
+  openDvCrisisLine,
+  scanForCrisis,
+} from '@/lib/crisis-scan';
+import { classifyCrisis, type CrisisType } from '@/lib/moment-gemini';
 import { echoBlocked, groundedReflection, isGrounded } from '@/lib/ground-floor';
 import { REFLECT_AI } from '@/config/features';
 import { recordLight } from '@/store/light-ledger';
@@ -130,6 +137,9 @@ export default function RoughMoment() {
   // Guards the save effect, which would otherwise re-hold her on the next
   // render after we have just cleared her.
   const ended = useRef(false);
+  // Set by the AI recall layer (audit H-3) so the crisis sheet can show DV/safety
+  // resources for an acute violence disclosure instead of the suicide screen.
+  const crisisType = useRef<CrisisType | null>(null);
 
   const insets = useSafeAreaInsets();
 
@@ -375,6 +385,22 @@ export default function RoughMoment() {
       return;
     }
 
+    // AI recall (audit H-3): the keyword floor above is the guaranteed net, but it
+    // only catches phrasings on the list. This escalate-only, fire-and-forget check
+    // catches the subtler self-harm / violence the keywords miss. It never blocks
+    // her flow; if it fires it stops the session and shows the resources.
+    classifyCrisis(text)
+      .then((r) => {
+        if (r?.isCrisisMode && r.acuity === 'acute') {
+          crisisType.current = r.crisisType;
+          ended.current = true;
+          clearSession();
+          setChips([]);
+          setCrisis(true);
+        }
+      })
+      .catch(() => {});
+
     compact.current.ventExcerpt = ventExcerpt(text);
     setChips([]);
     setBusy(true);
@@ -477,25 +503,36 @@ export default function RoughMoment() {
                 model — just people she can reach. Her message stays on screen
                 above this, because deleting what she wrote would read as the
                 app recoiling from her. */}
-            {crisis && (
-              <View style={styles.crisisSheet}>
-                <Text style={styles.crisisTitle}>{CRISIS_COPY.title}</Text>
-                <Text style={styles.crisisBody}>{CRISIS_COPY.body}</Text>
-                {CRISIS_COPY.lines.map((line, i) => (
-                  <Pressable
-                    key={line.label}
-                    style={styles.crisisLine}
-                    onPress={() => openCrisisLine(i)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${line.label}. ${line.detail}`}
-                  >
-                    <Text style={styles.crisisLineLabel}>{line.label}</Text>
-                    <Text style={styles.crisisLineDetail}>{line.detail}</Text>
-                  </Pressable>
-                ))}
-                <Text style={styles.crisisEmergency}>{CRISIS_COPY.emergency}</Text>
-              </View>
-            )}
+            {crisis &&
+              (() => {
+                // Type-aware (audit H-1/H-3): an acute violence disclosure shows the
+                // DV/safety resources, not the 988 suicide screen. Keyword-floor hits
+                // leave crisisType null, which is the suicide-shaped default.
+                const isDv =
+                  crisisType.current === 'violence_to_her' ||
+                  crisisType.current === 'child_harmed';
+                const copy = isDv ? DV_CRISIS_COPY : CRISIS_COPY;
+                const openLine = isDv ? openDvCrisisLine : openCrisisLine;
+                return (
+                  <View style={styles.crisisSheet}>
+                    <Text style={styles.crisisTitle}>{copy.title}</Text>
+                    <Text style={styles.crisisBody}>{copy.body}</Text>
+                    {copy.lines.map((line, i) => (
+                      <Pressable
+                        key={line.label}
+                        style={styles.crisisLine}
+                        onPress={() => openLine(i)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${line.label}. ${line.detail}`}
+                      >
+                        <Text style={styles.crisisLineLabel}>{line.label}</Text>
+                        <Text style={styles.crisisLineDetail}>{line.detail}</Text>
+                      </Pressable>
+                    ))}
+                    <Text style={styles.crisisEmergency}>{copy.emergency}</Text>
+                  </View>
+                );
+              })()}
           </ScrollView>
 
           {/* She can type it out, or tap one of the core thoughts. Typing runs

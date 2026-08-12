@@ -1,5 +1,21 @@
 # Crisis & DV safety audit — Niyora iOS
 
+> ## Resolution status (2026-08-12)
+> **Both NO-GO blockers fixed + verified (770 tests pass):**
+> - **C-1 ✓** — self-harm phrases added to the offline floor (`crisis-scan.ts`), +11 tests. Deliberately did NOT add `kill me` / `want it to be over` (collide with everyday venting); locked as must-NOT-trigger.
+> - **H-1 ✓** — `Crisis()` in `moment.tsx` is type-aware; acute violence shows `DV_CRISIS_COPY` (88788 / Childhelp / findahelpline / 911), not 988.
+> - **H-2c ✓** — `classifyCrisis` escalates on a malformed reply that still says `isCrisisMode:true`.
+> - **H-3 (partial) ✓** — `rough-moment.tsx` now runs AI recall (`classifyCrisis`, escalate-only) + type-aware crisis sheet.
+> - **M-4 ✓** — `sms:...&body=HOME` / `&body=START` prefill.
+>
+> **Still open (next pass, before "safe to ship"):**
+> - **H-3 remainder** — `WriteView.tsx` still keyword-floor only (C-1 strengthened it). Its AI recall belongs in the shared-guard refactor below, not a rushed async insert into the dissolve path.
+> - **H-2b** — production telemetry on the recall layer. Conflicts with the no-analytics privacy stance; needs a privacy-safe signal, deliberately deferred for a decision.
+> - **M-1** (echo re-entry guard), **M-2** (non-US DV fallback — before non-US launch), **M-3** (dedupe `you.tsx` crisis URLs).
+> - **Recommended:** the shared send-guard + shared crisis component the audit describes, to end the 3-way duplication (moment / rough-moment / WriteView).
+
+
+
 Date: 2026-08-12 · Scope: end-to-end crisis and domestic-violence handling for the US App Store build.
 Method: traced the deterministic keyword floor, the Vertex/Gemini AI classifier, every free-text entry
 point, and all three crisis/DV surfaces. Read-only audit, no app code changed.
