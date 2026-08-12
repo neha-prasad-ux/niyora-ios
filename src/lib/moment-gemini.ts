@@ -26,7 +26,11 @@ import { NO_PROVIDER, type MomentProvider } from '@/v3/moment-ai';
 import { scrub } from './pii';
 
 const LOCATION = 'us-central1';
-const MODEL = 'gemini-3.6-flash';
+// Verified against this project's Vertex backend (firebasevertexai) with the exact
+// generationConfig below: 'gemini-3.6-flash' 404s (not a real Vertex model),
+// 'gemini-2.5-flash' returns 200. If you bump this, re-verify the model exists in
+// LOCATION or every call silently falls back to authored copy.
+const MODEL = 'gemini-2.5-flash';
 
 // One AI handle for the app, created lazily on first use. Firebase must be
 // configured (a GoogleService-Info.plist in the build) or getApp() throws; we
@@ -319,6 +323,12 @@ async function callGemini(
       return { ok: false, offline: false };
     } catch (e) {
       // A timeout (AbortError) is "not responding", not offline.
+      // TEMP diagnostic (remove before ship): the real reason a call fails is
+      // otherwise discarded here and the flow just falls back to authored copy,
+      // which reads as "AI not working" with no clue why. Surface it in dev so we
+      // can see e.g. "AI Logic API disabled", "PERMISSION_DENIED", "model not
+      // found", or an App Check rejection.
+      if (__DEV__) console.log('[moon-ai] call error:', String((e as Error)?.message ?? e));
       return { ok: false, offline: isOfflineError(e) };
     } finally {
       clearTimeout(timer);
