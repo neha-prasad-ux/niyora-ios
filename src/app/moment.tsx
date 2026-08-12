@@ -19,7 +19,7 @@
 // Driven by the node table in v3/moment-flow. This screen renders whatever the
 // current node is and asks the table where to go next. It holds no arc.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import {
   InputAccessoryView,
   Keyboard,
@@ -129,6 +129,12 @@ import {
   type ReflectCardId,
 } from '@/v3/reflect-cards';
 import { optionPlanFor, personalisedLabel } from '@/v3/option-plan';
+import {
+  reactionAt,
+  reactionKey,
+  type PointReactions,
+  type Reaction,
+} from '@/v3/reflect-feedback';
 import { getMomentProvider, lastAiTransport, type CrisisType } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
@@ -359,6 +365,12 @@ export default function Moment() {
    *  `reflectRetry` to refetch. */
   const [cardFailed, setCardFailed] = useState(false);
   const [reflectRetry, setReflectRetry] = useState(0);
+  /** Per-read reactions across the reflect flow (2026-08-12): heart = resonates,
+   *  cross = not this, absent = neutral. Keyed by (scope + index) with the read's
+   *  text stored in the value; see reflect-feedback.ts. Lives here beside
+   *  cardContent so it survives card re-renders. A human reads it via
+   *  collectReactions() later — nothing here feeds a prompt yet. */
+  const [reactions, setReactions] = useState<PointReactions>({});
   /** Keyboard is up (a field is focused). While typing, the primary action(s) hide
    *  so a tap meant for send never lands on "Respond"/a chip sitting just above the
    *  field (Neha 2026-08-11). */
@@ -814,6 +826,50 @@ export default function Moment() {
       })
       .catch(() => {})
       .finally(() => setMoreLoading(false));
+  };
+
+  /** Record a per-read reaction. Heart/cross toggle: tapping the lit one again
+   *  clears back to neutral. The read's text is stored so it stays queryable even
+   *  after the list re-rolls. Returns true when this tap NEWLY rejects a read (so
+   *  the caller can trigger the re-roll); like/neutral return false. */
+  const recordReaction = (
+    scope: string,
+    index: number,
+    text: string,
+    next: Reaction,
+  ): boolean => {
+    tap();
+    const key = reactionKey(scope, index);
+    const cur = reactions[key]?.reaction;
+    setReactions((m) => {
+      const n = { ...m };
+      if (cur === next) delete n[key]; // toggle off -> neutral
+      else n[key] = { text, reaction: next };
+      return n;
+    });
+    return next === 'reject' && cur !== 'reject';
+  };
+
+  /** Cross on the current reflect card: swap the rejected read for a fresh one via
+   *  the EXISTING re-roll path — no new network call. Guess cards append a fresh
+   *  read (moreReads); a draft's single line is refetched through the reflectRetry
+   *  path (its generation scope bumps, so the crossed line's reaction is preserved,
+   *  not inherited by the new line). The crossed read stays marked in `reactions`
+   *  so it is still queryable. */
+  const rerollRejectedRead = () => {
+    if (!reflectCards) return;
+    const id = reflectCards[reflectIdx];
+    const card = REFLECT_CARDS[id];
+    if (card.mode === 'draft') {
+      setCardContent((c) => {
+        const n = { ...c };
+        delete n[id];
+        return n;
+      });
+      setReflectRetry((k) => k + 1);
+    } else {
+      moreReads(); // guess: append a genuinely-different read (already-offered aware)
+    }
   };
 
   /** Arm the echo beat: fresh, unconfirmed, and "typing". Called whenever she
@@ -2554,7 +2610,7 @@ export default function Moment() {
             body: (
               <>
                 {chatLog.length === 0 ? head('What else is on your mind about this?') : null}
-                <ChatTurns log={chatLog} />
+                <ChatTurns log={chatLog} react={{ reactions, onReact: recordReaction }} />
                 {chatBusy ? (
                   <View style={[styles.chatMoon, styles.chatThinking]}>
                     <ThinkingDots />
@@ -2668,7 +2724,7 @@ export default function Moment() {
                         <Text style={styles.factTakeaway}>{factAdvise.help}</Text>
                       ) : null}
                       {/* The bounded reflective chat: her turns right, Moon's left. */}
-                      <ChatTurns log={chatLog} />
+                      <ChatTurns log={chatLog} react={{ reactions, onReact: recordReaction }} />
                       {chatBusy ? (
                         <View style={[styles.chatMoon, styles.chatThinking]}>
                           <ThinkingDots />
@@ -2763,6 +2819,19 @@ export default function Moment() {
         // The pullable cycle note: only after reflection has something on screen,
         // only when her cycle data holds, never on crisis, never auto-shown.
         const showPms = pmsActive.current && !crisis && !loading;
+
+        // Per-read reactions for this card (2026-08-12). Scope folds in reflectRetry
+        // so a fully-replaced set (draft re-roll / retry) starts a fresh generation
+        // and never inherits a crossed read's reaction at the same index. Cross
+        // re-rolls via the existing path; heart/neutral just record.
+        const readScope = `${id}:${reflectRetry}`;
+        const reflectReact: ReadReactProps = {
+          scope: readScope,
+          reactions,
+          onReact: (index, text, next) => {
+            if (recordReaction(readScope, index, text, next)) rerollRejectedRead();
+          },
+        };
 
         // The card's "second" button behaviour, by contract. A guess card's "no"
         // opens the steer panel (show-others / add-context) instead of jumping
@@ -2864,6 +2933,7 @@ export default function Moment() {
                 <ReadPoints
                   items={content.options?.length ? content.options : SETS.smallReframes}
                   loading={moreLoading}
+                  react={reflectReact}
                 />
               ) : card.mode === 'question' ? (
                 // Her own words, quieter than the question so the question leads
@@ -2871,7 +2941,7 @@ export default function Moment() {
                 <Text style={styles.reflectQuote}>{herClause}</Text>
               ) : (
                 // Draft: the AI's reading as a single point, same voice as the reads.
-                <ReadPoints items={[content.line ?? SETS.smallReframes[0]]} />
+                <ReadPoints items={[content.line ?? SETS.smallReframes[0]]} react={reflectReact} />
               )}
 
               {/* Second lens (Neha 2026-08-10): when her added context surfaced a
@@ -3725,10 +3795,109 @@ const BRANCH_LABEL: Record<string, string> = {
   none_possible: COPY.options_none,
 };
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+type SymbolName = ComponentProps<typeof SymbolView>['name'];
+
+/** One heart / cross control under a reflect read. A soft scale settle on tap —
+ *  calm, no bounce (this is a hard moment). Lit uses `activeName`/`activeTint`. */
+function ReactionButton({
+  active,
+  name,
+  activeName,
+  tint,
+  activeTint,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  name: SymbolName;
+  activeName: SymbolName;
+  tint: string;
+  activeTint: string;
+  label: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <AnimatedPressable
+      onPress={() => {
+        scale.value = withSequence(
+          withTiming(0.86, { duration: 90 }),
+          withTiming(1, { duration: 170 }),
+        );
+        onPress();
+      }}
+      hitSlop={spacing.sm}
+      style={[styles.reactBtn, style]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+    >
+      <SymbolView
+        name={active ? activeName : name}
+        size={18}
+        tintColor={active ? activeTint : tint}
+      />
+    </AnimatedPressable>
+  );
+}
+
+/** Heart / no-reaction / cross for a single read. Heart = resonates (rose when
+ *  lit), cross = not this; tapping the lit one clears back to neutral. */
+function PointReaction({
+  reaction,
+  onReact,
+}: {
+  reaction?: Reaction;
+  onReact: (next: Reaction) => void;
+}) {
+  return (
+    <View style={styles.reactRow}>
+      <ReactionButton
+        active={reaction === 'like'}
+        name="heart"
+        activeName="heart.fill"
+        tint={colors.textOnDark.faint}
+        activeTint={colors.accentRose}
+        label="Mark as resonates"
+        onPress={() => onReact('like')}
+      />
+      <ReactionButton
+        active={reaction === 'reject'}
+        name="xmark"
+        activeName="xmark"
+        tint={colors.textOnDark.faint}
+        activeTint={colors.textOnDark.secondary}
+        label="Mark as not this"
+        onPress={() => onReact('reject')}
+      />
+    </View>
+  );
+}
+
+/** The per-read reaction wiring threaded from a parent: a stable `scope`, the
+ *  current reaction map, and a toggle handler (index + text + next state). */
+type ReadReactProps = {
+  scope: string;
+  reactions: PointReactions;
+  onReact: (index: number, text: string, next: Reaction) => void;
+};
+
 /** Reflect reads as left-aligned points divided by hairlines, not boxes (Neha
  *  2026-08-10). One bullet per read, a thin line between. `loading` appends a
- *  quiet thinking row for an in-flight fetch. Used by every guess/draft card. */
-function ReadPoints({ items, loading }: { items: readonly string[]; loading?: boolean }) {
+ *  quiet thinking row for an in-flight fetch. Used by every guess/draft card.
+ *  When `react` is passed, each read gets a heart/cross reaction control below
+ *  it (2026-08-12); omitted → the plain points surface as before. */
+function ReadPoints({
+  items,
+  loading,
+  react,
+}: {
+  items: readonly string[];
+  loading?: boolean;
+  react?: ReadReactProps;
+}) {
   return (
     <View>
       {items.map((o, i) => (
@@ -3738,6 +3907,12 @@ function ReadPoints({ items, loading }: { items: readonly string[]; loading?: bo
             <Text style={styles.readBullet}>{'•'}</Text>
             <Text style={styles.readText}>{o}</Text>
           </View>
+          {react ? (
+            <PointReaction
+              reaction={reactionAt(react.reactions, react.scope, i)}
+              onReact={(next) => react.onReact(i, o, next)}
+            />
+          ) : null}
         </View>
       ))}
       {loading ? (
@@ -3767,7 +3942,16 @@ function chatTurnText(m: ChatTurn): string {
 
 /** Render the chat thread: her turns as bubbles, Moon's line-replies as bubbles,
  *  Moon's lens-replies as a titled ReadPoints block (same component as the cards). */
-function ChatTurns({ log }: { log: ChatTurn[] }) {
+function ChatTurns({
+  log,
+  react,
+}: {
+  log: ChatTurn[];
+  react?: {
+    reactions: PointReactions;
+    onReact: (scope: string, index: number, text: string, next: Reaction) => void;
+  };
+}) {
   return (
     <>
       {log.map((m, i) =>
@@ -3778,7 +3962,18 @@ function ChatTurns({ log }: { log: ChatTurn[] }) {
         ) : 'reads' in m ? (
           <View key={i} style={styles.chatReads}>
             <Text style={styles.alsoQuestion}>{m.title}</Text>
-            <ReadPoints items={m.reads} />
+            <ReadPoints
+              items={m.reads}
+              react={
+                react
+                  ? {
+                      scope: `chat:${i}`,
+                      reactions: react.reactions,
+                      onReact: (index, text, next) => react.onReact(`chat:${i}`, index, text, next),
+                    }
+                  : undefined
+              }
+            />
           </View>
         ) : (
           <View key={i} style={styles.chatMoon}>
@@ -4176,6 +4371,16 @@ const styles = StyleSheet.create({
   readBullet: { ...moon.body, color: 'rgba(196,178,255,0.9)' },
   readText: { ...moon.body, flex: 1, color: colors.textOnDark.primary },
   readDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.1)' },
+  // Per-read reactions sit under the read, indented past the bullet so they read
+  // as belonging to it. Generous gap + hit area — there's vertical room and this
+  // is a hard moment (Neha 2026-08-12).
+  reactRow: {
+    flexDirection: 'row',
+    gap: spacing.xl,
+    paddingLeft: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  reactBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.xs },
   chipRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
   chip: {
     borderRadius: radius.pill,
