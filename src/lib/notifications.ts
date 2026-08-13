@@ -27,7 +27,6 @@ Notifications.setNotificationHandler({
 
 const DAILY_REMINDER_ID = 'niyora-daily-reminder';
 export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
-export const BREAK_OVER_ID = 'niyora-break-over';
 
 // Days of quiet before the comeback nudge fires. It is scheduled when she leaves
 // the app and cancelled when she returns (see _layout's background handler), so
@@ -38,7 +37,6 @@ export const COMEBACK_LAPSE_DAYS = 3;
 const REMINDER_TITLE = 'Niyora';
 const REMINDER_BODY = 'A few breaths can settle the whole day.';
 const COMEBACK_NUDGE_BODY = 'When you\'re ready, a breath is here.';
-const BREAK_OVER_BODY = 'Your 20 minutes are up. Come back when you\'re ready.';
 
 // The PMS sequence. A short prep countdown before the predicted premenstrual
 // window, then one line each day through the window (window start through the
@@ -143,37 +141,16 @@ export async function scheduleCombackNudge(): Promise<void> {
 // Where a tapped notification should land, so the tap arrives on the feature its
 // copy promised instead of wherever the app last was. The PMS prep beats point
 // at the readiness checklist (kit + partner heads-up live around it); the
-// in-window and break-over beats point at the in-the-moment steady flow. null
-// means no deep link (the comeback/stress nudges route themselves in _layout).
+// in-window beats point at the in-the-moment steady flow. null means no deep
+// link (the comeback/stress nudges route themselves in _layout).
 export function notificationRoute(id: string): '/pms-readiness' | '/moment' | null {
   if (id.startsWith('niyora-pms-prep-')) return '/pms-readiness';
   if (id.startsWith('niyora-pms-day-')) return '/moment';
-  if (id === BREAK_OVER_ID) return '/moment';
   return null;
 }
 
 export async function cancelCombackNudge(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(COMEBACK_NUDGE_ID).catch(() => {});
-}
-
-// A one-shot nudge for the Steady-yourself 20-minute break: fires once, N
-// seconds out, so she can leave the app and still be called back when the flood
-// has cleared. The fixed identifier means re-entering the break replaces any
-// pending one; coming back early cancels it.
-export async function scheduleBreakOver(seconds: number): Promise<void> {
-  await Notifications.scheduleNotificationAsync({
-    identifier: BREAK_OVER_ID,
-    content: { title: REMINDER_TITLE, body: BREAK_OVER_BODY },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: Math.max(1, Math.round(seconds)),
-      repeats: false,
-    },
-  });
-}
-
-export async function cancelBreakOver(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(BREAK_OVER_ID).catch(() => {});
 }
 
 // C10: a one-off reminder for a response she chose to do later. A unique id per
