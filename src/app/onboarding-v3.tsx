@@ -881,6 +881,99 @@ function MoonIntro({ onNext }: { onNext: () => void }) {
   );
 }
 
+// The Moon AI consent screen ("Meet Moon"). Apple 5.1.2(i) launch gate: explicit
+// consent BEFORE any reflection text is sent to the AI. Shown from Home the first
+// time she taps "Talk to Moon" without having agreed. COPY IS LOCKED (Neha) —
+// reuses the MoonIntro glass + background composition so it reads as one product.
+// "I agree" persists consent and opens Moon; the ✕ closes without consenting.
+const MOON_CONSENT_ROWS: string[] = [
+  'Made for hard moments',
+  'Never used to train the AI',
+  'No one ever reads it',
+  'Stays only on your phone',
+  'Strips your email or number first',
+];
+
+export function MeetMoonConsent({
+  onAgree,
+  onClose,
+}: {
+  onAgree: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <CosmicBackground />
+      {/* Same content-screen composition as the flow: one glowing moon behind a
+          full-page frost, so the consent screen sits in the same world. */}
+      <View pointerEvents="none" style={styles.bgMoon}>
+        <Orb size={200} warmHalo still brightness={0.7} />
+      </View>
+      <BlurView intensity={40} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+      <View pointerEvents="none" style={styles.pageTint} />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <View style={styles.consentTopBar}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <SymbolView name="xmark" tintColor={colors.textTagline} size={17} weight="medium" />
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.consentScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.consentTitle}>Meet Moon</Text>
+          <Text style={styles.consentBody}>
+            Moon AI helps you reflect, regulate, and respond to what you&apos;re going through,
+            using the context you share.
+          </Text>
+          <View style={styles.consentCard}>
+            <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+            <View pointerEvents="none" style={styles.moonIntroGlassTint} />
+            <LinearGradient
+              colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+              locations={[0, 0.28, 0.62]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.cmpInner}>
+              <View style={styles.cmpHeadRow}>
+                <View style={styles.cmpLabelCell} />
+                <Text style={styles.cmpColHead}>Moon AI</Text>
+                <Text style={styles.cmpColHead}>Other AI</Text>
+              </View>
+              {MOON_CONSENT_ROWS.map((label) => (
+                <View key={label} style={styles.cmpRow}>
+                  <Text style={styles.cmpLabel}>{label}</Text>
+                  <View style={styles.cmpMarkCell}>
+                    <SymbolView name="checkmark" tintColor={v3.accent} size={15} weight="semibold" />
+                  </View>
+                  <View style={styles.cmpMarkCell}>
+                    <SymbolView name="xmark" tintColor={colors.textTagline} size={15} weight="semibold" />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+          <Text style={styles.consentDisclaimer}>
+            Moon is an AI, not a doctor, therapist, or friend.
+          </Text>
+        </ScrollView>
+        <View style={styles.footer}>
+          <BeginButton fullWidth label="I agree" onPress={onAgree} />
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
 // Section 1 opener, as its own fact screen (no progress bar): PMS sits on a
 // spectrum. Three anchored zones (title top, graphic middle, tee-up line +
 // button bottom) so the screen reads full and calm, not empty. The graphic and
@@ -2655,6 +2748,75 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     letterSpacing: 0.2,
     color: colors.textPrimary,
+  },
+  // Meet Moon consent screen (Apple 5.1.2(i) gate). Reuses the moonIntro glass +
+  // background composition. Own layout because it carries more than the intro:
+  // title, body, a ✓/✗ comparison table, a disclaimer, and the "I agree" button.
+  consentTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    minHeight: 34,
+  },
+  consentScroll: { paddingTop: spacing.sm, paddingBottom: spacing.lg, gap: spacing.lg },
+  consentTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
+    lineHeight: 34,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  consentBody: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
+    lineHeight: 25,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  consentCard: {
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+  },
+  cmpInner: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  cmpHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  cmpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: v3.panelBorder,
+  },
+  cmpLabelCell: { flex: 1 },
+  cmpLabel: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 21,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  cmpColHead: {
+    width: 60,
+    textAlign: 'center',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    letterSpacing: 0.2,
+    color: colors.textTagline,
+  },
+  cmpMarkCell: { width: 60, alignItems: 'center' },
+  consentDisclaimer: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 22,
+    letterSpacing: 0.2,
+    color: colors.textTagline,
   },
   // Plan: the Moon teaser card (orb + line), a single flat panel.
   moonPlanCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },

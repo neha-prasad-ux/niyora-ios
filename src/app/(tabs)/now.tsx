@@ -7,7 +7,7 @@
 // in You.
 
 import { useCallback, useEffect, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AppState, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -69,6 +69,8 @@ import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { todayYmd } from '@/store/pms-readiness';
 import { getRemissionLog, type RemissionEntry } from '@/store/remission-log';
 import { clearMomentCheckpoint, getMomentCheckpoint } from '@/store/moment-resume';
+import { getMoonConsent, setMoonConsent } from '@/store/moon-consent';
+import { MeetMoonConsent } from '@/app/onboarding-v3';
 
 // The home moon paces a calm, exhale-biased breath so just looking at it pulls
 // you into sync. ~6 breaths/min with a longer exhale is the resonance sweet spot
@@ -266,6 +268,24 @@ export default function NowScreen() {
 
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
 
+  // Apple 5.1.2(i) gate: the first time she opens Moon (any entry that routes to
+  // /moment, where reflection text is sent to the AI), she must see and agree to
+  // the "Meet Moon" consent screen. Once agreed it never shows again. The pending
+  // href is held so "I agree" lands on the exact target she tapped (fresh or resume).
+  const [consentHref, setConsentHref] = useState<Href | null>(null);
+
+  const openMoon = useCallback((href: Href) => {
+    getMoonConsent()
+      .then((agreed) => {
+        if (agreed) {
+          router.push(href);
+        } else {
+          setConsentHref(href);
+        }
+      })
+      .catch(() => setConsentHref(href));
+  }, []);
+
   const openPeriods = () => {
     Haptics.selectionAsync().catch(() => {});
     setPeriodSheetVisible(true);
@@ -457,7 +477,7 @@ export default function NowScreen() {
                     style={styles.ctaWrap}
                     onPress={() => {
                       Haptics.selectionAsync().catch(() => {});
-                      router.push('/moment' as Href);
+                      openMoon('/moment' as Href);
                     }}
                     accessibilityRole="button"
                     accessibilityLabel="Talk to Moon"
@@ -488,7 +508,7 @@ export default function NowScreen() {
                         style={styles.resumeChip}
                         onPress={() => {
                           Haptics.selectionAsync().catch(() => {});
-                          router.push('/moment?resume=1' as Href);
+                          openMoon('/moment?resume=1' as Href);
                         }}
                         accessibilityRole="button"
                         accessibilityLabel="Continue where you left off"
@@ -541,6 +561,29 @@ export default function NowScreen() {
         cycleLength={snapshot?.prefs.cycleLength}
         periodLength={snapshot?.prefs.periodLength ?? DEFAULT_PERIOD_LENGTH}
       />
+
+      {/* Apple 5.1.2(i) consent, shown over Home the first time she opens Moon
+          without having agreed. "I agree" persists and lands on the target she
+          tapped; ✕ closes without consenting. */}
+      <Modal
+        visible={consentHref != null}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setConsentHref(null)}
+      >
+        <MeetMoonConsent
+          onAgree={() => {
+            const href = consentHref;
+            setMoonConsent()
+              .catch(() => {})
+              .finally(() => {
+                setConsentHref(null);
+                if (href != null) router.push(href);
+              });
+          }}
+          onClose={() => setConsentHref(null)}
+        />
+      </Modal>
 
       {/* The unified crossing moment: a bloom on the moon with a plain line, for
           a ring or material milestone earned via any path. Clears itself. */}
