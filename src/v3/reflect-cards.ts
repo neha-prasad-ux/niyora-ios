@@ -19,20 +19,16 @@
 export type ReflectCardId =
   | 'friend' // advise-a-friend, self-compassion (AI drafts, she edits)
   | 'simpler' // perspective: a plainer outside reason (2-3 guesses)
-  | 'also_true' // catastrophizing, softened: other likelier endings (2-3 guesses)
+  | 'also_true' // catastrophizing, softened: other likelier endings + she'd get through the worst (absorbs old handle/future)
   | 'fact_or_fear' // fact vs fear (question, echoes her words)
   | 'middle' // all-or-nothing / absolutes (question)
   | 'whose_weight' // self-blame + decentring: what she can act on vs what isn't hers (guess)
   | 'know_or_guess' // mind-reading (question)
-  | 'need' // needs-focus: what she might need underneath this (2-3 guesses)
-  // Science-backed lenses added 2026-08-10 (Neha), each a distinct way of thinking:
-  | 'helping' // ACT workability: is holding this helping her right now (2-3 guesses)
-  | 'wise' // DBT wise mind: what the calm part of her already knows (2-3 guesses)
+  | 'need' // needs-focus: what she needs, and whether gripping this is costing her (absorbs old helping)
+  // Science-backed lenses (2026-08-10, merged to a sharper set 2026-08-13):
   | 'rule' // REBT shoulds: the rigid rule/"should" under the upset (2-3 guesses)
-  | 'handle' // CBT coping-decatastrophize: if the worst happened, getting through it (2-3)
   | 'shame' // shame vs guilt: a thing she did vs a verdict on who she is (2-3 guesses)
-  | 'signal' // emotion-as-information: what the feeling points to (2-3 guesses)
-  | 'future' // temporal self-distancing: what the her who came through it knows (2-3)
+  | 'signal' // emotion-as-information: what the feeling points to + what the calm part already knows (absorbs old wise)
   | 'pattern'; // recurring theme across past entries (AI states it from history)
 
 // draft:    AI returns ONE line she can accept or edit (she owns the words).
@@ -139,29 +135,10 @@ export const REFLECT_CARDS: Record<ReflectCardId, ReflectCard> = {
     slot: 'reflect_need',
     maxOptions: 3,
   },
-  // --- Science-backed lenses (2026-08-10). All guess-mode reading cards; each
-  // adds a distinct way of thinking (ACT / DBT / REBT / shame / emotion science)
-  // the CBT-restructuring set didn't cover. ---
-  helping: {
-    id: 'helping',
-    title: 'Is holding onto this helping you right now?',
-    mode: 'guess',
-    yes: 'Maybe not',
-    second: 'Show me more',
-    secondAction: 'another',
-    slot: 'reflect_helping',
-    maxOptions: 3,
-  },
-  wise: {
-    id: 'wise',
-    title: 'What does the calm part of you already know?',
-    mode: 'guess',
-    yes: 'Maybe',
-    second: 'Show me more',
-    secondAction: 'another',
-    slot: 'reflect_wise',
-    maxOptions: 3,
-  },
+  // --- Science-backed lenses (2026-08-10, merged to a sharper set 2026-08-13).
+  // The old ACT `helping` folded into `need`, DBT `wise` into `signal`, and CBT
+  // `handle` + temporal `future` into `also_true`, so each surviving lens is one
+  // distinct move rather than four that blurred together. ---
   rule: {
     id: 'rule',
     title: 'Whose rule says it has to be this way?',
@@ -170,16 +147,6 @@ export const REFLECT_CARDS: Record<ReflectCardId, ReflectCard> = {
     second: 'Show me more',
     secondAction: 'another',
     slot: 'reflect_rule',
-    maxOptions: 3,
-  },
-  handle: {
-    id: 'handle',
-    title: 'If the worst happened, could you get through it?',
-    mode: 'guess',
-    yes: 'Maybe',
-    second: 'Show me more',
-    secondAction: 'another',
-    slot: 'reflect_handle',
     maxOptions: 3,
   },
   shame: {
@@ -200,16 +167,6 @@ export const REFLECT_CARDS: Record<ReflectCardId, ReflectCard> = {
     second: 'Show me more',
     secondAction: 'another',
     slot: 'reflect_signal',
-    maxOptions: 3,
-  },
-  future: {
-    id: 'future',
-    title: 'What would the you who came through this want you to know?',
-    mode: 'guess',
-    yes: 'Maybe',
-    second: 'Show me more',
-    secondAction: 'another',
-    slot: 'reflect_future',
     maxOptions: 3,
   },
   pattern: {
@@ -290,30 +247,28 @@ export function routeCards(sig: ReflectSignals): ReflectCardId[] {
   if (sig.aboutPerson) push('simpler');
   if (sig.absolute) push('middle');
   if (sig.predicting) {
+    // also_true now carries the old `handle` coping angle too (the worst isn't the
+    // only ending, and she'd get through it if it came), so no separate push.
     push('also_true');
     push('fact_or_fear');
-    push('handle'); // if the worst happened, could she get through it (coping)
   }
   if (sig.selfBlame || sig.beyondControl) push('whose_weight');
   if (sig.selfBlame) push('shame'); // a thing she did vs a verdict on who she is
 
-  // Variety tail (Neha 2026-08-10): after the best-fit lens, always offer the
-  // other broadly-applicable reading SHAPES too, so "Reflect more" keeps handing
-  // her a genuinely different frame rather than running dry after two and dropping
-  // to the open chat. A mind re-sees a problem when the frame changes. The
-  // science-backed universal lenses (signal / wise / helping / rule / future) all
-  // apply to almost any moment, so they live here; `friend` stays the gentle last.
-  // The two fact-sort question cards (fact_or_fear, know_or_guess) are NOT added
-  // here on purpose — they are an interaction, gated to their signal above.
+  // Variety tail: after the best-fit lens, offer the other broadly-applicable
+  // reading SHAPES so "Reflect more" keeps handing her a genuinely different frame
+  // rather than running dry and dropping to the open chat. The universal lenses
+  // (signal / need / rule, 2026-08-13 merged set) apply to almost any moment.
+  // signal + need lead the tail on purpose — before the merge they sat near the
+  // end and almost never fired (Neha 7/8); now they surface early. `friend` stays
+  // the gentle last. The fact-sort question cards are NOT added here — they are an
+  // interaction, gated to their signal above.
+  push('signal');
+  push('need');
   push('also_true');
   push('middle');
   push('whose_weight');
-  push('need');
-  push('signal');
-  push('wise');
-  push('helping');
   push('rule');
-  push('future');
   push('friend');
   return out;
 }

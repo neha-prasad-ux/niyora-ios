@@ -1322,7 +1322,7 @@ export default function Moment() {
     let alive = true;
     setCardLoading(true);
     const steer = reflectSteer.current
-      ? `\nshe has now added this, and it is the main thing on her mind, so CENTRE your reads on it, not on the earlier detail: "${reflectSteer.current}"`
+      ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both. Do not just reword or re-tone the earlier reads.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
     const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}`;
@@ -1369,7 +1369,7 @@ export default function Moment() {
     let alive = true;
     setSecondLensLoading(true);
     const steer = reflectSteer.current
-      ? `\nshe has now added this, and it is the main thing on her mind, so CENTRE your reads on it: "${reflectSteer.current}"`
+      ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
     const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}`;

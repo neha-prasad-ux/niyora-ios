@@ -122,7 +122,10 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'options.',
   act_help:
     'She chose a way to respond. Write a draft that carries out THAT move, a starting point she ' +
-    'edits. If the move is aimed at the other person, write the message she could send, first ' +
+    'edits. The job of any message to another person is to help her be heard WITHOUT burning the ' +
+    'bridge: name what happened, how she felt, and what she needs, as an invitation to be understood, ' +
+    'never an attack. Most women were never taught how to say a hard thing and keep the relationship, ' +
+    'so the draft quietly models that. If the move is aimed at the other person, write the message she could send, first ' +
     'person. If it is to tell one person, get someone whose job it is, or reach out for comfort, ' +
     'write a short message to that person, not the one she is upset with. If it is to find out, ' +
     'get it ready, work out what she wants, take something off her plate, let it be, look after ' +
@@ -150,9 +153,13 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'happened. Concrete, not vague, one short line each. If nothing specific fits, return an empty array. Return ' +
     'only JSON: {"options": ["...", "..."]}. ' + REFLECT_SAFETY,
   reflect_also_true:
-    'She is bracing for the worst. Offer 2 or 3 short, more likely ways this could go instead, each one honest. ' +
-    'Each is also possible, set beside her fear, not a claim that she is wrong to fear it. Concrete, not vague, ' +
-    'one short line each. If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", ' +
+    'She is bracing for the worst. Offer 2 or 3 short reads that loosen the grip of that worst case, mixing two ' +
+    'moves: (a) other, more likely ways this could actually go, each honest and set beside her fear, never a claim ' +
+    'she is wrong to fear it; and (b) if the worst did come true, how she could get through it or what would still ' +
+    'hold steady for her, grounded in her own strengths and what she wrote. When a clear worst case is there, make ' +
+    'at least one read a get-through-it one, spoken as the woman who has come out the other side. Never promise it ' +
+    'will be fine, never say the feeling will pass or that it is small, no "at least". Concrete, not vague, one ' +
+    'short line each. If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", ' +
     '"..."]}. ' + REFLECT_SAFETY,
   reflect_pattern:
     'You are given her thought now and a short list of themes from her past entries. If the same theme clearly ' +
@@ -161,35 +168,20 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     REFLECT_SAFETY,
   reflect_need:
     'Under the situation she described, what might she actually NEED right now? Offer 2 or 3 short, plain guesses ' +
-    '(for example to feel heard, a bit of rest, some space, to know it was not her fault). Each a maybe grounded in ' +
-    'what she wrote, never a claim or an instruction, one short line. Name a need, do not tell her to do anything. ' +
-    'If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_helping:
-    'She is gripping a thought or worry. Not whether it is true, but whether holding it so tightly right now is ' +
-    'doing anything FOR her. Offer 2 or 3 short, honest reads of what carrying it is costing her and what might ' +
-    'ease if she let it sit a little lighter, grounded in what she wrote. Each a gentle maybe, never an instruction ' +
-    'to "let it go" or "stop thinking about it", one short line. If nothing fits, return an empty array. Return only ' +
-    'JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_wise:
-    'Assume she already holds part of the answer under the noise. Offer 2 or 3 short reads of what the calm, steady ' +
-    'part of her most likely already knows about this, grounded in what she wrote. Each a gentle maybe pointing in ' +
-    'her own direction, never telling her what to do, one short line. If nothing fits, return an empty array. Return ' +
-    'only JSON: {"options": ["...", "..."]}. ' +
+    '(for example to feel heard, a bit of rest, some space, to know it was not her fault). One of them can name ' +
+    'when holding this so tightly might be taking more from her than it gives, and what would ease if she let it ' +
+    'sit a little lighter, but never as an order to "let it go". Each a maybe grounded in what she wrote, never a ' +
+    'claim or an instruction, one short line. Name a need, do not tell her to do anything. If nothing specific ' +
+    'fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
     REFLECT_SAFETY,
   reflect_rule:
     'Under her upset there may be a rigid rule or a "should" (I should have, they should have, it should be this ' +
     'way). Name 2 or 3 of those rules gently, and where they might come from, so she can SEE the rule instead of ' +
-    'only feeling it. Each a maybe, never telling her the rule is right or wrong, one short line. If nothing fits, ' +
-    'return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_handle:
-    'She is bracing for a worst case. Do NOT argue the fear away or say it will not happen. Instead take the worst ' +
-    'as if it came true, and offer 2 or 3 short, honest reads of how she could get through it or what would still ' +
-    'be true and steady for her, grounded in her own strengths and what she wrote. Each a maybe, never a promise ' +
-    'that it will be fine, one short line. If nothing fits, return an empty array. Return only JSON: {"options": ' +
-    '["...", "..."]}. ' +
+    'only feeling it. For example, if she wrote "I snapped at my mum and I feel awful, I should always be patient ' +
+    'with her", good reads are: "Maybe there is a rule in you that a good daughter never loses her temper." and ' +
+    '"It could be you learned that being upset with her is not allowed, only patience is." Each a maybe, never ' +
+    'telling her the rule is right or wrong, one short line. If nothing fits, return an empty array. Return only ' +
+    'JSON: {"options": ["...", "..."]}. ' +
     REFLECT_SAFETY,
   reflect_shame:
     'She may be turning one thing that happened into a verdict on who she is as a person. Offer 2 or 3 short reads ' +
@@ -198,17 +190,11 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'If nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
     REFLECT_SAFETY,
   reflect_signal:
-    'Read what her feeling might be POINTING TO, do not reframe it. A feeling usually flags something that matters ' +
-    '(anger a line crossed, dread something coming she cares about, hurt something she values). Offer 2 or 3 short ' +
-    'reads of what this feeling could be telling her, grounded in what she wrote. Each a maybe, never a diagnosis ' +
-    'and never an instruction, one short line. If nothing fits, return an empty array. Return only JSON: {"options": ' +
-    '["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_future:
-    'Speak from the view of the version of her who has ALREADY come through this. Offer 2 or 3 short reads of what ' +
-    'that self might want her to know or hold onto now. This must NEVER say the feeling will pass, that it will not ' +
-    'matter, that it is small, or "at least" anything — it takes the moment fully seriously and speaks from having ' +
-    'lived through it, not from minimizing it. Each grounded in what she wrote, a gentle maybe, one short line. If ' +
+    'Read what her feeling might be POINTING TO, and what the calm, steady part of her most likely already knows ' +
+    'about this. Do not reframe the feeling. A feeling usually flags something that matters (anger a line crossed, ' +
+    'dread something coming she cares about, hurt something she values). Offer 2 or 3 short reads of what this ' +
+    'feeling could be telling her, or what she already half-knows underneath it, grounded in what she wrote. Each a ' +
+    'maybe pointing in her own direction, never a diagnosis and never telling her what to do, one short line. If ' +
     'nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
     REFLECT_SAFETY,
   reflect_middle:

@@ -31,16 +31,22 @@ describe('reflect-cards routing', () => {
 
   it('always offers the universal science-backed lenses in the walk', () => {
     const cards = routeCards(detectSignals('x'));
-    for (const id of ['signal', 'wise', 'helping', 'rule', 'future'] as const) {
+    for (const id of ['signal', 'need', 'rule'] as const) {
       expect(cards).toContain(id);
     }
   });
 
-  it('gates the shame and handle lenses to their signals', () => {
+  it('surfaces signal and need early in the walk, not buried at the tail', () => {
+    // The merge fix (Neha 7/8): before, signal/future sat near the end and rarely
+    // fired. signal + need now lead the variety tail.
+    const cards = routeCards(detectSignals('x'));
+    expect(cards.indexOf('signal')).toBeLessThan(cards.indexOf('friend'));
+    expect(cards.indexOf('signal')).toBeLessThanOrEqual(cards.indexOf('rule'));
+  });
+
+  it('gates the shame lens to its signal', () => {
     expect(routeCards(detectSignals('this is all my fault'))).toContain('shame');
     expect(routeCards(detectSignals('the meeting went fine'))).not.toContain('shame');
-    expect(routeCards(detectSignals('what if I fail and ruin it'))).toContain('handle');
-    expect(routeCards(detectSignals('the meeting went fine'))).not.toContain('handle');
   });
 
   it('every reality card validates on "no", every draft card opens an edit', () => {
