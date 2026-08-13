@@ -119,15 +119,20 @@ describe('the beats the evidence turns on', () => {
     expect(ALL).toContain('sendoff');
   });
 
-  it('opens on the 3-beat intro and reaches the echo', () => {
+  it('opens on the 3-beat intro, and the feeling guess is the first substantive beat', () => {
     expect(ENTRY).toBe('intro');
+    // The echo beat (acknowledge) was removed 2026-08-13: the feeling guess opens
+    // the flow. intro and clarify both walk straight to it, no beat in between.
+    expect(ALL).not.toContain('acknowledge');
+    expect(node('clarify').next).toBe('feelings');
     const order: NodeId[] = [];
     let cur: NodeId | null = ENTRY;
     while (cur && order.length < 12) {
       order.push(cur);
       cur = advance(cur);
     }
-    expect(order.indexOf('acknowledge')).toBeGreaterThan(order.indexOf('intro'));
+    expect(order).toContain('feelings');
+    expect(order.indexOf('feelings')).toBeGreaterThan(order.indexOf('intro'));
   });
 
   // The body check (slept / moved / eaten) was removed 2026-07-27. If it comes

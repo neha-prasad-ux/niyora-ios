@@ -101,7 +101,6 @@ import {
   type Verdict,
 } from '@/v3/moment-analyse';
 import {
-  echo,
   pick,
   draftAct,
   revise,
@@ -135,7 +134,7 @@ import {
   type PointReactions,
   type Reaction,
 } from '@/v3/reflect-feedback';
-import { getMomentProvider, lastAiTransport, type CrisisType } from '@/lib/moment-gemini';
+import { getMomentProvider, type CrisisType } from '@/lib/moment-gemini';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
@@ -275,12 +274,6 @@ export default function Moment() {
    *  actually looking at does. */
   const [history, setHistory] = useState<NodeId[]>([]);
   const [crisis, setCrisis] = useState(false);
-  // Set when the entry beat cannot reach the model while AI is on (v1: any
-  // failure, including offline): the flow shows "Moon AI not working" with a
-  // retry instead of degrading to authored copy. v1 is AI-required — no offline
-  // flow until the authored path is built out. Crisis is handled before this and
-  // is unaffected.
-  const [aiError, setAiError] = useState(false);
   // The typed crisis read from the model layer, for the crisis page to route the
   // right resource. A ref (not state) because nothing renders from it yet; the
   // page rework reads crisisType.current.
@@ -324,31 +317,17 @@ export default function Moment() {
     ],
   );
   const [intensity, setIntensity] = useState<number | null>(null);
-  /** What the app decided about her sentence. Drives clarify vs acknowledge. */
+  /** What the app decided about her sentence. Drives clarify vs the feeling guess. */
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   /** M6: the clarify was reached because her entry was a clear sentence but had
    *  no concrete event (the model gate), so ask for context, not "what happened". */
   const [clarifyMoreContext, setClarifyMoreContext] = useState(false);
   /** She chose to name it herself, so the field is showing. */
   const [otherOpen, setOtherOpen] = useState(false);
-  /** The echo beat's sub-states. `streamLen` is how many characters of the
-   *  reply have streamed in — the moon's words arrive the way a model streams
-   *  them, not popping in whole, because an instant reply does not read as the
-   *  moon having listened (and once Gemini is wired this IS the token stream).
-   *  `echoOk` is her confirming the reply is right, which reveals the naming.
-   *  `echoFixing` is the correction field she gets when she says it is wrong. */
-  const [streamLen, setStreamLen] = useState(0);
-  const [echoOk, setEchoOk] = useState(false);
-  const [echoFixing, setEchoFixing] = useState(false);
   /** The Gemini provider, resolved once. NO_PROVIDER (authored fallback) unless
    *  the flag and a key are set, so the store build behaves exactly as before. */
   const [provider] = useState(getMomentProvider);
   const aiOn = provider.name !== 'none';
-  /** The model's echo line when it earns one (grounded, not blocked); null falls
-   *  back to the mechanical carve. `echoResolving` holds the stream while the
-   *  request is in flight, so the moon "types" instead of flashing the carve. */
-  const [modelEcho, setModelEcho] = useState<string | null>(null);
-  const [echoResolving, setEchoResolving] = useState(false);
   // --- Reflect cards (Reflect → Regulate → Respond spine, 2026-08-09) ---------
   /** The routed card ids for this thought (detectSignals + routeCards). Null
    *  until she enters the reflect beat; re-derived from herText on resume. */
@@ -561,15 +540,6 @@ export default function Moment() {
   // current state's colour, so it never fights the progress map.
   const selTint = phaseTint(beat.phase);
 
-  // The moon's reply on the echo beat: her words carved and person-flipped when
-  // the read was clear, an authored line otherwise. Derived here so the stream
-  // effect and the render share one source.
-  // A clear verdict with an empty echo is the `rephrase` case: she said plenty,
-  // there is no carve, so the authored line stands unless the model earns one.
-  const carveEcho = (verdict?.kind === 'clear' && verdict.echo) || COPY.together;
-  const echoText = modelEcho ?? carveEcho;
-  const echoAi = echoText !== COPY.together;
-
   const go = useCallback((from: NodeId, key?: string) => {
     const next = advance(from, key);
     if (next == null) return;
@@ -630,13 +600,6 @@ export default function Moment() {
     if (current === 'close' && giftOpened) {
       setRevealed(false);
       setGiftOpened(false);
-      return;
-    }
-    // Inside the echo beat: unwind the correction, then the naming, then the
-    // confirm, each in place, before stepping to the previous beat.
-    if (echoFixing) {
-      setEchoFixing(false);
-      setDraft('');
       return;
     }
     // The keep-reflecting chat: step back onto the card behind it.
@@ -704,9 +667,9 @@ export default function Moment() {
   };
 
   /** Leave naming for the reflect-card system: route her thought and land on the
-   *  first card. Called from the feeling guess, or straight from the echo confirm
-   *  when she already named a feeling in her text (the guess is skipped then). */
-  const enterReflect = (feeling: string, from: NodeId = 'acknowledge') => {
+   *  first card. Called from the feeling guess, or straight from send() when she
+   *  already named a feeling in her text (the guess is skipped then). */
+  const enterReflect = (feeling: string, from: NodeId = 'feelings') => {
     chosenFeeling.current = feeling;
     setReflectCards(routeCards(detectSignals(herText.current, recurring.current)));
     setReflectIdx(0);
@@ -753,19 +716,6 @@ export default function Moment() {
       `${p.feeling}${resp}. This is a continuation, so build on it, do not treat it ` +
       `as brand new. Never use dashes of any kind in your reply.\n`
     );
-  };
-
-  /** She confirmed the echo. If her own text already named a feeling, skip the
-   *  guess and route straight into Reflect with that word; otherwise show the
-   *  feeling guess. */
-  const confirmEcho = () => {
-    tap();
-    const named = namedFeeling(herText.current);
-    if (named) {
-      enterReflect(named);
-      return;
-    }
-    setEchoOk(true);
   };
 
   /** She took a card (accepted the reading, or owned it by editing): reflection is
@@ -872,42 +822,9 @@ export default function Moment() {
     }
   };
 
-  /** Arm the echo beat: fresh, unconfirmed, and "typing". Called whenever she
-   *  arrives at acknowledge (or re-submits a correction). */
-  const startEcho = useCallback(() => {
-    setEchoOk(false);
-    setEchoFixing(false);
-    setStreamLen(0);
-    setModelEcho(null);
-    setFeelingOrder(null);
-    setAiError(false);
-    if (!aiOn) return;
-    const her = herText.current.trim();
-    if (!her) return;
-    // Ask the model to say her words back. echo() vets the reply (grounded, not
-    // a self-attack) and returns via 'model' only when it earns the screen;
-    // anything else keeps the carve. The stream holds until this settles.
-    setEchoResolving(true);
-    echo(provider, 'acknowledge', her)
-      .then((r) => {
-        setModelEcho(r.via === 'model' ? r.text : null);
-        // AI health gate at the entry beat. v1 is AI-required: if the model could
-        // not be reached AT ALL — timeout, HTTP error, empty, OR offline — show the
-        // "Moon AI not working" state and let her retry, rather than degrading to
-        // authored copy. (Transport 'ok' but a line rejected for grounding is NOT a
-        // failure: the model worked, we just used the safe carve.) The offline
-        // floor comes back when the authored path is built out; until then, no
-        // offline flow.
-        const t = lastAiTransport();
-        if (t === 'fail' || t === 'offline') setAiError(true);
-      })
-      .catch(() => {})
-      .finally(() => setEchoResolving(false));
-  }, [aiOn, provider]);
-
   // Resume, once, on mount: restore the carried state and land on the saved
-  // beat. Only the narrative state is restored; per-beat UI re-arms itself (an
-  // acknowledge landing re-runs the echo). Nothing saved → just render fresh.
+  // beat. Only the narrative state is restored; per-beat UI re-derives itself
+  // (the feeling guess re-ranks from her text). Nothing saved → render fresh.
   useEffect(() => {
     if (resume !== '1') return;
     let alive = true;
@@ -924,8 +841,10 @@ export default function Moment() {
         setSkippedHold(cp.skippedHold);
         setReadyLow(cp.readyLow);
         setHistory(cp.history);
-        setCurrent(cp.current);
-        if (cp.current === 'acknowledge') startEcho();
+        // A checkpoint written before the echo beat was removed points at the old
+        // 'acknowledge' node; land it on the feeling guess so a mid-flow resume
+        // never strands on a beat that no longer exists.
+        setCurrent((cp.current as string) === 'acknowledge' ? 'feelings' : cp.current);
         // The card list is deterministic from her text, so a resume into Reflect
         // re-derives it and lands on the saved card index. Re-load the thread refs
         // first so the recovered route still reflects recurrence + continuation.
@@ -943,7 +862,7 @@ export default function Moment() {
     return () => {
       alive = false;
     };
-  }, [resume, startEcho, loadThread]);
+  }, [resume, loadThread]);
 
   // Persist a resume checkpoint as she moves through the flow, so leaving mid-way
   // can be picked up from Home. Entry and the ended states never save: there is
@@ -1107,13 +1026,13 @@ export default function Moment() {
     setVerdict(v);
     setDraft('');
 
-    // A thin entry clarifies first; a clear one goes straight to the echo (the
-    // upfront 0-10 rating was cut 2026-08-09). Reflect is warmed here so its first
-    // card lands instantly when she reaches it, a few beats later.
-    // The echo confirm ("Did I get that right?") was cut 2026-08-09: it repeated
-    // her words without helping and often grabbed the wrong half. A clear entry now
-    // goes straight to the useful part, the feeling guess (or Reflect itself when
-    // she already named the feeling). A thin entry still clarifies first.
+    // A thin entry clarifies first; a clear one goes straight to the feeling guess
+    // (the upfront 0-10 rating was cut 2026-08-09). Reflect is warmed here so its
+    // first card lands instantly when she reaches it, a few beats later.
+    // The echo beat (say her words back, then "Did I get that right?") was removed
+    // 2026-08-13: it repeated her words without helping. A clear entry now opens on
+    // the useful part, the feeling guess (or Reflect itself when she already named
+    // the feeling). A thin entry still clarifies first.
     if (current === 'raw_entry') {
       if (v.kind !== 'clear') {
         setHistory((h) => [...h, 'raw_entry']);
@@ -1131,13 +1050,13 @@ export default function Moment() {
         enterReflect(named, 'raw_entry');
       } else {
         setHistory((h) => [...h, 'raw_entry']);
-        setEchoOk(true); // acknowledge now renders only the feeling guess, no echo
-        setCurrent('acknowledge');
+        setCurrent('feelings');
       }
       return;
     }
 
-    // From clarify. She has given the context now: same skip-the-echo routing.
+    // From clarify. She has given the context now: same routing straight to the
+    // feeling guess, or into Reflect when she already named a feeling.
     if (v.kind !== 'clear') {
       setHistory((h) => [...h, 'clarify']);
       setClarifyMoreContext(false);
@@ -1150,10 +1069,9 @@ export default function Moment() {
       enterReflect(named, 'clarify');
     } else {
       setHistory((h) => [...h, 'clarify']);
-      setEchoOk(true);
-      setCurrent('acknowledge');
+      setCurrent('feelings');
     }
-  }, [current, draft, startEcho, aiOn, provider, dictation, loadThread]);
+  }, [current, draft, aiOn, provider, dictation, loadThread]);
 
   /** Warm the FIRST routed reflect card at send-time, so it lands instantly when
    *  she reaches Reflect (kept from the old reframe prefetch). routeCards is a
@@ -1304,30 +1222,12 @@ export default function Moment() {
     return () => clearTimeout(id);
   }, [current, breathStep, go]);
 
-  // Stream the echo in, one character at a time: a short beat before the first
-  // (the moon "gathering"), then quick. Off under reduce-motion — the render
-  // shows the whole line at once there. The setState is inside the timeout
-  // (async), so it does not trip the in-effect rule.
-  useEffect(() => {
-    if (current !== 'acknowledge' || echoOk || echoFixing || reduceMotion) return;
-    // Hold at zero while the model is still answering, so she sees the moon
-    // gathering rather than the carve streaming and then being replaced.
-    if (echoResolving) return;
-    if (streamLen >= echoText.length) return;
-    const first = streamLen === 0;
-    const id = setTimeout(
-      () => setStreamLen((n) => Math.min(n + 1, echoText.length)),
-      first ? 350 : 22,
-    );
-    return () => clearTimeout(id);
-  }, [current, echoOk, echoFixing, reduceMotion, streamLen, echoText, echoResolving]);
-
   // Feelings PICK: the model RANKS the closed feeling set for her text (most
   // likely first), but it never asserts one as the answer — the screen stays a
   // neutral "which feeling is strongest?" picker she chooses from (Neha
   // 2026-08-01). Null keeps the deterministic offerFeelings order.
   useEffect(() => {
-    if (!aiOn || !echoOk || current !== 'acknowledge' || feelingOrder) return;
+    if (!aiOn || current !== 'feelings' || feelingOrder) return;
     const her = herText.current.trim();
     if (!her) return;
     let alive = true;
@@ -1351,7 +1251,7 @@ export default function Moment() {
     return () => {
       alive = false;
     };
-  }, [aiOn, echoOk, current, feelingOrder, provider]);
+  }, [aiOn, current, feelingOrder, provider]);
 
   // M9-14: load which reward drawing is next (persisted order) on mount.
   useEffect(() => {
@@ -1841,7 +1741,7 @@ export default function Moment() {
     crisis ? Crisis() : hydrating || !introChecked ? { body: null, cta: null } : Beat();
 
   // A "composer beat" is a typing screen whose chat-style field lives in the
-  // pinned CTA slot (raw_entry / clarify / the acknowledge correction). On these
+  // pinned CTA slot (raw_entry / clarify). On these
   // the scroll GROWS so the composer sticks to the bottom like a chat bar, with
   // the speaker/question at the top. Every other beat lets the scroll HUG its
   // content, so the body and its button stay grouped together instead of the
@@ -1865,7 +1765,6 @@ export default function Moment() {
     (current === 'raw_entry' ||
       current === 'clarify' ||
       current === 'make_safe' || // pins the settle buttons to the bottom
-      (current === 'acknowledge' && echoFixing) ||
       guessCardActive ||
       factResultActive ||
       (current === 'reflect' && chatOpen));
@@ -2211,125 +2110,15 @@ export default function Moment() {
         };
       }
 
-      // The echo, in stages (Neha 2026-07-28). The moon "types", says her words
-      // back, and she confirms they are right before anything moves on. "No"
-      // opens a field to say it again and re-echoes; only "yes" reveals the
-      // naming (the old acknowledge card: name + feelings).
-      case 'acknowledge': {
-        // What has streamed in so far, and whether the stream has finished.
-        const revealed = reduceMotion ? echoText : echoText.slice(0, streamLen);
-        const streamDone = reduceMotion || streamLen >= echoText.length;
-
-        // Moon could not be reached at the entry beat (timeout/HTTP/empty, while
-        // AI is on and she is not offline). Say so and let her retry, rather than
-        // proceeding on a hollow scripted reflection. Crisis is handled before
-        // here; offline never reaches this (it keeps the authored floor).
-        if (aiError) {
-          return {
-            body: (
-              <>
-                {head(COPY.ai_not_responding)}
-                <Text style={styles.settles}>{COPY.ai_not_responding_sub}</Text>
-              </>
-            ),
-            cta: (
-              <BeginButton
-                fullWidth
-                label={COPY.ai_retry}
-                onPress={() => {
-                  tap();
-                  startEcho();
-                }}
-              />
-            ),
-          };
-        }
-
-        // She said it was wrong: a field to say it again, then re-echo.
-        if (echoFixing) {
-          return {
-            body: head(COPY.ack_fix),
-            cta: entryField({
-              placeholder: COPY.raw_entry_placeholder,
-              onSend: () => {
-                const t = draft.trim();
-                tap();
-                const v = analyse(t);
-                if (v.kind === 'crisis') {
-                  setCrisis(true);
-                  return;
-                }
-                // Same crisis guard as every other entry point (audit M-1): this
-                // re-entry field used to run only the keyword floor.
-                runAiCrisisGuard(t, {
-                  onAbuse: () => setDvDetected(true),
-                  onEscalate: (type) => {
-                    crisisType.current = type;
-                    setCrisis(true);
-                  },
-                });
-                herText.current = t;
-                setVerdict(v);
-                setDraft('');
-                // Re-echo the correction: back to typing, then confirm again.
-                startEcho();
-              },
-            }),
-          };
-        }
-
-        // The reply streams in; once it lands, she confirms it is right before
-        // the naming appears. The confirm question and its options hold back
-        // until the stream finishes, so she reads the whole line first.
-        if (!echoOk) {
-          // "Did I get that right?" only makes sense over an actual reflection of
-          // her words. When the line is the generic authored fallback (the model
-          // gave nothing to say back — e.g. a feeling-dump), there is nothing to
-          // confirm; show a plain Continue instead of a nonsensical yes/no.
-          const isReflection = echoAi;
-          const settled = streamDone && !echoResolving;
-          return {
-            body: (
-              <>
-                {head(revealed, { tone: 'said', ai: echoAi, thinking: echoResolving })}
-                {settled && <WhyLine>{COPY.ack_why}</WhyLine>}
-                {isReflection && settled && (
-                  <>
-                    <Text style={styles.feelingsAsk}>{COPY.ack_confirm}</Text>
-                    <View style={styles.stack}>
-                      <OptionRow
-                        label={COPY.ack_yes}
-                        index={0}
-                        tint={selTint}
-                        onPress={() => confirmEcho()}
-                      />
-                      <OptionRow
-                        label={COPY.ack_no}
-                        index={1}
-                        tint={selTint}
-                        onPress={() => {
-                          setDraft(herText.current);
-                          setEchoFixing(true);
-                        }}
-                      />
-                    </View>
-                  </>
-                )}
-              </>
-            ),
-            cta:
-              !isReflection && settled ? (
-                <BeginButton fullWidth label="Continue" onPress={() => confirmEcho()} />
-              ) : null,
-          };
-        }
-
-        // Emotion: Moon PROPOSES a few feeling words, she confirms one or swaps
-        // (2026-08-09). This is skipped entirely when she already named a feeling
-        // in her text (confirmEcho routes straight to Reflect) — affect labeling
-        // without the chore. The AI RANKS the closed set (feelingOrder); it never
-        // writes one, and offerFeelings is the deterministic fallback. Capped to
-        // FEELING_GUESS.count so it reads as a guess, not a menu.
+      // The feeling guess: the OPENER of the flow (Neha 2026-08-13). The echo beat
+      // that said her words back first was removed (repeating her sentence did not
+      // help), so the flow opens straight on this guess. Moon PROPOSES a few feeling
+      // words, she confirms one or swaps (2026-08-09). Skipped entirely when she
+      // already named a feeling in her text (send routes straight to Reflect) —
+      // affect labeling without the chore. The AI RANKS the closed set
+      // (feelingOrder); it never writes one, and offerFeelings is the deterministic
+      // fallback. Capped to FEELING_GUESS.count so it reads as a guess, not a menu.
+      case 'feelings': {
         const ranked = (feelingOrder ?? offerFeelings(herText.current)).slice(0, FEELING_GUESS.count);
         const loadingFeelings = aiOn && feelingsLoading && !feelingOrder;
         const chooseFeeling = (f: string) => {
@@ -3716,8 +3505,6 @@ const INTRO_SUB = [COPY.intro_reflect, COPY.intro_regulate, COPY.intro_respond];
 const INTRO_ICON = ['sparkles', 'wind', 'paperplane.fill'] as const;
 
 const SPOKEN: Partial<Record<NodeId, string>> = {
-  together: COPY.together,
-  naming_science: COPY.naming_science,
   feelings: COPY.feelings_ask,
   ready_reward: COPY.ready_reward,
   unctrl_honor: COPY.unctrl_honor,

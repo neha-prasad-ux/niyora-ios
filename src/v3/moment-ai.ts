@@ -19,7 +19,6 @@
 // Every verb may return null, and null is never an error state: it means the
 // beat renders its authored line. The flow is complete with no provider at all.
 
-import { echoBlocked, groundedReflection, isGrounded, isRephrase } from '@/lib/ground-floor';
 
 /** What a provider must implement. Nothing here is Gemma-specific. */
 export type MomentProvider = {
@@ -47,61 +46,6 @@ const TIMEOUT_MS = 5000;
 // generic authored smallReframes, so its own bespoke readings never show. Give
 // the compose slots real headroom; a loading state covers the extra wait.
 const COMPOSE_TIMEOUT_MS = 12000;
-
-// How many words the echo may introduce that are not in her text. The default
-// grounding budget is 2; the echo runs a little looser (4) ON PURPOSE, so the
-// model can fix her spelling and grammar without the corrected words counting as
-// "invented" and bouncing the clean line back to the raw-text carve (which would
-// echo her typos). Still tight: 4 novel words cannot carry an invented fact about
-// her situation, only surface corrections and small connective words.
-const ECHO_GROUND_BUDGET = 4;
-
-export type EchoResult = {
-  text: string | null;
-  /** How the line was produced. For the dev overlay and for knowing whether the
-   *  provider is actually earning its place. */
-  via: 'model' | 'carved' | 'authored';
-};
-
-/**
- * Say her sentence back to her.
- *
- * Three floors, in order, because "only her own words" is a promise no model's
- * weights can be made to keep:
- *
- *   1. the provider's line, but only if it invents nothing (`isGrounded`) AND
- *      says nothing back that she must never hear from us (`echoBlocked`)
- *   2. the mechanical carve of her own sentence, which cannot invent because it
- *      never generates
- *   3. null, meaning the beat renders its authored line
- *
- * `echoBlocked` runs on the provider's OUTPUT as well as her input, and that is
- * the subtle one: a reply repeating her self-attack is perfectly grounded, since
- * every word came from her. Grounding stops invention. It does not stop
- * agreement, and agreeing with "i am too much" is the worst thing the app can
- * say.
- */
-export async function echo(
-  provider: MomentProvider,
-  slot: string,
-  herText: string,
-): Promise<EchoResult> {
-  const raw = herText.trim();
-  if (!raw) return { text: null, via: 'authored' };
-
-  const prose = await provider.generate(slot, raw, TIMEOUT_MS).catch(() => null);
-  // isGrounded is SATISFIED by reusing all her words, so a model that just plays
-  // her sentence back passes it. isRephrase is the separate guard against that:
-  // grounding stops invention, this stops parroting.
-  if (prose && isGrounded(raw, prose, ECHO_GROUND_BUDGET) && !echoBlocked(prose) && !isRephrase(raw, prose)) {
-    return { text: prose.trim(), via: 'model' };
-  }
-
-  const carved = groundedReflection(raw).text;
-  if (carved) return { text: carved, via: 'carved' };
-
-  return { text: null, via: 'authored' };
-}
 
 /**
  * Does her entry name a concrete event, or is it only a mood? (M6.) A vague

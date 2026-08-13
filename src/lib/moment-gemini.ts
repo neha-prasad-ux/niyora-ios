@@ -3,8 +3,8 @@
 // plus the per-slot system prompts from docs/moon-gemini-prompts.md.
 //
 // Cloud, not on-device: this replaces the Gemma seam (src/lib/reflect-model).
-// The product guardrails do NOT live here. echo() and pick() in moment-ai wrap
-// whatever this returns, so an absent or failed model degrades to authored copy
+// The product guardrails do NOT live here. pick() and the other wrappers in
+// moment-ai wrap whatever this returns, so an absent or failed model degrades to authored copy
 // and the flow still completes. Everything here can return null, and null is
 // never an error.
 //
@@ -77,17 +77,6 @@ const REFLECT_SAFETY =
 // One instruction per slot. The caller hands over the user turn (her words, and
 // for pick slots the option menu); this maps the slot to the right system.
 const SLOT_INSTRUCTION: Record<string, string> = {
-  acknowledge:
-    'This is the first thing she hears back. Reflect the part of her own story that carries the ' +
-    'weight, so she feels received. Find the ONE heaviest thing: the effort she spent, the thing ' +
-    'she gave up, the "again" that shows it keeps happening, or the thing done to her. Hold that up ' +
-    'in one short line. COMPRESS: your line must be clearly SHORTER than what she wrote, never a ' +
-    'restatement of her whole sentence. If she wrote a long or run-on entry, cut it to its heart, ' +
-    'the single heaviest clause. Fix any spelling or grammar so it reads clean. A statement, not a ' +
-    'question. Keep who did what to whom exact, keep her own charged words, do not soften them. ' +
-    'Name no emotion, add no reassurance, reframe, or advice. If she attacked herself, reflect the ' +
-    'situation she is in, never the self-judgment. If she guessed why someone acted, reflect what ' +
-    'happened, not her guess. Reply with only the line, nothing else.',
   clarify:
     'She wrote very little. Reflect the little she gave in a few of her own words, then ask one ' +
     'warm, open question about what happened, never presupposing a fact ("what happened that made ' +

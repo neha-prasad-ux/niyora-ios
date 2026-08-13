@@ -48,9 +48,6 @@ export type NodeId =
   | 'crisis_handoff'
   // naming
   | 'clarify'
-  | 'acknowledge'
-  | 'together'
-  | 'naming_science'
   | 'feelings'
   | 'reflect'
   // settle
@@ -125,7 +122,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'ui',
     phase: 'reflect',
     next: 'clarify',
-    note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held. A clear entry goes straight to the echo (acknowledge); a thin one clarifies first. The upfront 0-10 rating was cut 2026-08-09 (felt arbitrary/boring).',
+    note: 'Free text. Asks for an EVENT, not a feeling. The crisis scan runs on this and on every later message, before the model and before anything is held. A clear entry goes straight to the feeling guess; a thin one clarifies first. The upfront 0-10 rating was cut 2026-08-09 (felt arbitrary/boring). The echo (acknowledge) that once opened here was removed 2026-08-13: saying her words back did not help.',
   },
   {
     id: 'safe_check',
@@ -150,24 +147,8 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'echo',
     phase: 'reflect',
     slot: 'clarify',
-    next: 'acknowledge',
-    note: 'Only when her entry is thin. Asks for the concrete thing using her own words, then it is said back (acknowledge).',
-  },
-  {
-    id: 'acknowledge',
-    owner: 'echo',
-    phase: 'reflect',
-    slot: 'acknowledge',
-    next: 'together',
-    note: 'The one beat measured working on device. Never her read of his intent.',
-  },
-  { id: 'together', owner: 'authored', phase: 'reflect', next: 'naming_science' },
-  {
-    id: 'naming_science',
-    owner: 'authored',
-    phase: 'reflect',
     next: 'feelings',
-    note: 'Putting words to it settles it. No "research says", no mechanism claim.',
+    note: 'Only when her entry is thin. Asks for the concrete thing using her own words, then straight to the feeling guess.',
   },
   {
     id: 'feelings',
@@ -176,13 +157,14 @@ export const MOMENT_FLOW: FlowNode[] = [
     slot: 'feelings',
     next: 'reflect',
     why: true,
-    note: 'Three from the 22 approved words. Ranking a list already written, so a suppression is an array filter. Rendered inside acknowledge as the AI feeling GUESS (Moon proposes, she confirms), skipped when she already named a feeling in her text.',
+    note: 'The OPENER of the flow (Neha 2026-08-13): the AI feeling GUESS (Moon proposes three of the 22 approved words, she confirms), skipped when she already named a feeling in her text. Ranking a list already written, so a suppression is an array filter. The echo beat (acknowledge) that used to precede this was removed: saying her words back first did not help, so the guess opens the flow. The two authored micro-beats between them (together, naming_science) went with it; they rendered nowhere.',
   },
   // name_reward and feel_heard were removed 2026-07-28 (Neha): the screen has
-  // always jumped from the merged acknowledge card straight to the reframe, so
-  // both were dead nodes. name_reward also broke the celebration rule -- naming
-  // a feeling is not a hard act, and light is for acts, not states -- and
-  // feel_heard was a second echo on top of the one acknowledge already carries.
+  // always jumped from the naming card straight to the reframe, so both were dead
+  // nodes. name_reward also broke the celebration rule -- naming a feeling is not
+  // a hard act, and light is for acts, not states -- and feel_heard was a second
+  // reflection on top of the naming itself. (The echo beat that carried that
+  // reflection, acknowledge, was itself removed 2026-08-13.)
   {
     id: 'reflect',
     owner: 'authored',

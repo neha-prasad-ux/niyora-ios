@@ -13,7 +13,7 @@ const removeItem = AsyncStorage.removeItem as jest.Mock;
 
 const CP: MomentCheckpoint = {
   current: 'reflect',
-  history: ['intro', 'raw_entry', 'acknowledge'],
+  history: ['intro', 'raw_entry', 'feelings'],
   herText: 'he ignored me at dinner',
   chosenFeeling: 'hurt',
   reflectIdx: 0,
