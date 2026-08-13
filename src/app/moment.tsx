@@ -135,6 +135,7 @@ import { optionPlanFor, personalisedLabel } from '@/v3/option-plan';
 import {
   reactionAt,
   reactionKey,
+  feedbackClause,
   type PointReactions,
   type Reaction,
 } from '@/v3/reflect-feedback';
@@ -363,9 +364,16 @@ export default function Moment() {
   /** Per-read reactions across the reflect flow (2026-08-12): heart = resonates,
    *  cross = not this, absent = neutral. Keyed by (scope + index) with the read's
    *  text stored in the value; see reflect-feedback.ts. Lives here beside
-   *  cardContent so it survives card re-renders. A human reads it via
-   *  collectReactions() later — nothing here feeds a prompt yet. */
+   *  cardContent so it survives card re-renders. Fed to the AI via feedbackClause
+   *  through reactionsRef below (2026-08-13). */
   const [reactions, setReactions] = useState<PointReactions>({});
+  /** A ref mirror of `reactions`, so the fetch effects can fold her latest
+   *  heart/cross history into the prompt at generation time WITHOUT listing
+   *  `reactions` in their deps (which would refetch the card on every tap). */
+  const reactionsRef = useRef<PointReactions>({});
+  useEffect(() => {
+    reactionsRef.current = reactions;
+  }, [reactions]);
   /** Keyboard is up (a field is focused). While typing, the primary action(s) hide
    *  so a tap meant for send never lands on "Respond"/a chip sitting just above the
    *  field (Neha 2026-08-11). */
@@ -784,7 +792,7 @@ export default function Moment() {
       card.slot,
       `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${
         chosenFeeling.current || 'upset'
-      }\nalready offered: ${JSON.stringify(already)}${steer}${cycle}`,
+      }\nalready offered: ${JSON.stringify(already)}${steer}${cycle}${feedbackClause(reactionsRef.current)}`,
     )
       .then((r) => {
         if (r.options?.length) {
@@ -1333,7 +1341,7 @@ export default function Moment() {
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both. Do not just reword or re-tone the earlier reads.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}`;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${feedbackClause(reactionsRef.current)}`;
     // The send-time prefetch is cold: it warmed card 0 for the NON-thread route
     // (recurring/priorThread aren't loaded yet at send). So skip reusing it when
     // either is now active — recurring makes `pattern` the new card 0, and a
@@ -1380,7 +1388,7 @@ export default function Moment() {
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}`;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${feedbackClause(reactionsRef.current)}`;
     reflectCard(provider, card.slot, user)
       .then((r) => {
         if (alive && (r.line || r.options?.length)) {
@@ -1475,7 +1483,7 @@ export default function Moment() {
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together and break down the rule that fits it now.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}`;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${feedbackClause(reactionsRef.current)}`;
     ruleBreakdown(provider, user)
       .then((r) => {
         if (!alive) return;
@@ -1577,7 +1585,7 @@ export default function Moment() {
       const card = REFLECT_CARDS[lens];
       const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
       setChatBusy(true);
-      reflectCard(provider, card.slot!, `${threadPreamble()}she wrote: "${msg}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}`)
+      reflectCard(provider, card.slot!, `${threadPreamble()}she wrote: "${msg}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}${feedbackClause(reactionsRef.current)}`)
         .then((r) => {
           const pts = r.options?.length ? r.options : r.line ? [r.line] : [];
           if (pts.length) {

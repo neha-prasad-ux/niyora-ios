@@ -37,3 +37,24 @@ export function collectReactions(map: PointReactions): { liked: string[]; reject
   }
   return { liked, rejected };
 }
+
+/**
+ * The steering clause fed into every reflect generation (2026-08-13). Turns her
+ * accumulated heart/cross history into a line the model reads, so a re-roll or
+ * the next card leans toward what resonated and away from what did not, while
+ * still being told to bring a genuinely new angle (never become a yes-machine,
+ * per the locked semantics). Empty string when she has reacted to nothing, so
+ * an unreacted session sends no clause at all.
+ */
+export function feedbackClause(map: PointReactions): string {
+  const { liked, rejected } = collectReactions(map);
+  if (liked.length === 0 && rejected.length === 0) return '';
+  const quote = (xs: string[]) => xs.map((s) => `"${s}"`).join(', ');
+  const parts: string[] = [];
+  if (liked.length) parts.push(`She liked these earlier reads: ${quote(liked)}.`);
+  if (rejected.length) parts.push(`She rejected these: ${quote(rejected)}.`);
+  parts.push(
+    'Lean toward what she liked and away from what she rejected, but still bring one genuinely new angle, never just agree.',
+  );
+  return '\n' + parts.join(' ');
+}

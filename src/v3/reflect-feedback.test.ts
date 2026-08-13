@@ -1,4 +1,10 @@
-import { collectReactions, reactionAt, reactionKey, type PointReactions } from './reflect-feedback';
+import {
+  collectReactions,
+  feedbackClause,
+  reactionAt,
+  reactionKey,
+  type PointReactions,
+} from './reflect-feedback';
 
 describe('reflect-feedback', () => {
   it('keys by scope + index and reads back the reaction', () => {
@@ -42,5 +48,36 @@ describe('reflect-feedback', () => {
       [reactionKey('simpler:0', 3)]: { text: 'a gentler read', reaction: 'like' },
     };
     expect(collectReactions(map)).toEqual({ liked: ['a gentler read'], rejected: ['the harsh read'] });
+  });
+
+  describe('feedbackClause', () => {
+    it('is empty when she has reacted to nothing (no clause sent)', () => {
+      expect(feedbackClause({})).toBe('');
+    });
+
+    it('names liked and rejected reads and always asks for a new angle', () => {
+      const map: PointReactions = {
+        [reactionKey('simpler:0', 0)]: { text: 'he was just busy', reaction: 'like' },
+        [reactionKey('simpler:0', 1)]: { text: 'he hates you', reaction: 'reject' },
+      };
+      const clause = feedbackClause(map);
+      expect(clause).toContain('"he was just busy"');
+      expect(clause).toContain('"he hates you"');
+      // never a yes-machine: the locked instruction to still bring a new angle
+      expect(clause).toContain('genuinely new angle');
+    });
+
+    it('handles like-only and reject-only without a dangling half', () => {
+      const likeOnly = feedbackClause({
+        [reactionKey('need:0', 0)]: { text: 'rest', reaction: 'like' },
+      });
+      expect(likeOnly).toContain('She liked');
+      expect(likeOnly).not.toContain('She rejected');
+      const rejectOnly = feedbackClause({
+        [reactionKey('need:0', 0)]: { text: 'push harder', reaction: 'reject' },
+      });
+      expect(rejectOnly).toContain('She rejected');
+      expect(rejectOnly).not.toContain('She liked');
+    });
   });
 });
