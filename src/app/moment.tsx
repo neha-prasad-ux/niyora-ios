@@ -25,6 +25,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   Image,
@@ -135,6 +136,8 @@ import {
   type Reaction,
 } from '@/v3/reflect-feedback';
 import { getMomentProvider, type CrisisType } from '@/lib/moment-gemini';
+import { getMoonConsent, setMoonConsent } from '@/store/moon-consent';
+import { MeetMoonConsent } from '@/app/onboarding-v3';
 import { foldLedger } from '@/lib/moon-light';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
@@ -327,7 +330,17 @@ export default function Moment() {
   /** The Gemini provider, resolved once. NO_PROVIDER (authored fallback) unless
    *  the flag and a key are set, so the store build behaves exactly as before. */
   const [provider] = useState(getMomentProvider);
-  const aiOn = provider.name !== 'none';
+  // Consent backstop (Apple 5.1.2(i)): the now.tsx modal gates the Home entry,
+  // but /moment is also reachable from the prep card, a today-action, and a PMS
+  // notification. This is the one gate that covers every route: null = still
+  // loading (never fire AI in this window), false = must agree first, true = go.
+  const [consentGranted, setConsentGranted] = useState<boolean | null>(null);
+  useEffect(() => {
+    getMoonConsent().then(setConsentGranted);
+  }, []);
+  // aiOn is the single lever every AI send already checks (`if (!aiOn) return`),
+  // so ANDing consent here blocks all reflection-text egress until she agrees.
+  const aiOn = provider.name !== 'none' && consentGranted === true;
   // --- Reflect cards (Reflect → Regulate → Respond spine, 2026-08-09) ---------
   /** The routed card ids for this thought (detectSignals + routeCards). Null
    *  until she enters the reflect beat; re-derived from herText on resume. */
@@ -1771,6 +1784,25 @@ export default function Moment() {
 
   return (
     <View style={styles.root}>
+      {/* Consent backstop: if she reached /moment without agreeing (any route
+          other than Home's gated CTA), the "Meet Moon" screen must come first.
+          aiOn is already false here, so nothing has been sent to the AI yet.
+          "I agree" persists and drops her into the flow; ✕ leaves /moment. */}
+      <Modal
+        visible={consentGranted === false}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => router.back()}
+      >
+        <MeetMoonConsent
+          onAgree={() => {
+            setMoonConsent()
+              .catch(() => {})
+              .finally(() => setConsentGranted(true));
+          }}
+          onClose={() => router.back()}
+        />
+      </Modal>
       {/* The flow now happens in FRONT of Home: same cosmic sky, and the moon
           behind the card (M28), instead of the old aurora. */}
       <CosmicBackground />
