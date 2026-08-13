@@ -292,6 +292,36 @@ export async function factSort(
 }
 
 /**
+ * The rule breakdown (reflect_rule, a special card like fact-sort). Walks her
+ * moment out as a chain she can SEE — event, the hidden rule/should, where it
+ * lands — then tests the rule. `tests` are normal reactable reads; the chain is
+ * the diagnostic setup. Returns null (decline) if no real rule surfaces or the
+ * reply is unusable, so the card falls back to the honest retry like any other.
+ */
+export type RuleBreakdown = { event: string; rule: string; consequence: string; tests: string[] };
+export async function ruleBreakdown(
+  provider: MomentProvider,
+  user: string,
+): Promise<RuleBreakdown | null> {
+  const out = await compose(provider, 'reflect_rule', user);
+  if (!out) return null;
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const tests = Array.isArray(j?.tests)
+      ? j.tests.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3)
+      : [];
+    const rule = str(j?.rule);
+    // The rule and at least one test are the minimum to render the card; without
+    // them there is nothing to see or react to, so decline to the fallback.
+    if (!rule || tests.length === 0) return null;
+    return { event: str(j?.event), rule, consequence: str(j?.consequence), tests };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Reflective chat (reflect_chat): one short reflecting turn in the bounded
  * back-and-forth on the fact-sort result. Empty on decline / AI-off. The caller
  * crisis-guards her message before ever calling this; the slot itself is barred

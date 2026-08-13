@@ -174,15 +174,28 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'claim or an instruction, one short line. Name a need, do not tell her to do anything. If nothing specific ' +
     'fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
     REFLECT_SAFETY,
+  // Special card (like factsort): returns a chain she can SEE, not a flat list.
+  // REFLECT_SAFETY is NOT appended here on purpose — event/rule/consequence are
+  // direct statements, not "maybe" reads, so its "every line is a maybe" clause
+  // would wrongly make the model hedge the plain facts. The needed guards are
+  // inline instead. (Neha 2026-08-13.)
   reflect_rule:
-    'Under her upset there may be a rigid rule or a "should" (I should have, they should have, it should be this ' +
-    'way). Name 2 or 3 of those rules gently, and where they might come from, so she can SEE the rule instead of ' +
-    'only feeling it. For example, if she wrote "I snapped at my mum and I feel awful, I should always be patient ' +
-    'with her", good reads are: "Maybe there is a rule in you that a good daughter never loses her temper." and ' +
-    '"It could be you learned that being upset with her is not allowed, only patience is." Each a maybe, never ' +
-    'telling her the rule is right or wrong, one short line. If nothing fits, return an empty array. Return only ' +
-    'JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
+    'She may be turning her upset into a verdict on herself through a hidden rule. Break her moment into a short ' +
+    'chain she can SEE, then test the rule. Write dead simple and plain, the way a warm woman in her 30s talks, no ' +
+    'jargon. Ground every part only in what she wrote, invent no facts or people, and never blame her cycle. Return ' +
+    'only JSON: {"event":"...","rule":"...","consequence":"...","tests":["...","..."]}. ' +
+    'event: what actually happened, in her own plain words, one short line, just the facts with no meaning ' +
+    'attached. ' +
+    'rule: the rigid rule or "should" underneath it, in her voice, one short line, a real demand not a soft wish ' +
+    '(for example: a real friend always includes me. I should not care.). Do not tell her the rule is right or ' +
+    'wrong, only name it. ' +
+    'consequence: how it lands for her, the feeling and the self-judgment it turns into, one short line, only from ' +
+    'what she wrote (for example: hurt, and then I am stupid for caring). ' +
+    'tests: exactly 2 short lines that gently test the rule, each a maybe, with different openers, plain and easy. ' +
+    'At least one loosens the demand (a real friend might not always do X, for reasons that are not about her), and ' +
+    'at least one keeps her feeling valid and allowed (it is okay to feel this, it does not make her Y). NEVER say ' +
+    'the feeling itself is wrong or something to fix, only the rigid rule is ever up for question. ' +
+    'If there is no real rule to surface, return an empty tests array.',
   reflect_shame:
     'She may be turning one thing that happened into a verdict on who she is as a person. Offer 2 or 3 short reads ' +
     'that separate the THING (a thing done or said, which can be faced or repaired) from a whole-person judgment ' +

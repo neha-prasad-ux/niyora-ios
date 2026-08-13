@@ -140,8 +140,11 @@ export const REFLECT_CARDS: Record<ReflectCardId, ReflectCard> = {
   // `handle` + temporal `future` into `also_true`, so each surviving lens is one
   // distinct move rather than four that blurred together. ---
   rule: {
+    // Special card (like the fact-sort pair): renders the REBT chain she can see
+    // (event -> hidden rule -> where it lands) then tests the rule, instead of a
+    // flat reads list. See RULE_LABELS + ruleBreakdown() (Neha 2026-08-13).
     id: 'rule',
-    title: 'Whose rule says it has to be this way?',
+    title: "Let's break it down",
     mode: 'guess',
     yes: 'Fair',
     second: 'Show me more',
@@ -195,6 +198,16 @@ export const FACTSORT = {
   feelingsHead: 'Another way to see it',
   factsHead: 'What actually happened',
   cta: 'Continue',
+} as const;
+
+// The rule card's chain labels (Neha 2026-08-13). The card walks her moment out
+// as event -> the hidden rule -> where it lands, then tests the rule. The chain
+// is the diagnostic setup (no reactions); `testsHead` opens the reactable reads.
+export const RULE_LABELS = {
+  event: 'What happened',
+  rule: "The rule you're holding",
+  consequence: 'How it feels',
+  testsHead: 'Is any of it true?',
 } as const;
 
 // Cheap lexical read of her text + guessed feeling. No AI. Sets the routing lane.

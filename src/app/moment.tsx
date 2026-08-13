@@ -110,7 +110,9 @@ import {
   factSort,
   factSortAdvise,
   reflectChat,
+  ruleBreakdown,
   type MomentProvider,
+  type RuleBreakdown,
 } from '@/v3/moment-ai';
 import {
   AI_THINKING,
@@ -120,6 +122,7 @@ import {
   PMS_NOTE,
   REFLECT_CARDS,
   REFLECT_CYCLE_NOTE,
+  RULE_LABELS,
   SETTLE,
   detectSignals,
   routeCards,
@@ -382,6 +385,10 @@ export default function Moment() {
   const [claims, setClaims] = useState<Claim[] | null>(null);
   const [factStage, setFactStage] = useState<'sort' | 'result'>('sort');
   const [factAdvise, setFactAdvise] = useState<{ reads: string[]; help: string } | null>(null);
+  /** The `rule` special card: her moment as a chain (event → the hidden rule →
+   *  where it lands) plus the reactable tests. null = not fetched / cleared for a
+   *  re-roll; the rule fetch effect refetches whenever it is null on that card. */
+  const [ruleChain, setRuleChain] = useState<RuleBreakdown | null>(null);
   const [factLoading, setFactLoading] = useState(false);
   /** The PMS heads-up banner has been dismissed ("Got it") for this moment. */
   const [pmsDismissed, setPmsDismissed] = useState(false);
@@ -1096,7 +1103,7 @@ export default function Moment() {
       const card = first ? REFLECT_CARDS[first] : null;
       const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
       reflectPrefetch.current =
-        aiOn && card && card.slot && card.mode !== 'question'
+        aiOn && card && card.slot && card.mode !== 'question' && card.id !== 'rule'
           ? reflectCard(provider, card.slot, `she wrote: "${text}"${cycle}`)
           : null;
     },
@@ -1317,6 +1324,7 @@ export default function Moment() {
     const id = reflectCards[reflectIdx];
     const card = REFLECT_CARDS[id];
     if (card.mode === 'question' || !card.slot) return; // no AI content
+    if (id === 'rule') return; // special card, its own fetch (structured chain, not options)
     if (cardContent[id]) return; // already have it
     if (!aiOn) return; // authored fallback stands
     let alive = true;
@@ -1422,6 +1430,7 @@ export default function Moment() {
     setSecondLensId(null);
     setSecondLensLoading(false);
     setClaims(null);
+    setRuleChain(null);
     setFactStage('sort');
     setFactAdvise(null);
     setChatLog([]);
@@ -1450,6 +1459,43 @@ export default function Moment() {
       alive = false;
     };
   }, [current, reflectCards, reflectIdx, claims, aiOn, provider]);
+
+  // The rule card (2026-08-13): fetch the chain + tests when it is the active card
+  // and we have none yet. Runs whenever ruleChain is null on the rule card, so a
+  // re-roll (which clears ruleChain) refetches. null result → cardFailed → aiDown.
+  useEffect(() => {
+    if (current !== 'reflect' || !reflectCards) return;
+    const id = reflectCards[reflectIdx];
+    if (id !== 'rule') return;
+    if (ruleChain !== null) return; // already have it
+    if (!aiOn) return; // AI off → the render shows aiDown
+    let alive = true;
+    setCardLoading(true);
+    const steer = reflectSteer.current
+      ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together and break down the rule that fits it now.`
+      : '';
+    const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}`;
+    ruleBreakdown(provider, user)
+      .then((r) => {
+        if (!alive) return;
+        if (r) {
+          setRuleChain(r);
+          setCardFailed(false);
+        } else {
+          setCardFailed(true);
+        }
+      })
+      .catch(() => {
+        if (alive) setCardFailed(true);
+      })
+      .finally(() => {
+        if (alive) setCardLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [current, reflectCards, reflectIdx, ruleChain, aiOn, provider]);
 
   /** Set one claim to fact or feeling (the two-button choice). */
   const setClaimFact = (i: number, fact: boolean) => {
@@ -2580,6 +2626,130 @@ export default function Moment() {
           // responding. NEVER the old plain-echo + two-button card. Retry clears
           // claims so the split effect refetches; "Respond anyway" moves on.
           return aiDown(() => setClaims(null));
+        }
+
+        // The rule card (2026-08-13): the REBT chain made visible. What happened →
+        // the hidden rule → where it lands, then the "Is any of it true?" tests.
+        // The chain parts she gave carry no reaction; only the RULE (Moon's guess)
+        // and the tests do. Any cross re-rolls the WHOLE breakdown, because the
+        // tests are built off the rule and move with it (Neha 2026-08-13).
+        if (id === 'rule') {
+          const rerollRule = () => {
+            setCardFailed(false);
+            setRuleChain(null); // the rule fetch effect refetches
+            setReflectRetry((n) => n + 1); // fresh reaction generation for the new chain
+          };
+          if (!ruleChain) {
+            if (cardFailed || !aiOn) return aiDown(rerollRule);
+            return {
+              body: (
+                <>
+                  <Text style={[styles.l3Prompt, styles.reflectTitle]}>{card.title}</Text>
+                  <View style={styles.reflectStage}>
+                    <ThinkingDots label={AI_THINKING} />
+                  </View>
+                </>
+              ),
+              cta: null,
+            };
+          }
+          const testScope = `rule:${reflectRetry}`;
+          const demandScope = `rule-demand:${reflectRetry}`;
+          // Adding context re-breaks-down the rule on the full picture (first words
+          // + the addition), same crisis guard as the entry beat.
+          const submitRuleContext = () => {
+            const text = draft.trim();
+            if (!text) return;
+            if (analyse(text).kind === 'crisis') {
+              setCrisis(true);
+              return;
+            }
+            runAiCrisisGuard(text, {
+              onAbuse: () => setDvDetected(true),
+              onEscalate: (type) => {
+                crisisType.current = type;
+                setCrisis(true);
+              },
+            });
+            setDraft('');
+            Keyboard.dismiss();
+            reflectSteer.current = text;
+            rerollRule();
+          };
+          return {
+            body: (
+              <>
+                <Text style={[styles.l3Prompt, styles.reflectTitle]}>{card.title}</Text>
+                {ruleChain.event ? (
+                  <View style={styles.ruleBlock}>
+                    <Text style={[styles.factHead, styles.factHeadLeft]}>{RULE_LABELS.event}</Text>
+                    <Text style={styles.factText}>{ruleChain.event}</Text>
+                  </View>
+                ) : null}
+                {/* The rule is Moon's guess, so it reacts: cross = wrong rule → re-roll. */}
+                <View style={styles.ruleBlock}>
+                  <Text style={[styles.factHead, styles.factHeadLeft]}>{RULE_LABELS.rule}</Text>
+                  <Text style={styles.factText}>{ruleChain.rule}</Text>
+                  <PointReaction
+                    reaction={reactionAt(reactions, demandScope, 0)}
+                    onReact={(next) => {
+                      if (recordReaction(demandScope, 0, ruleChain.rule, next)) rerollRule();
+                    }}
+                  />
+                </View>
+                {ruleChain.consequence ? (
+                  <View style={styles.ruleBlock}>
+                    <Text style={[styles.factHead, styles.factHeadLeft]}>
+                      {RULE_LABELS.consequence}
+                    </Text>
+                    <Text style={styles.factText}>{ruleChain.consequence}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.ruleBlock}>
+                  <Text style={[styles.factHead, styles.factHeadLeft]}>{RULE_LABELS.testsHead}</Text>
+                  <ReadPoints
+                    items={ruleChain.tests}
+                    react={{
+                      scope: testScope,
+                      reactions,
+                      onReact: (index, text, next) => {
+                        if (recordReaction(testScope, index, text, next)) rerollRule();
+                      },
+                    }}
+                  />
+                </View>
+                {!keyboardUp ? (
+                  <View style={styles.chipRow}>
+                    <Pressable
+                      onPress={() => advanceCard()}
+                      style={styles.chip}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.chipText}>Reflect more</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => acceptReflect()}
+                      style={[styles.chip, styles.chipPrimary]}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.chipText, styles.chipPrimaryText]}>Respond</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+              </>
+            ),
+            cta: (
+              <View style={styles.stack}>
+                {entryField({
+                  placeholder: 'Add anything, or ask Moon to look again',
+                  a11yLabel: 'Add context',
+                  onSend: submitRuleContext,
+                  autoFocus: false,
+                  compact: true,
+                })}
+              </View>
+            ),
+          };
         }
 
         // A reality ("question") card's "no": respect that it's real and STOP —
@@ -4153,6 +4323,9 @@ const styles = StyleSheet.create({
   // Fact-sort: the claim text, then a two-button Fact / Feeling choice below it.
   // The selected button fills with its colour so the sort reads at a glance.
   factText: { ...moon.body, color: colors.textOnDark.primary },
+  // The rule card's chain blocks (event / rule / consequence), stacked with air
+  // between them so each reads as its own step (Neha 2026-08-13).
+  ruleBlock: { marginBottom: spacing.md },
   factChoices: { flexDirection: 'row', gap: spacing.sm },
   factChoice: {
     flex: 1,
