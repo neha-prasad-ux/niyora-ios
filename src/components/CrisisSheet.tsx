@@ -16,7 +16,14 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CRISIS_COPY, DV_CRISIS_COPY, openCrisisLine, openDvCrisisLine } from '@/lib/crisis-scan';
+import {
+  CRISIS_COPY,
+  DV_CRISIS_COPY,
+  HARM_OTHER_CRISIS_COPY,
+  openCrisisLine,
+  openDvCrisisLine,
+  openHarmOtherCrisisLine,
+} from '@/lib/crisis-scan';
 import type { CrisisType } from '@/lib/moment-gemini';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/fonts';
@@ -24,9 +31,13 @@ import { fontScale } from '@/theme/typography';
 import { radius, spacing } from '@/theme/spacing';
 
 export function CrisisSheet({ crisisType }: { crisisType: CrisisType | null }) {
+  // Three branches: harm-to-other (de-escalation, never coach) → its own screen;
+  // acute violence/child-harm → the DV/safety screen; everything else (incl. the
+  // suicide-shaped keyword floor) → the 988 screen.
+  const isHarmOther = crisisType === 'harm_to_other';
   const isDv = crisisType === 'violence_to_her' || crisisType === 'child_harmed';
-  const copy = isDv ? DV_CRISIS_COPY : CRISIS_COPY;
-  const openLine = isDv ? openDvCrisisLine : openCrisisLine;
+  const copy = isHarmOther ? HARM_OTHER_CRISIS_COPY : isDv ? DV_CRISIS_COPY : CRISIS_COPY;
+  const openLine = isHarmOther ? openHarmOtherCrisisLine : isDv ? openDvCrisisLine : openCrisisLine;
   return (
     <View>
       <Text style={styles.title}>{copy.title}</Text>

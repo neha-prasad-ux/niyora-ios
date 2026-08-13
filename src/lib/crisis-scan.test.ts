@@ -3,7 +3,14 @@
 // about others must never trigger (or she learns the feature can't hold the
 // very thing it exists for).
 
-import { CRISIS_COPY, scanForCrisis, scanForAbuse, DV_RESOURCE, DV_INTL_URL } from './crisis-scan';
+import {
+  CRISIS_COPY,
+  HARM_OTHER_CRISIS_COPY,
+  scanForCrisis,
+  scanForAbuse,
+  DV_RESOURCE,
+  DV_INTL_URL,
+} from './crisis-scan';
 
 describe('the abuse scan catches physical violence, not idioms', () => {
   it.each([
@@ -133,5 +140,21 @@ describe('CRISIS_COPY', () => {
     expect(all).not.toMatch(/!/);
     expect(CRISIS_COPY.lines.length).toBeGreaterThanOrEqual(2);
     expect(all).toContain('988');
+  });
+});
+
+describe('HARM_OTHER_CRISIS_COPY (de-escalation, never coach the confrontation)', () => {
+  it('holds the same quiet bar and points to a real line, not a plan', () => {
+    const all = [
+      HARM_OTHER_CRISIS_COPY.title,
+      HARM_OTHER_CRISIS_COPY.body,
+      HARM_OTHER_CRISIS_COPY.emergency,
+      ...HARM_OTHER_CRISIS_COPY.lines.flatMap((l) => [l.label, l.detail]),
+    ].join(' ');
+    expect(all).not.toMatch(/!/); // stripped and calm at the dark edge
+    expect(all).toContain('988'); // the crisis line, not a confrontation
+    expect(HARM_OTHER_CRISIS_COPY.emergency).toContain('911');
+    // de-escalates: it puts space between her and the act
+    expect(HARM_OTHER_CRISIS_COPY.body.toLowerCase()).toContain('step away');
   });
 });

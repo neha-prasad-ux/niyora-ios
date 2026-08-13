@@ -224,3 +224,28 @@ export function openDvCrisisLine(index: number): void {
   const url = DV_CRISIS_URLS[index];
   if (url) Linking.openURL(url).catch(() => {});
 }
+
+// [SAFETY] Shown when the AI escalates a NARROW, HIGH-BAR credible intent to harm
+// another named person (crisisType harm_to_other): a real plan, the means, or
+// immediacy — NEVER venting like "I could kill him". The job is to de-escalate and
+// put space between her and the act, never to coach the confrontation. 988 counsels
+// thoughts of harming others, not only self-harm. Numbers kept beside the copy so a
+// line can never dial the wrong place. (Neha 2026-08-13.)
+export const HARM_OTHER_CRISIS_COPY = {
+  title: "Let's slow this right down",
+  body: "It sounds like you're close to doing something you can't take back. The feeling is real and it's huge, but acting on it now would cost you everything you care about. The strongest thing you can do is put space between you and this, right now. Step away, and talk to a real person before you do anything.",
+  lines: [
+    { label: 'Call or text 988', detail: 'Crisis Lifeline · for this too, not only self-harm · US, 24/7' },
+    { label: 'findahelpline.com', detail: 'Free support lines, by country' },
+  ],
+  emergency: 'If someone is in immediate danger, call 911 or your local emergency number.',
+  back: 'No am good, let me rephrase',
+} as const;
+
+export const HARM_OTHER_CRISIS_URLS = ['tel:988', 'https://findahelpline.com'] as const;
+
+/** Open a harm-to-other line by its index in HARM_OTHER_CRISIS_COPY.lines. Silent on failure. */
+export function openHarmOtherCrisisLine(index: number): void {
+  const url = HARM_OTHER_CRISIS_URLS[index];
+  if (url) Linking.openURL(url).catch(() => {});
+}

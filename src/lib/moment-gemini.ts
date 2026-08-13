@@ -392,7 +392,7 @@ export function getMomentProvider(): MomentProvider {
 // so a past disclosure is not walled off. Recall-first: when unsure, it blocks.
 
 export type CrisisType =
-  | 'suicide' | 'self_harm' | 'violence_to_her' | 'harm_to_care' | 'child_harmed' | 'overdose' | 'none';
+  | 'suicide' | 'self_harm' | 'violence_to_her' | 'harm_to_care' | 'harm_to_other' | 'child_harmed' | 'overdose' | 'none';
 
 export type CrisisRead = {
   crisisType: CrisisType;
@@ -404,11 +404,11 @@ export type CrisisRead = {
 const CRISIS_SYSTEM = [
   "You are the safety check that runs before Niyora's normal flow, on what a woman just wrote. Decide whether this moment needs a real-world crisis resource instead of the app's emotional-support flow. Detection, not comfort. When unsure, treat it as a crisis: missing a real one is far worse than a false alarm.",
   '',
-  'Types: suicide (any thought of ending her life or being better off dead or gone, active or passive) · self_harm (hurting her own body) · violence_to_her (someone physically or sexually hurting, forcing, or seriously threatening her; domestic or sexual violence, incl. credible threats and coercive control) · harm_to_care (she fears she will hurt someone in her care, such as her child) · child_harmed (a child is being hurt) · overdose (she has taken or is about to take a dangerous amount of a substance) · none.',
+  'Types: suicide (any thought of ending her life or being better off dead or gone, active or passive) · self_harm (hurting her own body) · violence_to_her (someone physically or sexually hurting, forcing, or seriously threatening her; domestic or sexual violence, incl. credible threats and coercive control) · harm_to_care (she fears she will hurt someone in her care, such as her child) · harm_to_other (a credible, specific intent to physically harm a named person she is angry at, backed by a real plan, the means, or immediacy) · child_harmed (a child is being hurt) · overdose (she has taken or is about to take a dangerous amount of a substance) · none.',
   '',
   'Acuity: acute (happening now, just happened, or ongoing danger) · historical (a past event with no current danger, "years ago") · none. Only an ACUTE crisis stops the flow.',
   '',
-  'Venting hyperbole about someone else ("i could kill him") is NOT a crisis. What makes it suicide or self_harm is that it is aimed at herself. Set isCrisisMode true whenever crisisType is not none AND acuity is acute, and whenever you are unsure.',
+  'Venting hyperbole about someone else ("i could kill him", "i want to strangle her", "i hate him so much") is NOT a crisis; it is anger, and it stays none. harm_to_other is the RARE, HIGH-BAR exception: it fires ONLY when a reasonable counselor would read a real, imminent plan to hurt a specific person, with a concrete plan, the means, or immediacy present, not mere rage or a figure of speech. When unsure whether it is rage or a real plan, it is rage: leave it none. What makes it suicide or self_harm is that it is aimed at herself. Set isCrisisMode true whenever crisisType is not none AND acuity is acute, and whenever you are unsure.',
   '',
   'Return only JSON: {"crisisType":"...","acuity":"acute|historical|none","isCrisisMode":true|false,"crisisScore":0-100}',
 ].join('\n');
