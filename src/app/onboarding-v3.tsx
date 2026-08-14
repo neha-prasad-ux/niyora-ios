@@ -173,7 +173,9 @@ const SEQUENCE: StepId[] = [
   'loading',
   'result',
   'goal', // pick-up: her goal + how Niyora will help
-  'moon_intro', // meet Moon: what the in-the-moment AI is, right before she lands home
+  // 'moon_intro' cut 2026-08-13 (Neha): it duplicated the "Meet Moon" consent
+  // screen shown at the Talk-to-Moon gate. The consent screen is the one that has
+  // to stand at the AI boundary (Apple 5.1.2), so it stays; this intro went.
   'reminder', // opt into one gentle daily nudge, folded in from the old onboarding
   // The "pick" (4-card "where do you want to start?") step was removed; the flow
   // now ends on the reminder and lands on home.
@@ -929,8 +931,7 @@ export function MeetMoonConsent({
         >
           <Text style={styles.consentTitle}>Meet Moon</Text>
           <Text style={styles.consentBody}>
-            Moon AI helps you reflect, regulate, and respond to what you&apos;re going through,
-            using the context you share.
+            Reflect, regulate, and respond to what you&apos;re going through.
           </Text>
           <View style={styles.consentCard}>
             <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />

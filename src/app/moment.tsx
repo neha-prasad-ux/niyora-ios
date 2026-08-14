@@ -3865,8 +3865,8 @@ function PointReaction({
       />
       <ReactionButton
         active={reaction === 'reject'}
-        name="xmark"
-        activeName="xmark"
+        name="heart.slash"
+        activeName="heart.slash.fill"
         tint={colors.textOnDark.faint}
         activeTint={colors.textOnDark.secondary}
         label="Mark as not this"
