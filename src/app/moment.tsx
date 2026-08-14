@@ -169,6 +169,7 @@ import type { MoonState } from '@/lib/moon-light';
 import { bodyHue } from '@/models/tiers';
 import { colors } from '@/theme/colors';
 import { moon } from '@/theme/typography';
+import { fonts } from '@/theme/fonts';
 import { spacing, radius } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 import { advance, ENTRY, node, type NodeId, type Phase } from '@/v3/moment-flow';
@@ -690,7 +691,9 @@ export default function Moment() {
     setActDrafting(false);
     setActDraft('');
     setOtherOpen(false);
-    setDraft('');
+    // Restore her entry text when stepping back onto the entry beat, so hitting
+    // back never wipes what she wrote (Neha 2026-08-13). Other beats start clean.
+    setDraft(prev === 'raw_entry' ? herText.current : '');
     setCurrent(prev);
   };
 
@@ -4368,8 +4371,10 @@ const styles = StyleSheet.create({
   // rows divided by hairlines, then the two chips inline. Calmer than boxes.
   reflectTitle: { textAlign: 'left', marginBottom: spacing.md },
   readRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.md },
-  readBullet: { ...moon.body, color: 'rgba(196,178,255,0.9)' },
-  readText: { ...moon.body, flex: 1, color: colors.textOnDark.primary },
+  readBullet: { ...moon.body, fontFamily: fonts.regular, color: 'rgba(196,178,255,0.9)' },
+  // The reads are the primary thing she reads; moon.body is `light` and rendered
+  // too thin on device (Neha 2026-08-13), so the reads step up to `regular`.
+  readText: { ...moon.body, fontFamily: fonts.regular, flex: 1, color: colors.textOnDark.primary },
   readDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.1)' },
   // Per-read reactions sit under the read, indented past the bullet so they read
   // as belonging to it. Generous gap + hit area — there's vertical room and this
