@@ -1580,10 +1580,13 @@ export default function Moment() {
         .finally(() => setChatBusy(false));
     };
 
-    // Open chat (no fact-sort claims): if her message carries a signal, answer with
-    // that lens's reads in the SAME points UI as the cards (Neha 2026-08-10) — keep
-    // reflecting, don't drop to a chatbot line. No signal → the short reply above.
-    const lens = claims === null ? lensForText(msg) : null;
+    // Open chat (no fact-sort claims): answer in the reflect framework (points),
+    // not a chatbot line. lensForText is a shallow regex that misses a lot, so when
+    // it finds no specific lens we DEFAULT to `signal` (applies to almost any real
+    // moment) rather than dropping to a plain line — item H, Neha device test
+    // 2026-08-13. If that lens still comes back empty (genuinely off-topic, e.g.
+    // trivia), the `pts.length` check below falls to runReflectChat, which declines.
+    const lens = claims === null ? lensForText(msg) ?? 'signal' : null;
     if (lens) {
       const card = REFLECT_CARDS[lens];
       const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';

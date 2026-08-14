@@ -169,7 +169,10 @@ const SLOT_INSTRUCTION: Record<string, string> = {
     'she is wrong to fear it; and (b) if the worst did come true, how she could get through it or what would still ' +
     'hold steady for her, grounded in her own strengths and what she wrote. When a clear worst case is there, make ' +
     'at least one read a get-through-it one, spoken as the woman who has come out the other side. Never promise it ' +
-    'will be fine, never say the feeling will pass or that it is small, no "at least". Concrete, not vague, one ' +
+    'will be fine, never say the feeling will pass or that it is small, no "at least". ' +
+    'If she is NOT actually bracing for a worst case (she is upset about something that already happened, not a ' +
+    'fear of the future), do not force a worst case: instead offer other honest readings of the situation she has ' +
+    'likely not considered. Either way, never just validate her feeling back at her. Concrete, not vague, one ' +
     'short line each. If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", ' +
     '"..."]}. ' + REFLECT_SAFETY,
   reflect_pattern:
