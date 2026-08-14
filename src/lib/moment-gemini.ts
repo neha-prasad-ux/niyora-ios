@@ -81,7 +81,18 @@ const REFLECT_SAFETY =
   'clear. Short everyday words, natural rhythm. Do not open every line the same way, ' +
   'but never reach for a fancier or cleverer phrasing to get that variety, and never ' +
   'add a label like "one way to see it" in front of a read. A plain line beats a ' +
-  'clever one every time. Each read stays a maybe you gently offer, never a verdict.';
+  'clever one every time. Each read stays a maybe you gently offer, never a verdict. ' +
+  // Anti-restatement (Neha 2026-08-13, device test): the reads slid back into echo —
+  // "you notice the difference", "you are feeling this keenly" — just her own words
+  // reworded. That is worthless; she wrote them. Every read must EARN its place.
+  'NEVER just restate her feeling or her situation back to her. A line that only ' +
+  'says what she already told you ("you notice the difference", "you feel it is ' +
+  'unfair", "you are feeling this keenly", "you want fairness") is worthless, because ' +
+  'she wrote it. Every read must ADD something she did NOT say: a cause she had not ' +
+  'weighed, a distinction, a fresh angle, a small piece of insight or possibility. Do ' +
+  'not open a read with "it sounds like you", "you notice", "you are feeling", "it is ' +
+  'like you", or any mirror of her words. Lead with the new thought itself. If the ' +
+  'only honest thing you can add is a restatement, say less, but never pad with echo.';
 
 // One instruction per slot. The caller hands over the user turn (her words, and
 // for pick slots the option menu); this maps the slot to the right system.
