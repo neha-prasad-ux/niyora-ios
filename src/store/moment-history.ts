@@ -97,6 +97,25 @@ export async function addMoment(
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
 }
 
+/** Attach a drafted response to the most recent moment, for when it lands after
+ *  the moment was already saved this session (the emotion saves when she finishes
+ *  reflecting; the act draft comes later). No-op if there is no moment/response. */
+export async function updateLatestMomentResponse(response: string): Promise<void> {
+  const r = response?.trim();
+  if (!r) return;
+  const existing = await getMoments(); // plaintext (decrypted on read)
+  if (existing.length === 0) return;
+  existing[0] = { ...existing[0], response: r };
+  const stored = await Promise.all(
+    existing.map(async (m) => ({
+      ...m,
+      entry: await encrypt(m.entry),
+      ...(m.response !== undefined ? { response: await encrypt(m.response) } : {}),
+    })),
+  );
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+}
+
 /** How many times each feeling has been named, most-worked-through first. Feeds
  *  the My Soul "emotions you've worked through" view. */
 export function feelingCounts(moments: readonly MomentRecord[]): { feeling: string; count: number }[] {

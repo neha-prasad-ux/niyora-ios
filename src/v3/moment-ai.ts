@@ -39,13 +39,17 @@ export const NO_PROVIDER: MomentProvider = {
   },
 };
 
-const TIMEOUT_MS = 5000;
-// Compose slots (reframe readings, act draft, revise) generate several sentences
-// of JSON, which takes noticeably longer than a one-line echo/pick. At the flat
-// 5s budget the reframe times out on a real device and silently falls back to the
-// generic authored smallReframes, so its own bespoke readings never show. Give
-// the compose slots real headroom; a loading state covers the extra wait.
-const COMPOSE_TIMEOUT_MS = 12000;
+// Raised 2026-08-15 (Neha reported intermittent "Moon stops working" from India):
+// Vertex runs in us-central1, so higher round-trip latency makes the old 5s/12s
+// budgets time out intermittently. More headroom absorbs the latency; the 3-attempt
+// retry still covers genuine failures. ponytail: fixed budgets, revisit with a
+// region move or per-region tuning if it still falls short.
+const TIMEOUT_MS = 8000;
+// Compose slots (reframe readings, act draft, JSON cards) generate several
+// sentences of JSON, noticeably slower than a one-line pick. Give them real
+// headroom so a slow-but-fine response is not thrown away; a loading state covers
+// the wait.
+const COMPOSE_TIMEOUT_MS = 16000;
 
 /**
  * Does her entry name a concrete event, or is it only a mood? (M6.) A vague

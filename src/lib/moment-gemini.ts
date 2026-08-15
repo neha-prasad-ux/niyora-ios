@@ -433,7 +433,7 @@ export async function classifyCrisis(herText: string): Promise<CrisisRead | null
   if (!MOMENT_AI || !getModelHandle()) return null;
   const raw = herText.trim();
   if (!raw) return null;
-  const out = await callGemini(CRISIS_SYSTEM, raw, 4000, false);
+  const out = await callGemini(CRISIS_SYSTEM, raw, 6000, false);
   if (!out) return null;
   try {
     const j = JSON.parse(out.replace(/^```json\s*|```$/g, '').trim());

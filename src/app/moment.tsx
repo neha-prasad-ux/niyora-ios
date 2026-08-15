@@ -152,6 +152,7 @@ import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
 import { getRewardCount, bumpRewardCount } from '@/store/reward-progress';
 import {
   addMoment,
+  updateLatestMomentResponse,
   getMoments,
   latestForSubject,
   recentSubjects,
@@ -512,6 +513,11 @@ export default function Moment() {
    *  she reaches Reflect, rather than making her wait. Only for a draft/guess
    *  first card; a question-mode first card needs no AI (stays null). */
   const reflectPrefetch = useRef<Promise<ReflectContent> | null>(null);
+  /** Once-per-session guard so the moment is saved to My Soul exactly once. It used
+   *  to save only at the final gift scratch, so any session that didn't complete
+   *  the whole arc never appeared in My Soul (Neha 2026-08-15). Now it saves when
+   *  she finishes reflecting. */
+  const momentSaved = useRef(false);
   /** M6 context gate: the AI "is there a concrete event here?" check, fired at
    *  send() so it runs during the echo + feeling-guess beats and is settled by the
    *  time she reaches the first reflect card. Consumed once under that card's
@@ -710,6 +716,7 @@ export default function Moment() {
     setSteerOpen(false);
     reflectSteer.current = '';
     rerolls.current = 0;
+    momentSaved.current = false; // fresh moment → save it again when she finishes
     setPmsOpen(false);
     setCardContent({});
     setOtherOpen(false);
@@ -751,10 +758,29 @@ export default function Moment() {
 
   /** She took a card (accepted the reading, or owned it by editing): reflection is
    *  done, on to regulate. */
+  /** Save this moment to My Soul, once per session. Called when she finishes
+   *  reflecting (not only at the final gift), so a named-and-worked-through feeling
+   *  reliably lands in My Soul even if she never reaches the celebration. Response
+   *  is included when it already exists (a completed act). */
+  const persistMoment = () => {
+    if (momentSaved.current) return;
+    const feeling = chosenFeeling.current;
+    if (!herText.current.trim() || !feeling) return;
+    momentSaved.current = true;
+    addMoment({
+      entry: herText.current,
+      feeling,
+      constellation: FEELING_SET.find((f) => f.label === feeling)?.constellation ?? '',
+      subject: subjectOf(herText.current) ?? undefined,
+      response: actDraft || undefined,
+    }).catch(() => {});
+  };
+
   const acceptReflect = () => {
     tap();
     setReflectEditing(false);
     setChatOpen(false);
+    persistMoment(); // she worked the feeling through → it belongs in My Soul now
     go('reflect'); // "Yes, ready to regulate" → make_safe (the SETTLE gate)
   };
 
@@ -3605,18 +3631,12 @@ export default function Moment() {
                   if (!rewardBumped.current) {
                     rewardBumped.current = true;
                     bumpRewardCount().catch(() => {});
-                    // Remember this finished moment (Neha 2026-08-11): the emotion
-                    // she named (+ its constellation for My Soul), what she wrote,
-                    // the response she drafted, and the thread subject. On-device.
-                    const feeling = chosenFeeling.current;
-                    addMoment({
-                      entry: herText.current,
-                      feeling,
-                      constellation:
-                        FEELING_SET.find((f) => f.label === feeling)?.constellation ?? '',
-                      subject: subjectOf(herText.current) ?? undefined,
-                      response: actDraft || undefined,
-                    }).catch(() => {});
+                    // The moment was already saved when she finished reflecting
+                    // (persistMoment); here we only attach the act she drafted, so a
+                    // completed session keeps its response for thread pickup. The
+                    // persistMoment call is a safety net for any path that skipped it.
+                    persistMoment();
+                    if (actDraft) updateLatestMomentResponse(actDraft).catch(() => {});
                   }
                 }}
               >
