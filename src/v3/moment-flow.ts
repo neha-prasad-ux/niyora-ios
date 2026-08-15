@@ -42,7 +42,6 @@ export type Owner =
 
 export type NodeId =
   // entry
-  | 'intro'
   | 'raw_entry'
   | 'safe_check'
   | 'crisis_handoff'
@@ -110,13 +109,9 @@ export type FlowNode = {
  */
 export const MOMENT_FLOW: FlowNode[] = [
   // --- entry ---------------------------------------------------------------
-  {
-    id: 'intro',
-    owner: 'authored',
-    phase: 'reflect',
-    next: 'raw_entry',
-    note: 'The 3-beat Reflect / Regulate / Respond preview, shown once at flow start so she knows the shape (INTRO_BEATS). Was skipped 2026-07-31; brought back 2026-08-09 with the reflect-card rebuild.',
-  },
+  // The 'intro' node (the 3-beat Reflect/Regulate/Respond preview) was removed
+  // 2026-08-15 (Neha): it was an extra gate before every reflection. The flow now
+  // opens straight on the entry text.
   {
     id: 'raw_entry',
     owner: 'ui',
@@ -413,7 +408,6 @@ export function advance(id: NodeId, key?: string): NodeId | null {
 /** The beats that call the model, and the corpus slot each is sent as. */
 export const MODEL_NODES = MOMENT_FLOW.filter((n) => n.slot != null);
 
-// The flow opens on the 3-beat Reflect / Regulate / Respond intro (brought back
-// 2026-08-09 with the reflect-card rebuild) so she knows the shape before the
-// first question, then straight to "tell me what happened".
-export const ENTRY: NodeId = 'intro';
+// The flow opens straight on "tell me what happened" (the intro preview was
+// removed 2026-08-15, Neha).
+export const ENTRY: NodeId = 'raw_entry';

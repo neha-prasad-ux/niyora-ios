@@ -1787,11 +1787,7 @@ function Plan({
       {/* Moon: the in-the-moment AI, teased here and introduced in full on the
           next step. One flat card (not a deck) so it doesn't add to the stack. */}
       <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.planSection}>
-        <PlanSectionHead
-          when="In the moment"
-          title="Talk to Moon"
-          sub="Think it through together, and pick what actually helps"
-        />
+        <PlanSectionHead when="In the moment" title="Talk to Moon" />
         <Panel hero accent={v3.accent} style={styles.moonPlanCard}>
           <Orb size={46} still />
           <View style={styles.planItemText}>
@@ -1805,11 +1801,7 @@ function Plan({
           margin stacked deck; collapsed to a single card so nothing's buried and
           the fragile fixed-height overlap is gone. Neha 2026-08-02.) */}
       <Animated.View entering={FadeInDown.delay(180).duration(500)} style={styles.planSection}>
-        <PlanSectionHead
-          when={whenTrain}
-          title="Train your mind"
-          sub="Gamified, science-backed ways to master emotions"
-        />
+        <PlanSectionHead when={whenTrain} title="Train your mind" />
         <ChapterCard
           chapter={PLAN_DECK[PLAN_DECK.length - 1]}
           training={DEFAULT_TRAINING}
@@ -1820,11 +1812,7 @@ function Plan({
 
       {/* 2 — Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.planSection}>
-        <PlanSectionHead
-          when="Before PMS"
-          title="Us vs. the PMS"
-          sub="Keep the two of you on the same side"
-        />
+        <PlanSectionHead when="Before PMS" title="Us vs. the PMS" />
         <PlanCoupleCard item={PLAN_COUPLE_DECK[PLAN_COUPLE_DECK.length - 1]} />
       </Animated.View>
 
@@ -2195,12 +2183,12 @@ function CardPreview({ kind }: { kind?: StartCard['previewKind'] }) {
 }
 
 // A section header: the "when" line, the feature title, and a one-line sub.
-function PlanSectionHead({ when, title, sub }: { when: string; title: string; sub: string }) {
+function PlanSectionHead({ when, title, sub }: { when: string; title: string; sub?: string }) {
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.planWhen}>{when}</Text>
       <Text style={styles.planSectionTitle}>{title}</Text>
-      <Text style={styles.planSectionSub}>{sub}</Text>
+      {sub ? <Text style={styles.planSectionSub}>{sub}</Text> : null}
     </View>
   );
 }
@@ -2759,7 +2747,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 34,
   },
-  consentScroll: { paddingTop: spacing.sm, paddingBottom: spacing.lg, gap: spacing.lg },
+  // paddingTop pushes "Meet Moon" down so its first line sits roughly where the
+  // other pages' titles start, instead of flush under the top bar (Neha 2026-08-15;
+  // eyeball on the build and nudge if needed).
+  consentScroll: { paddingTop: spacing.xxxl + spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
   consentTitle: {
     fontFamily: fonts.semibold,
     fontSize: fontScale.pageTitle,
@@ -3275,7 +3266,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  planSection: { width: '100%', marginBottom: spacing.xxl },
+  planSection: {
+    width: '100%',
+    marginBottom: spacing.xxl,
+    // A hairline divider sets each plan section apart (Neha 2026-08-15).
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: v3.panelBorder,
+    paddingTop: spacing.xl,
+  },
   sectionHead: { marginBottom: spacing.md },
   planWhen: {
     fontFamily: fonts.medium,

@@ -87,7 +87,6 @@ import { resetHold } from '@/lib/hold-clock';
 import { Chip } from '@/components/moment/fill-in';
 import { ScratchCard } from '@/components/moment/scratch-card';
 import { addPlannedAction } from '@/store/moment-plan';
-import { getIntroSeen, setIntroSeen } from '@/store/intro-seen';
 import { CRISIS_COPY, scanForAbuse, DV_RESOURCE, openDvLine, openDvIntlLine } from '@/lib/crisis-scan';
 import { runAiCrisisGuard } from '@/lib/crisis-guard';
 import { CrisisSheet } from '@/components/CrisisSheet';
@@ -300,23 +299,6 @@ export default function Moment() {
   // The "Let's work through this together" intro is a first-run orientation, not a
   // gate to sit through every time. On a normal start, skip straight to the entry
   // once she has seen it. Resume has its own start, so it needs no check.
-  const [introChecked, setIntroChecked] = useState(resume === '1');
-  useEffect(() => {
-    if (resume === '1') return;
-    let alive = true;
-    getIntroSeen()
-      .then((seen) => {
-        if (!alive) return;
-        if (seen) setCurrent('raw_entry');
-        setIntroChecked(true);
-      })
-      .catch(() => {
-        if (alive) setIntroChecked(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [resume]);
   const [draft, setDraft] = useState('');
   // One good entry example, picked once per open so it rotates across sessions
   // (partner / family / work) without crowding the screen with all three.
@@ -1837,7 +1819,7 @@ export default function Moment() {
   // inside meant every keystroke tore down the field and dismissed the
   // keyboard. Calling it inlines the JSX with no component boundary.
   const ui =
-    crisis ? Crisis() : hydrating || !introChecked ? { body: null, cta: null } : Beat();
+    crisis ? Crisis() : hydrating ? { body: null, cta: null } : Beat();
 
   // A "composer beat" is a typing screen whose chat-style field lives in the
   // pinned CTA slot (raw_entry / clarify). On these
@@ -1993,10 +1975,8 @@ export default function Moment() {
                 only when there is somewhere to go back to; a spacer holds the
                 map's position steady when it does not. Hidden on the crisis
                 screen, which has its own single way out. Pinned above the scroll
-                so it stays put as the body scrolls. Hidden on the intro too:
-                the three preview cards ARE the phase map there, so the thin bar
-                would only repeat them. */}
-            {!crisis && current !== 'intro' && (
+                so it stays put as the body scrolls. */}
+            {!crisis && (
               <View style={styles.cardHeader}>
                 {history.length > 0 ? (
                   <BackButton onPress={back} />
@@ -2086,86 +2066,6 @@ export default function Moment() {
       // The welcome: the three states as cards in their own flow colours, so she
       // sees the shape before the first question — three known chapters, not an
       // open-ended chat. Signed "with Moon AI"; "Think with me" opens the flow.
-      case 'intro':
-        return {
-          body: (
-            <View style={styles.introWrap}>
-              <View style={styles.introLead}>
-                <Text style={styles.introHead}>{COPY.intro_head}</Text>
-                <Text style={styles.introSub}>{COPY.intro_lead}</Text>
-              </View>
-
-              {/* The three states as a connected stepper. A faint spine runs
-                  behind the nodes; each step drops in one after another, so the
-                  path appears to build rather than arrive all at once. Colours
-                  are the flow's own — the same three the progress bar uses. */}
-              <View style={styles.introSteps}>
-                <View style={styles.introSpine} pointerEvents="none" />
-                {PHASE_STEPS.map((s, i) => {
-                  const tint = phaseTint(s.phase);
-                  const hue = phaseHue(s.phase);
-                  return (
-                    <Animated.View
-                      key={s.phase}
-                      style={styles.introRow}
-                      entering={
-                        reduceMotion
-                          ? undefined
-                          : FadeInDown.delay(140 + i * 160)
-                              .duration(360)
-                              .easing(Easing.out(Easing.quad))
-                      }
-                    >
-                      <View style={styles.introRail}>
-                        <View
-                          style={[styles.introDot, { backgroundColor: hue, borderColor: hue }]}
-                        >
-                          <SymbolView name={INTRO_ICON[i]} size={14} tintColor="#FFFFFF" />
-                        </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.introStep,
-                          {
-                            backgroundColor: tint.backgroundColor,
-                            borderColor: tint.borderColor,
-                          },
-                        ]}
-                      >
-                        <Text style={[styles.introStepTitle, { color: hue }]}>{s.label}</Text>
-                        <Text style={styles.introStepSub}>{INTRO_SUB[i]}</Text>
-                      </View>
-                    </Animated.View>
-                  );
-                })}
-              </View>
-
-              <View style={styles.introBrand}>
-                <Orb
-                  size={16}
-                  tierRingCount={0}
-                  still
-                  hue={bodyHue(lifetimeLight)}
-                  brightness={moon?.fullness ?? 1}
-                  material={moon?.material ?? 'moonstone'}
-                  illum={1}
-                />
-                <Text style={styles.introBrandText}>{COPY.intro_brand}</Text>
-              </View>
-            </View>
-          ),
-          cta: (
-            <BeginButton
-              fullWidth
-              label={COPY.intro_cta}
-              onPress={() => {
-                setIntroSeen().catch(() => {}); // first run only from here on
-                go('intro');
-              }}
-            />
-          ),
-        };
-
       // The entry card: her free-text "what happened". The upfront 0-10 rating
       // that used to share this card was cut 2026-08-09 (it felt arbitrary and
       // boring, and rating a thing she had not named yet was a cold step). A clear
