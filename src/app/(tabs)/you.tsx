@@ -101,7 +101,7 @@ import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
 import { getRewardCount } from '@/store/reward-progress';
-import { getMoments, feelingCounts, type MomentRecord } from '@/store/moment-history';
+import { getMoments, type MomentRecord } from '@/store/moment-history';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
@@ -670,19 +670,23 @@ function DrawingsCard({ earned }: { earned: number }) {
   );
 }
 
-// The constellations she has actually named, most worked-through first. Each
-// feeling belongs to one constellation (FEELING_SET), and a moment carries it,
-// so we just tally by constellation. (docs/moon-ai-constellations.md)
-function constellationGroups(
+// One badge per constellation she has reached, most worked-through first. Each
+// feeling belongs to one constellation, so the constellation IS the badge, and it
+// carries the feelings she named inside it — one grouping instead of two separate
+// lists (Neha 2026-08-15). (docs/moon-ai-constellations.md)
+function constellationBadges(
   moments: readonly MomentRecord[],
-): { constellation: string; count: number }[] {
-  const by = new Map<string, number>();
+): { constellation: string; feelings: string[]; count: number }[] {
+  const by = new Map<string, { feelings: Set<string>; count: number }>();
   for (const m of moments) {
     if (!m.constellation) continue;
-    by.set(m.constellation, (by.get(m.constellation) ?? 0) + 1);
+    const e = by.get(m.constellation) ?? { feelings: new Set<string>(), count: 0 };
+    e.count += 1;
+    if (m.feeling) e.feelings.add(m.feeling);
+    by.set(m.constellation, e);
   }
   return [...by.entries()]
-    .map(([constellation, count]) => ({ constellation, count }))
+    .map(([constellation, e]) => ({ constellation, feelings: [...e.feelings], count: e.count }))
     .sort((a, b) => b.count - a.count);
 }
 
@@ -702,36 +706,24 @@ function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
       </View>
     );
   }
-  const feelings = feelingCounts(moments);
-  const constellations = constellationGroups(moments);
+  const badges = constellationBadges(moments);
   return (
     <View style={styles.card}>
       <GlassCardBg />
-      <View style={styles.emotionChips}>
-        {feelings.map(({ feeling, count }) => (
-          <View key={feeling} style={styles.emotionChip}>
-            <View style={styles.emotionStar} />
-            <Text style={styles.emotionChipLabel}>{feeling}</Text>
-            {count > 1 && <Text style={styles.emotionChipCount}>{count}</Text>}
+      {badges.map(({ constellation, feelings, count }) => (
+        <View key={constellation} style={styles.badgeRow}>
+          {/* Placeholder badge until the constellation art lands (Neha is sourcing
+              it); it drops straight into this slot, keyed by constellation. */}
+          <View style={styles.emotionStarLit} />
+          <View style={styles.badgeText}>
+            <Text style={styles.emotionChipLabel}>
+              {constellation.charAt(0).toUpperCase() + constellation.slice(1)}
+              {count > 1 ? `  ·  ${count}` : ''}
+            </Text>
+            {feelings.length > 0 && <Text style={styles.badgeFeelings}>{feelings.join(', ')}</Text>}
           </View>
-        ))}
-      </View>
-      {constellations.length > 0 && (
-        <>
-          <Text style={styles.emotionSub}>Rising in your sky</Text>
-          <View style={styles.emotionChips}>
-            {constellations.map(({ constellation, count }) => (
-              <View key={constellation} style={styles.emotionChip}>
-                <View style={styles.emotionStarLit} />
-                <Text style={styles.emotionChipLabel}>
-                  {constellation.charAt(0).toUpperCase() + constellation.slice(1)}
-                </Text>
-                <Text style={styles.emotionChipCount}>{count}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
+        </View>
+      ))}
     </View>
   );
 }
@@ -1963,6 +1955,15 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 3.5,
     backgroundColor: '#E7C878',
+  },
+  // One constellation badge row: the badge (placeholder star for now) + its name,
+  // count, and the feelings named inside it (Neha 2026-08-15).
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  badgeText: { flex: 1, gap: 2 },
+  badgeFeelings: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.regular,
+    color: colors.textOnDark.faint,
   },
   emotionChipLabel: {
     fontSize: fontScale.caption,
