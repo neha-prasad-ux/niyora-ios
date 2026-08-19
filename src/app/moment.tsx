@@ -148,11 +148,12 @@ import { getPmsPrefs } from '@/store/pms-prefs';
 import { isInPmsWindow } from '@/lib/pms-window';
 import { scheduleActionReminder } from '@/lib/notifications';
 import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
-import { getRewardCount, bumpRewardCount } from '@/store/reward-progress';
 import {
   addMoment,
+  badgeFor,
   updateLatestMomentResponse,
   getMoments,
+  type Badge,
   latestForSubject,
   recentSubjects,
   subjectCount,
@@ -513,11 +514,11 @@ export default function Moment() {
   const rerolls = useRef(0);
   // C3: counts forward steps, to rotate the per-step praise line.
   const stepN = useRef(0);
-  // M9-14 reward: the gift-scratch drawings are awarded one by one IN ORDER. The
-  // next index is loaded from the persisted count on mount; the reveal bumps it
-  // so the next session earns the next drawing. `rewardBumped` guards a single
-  // increment per session.
-  const [rewardIdx, setRewardIdx] = useState(0);
+  // The reward badge for THIS moment: the constellation of the feeling she just
+  // worked through (Neha 2026-08-19). A new constellation claims the next drawing;
+  // a repeat re-shows the drawing she already has with one more golden star. Loaded
+  // from history when she reaches the close, so the star count includes this one.
+  const [badge, setBadge] = useState<Badge | null>(null);
   const rewardBumped = useRef(false);
   // M28: on Done the sky dims and the moon behind the card blooms + confetti.
   const [celebrating, setCelebrating] = useState(false);
@@ -1292,18 +1293,23 @@ export default function Moment() {
     };
   }, [aiOn, current, feelingOrder, provider]);
 
-  // M9-14: load which reward drawing is next (persisted order) on mount.
+  // Work out the badge when she lands on the close step: by then the moment is
+  // saved (persistMoment runs at accept), so history already counts this one.
   useEffect(() => {
+    if (current !== 'close') return;
     let alive = true;
-    getRewardCount()
-      .then((n) => {
-        if (alive) setRewardIdx(n);
+    const feeling = chosenFeeling.current;
+    const constellation = FEELING_SET.find((f) => f.label === feeling)?.constellation ?? '';
+    if (!constellation) return;
+    getMoments()
+      .then((all) => {
+        if (alive) setBadge(badgeFor(all, constellation, MOON_DRAWINGS.length, feeling));
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, []);
+  }, [current]);
 
   // Cycle context (C2): read her PMS window once on mount. A gentler reframe and
   // lower-stakes options fit while she is premenstrual; off otherwise.
@@ -3527,10 +3533,8 @@ export default function Moment() {
                 hint={COPY.close_scratch}
                 onReveal={() => {
                   setRevealed(true);
-                  // Earned: advance the order so the next session gets the next.
                   if (!rewardBumped.current) {
                     rewardBumped.current = true;
-                    bumpRewardCount().catch(() => {});
                     // The moment was already saved when she finished reflecting
                     // (persistMoment); here we only attach the act she drafted, so a
                     // completed session keeps its response for thread pickup. The
@@ -3541,15 +3545,34 @@ export default function Moment() {
                 }}
               >
                 <View style={styles.prize}>
-                  <Image
-                    source={MOON_DRAWINGS[rewardIdx % MOON_DRAWINGS.length].src}
-                    style={styles.prizeImage}
-                    resizeMode="contain"
-                    accessibilityIgnoresInvertColors
-                  />
-                  <Text style={styles.badgeName}>
-                    {MOON_DRAWINGS[rewardIdx % MOON_DRAWINGS.length].caption}
-                  </Text>
+                  {badge && badge.drawing >= 0 ? (
+                    <>
+                      <Image
+                        source={MOON_DRAWINGS[badge.drawing].src}
+                        style={styles.prizeImage}
+                        resizeMode="contain"
+                        accessibilityIgnoresInvertColors
+                      />
+                      <Text style={styles.badgeName}>{MOON_DRAWINGS[badge.drawing].caption}</Text>
+                    </>
+                  ) : (
+                    // Past the sixth constellation the art runs out; her star still
+                    // lights. ponytail: swap in the real figure by growing MOON_DRAWINGS.
+                    <>
+                      <Text style={styles.prizeStar}>★</Text>
+                      <Text style={styles.badgeName}>{COPY.close_badge_why}</Text>
+                    </>
+                  )}
+                  {/* A repeat is not new art: the same badge, one more golden star. */}
+                  {badge && badge.count > 1 && (
+                    <View
+                      style={styles.starCount}
+                      accessibilityLabel={`Worked through ${badge.count} times`}
+                    >
+                      <Text style={styles.starCountNum}>{badge.count}</Text>
+                      <Text style={styles.starCountStar}>★</Text>
+                    </View>
+                  )}
                 </View>
               </ScratchCard>
               {revealed && (
@@ -4612,6 +4635,19 @@ const styles = StyleSheet.create({
   },
   // The uncovered drawing. Fits inside the 190-tall card with room for the name.
   prizeImage: { width: 132, height: 132 },
+  // Stand-in for a constellation with no art yet.
+  prizeStar: { fontSize: 92, color: '#E7C878', textAlign: 'center' },
+  // How many times she has worked this feeling through, in the card's corner.
+  starCount: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  starCountNum: { ...moon.captionStrong, color: '#E7C878' },
+  starCountStar: { fontSize: 15, color: '#E7C878' },
   badgeName: {
     ...moon.title,
     color: colors.textPrimary,

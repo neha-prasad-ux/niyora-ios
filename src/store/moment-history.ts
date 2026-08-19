@@ -156,3 +156,63 @@ export function recentSubjects(moments: readonly MomentRecord[], days = 30): str
   }
   return seen;
 }
+
+/** One badge = one constellation she has worked through. The reward drawings are
+ *  claimed by the first `slots` distinct constellations, in the order she cracked
+ *  them (Neha 2026-08-19). A repeat never hands out new art: it lights a golden
+ *  star and raises the count, so the collection stays tied to what she felt.
+ *
+ *  ponytail: derived from history on read, no separate counter store. Six slots is
+ *  the art we have; the full 19-constellation set (docs/moon-ai-constellations.md)
+ *  drops in by growing MOON_DRAWINGS, no logic change. */
+export type Badge = {
+  constellation: string;
+  /** Index into MOON_DRAWINGS, or -1 once the art has run out. */
+  drawing: number;
+  /** Times she has worked this constellation through. The star number. */
+  count: number;
+  /** The feelings she named inside it, first-named first. */
+  feelings: string[];
+};
+
+/** Her badges, in the order she earned them. */
+export function badgesFrom(moments: readonly MomentRecord[], slots: number): Badge[] {
+  const by = new Map<string, Badge>();
+  // History is newest-first; walk it backwards so slot 0 is her first emotion.
+  for (let i = moments.length - 1; i >= 0; i--) {
+    const m = moments[i];
+    if (!m.constellation) continue;
+    const b = by.get(m.constellation);
+    if (b) {
+      b.count += 1;
+      if (m.feeling && !b.feelings.includes(m.feeling)) b.feelings.push(m.feeling);
+      continue;
+    }
+    by.set(m.constellation, {
+      constellation: m.constellation,
+      drawing: by.size < slots ? by.size : -1,
+      count: 1,
+      feelings: m.feeling ? [m.feeling] : [],
+    });
+  }
+  return [...by.values()];
+}
+
+/** The badge for the moment she just finished. Falls back to a fresh badge when
+ *  that moment has not landed in history yet, so the reveal is never empty. */
+export function badgeFor(
+  moments: readonly MomentRecord[],
+  constellation: string,
+  slots: number,
+  feeling?: string,
+): Badge {
+  const all = badgesFrom(moments, slots);
+  return (
+    all.find((b) => b.constellation === constellation) ?? {
+      constellation,
+      drawing: all.length < slots ? all.length : -1,
+      count: 1,
+      feelings: feeling ? [feeling] : [],
+    }
+  );
+}

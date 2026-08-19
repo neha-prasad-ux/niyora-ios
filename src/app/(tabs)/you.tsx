@@ -100,8 +100,7 @@ import { radius, spacing, pageGutter } from '@/theme/spacing';
 import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
-import { getRewardCount } from '@/store/reward-progress';
-import { getMoments, type MomentRecord } from '@/store/moment-history';
+import { badgesFrom, getMoments, type MomentRecord } from '@/store/moment-history';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
@@ -138,8 +137,6 @@ export default function MySoulScreen() {
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [crisisOpen, setCrisisOpen] = useState(false);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
-  // How many gift-reward drawings she has earned (in order), for the Soul grid.
-  const [rewardCount, setRewardCount] = useState(0);
   // The real feelings she has named and worked through, from on-device history.
   const [moments, setMoments] = useState<MomentRecord[]>([]);
   const {
@@ -154,9 +151,6 @@ export default function MySoulScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getRewardCount().then((n) => {
-        if (active) setRewardCount(n);
-      }).catch(() => {});
       getMoments().then((m) => {
         if (active) setMoments(m);
       }).catch(() => {});
@@ -397,9 +391,6 @@ export default function MySoulScreen() {
               />
 
               <SectionEyebrow title="Your badges" />
-              <DrawingsCard earned={rewardCount} />
-
-              <SectionEyebrow title="Emotions you've worked through" />
               <EmotionsCard moments={moments} />
 
               {/* Eyebrow above the card, matching "Your badges"/"Your growth". */}
@@ -649,52 +640,11 @@ const MOOD_DOT_HUES = [295, 278, 260, 240, 215] as const;
 // ribbon (purple = tense, blue = at peace), oldest on the left. Deliberately a
 // different shape from the daily check-in dot sparkline so the two read as
 // distinct, and on-brand with the app's gradients.
-// The gift-reward drawings she has uncovered, saved to her Soul. Earned one by
-// one in order; unearned slots stay dim until she reaches them (M9-14 / reward).
-function DrawingsCard({ earned }: { earned: number }) {
-  return (
-    <View style={styles.card}>
-      <GlassCardBg />
-      <View style={styles.drawGrid}>
-        {MOON_DRAWINGS.map((d, i) => (
-          <View key={i} style={styles.drawCell}>
-            {i < earned ? (
-              <Image source={d.src} style={styles.drawImg} resizeMode="contain" accessibilityIgnoresInvertColors />
-            ) : (
-              <View style={styles.drawLocked} />
-            )}
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-// One badge per constellation she has reached, most worked-through first. Each
-// feeling belongs to one constellation, so the constellation IS the badge, and it
-// carries the feelings she named inside it — one grouping instead of two separate
-// lists (Neha 2026-08-15). (docs/moon-ai-constellations.md)
-function constellationBadges(
-  moments: readonly MomentRecord[],
-): { constellation: string; feelings: string[]; count: number }[] {
-  const by = new Map<string, { feelings: Set<string>; count: number }>();
-  for (const m of moments) {
-    if (!m.constellation) continue;
-    const e = by.get(m.constellation) ?? { feelings: new Set<string>(), count: 0 };
-    e.count += 1;
-    if (m.feeling) e.feelings.add(m.feeling);
-    by.set(m.constellation, e);
-  }
-  return [...by.entries()]
-    .map(([constellation, e]) => ({ constellation, feelings: [...e.feelings], count: e.count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-// The real feelings she has named and worked through, gathered on-device. The
-// feelings come most-worked-through first (feelingCounts), then the
-// constellations those feelings belong to — each one "rising" in her sky as she
-// names the emotions inside it. No badge PNGs are wired yet (Neha is sourcing
-// them), so the constellations surface as lit names rather than art.
+// Her badges: one per constellation she has worked through, in the order she
+// cracked them. The six reward drawings are claimed by the first six distinct
+// constellations (badgesFrom); every repeat after that keeps the same drawing and
+// lights one more golden star. Badges and emotions are one thing, not two lists
+// (Neha 2026-08-19). Full 19-constellation art: docs/moon-ai-constellations.md.
 function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
   if (moments.length === 0) {
     return (
@@ -706,19 +656,34 @@ function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
       </View>
     );
   }
-  const badges = constellationBadges(moments);
+  const badges = badgesFrom(moments, MOON_DRAWINGS.length);
   return (
     <View style={styles.card}>
       <GlassCardBg />
-      {badges.map(({ constellation, feelings, count }) => (
+      {badges.map(({ constellation, drawing, feelings, count }) => (
         <View key={constellation} style={styles.badgeRow}>
-          {/* Placeholder badge until the constellation art lands (Neha is sourcing
-              it); it drops straight into this slot, keyed by constellation. */}
-          <View style={styles.emotionStarLit} />
+          <View style={styles.badgeArt}>
+            {drawing >= 0 ? (
+              <Image
+                source={MOON_DRAWINGS[drawing].src}
+                style={styles.badgeImg}
+                resizeMode="contain"
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              // No art for this one yet; the star still carries it.
+              <Text style={styles.badgeStarGlyph}>★</Text>
+            )}
+            {count > 1 && (
+              <View style={styles.starCount} accessibilityLabel={`Worked through ${count} times`}>
+                <Text style={styles.starCountNum}>{count}</Text>
+                <Text style={styles.starCountStar}>★</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.badgeText}>
             <Text style={styles.emotionChipLabel}>
               {constellation.charAt(0).toUpperCase() + constellation.slice(1)}
-              {count > 1 ? `  ·  ${count}` : ''}
             </Text>
             {feelings.length > 0 && <Text style={styles.badgeFeelings}>{feelings.join(', ')}</Text>}
           </View>
@@ -1908,18 +1873,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     color: colors.textPrimary,
   },
-  // The drawings collection grid: three per row, square cells.
-  drawGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md },
-  drawCell: { width: '30%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
-  drawImg: { width: '100%', height: '100%' },
-  drawLocked: {
-    width: '82%',
-    height: '82%',
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-  },
   cardCopy: {
     fontSize: fontScale.caption,
     fontFamily: fonts.light,
@@ -1956,9 +1909,26 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
     backgroundColor: '#E7C878',
   },
-  // One constellation badge row: the badge (placeholder star for now) + its name,
-  // count, and the feelings named inside it (Neha 2026-08-15).
+  // One badge row: the earned drawing (with its golden star count in the corner),
+  // the constellation name, and the feelings named inside it (Neha 2026-08-19).
   badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  badgeArt: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  badgeImg: { width: 56, height: 56 },
+  badgeStarGlyph: { fontSize: 30, color: '#E7C878' },
+  starCount: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  starCountNum: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: '#E7C878',
+  },
+  starCountStar: { fontSize: 11, color: '#E7C878' },
   badgeText: { flex: 1, gap: 2 },
   badgeFeelings: {
     fontSize: fontScale.tagline,

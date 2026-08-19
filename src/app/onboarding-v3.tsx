@@ -31,7 +31,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   FadeIn,
@@ -904,7 +904,11 @@ export function MeetMoonConsent({
   onClose: () => void;
 }) {
   return (
-    <View style={styles.root}>
+    // Both callers render this inside a fullScreen <Modal>, which is its own
+    // native view hierarchy the app's provider does not reach: without a
+    // provider of its own every inset reads 0 and the close button sits under
+    // the status bar (Neha 2026-08-19).
+    <SafeAreaProvider style={styles.root}>
       <BackgroundGradient />
       <CosmicBackground />
       {/* Same content-screen composition as the flow: one glowing moon behind a
@@ -971,7 +975,7 @@ export function MeetMoonConsent({
           <BeginButton fullWidth label="I agree" onPress={onAgree} />
         </View>
       </SafeAreaView>
-    </View>
+    </SafeAreaProvider>
   );
 }
 

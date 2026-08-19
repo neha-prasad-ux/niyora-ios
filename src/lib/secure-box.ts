@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
 import CryptoJS from 'crypto-js';
 
 // At-rest encryption for the sensitive fields of a stored moment (entry/response).
@@ -14,6 +15,14 @@ import CryptoJS from 'crypto-js';
 
 const KEY_NAME = 'niyora.momentKey';
 
+/** Random bytes as a hex string. crypto-js's own WordArray.random cannot run in
+ *  React Native (no global crypto.getRandomValues, no node crypto) and throws
+ *  "Native crypto module could not be used" — which silently killed every save
+ *  until 2026-08-19. expo-crypto is the platform CSPRNG. */
+function randomHex(bytes: number): string {
+  return [...Crypto.getRandomBytes(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 let keyPromise: Promise<CryptoJS.lib.WordArray> | null = null;
 
 /** The AES key from the Keychain, created once on first use. Cached per session. */
@@ -23,7 +32,7 @@ function getKey(): Promise<CryptoJS.lib.WordArray> {
       const opts = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
       let hex = await SecureStore.getItemAsync(KEY_NAME, opts);
       if (!hex) {
-        hex = CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Hex); // 256-bit
+        hex = randomHex(32); // 256-bit
         await SecureStore.setItemAsync(KEY_NAME, hex, opts);
       }
       return CryptoJS.enc.Hex.parse(hex);
@@ -38,7 +47,7 @@ function getKey(): Promise<CryptoJS.lib.WordArray> {
 /** Encrypt a plaintext string. Output is JSON/storage-safe (base64:base64). */
 export async function encrypt(plain: string): Promise<string> {
   const key = await getKey();
-  const iv = CryptoJS.lib.WordArray.random(16);
+  const iv = CryptoJS.enc.Hex.parse(randomHex(16));
   const ct = CryptoJS.AES.encrypt(plain, key, { iv });
   return `${CryptoJS.enc.Base64.stringify(iv)}:${ct.ciphertext.toString(CryptoJS.enc.Base64)}`;
 }

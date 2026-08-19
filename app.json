@@ -45,6 +45,7 @@
     "plugins": [
       "./plugins/withNoPushEntitlement.js",
       "./plugins/withHealthKit.js",
+      "./plugins/withSkiaHeaderLinks.js",
       [
         "@react-native-firebase/app",
         {
