@@ -31,7 +31,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   FadeIn,
@@ -173,7 +173,9 @@ const SEQUENCE: StepId[] = [
   'loading',
   'result',
   'goal', // pick-up: her goal + how Niyora will help
-  'moon_intro', // meet Moon: what the in-the-moment AI is, right before she lands home
+  // 'moon_intro' cut 2026-08-13 (Neha): it duplicated the "Meet Moon" consent
+  // screen shown at the Talk-to-Moon gate. The consent screen is the one that has
+  // to stand at the AI boundary (Apple 5.1.2), so it stays; this intro went.
   'reminder', // opt into one gentle daily nudge, folded in from the old onboarding
   // The "pick" (4-card "where do you want to start?") step was removed; the flow
   // now ends on the reminder and lands on home.
@@ -878,6 +880,102 @@ function MoonIntro({ onNext }: { onNext: () => void }) {
         <BeginButton fullWidth label="Continue" onPress={onNext} />
       </View>
     </View>
+  );
+}
+
+// The Moon AI consent screen ("Meet Moon"). Apple 5.1.2(i) launch gate: explicit
+// consent BEFORE any reflection text is sent to the AI. Shown from Home the first
+// time she taps "Talk to Moon" without having agreed. COPY IS LOCKED (Neha) —
+// reuses the MoonIntro glass + background composition so it reads as one product.
+// "I agree" persists consent and opens Moon; the ✕ closes without consenting.
+const MOON_CONSENT_ROWS: string[] = [
+  'Made for hard moments',
+  'Never used to train the AI',
+  'No one ever reads it',
+  'Stays only on your phone',
+  'Strips your email or number first',
+];
+
+export function MeetMoonConsent({
+  onAgree,
+  onClose,
+}: {
+  onAgree: () => void;
+  onClose: () => void;
+}) {
+  return (
+    // Both callers render this inside a fullScreen <Modal>, which is its own
+    // native view hierarchy the app's provider does not reach: without a
+    // provider of its own every inset reads 0 and the close button sits under
+    // the status bar (Neha 2026-08-19).
+    <SafeAreaProvider style={styles.root}>
+      <BackgroundGradient />
+      <CosmicBackground />
+      {/* Same content-screen composition as the flow: one glowing moon behind a
+          full-page frost, so the consent screen sits in the same world. */}
+      <View pointerEvents="none" style={styles.bgMoon}>
+        <Orb size={200} warmHalo still brightness={0.7} />
+      </View>
+      <BlurView intensity={40} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+      <View pointerEvents="none" style={styles.pageTint} />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <View style={styles.consentTopBar}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <SymbolView name="xmark" tintColor={colors.textTagline} size={17} weight="medium" />
+          </Pressable>
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.consentScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.consentTitle}>Meet Moon</Text>
+          <Text style={styles.consentBody}>
+            Reflect, regulate, and respond to what you&apos;re going through.
+          </Text>
+          <View style={styles.consentCard}>
+            <BlurView intensity={30} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
+            <View pointerEvents="none" style={styles.moonIntroGlassTint} />
+            <LinearGradient
+              colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+              locations={[0, 0.28, 0.62]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              pointerEvents="none"
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.cmpInner}>
+              <View style={styles.cmpHeadRow}>
+                <View style={styles.cmpLabelCell} />
+                <Text style={styles.cmpColHead}>Moon AI</Text>
+                <Text style={styles.cmpColHead}>Other AI</Text>
+              </View>
+              {MOON_CONSENT_ROWS.map((label) => (
+                <View key={label} style={styles.cmpRow}>
+                  <Text style={styles.cmpLabel}>{label}</Text>
+                  <View style={styles.cmpMarkCell}>
+                    <SymbolView name="checkmark" tintColor={v3.accent} size={15} weight="semibold" />
+                  </View>
+                  <View style={styles.cmpMarkCell}>
+                    <SymbolView name="xmark" tintColor={colors.textTagline} size={15} weight="semibold" />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+          <Text style={styles.consentDisclaimer}>
+            Moon is an AI, not a doctor, therapist, or friend.
+          </Text>
+        </ScrollView>
+        <View style={styles.footer}>
+          <BeginButton fullWidth label="I agree" onPress={onAgree} />
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -1693,11 +1791,7 @@ function Plan({
       {/* Moon: the in-the-moment AI, teased here and introduced in full on the
           next step. One flat card (not a deck) so it doesn't add to the stack. */}
       <Animated.View entering={FadeInDown.delay(150).duration(500)} style={styles.planSection}>
-        <PlanSectionHead
-          when="In the moment"
-          title="Talk to Moon"
-          sub="Think it through together, and pick what actually helps"
-        />
+        <PlanSectionHead when="In the moment" title="Talk to Moon" />
         <Panel hero accent={v3.accent} style={styles.moonPlanCard}>
           <Orb size={46} still />
           <View style={styles.planItemText}>
@@ -1711,11 +1805,7 @@ function Plan({
           margin stacked deck; collapsed to a single card so nothing's buried and
           the fragile fixed-height overlap is gone. Neha 2026-08-02.) */}
       <Animated.View entering={FadeInDown.delay(180).duration(500)} style={styles.planSection}>
-        <PlanSectionHead
-          when={whenTrain}
-          title="Train your mind"
-          sub="Gamified, science-backed ways to master emotions"
-        />
+        <PlanSectionHead when={whenTrain} title="Train your mind" />
         <ChapterCard
           chapter={PLAN_DECK[PLAN_DECK.length - 1]}
           training={DEFAULT_TRAINING}
@@ -1726,11 +1816,7 @@ function Plan({
 
       {/* 2 — Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.planSection}>
-        <PlanSectionHead
-          when="Before PMS"
-          title="Us vs. the PMS"
-          sub="Keep the two of you on the same side"
-        />
+        <PlanSectionHead when="Before PMS" title="Us vs. the PMS" />
         <PlanCoupleCard item={PLAN_COUPLE_DECK[PLAN_COUPLE_DECK.length - 1]} />
       </Animated.View>
 
@@ -2101,12 +2187,12 @@ function CardPreview({ kind }: { kind?: StartCard['previewKind'] }) {
 }
 
 // A section header: the "when" line, the feature title, and a one-line sub.
-function PlanSectionHead({ when, title, sub }: { when: string; title: string; sub: string }) {
+function PlanSectionHead({ when, title, sub }: { when: string; title: string; sub?: string }) {
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.planWhen}>{when}</Text>
       <Text style={styles.planSectionTitle}>{title}</Text>
-      <Text style={styles.planSectionSub}>{sub}</Text>
+      {sub ? <Text style={styles.planSectionSub}>{sub}</Text> : null}
     </View>
   );
 }
@@ -2656,6 +2742,78 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     color: colors.textPrimary,
   },
+  // Meet Moon consent screen (Apple 5.1.2(i) gate). Reuses the moonIntro glass +
+  // background composition. Own layout because it carries more than the intro:
+  // title, body, a ✓/✗ comparison table, a disclaimer, and the "I agree" button.
+  consentTopBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    minHeight: 34,
+  },
+  // paddingTop pushes "Meet Moon" down so its first line sits roughly where the
+  // other pages' titles start, instead of flush under the top bar (Neha 2026-08-15;
+  // eyeball on the build and nudge if needed).
+  consentScroll: { paddingTop: spacing.xxxl + spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
+  consentTitle: {
+    fontFamily: fonts.semibold,
+    fontSize: fontScale.pageTitle,
+    lineHeight: 34,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  consentBody: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.cardTitle,
+    lineHeight: 25,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  consentCard: {
+    borderRadius: radius.card,
+    borderCurve: 'continuous',
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: v3.panelBorder,
+  },
+  cmpInner: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  cmpHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  cmpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: v3.panelBorder,
+  },
+  cmpLabelCell: { flex: 1 },
+  cmpLabel: {
+    flex: 1,
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 21,
+    letterSpacing: 0.2,
+    color: colors.textPrimary,
+  },
+  cmpColHead: {
+    width: 60,
+    textAlign: 'center',
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    letterSpacing: 0.2,
+    color: colors.textTagline,
+  },
+  cmpMarkCell: { width: 60, alignItems: 'center' },
+  consentDisclaimer: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.body,
+    lineHeight: 22,
+    letterSpacing: 0.2,
+    color: colors.textTagline,
+  },
   // Plan: the Moon teaser card (orb + line), a single flat panel.
   moonPlanCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   moonPlanTitle: {
@@ -3112,7 +3270,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     letterSpacing: 0.2,
   },
-  planSection: { width: '100%', marginBottom: spacing.xxl },
+  planSection: {
+    width: '100%',
+    marginBottom: spacing.xxl,
+    // A hairline divider sets each plan section apart (Neha 2026-08-15).
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: v3.panelBorder,
+    paddingTop: spacing.xl,
+  },
   sectionHead: { marginBottom: spacing.md },
   planWhen: {
     fontFamily: fonts.medium,

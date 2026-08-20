@@ -12,11 +12,11 @@ const getItem = AsyncStorage.getItem as jest.Mock;
 const removeItem = AsyncStorage.removeItem as jest.Mock;
 
 const CP: MomentCheckpoint = {
-  current: 'reframe_small',
-  history: ['raw_entry', 'intensity_in', 'acknowledge'],
+  current: 'reflect',
+  history: ['intro', 'raw_entry', 'feelings'],
   herText: 'he ignored me at dinner',
   chosenFeeling: 'hurt',
-  baseline: 7,
+  reflectIdx: 0,
   verdict: null,
   chosenAct: null,
   skippedHold: false,

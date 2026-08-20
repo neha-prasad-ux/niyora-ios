@@ -51,12 +51,22 @@ export async function getPlannedActions(): Promise<PlannedAction[]> {
 
 /** Save a move for Today. `draft` is the text she/the moon composed, kept so the
  *  home list can reopen the exact task. Returns the day it was filed under. */
-export async function addPlannedAction(label: string, draft?: string): Promise<string> {
+export async function addPlannedAction(
+  label: string,
+  draft?: string,
+  remindAt?: string,
+): Promise<string> {
   const now = new Date();
   const date = now.toISOString().slice(0, 10);
   const existing = await getPlannedActions();
   const next: PlannedAction[] = [
-    { date, label, at: now.toISOString(), ...(draft ? { draft } : {}) },
+    {
+      date,
+      label,
+      at: now.toISOString(),
+      ...(draft ? { draft } : {}),
+      ...(remindAt ? { remindAt } : {}),
+    },
     ...existing,
   ].slice(0, 50);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));

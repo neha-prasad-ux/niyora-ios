@@ -1,0 +1,49 @@
+# IMPORTANT: a .easignore REPLACES .gitignore for the EAS Build upload — it does
+# NOT extend it. So this must repeat everything .gitignore excludes, or those
+# files (node_modules, ios/Pods, .git) balloon the archive. A bare .easignore
+# that listed only extras made the upload 3.2 GB and blew the 2 GB limit.
+#
+# ios/ + android/ are excluded on purpose: this project is CNG (they're generated
+# and gitignored), so EAS runs `expo prebuild` to regenerate them from app.json +
+# the config plugins + the committed GoogleService-Info.plist. Do NOT ship the
+# local ios/ — its Pods dir alone is gigabytes.
+
+# --- mirror of .gitignore ---
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+example
+/ios
+/android
+*.ipa
+.gstack/
+
+# --- EAS-only extras (not in .gitignore, and untracked so a .easignore must
+#     name them explicitly or they get swept into the upload) ---
+.git/
+proxy/
+**/*.log
+# Claude worktrees/scratch — not app code, ~GBs of nested Pods.
+.claude/
+# The on-device Gemma weights (~2.4 GB). The niyora-gemma podspec bundles NO model
+# resource — weights are downloaded into Application Support at runtime — so the
+# build does not need this dir. (The vendored CLiteRTLM.xcframework IS needed and
+# stays.) Dropping it is what keeps the archive under EAS's 2 GB limit.
+modules/niyora-gemma/ios/model/

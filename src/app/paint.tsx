@@ -4,7 +4,7 @@
 // real illustrations feed in as SVGs. No countdown here (Neha, 2026-07-29): a
 // ticking clock over a make-something-nice task reads as pressure, not calm.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { ColorFill, type ColorFillHandle } from '@/components/moment/color-fill';
 import { DRAWINGS } from '@/components/moment/art';
 import { markActivityDone } from '@/lib/hold-activities';
+import { getPaintHintSeen, setPaintHintSeen } from '@/store/paint-hint-seen';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/fonts';
 import { fontScale } from '@/theme/typography';
@@ -27,6 +28,21 @@ export default function PaintScreen() {
   // fresh drawing starts clean with its own caption.
   const [drawingIdx, setDrawingIdx] = useState(0);
   const choice = DRAWINGS[drawingIdx];
+  // The colouring interaction is invisible: nothing says the outline is paintable.
+  // So the very first time this screen opens we nudge it once (a label over the
+  // drawing plus a gentle pulse) and never again. We mark it seen the moment we
+  // decide to show it, so it stays strictly first-run even if she quits mid-hint.
+  const [showHint, setShowHint] = useState(false);
+  useEffect(() => {
+    let active = true;
+    getPaintHintSeen().then((seen) => {
+      if (active && !seen) {
+        setShowHint(true);
+        setPaintHintSeen().catch(() => {});
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
   const leave = () => {
     Haptics.selectionAsync().catch(() => {});
     router.back();
@@ -90,7 +106,13 @@ export default function PaintScreen() {
             ))}
           </ScrollView>
           <View style={styles.center}>
-            <ColorFill key={choice.id} ref={card} drawing={choice.art} />
+            <ColorFill
+              key={choice.id}
+              ref={card}
+              drawing={choice.art}
+              hint={showHint}
+              onHintDone={() => setShowHint(false)}
+            />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

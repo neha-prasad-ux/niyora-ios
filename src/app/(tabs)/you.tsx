@@ -100,9 +100,9 @@ import { radius, spacing, pageGutter } from '@/theme/spacing';
 import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
-import { getRewardCount } from '@/store/reward-progress';
+import { badgesFrom, getMoments, type MomentRecord } from '@/store/moment-history';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
-import { CRISIS_COPY } from '@/lib/crisis-scan';
+import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
 import { compareReads, deriveLevel, levelActivation } from '@/v3/v3-content';
 import { waveTint } from '@/v3/v3-graphics';
@@ -114,13 +114,9 @@ function effectiveSoul(
   return isPaired ? freshSoul(macSoulState) : null;
 }
 
-// The three crisis lines' actions, matched to CRISIS_COPY.lines by order:
-// 988 lifeline, the Crisis Text Line, and the by-country directory.
-const CRISIS_URLS = ['tel:988', 'sms:741741', 'https://findahelpline.com'];
-function openCrisisLine(index: number): void {
-  const url = CRISIS_URLS[index];
-  if (url) Linking.openURL(url).catch(() => {});
-}
+// openCrisisLine is imported from crisis-scan.ts (audit M-3): the URLs used to be
+// re-declared here and could silently drift from the canonical list (and missed
+// the HOME body-prefill the canonical Crisis Text Line link now carries).
 
 export default function MySoulScreen() {
   const [analyticsOn, setAnalyticsOn] = useState(true);
@@ -141,8 +137,8 @@ export default function MySoulScreen() {
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [crisisOpen, setCrisisOpen] = useState(false);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
-  // How many gift-reward drawings she has earned (in order), for the Soul grid.
-  const [rewardCount, setRewardCount] = useState(0);
+  // The real feelings she has named and worked through, from on-device history.
+  const [moments, setMoments] = useState<MomentRecord[]>([]);
   const {
     isPaired,
     macSoulState,
@@ -155,8 +151,8 @@ export default function MySoulScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getRewardCount().then((n) => {
-        if (active) setRewardCount(n);
+      getMoments().then((m) => {
+        if (active) setMoments(m);
       }).catch(() => {});
       getMoonState().then((s) => {
         if (active) {
@@ -395,7 +391,7 @@ export default function MySoulScreen() {
               />
 
               <SectionEyebrow title="Your badges" />
-              <DrawingsCard earned={rewardCount} />
+              <EmotionsCard moments={moments} />
 
               {/* Eyebrow above the card, matching "Your badges"/"Your growth". */}
               <SectionEyebrow title="You & Niyora" />
@@ -644,23 +640,55 @@ const MOOD_DOT_HUES = [295, 278, 260, 240, 215] as const;
 // ribbon (purple = tense, blue = at peace), oldest on the left. Deliberately a
 // different shape from the daily check-in dot sparkline so the two read as
 // distinct, and on-brand with the app's gradients.
-// The gift-reward drawings she has uncovered, saved to her Soul. Earned one by
-// one in order; unearned slots stay dim until she reaches them (M9-14 / reward).
-function DrawingsCard({ earned }: { earned: number }) {
+// Her badges: one per constellation she has worked through, in the order she
+// cracked them. The six reward drawings are claimed by the first six distinct
+// constellations (badgesFrom); every repeat after that keeps the same drawing and
+// lights one more golden star. Badges and emotions are one thing, not two lists
+// (Neha 2026-08-19). Full 19-constellation art: docs/moon-ai-constellations.md.
+function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
+  if (moments.length === 0) {
+    return (
+      <View style={styles.card}>
+        <GlassCardBg />
+        <Text style={styles.cardCopy}>
+          The feelings you name and work through will gather here, like stars finding their shape.
+        </Text>
+      </View>
+    );
+  }
+  const badges = badgesFrom(moments, MOON_DRAWINGS.length);
   return (
     <View style={styles.card}>
       <GlassCardBg />
-      <View style={styles.drawGrid}>
-        {MOON_DRAWINGS.map((d, i) => (
-          <View key={i} style={styles.drawCell}>
-            {i < earned ? (
-              <Image source={d.src} style={styles.drawImg} resizeMode="contain" accessibilityIgnoresInvertColors />
+      {badges.map(({ constellation, drawing, feelings, count }) => (
+        <View key={constellation} style={styles.badgeRow}>
+          <View style={styles.badgeArt}>
+            {drawing >= 0 ? (
+              <Image
+                source={MOON_DRAWINGS[drawing].src}
+                style={styles.badgeImg}
+                resizeMode="contain"
+                accessibilityIgnoresInvertColors
+              />
             ) : (
-              <View style={styles.drawLocked} />
+              // No art for this one yet; the star still carries it.
+              <Text style={styles.badgeStarGlyph}>★</Text>
+            )}
+            {count > 1 && (
+              <View style={styles.starCount} accessibilityLabel={`Worked through ${count} times`}>
+                <Text style={styles.starCountNum}>{count}</Text>
+                <Text style={styles.starCountStar}>★</Text>
+              </View>
             )}
           </View>
-        ))}
-      </View>
+          <View style={styles.badgeText}>
+            <Text style={styles.emotionChipLabel}>
+              {constellation.charAt(0).toUpperCase() + constellation.slice(1)}
+            </Text>
+            {feelings.length > 0 && <Text style={styles.badgeFeelings}>{feelings.join(', ')}</Text>}
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -1845,23 +1873,87 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     color: colors.textPrimary,
   },
-  // The drawings collection grid: three per row, square cells.
-  drawGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.md },
-  drawCell: { width: '30%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
-  drawImg: { width: '100%', height: '100%' },
-  drawLocked: {
-    width: '82%',
-    height: '82%',
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.10)',
-  },
   cardCopy: {
     fontSize: fontScale.caption,
     fontFamily: fonts.light,
     color: colors.textOnDark.tertiary,
     lineHeight: 18,
+  },
+  // Emotions worked-through: her named feelings, then the constellations they
+  // belong to, as wrapping lit pills. No badge art yet, so names carry it.
+  emotionChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  emotionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: glass.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  emotionStar: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#C6CFE6',
+  },
+  emotionStarLit: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#E7C878',
+  },
+  // One badge row: the earned drawing (with its golden star count in the corner),
+  // the constellation name, and the feelings named inside it (Neha 2026-08-19).
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  badgeArt: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  badgeImg: { width: 56, height: 56 },
+  badgeStarGlyph: { fontSize: 30, color: '#E7C878' },
+  starCount: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  starCountNum: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: '#E7C878',
+  },
+  starCountStar: { fontSize: 11, color: '#E7C878' },
+  badgeText: { flex: 1, gap: 2 },
+  badgeFeelings: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.regular,
+    color: colors.textOnDark.faint,
+  },
+  emotionChipLabel: {
+    fontSize: fontScale.caption,
+    fontFamily: fonts.medium,
+    color: colors.textPrimary,
+  },
+  emotionChipCount: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.faint,
+    fontVariant: ['tabular-nums'],
+  },
+  emotionSub: {
+    fontSize: fontScale.tagline,
+    fontFamily: fonts.medium,
+    color: colors.textOnDark.faint,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   // Check-in card
   checkInHeader: {

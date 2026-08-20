@@ -12,6 +12,7 @@
       "supportsTablet": false,
       "userInterfaceStyle": "dark",
       "bundleIdentifier": "com.niyora.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Niyora uses your local network to sync breathing session data with your Mac.",
@@ -44,6 +45,20 @@
     "plugins": [
       "./plugins/withNoPushEntitlement.js",
       "./plugins/withHealthKit.js",
+      "./plugins/withSkiaHeaderLinks.js",
+      [
+        "@react-native-firebase/app",
+        {
+          "ios": { "disableSPM": true }
+        }
+      ],
+      "@react-native-firebase/app-check",
+      [
+        "expo-build-properties",
+        {
+          "ios": { "useFrameworks": "static" }
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",

@@ -27,7 +27,8 @@ import {
 import { recordAnswer } from '../store/nudge-history';
 import { getReminder } from '../store/reminder-prefs';
 import { useStressTick } from '../hooks/use-stress-tick';
-import { FM_EXPERIMENT, STRESS_EXPERIMENT } from '../config/features';
+import { STRESS_EXPERIMENT } from '../config/features';
+import { startAppCheck } from '../lib/firebase';
 import { duration } from '../theme/motion';
 
 // One calm-fade config for every full-screen push that should dissolve rather
@@ -41,6 +42,9 @@ const CALM_FADE = {
 } as const;
 
 SplashScreen.preventAutoHideAsync();
+
+// Attest the app before any AI Logic call (no-op if Firebase isn't configured).
+startAppCheck();
 
 export default function RootLayout() {
   const [loaded] = useFonts({
@@ -205,19 +209,9 @@ export default function RootLayout() {
           <Stack.Screen name="paint" options={CALM_FADE} />
           <Stack.Screen name="capture" options={CALM_FADE} />
           <Stack.Screen name="move" options={CALM_FADE} />
-          {/* The cycle-end reflection, opened from the Now tab. Fades like the
-              other reflective flows (steady-yourself / rough-moment). */}
+          {/* The cycle-end reflection, opened from the Now tab. */}
           <Stack.Screen name="reflect" options={CALM_FADE} />
-          {/* The in-the-moment "Steady yourself" flow and its 20-minute break,
-              opened from the Now PMS card and the Grow PMS shelf. */}
-          <Stack.Screen name="steady-yourself" options={CALM_FADE} />
-          <Stack.Screen name="steady-break" options={CALM_FADE} />
-          {/* The reflect ("start fresh") session, reached from the flow. An 11pm
-              spiral does not deserve a hard sideways slide. Ships scripted (no
-              AI in v1), so it is always registered. */}
-          <Stack.Screen name="rough-moment" options={CALM_FADE} />
           {STRESS_EXPERIMENT && <Stack.Screen name="health-probe" />}
-          {FM_EXPERIMENT && <Stack.Screen name="fm-probe" />}
           {/* The moon-growth explainer (materials, rings, phases), opened from
               "You're on [material]" on the Soul page. */}
           <Stack.Screen name="moon-probe" options={CALM_FADE} />

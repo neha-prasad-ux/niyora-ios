@@ -19,7 +19,6 @@
 // Every verb may return null, and null is never an error state: it means the
 // beat renders its authored line. The flow is complete with no provider at all.
 
-import { echoBlocked, groundedReflection, isGrounded, isRephrase } from '@/lib/ground-floor';
 
 /** What a provider must implement. Nothing here is Gemma-specific. */
 export type MomentProvider = {
@@ -40,68 +39,17 @@ export const NO_PROVIDER: MomentProvider = {
   },
 };
 
-const TIMEOUT_MS = 5000;
-// Compose slots (reframe readings, act draft, revise) generate several sentences
-// of JSON, which takes noticeably longer than a one-line echo/pick. At the flat
-// 5s budget the reframe times out on a real device and silently falls back to the
-// generic authored smallReframes, so its own bespoke readings never show. Give
-// the compose slots real headroom; a loading state covers the extra wait.
-const COMPOSE_TIMEOUT_MS = 12000;
-
-// How many words the echo may introduce that are not in her text. The default
-// grounding budget is 2; the echo runs a little looser (4) ON PURPOSE, so the
-// model can fix her spelling and grammar without the corrected words counting as
-// "invented" and bouncing the clean line back to the raw-text carve (which would
-// echo her typos). Still tight: 4 novel words cannot carry an invented fact about
-// her situation, only surface corrections and small connective words.
-const ECHO_GROUND_BUDGET = 4;
-
-export type EchoResult = {
-  text: string | null;
-  /** How the line was produced. For the dev overlay and for knowing whether the
-   *  provider is actually earning its place. */
-  via: 'model' | 'carved' | 'authored';
-};
-
-/**
- * Say her sentence back to her.
- *
- * Three floors, in order, because "only her own words" is a promise no model's
- * weights can be made to keep:
- *
- *   1. the provider's line, but only if it invents nothing (`isGrounded`) AND
- *      says nothing back that she must never hear from us (`echoBlocked`)
- *   2. the mechanical carve of her own sentence, which cannot invent because it
- *      never generates
- *   3. null, meaning the beat renders its authored line
- *
- * `echoBlocked` runs on the provider's OUTPUT as well as her input, and that is
- * the subtle one: a reply repeating her self-attack is perfectly grounded, since
- * every word came from her. Grounding stops invention. It does not stop
- * agreement, and agreeing with "i am too much" is the worst thing the app can
- * say.
- */
-export async function echo(
-  provider: MomentProvider,
-  slot: string,
-  herText: string,
-): Promise<EchoResult> {
-  const raw = herText.trim();
-  if (!raw) return { text: null, via: 'authored' };
-
-  const prose = await provider.generate(slot, raw, TIMEOUT_MS).catch(() => null);
-  // isGrounded is SATISFIED by reusing all her words, so a model that just plays
-  // her sentence back passes it. isRephrase is the separate guard against that:
-  // grounding stops invention, this stops parroting.
-  if (prose && isGrounded(raw, prose, ECHO_GROUND_BUDGET) && !echoBlocked(prose) && !isRephrase(raw, prose)) {
-    return { text: prose.trim(), via: 'model' };
-  }
-
-  const carved = groundedReflection(raw).text;
-  if (carved) return { text: carved, via: 'carved' };
-
-  return { text: null, via: 'authored' };
-}
+// Raised 2026-08-15 (Neha reported intermittent "Moon stops working" from India):
+// Vertex runs in us-central1, so higher round-trip latency makes the old 5s/12s
+// budgets time out intermittently. More headroom absorbs the latency; the 3-attempt
+// retry still covers genuine failures. ponytail: fixed budgets, revisit with a
+// region move or per-region tuning if it still falls short.
+const TIMEOUT_MS = 8000;
+// Compose slots (reframe readings, act draft, JSON cards) generate several
+// sentences of JSON, noticeably slower than a one-line pick. Give them real
+// headroom so a slow-but-fine response is not thrown away; a loading state covers
+// the wait.
+const COMPOSE_TIMEOUT_MS = 16000;
 
 /**
  * Does her entry name a concrete event, or is it only a mood? (M6.) A vague
@@ -275,4 +223,138 @@ export async function revise(
 ): Promise<string | null> {
   const user = `current: "${currentText.trim()}"\nher note: "${herNote.trim()}"`;
   return compose(provider, 'revise', user);
+}
+
+// Draft slots return one editable line; every other reflect slot is a guess and
+// returns a JSON options array. Kept as a set so the verb stays one function.
+const REFLECT_DRAFT_SLOTS = new Set(['reflect_friend', 'reflect_pattern']);
+
+/**
+ * The reflect cards (v3/reflect-cards.ts). One verb for both card modes:
+ *   draft -> { line }    the model's line, or undefined when it declines
+ *                        (reflect_pattern replies "none" on no real recurrence)
+ *   guess -> { options } up to 3 tappable options, or [] when it declines
+ *
+ * Uses the same compose plumbing and 12s budget as the reframe. Declines
+ * gracefully on timeout / parse-fail (empty result, never throws), so an absent
+ * or off provider (NO_PROVIDER) lands on the card's authored copy.
+ */
+export async function reflectCard(
+  provider: MomentProvider,
+  slot: string,
+  user: string,
+): Promise<{ line?: string; options?: string[] }> {
+  const draft = REFLECT_DRAFT_SLOTS.has(slot);
+  const out = await compose(provider, slot, user);
+  if (!out) return draft ? {} : { options: [] };
+
+  if (draft) {
+    const line = out.replace(/^["']|["']$/g, '').trim();
+    // reflect_pattern declines by replying "none" when nothing genuinely recurs.
+    if (!line || /^none\b/i.test(line)) return {};
+    return { line };
+  }
+
+  // guess: parse the JSON options array the same defensive way composeReadings
+  // does (slice first "{" to last "}" so any fence/stray text is dropped).
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const options = Array.isArray(j?.options)
+      ? j.options.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3)
+      : [];
+    return { options };
+  } catch {
+    return { options: [] };
+  }
+}
+
+/**
+ * Fact-sort split (reflect_factsort): break her thought into 2-4 claims, each
+ * marked fact (observable) or read (her interpretation). Same compose plumbing
+ * and budget. Declines to an empty list on timeout / parse-fail / AI-off, so the
+ * caller can fall back to the plain question echo.
+ */
+export async function factSort(
+  provider: MomentProvider,
+  user: string,
+): Promise<{ text: string; fact: boolean }[]> {
+  const out = await compose(provider, 'reflect_factsort', user);
+  if (!out) return [];
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    if (!Array.isArray(j?.claims)) return [];
+    return j.claims
+      .map((c: { text?: unknown; fact?: unknown }) => ({
+        text: String(c?.text ?? '').trim(),
+        fact: c?.fact === true,
+      }))
+      .filter((c: { text: string }) => c.text.length > 0)
+      .slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The rule breakdown (reflect_rule, a special card like fact-sort). Walks her
+ * moment out as a chain she can SEE — event, the hidden rule/should, where it
+ * lands — then tests the rule. `tests` are normal reactable reads; the chain is
+ * the diagnostic setup. Returns null (decline) if no real rule surfaces or the
+ * reply is unusable, so the card falls back to the honest retry like any other.
+ */
+export type RuleBreakdown = { event: string; rule: string; consequence: string; tests: string[] };
+export async function ruleBreakdown(
+  provider: MomentProvider,
+  user: string,
+): Promise<RuleBreakdown | null> {
+  const out = await compose(provider, 'reflect_rule', user);
+  if (!out) return null;
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const tests = Array.isArray(j?.tests)
+      ? j.tests.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 3)
+      : [];
+    const rule = str(j?.rule);
+    // The rule and at least one test are the minimum to render the card; without
+    // them there is nothing to see or react to, so decline to the fallback.
+    if (!rule || tests.length === 0) return null;
+    return { event: str(j?.event), rule, consequence: str(j?.consequence), tests };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reflective chat (reflect_chat): one short reflecting turn in the bounded
+ * back-and-forth on the fact-sort result. Empty on decline / AI-off. The caller
+ * crisis-guards her message before ever calling this; the slot itself is barred
+ * from advice, diagnosis, and medical/money guidance.
+ */
+export async function reflectChat(provider: MomentProvider, user: string): Promise<string> {
+  const out = await compose(provider, 'reflect_chat', user);
+  if (!out) return '';
+  return out.replace(/^["']|["']$/g, '').trim();
+}
+
+/**
+ * Fact-sort advice (reflect_factsort_advise): after she sorts, a gentler line per
+ * read (in order) and one help line for the facts. Empty on decline.
+ */
+export async function factSortAdvise(
+  provider: MomentProvider,
+  user: string,
+): Promise<{ reads: string[]; help: string }> {
+  const out = await compose(provider, 'reflect_factsort_advise', user);
+  if (!out) return { reads: [], help: '' };
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const reads = Array.isArray(j?.reads)
+      ? j.reads.map((s: unknown) => String(s).trim()).filter(Boolean)
+      : [];
+    const help = typeof j?.help === 'string' ? j.help.trim() : '';
+    return { reads, help };
+  } catch {
+    return { reads: [], help: '' };
+  }
 }

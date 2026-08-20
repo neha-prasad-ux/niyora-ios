@@ -218,14 +218,20 @@ export function offerFeelings(herText: string, count = 3): string[] {
   // like". The cue list is apostrophe-free by convention, so this only ever helps
   // (it also fixes existing cues like "dont care", "cant cope").
   const t = herText.toLowerCase().replace(/['’]/g, '');
+  // A deterministic seed from her text: same text → same result, but different
+  // entries get a different starting point. Without this, any entry whose cues
+  // don't match (all hits 0) always returned the authored head (Dismissed / Not
+  // taken seriously / Angry), so the feelings felt "always the same".
+  let seed = 0;
+  for (let k = 0; k < t.length; k++) seed = (seed * 31 + t.charCodeAt(k)) >>> 0;
   const scored = FEELING_SET.map((f, i) => ({
     label: f.label,
     hits: f.cues.filter((c) => t.includes(c)).length,
-    // Stable tiebreak on the authored order, so no-match input still gives a
-    // sensible spread rather than an arbitrary one.
-    i,
+    // Cue-matched feelings still win by hits; the tiebreak (incl. all zero-hit
+    // entries) is a text-seeded rotation, so the spread varies per entry.
+    order: (i + seed) % FEELING_SET.length,
   }));
-  scored.sort((a, b) => b.hits - a.hits || a.i - b.i);
+  scored.sort((a, b) => b.hits - a.hits || a.order - b.order);
   return scored.slice(0, count).map((s) => s.label);
 }
 

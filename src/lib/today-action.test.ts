@@ -120,7 +120,7 @@ describe('pickTodayAction: setup and window', () => {
         const a = pickTodayAction(input({ now, reads }));
         expect(a.kind).toBe('steady');
         expect(a.id).toBe('steady');
-        expect(a.route).toBe('/steady-yourself');
+        expect(a.route).toBe('/moment');
       }
     }
   });
