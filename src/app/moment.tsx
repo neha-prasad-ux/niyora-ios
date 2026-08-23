@@ -150,6 +150,7 @@ import {
 } from '@/v3/reflect-feedback';
 import { getMomentProvider, type CrisisType } from '@/lib/moment-gemini';
 import { TIME_NOTE } from '@/lib/moment-prompts';
+import { SIGNAL_POINTS } from '@/v3/moment-copy';
 import { loadReflectMemoryClause, rememberReactions } from '@/store/reflect-memory';
 import { getMoonConsent, setMoonConsent } from '@/store/moon-consent';
 import { MeetMoonConsent } from '@/app/onboarding-v3';
@@ -445,6 +446,13 @@ export default function Moment() {
    *  card, and the duplicates competed with each other and forced retries, so the
    *  prefetch meant to make cards instant was making them slower. */
   const inFlight = useRef<Set<string>>(new Set());
+  /** What her own load list shows, fetched once she has sorted it (2026-08-23).
+   *  The load card makes no model call to BUILD the list, because the model
+   *  cannot know her plate. Once she has written it, the model finally has
+   *  content, and reading her list back structurally is the one thing she cannot
+   *  do from inside a pile of eleven things. Empty is a legitimate answer. */
+  const [loadReads, setLoadReads] = useState<string[] | null>(null);
+  const [loadReadsLoading, setLoadReadsLoading] = useState(false);
   const [scaleData, setScaleData] = useState<ScaleSetup | null>(null);
   const [respData, setRespData] = useState<ResponsibilitySetup | null>(null);
   /** The chain last shown on the rule card, fed back into a re-roll so it cannot
@@ -783,6 +791,8 @@ export default function Moment() {
     momentSaved.current = false; // fresh moment → save it again when she finishes
     setPmsOpen(false);
     setCardContent({});
+    setLoadReads(null);
+    setLoadReadsLoading(false);
     inFlight.current.clear();
     setScaleData(null);
     setRespData(null);
@@ -847,6 +857,19 @@ export default function Moment() {
    *  material, and until now every prompt was handed them identically. Empty for
    *  a plain one-off, so the common case sends no extra words. */
   const timeClause = () => TIME_NOTE[detectTimeframe(herText.current)] ?? '';
+
+  /** The referents for the feeling she named, handed to the signal card so it
+   *  grounds a known shape instead of inventing what she values (2026-08-23).
+   *  Empty when she named no feeling, and the prompt then has nothing to place,
+   *  which is the honest outcome rather than a guess. */
+  const signalClause = (id: ReflectCardId) => {
+    if (id !== 'signal') return '';
+    const c = FEELING_SET.find((f) => f.label === chosenFeeling.current)?.constellation;
+    const points = c ? SIGNAL_POINTS[c] : undefined;
+    return points?.length
+      ? `\nwhat this feeling points at:\n${points.map((p) => `- ${p}`).join('\n')}`
+      : '';
+  };
 
   /** The `pattern` card is the only slot that needs her history in the turn. */
   const themesClause = (id: ReflectCardId) =>
@@ -964,7 +987,7 @@ export default function Moment() {
       card.slot,
       `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${
         chosenFeeling.current || 'upset'
-      }${themesClause(id)}\nalready offered: ${JSON.stringify(already)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`,
+      }${themesClause(id)}${signalClause(id)}\nalready offered: ${JSON.stringify(already)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`,
     )
       .then((r) => {
         if (r.options?.length) {
@@ -1500,7 +1523,7 @@ export default function Moment() {
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both. Do not just reword or re-tone the earlier reads.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${themesClause(id)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${themesClause(id)}${signalClause(id)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`;
     // The send-time prefetch is cold: it warmed card 0 for the NON-thread route
     // (recurring/priorThread aren't loaded yet at send). So skip reusing it when
     // either is now active, recurring makes `pattern` the new card 0, and a
@@ -2844,7 +2867,39 @@ export default function Moment() {
         // it. Renders instantly, which is right for the one entry that means she
         // has no capacity left.
         if (id === 'load') {
-          return { body: <LoadCard onDone={() => advanceCard()} />, cta: null };
+          const readHerList = (items: { text: string; bucket: string }[]) => {
+            if (!aiOn || items.length < 3) return; // two items show no structure
+            setLoadReadsLoading(true);
+            const list = items
+              .map((it) => `- ${it.text} [${it.bucket === 'notMine' ? 'not mine' : it.bucket}]`)
+              .join('\n');
+            compose(
+              provider,
+              'reflect_load_read',
+              `she wrote: "${herText.current.trim()}"\nher list, as she sorted it:\n${list}`,
+            )
+              .then((out) => {
+                try {
+                  const j = JSON.parse(out!.slice(out!.indexOf('{'), out!.lastIndexOf('}') + 1));
+                  setLoadReads(Array.isArray(j?.options) ? j.options.map(String).slice(0, 2) : []);
+                } catch {
+                  setLoadReads([]); // silent: the card is complete without it
+                }
+              })
+              .catch(() => setLoadReads([]))
+              .finally(() => setLoadReadsLoading(false));
+          };
+          return {
+            body: (
+              <LoadCard
+                onSorted={readHerList}
+                reads={loadReads ?? undefined}
+                readsLoading={loadReadsLoading}
+                onDone={() => advanceCard()}
+              />
+            ),
+            cta: null,
+          };
         }
 
         // The scale card (2026-08-20). She places, we only draw the ruler. Replaces

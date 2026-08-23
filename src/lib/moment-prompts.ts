@@ -110,6 +110,10 @@ const SAFETY_HEAD =
   // to him"). Reads as if the app is discussing her with somebody else.
   'SPEAK TO HER. The turn describes her in the third person, but your reply goes ' +
   'straight to her: say "you" and "your", never "she" or "her" about her. ' +
+  // Drift seen on device and in the 2026-08-23 runs: half the reads on one card
+  // came back lowercase and half capitalised, in the same list. She reads these as
+  // sentences, and a list that cannot agree with itself looks broken.
+  'Every line is a sentence: start with a capital letter and end with a full stop. ' +
   // Already-offered (2026-08-19): this list was only ever in the user turn, and
   // "Show me more" handed back the same three lines word for word.
   'NEVER REPEAT. If the turn lists reads already offered, not one of yours may be ' +
@@ -556,78 +560,57 @@ export const SLOT_INSTRUCTION: Record<string, string> = {
   // feeling is always about, then find the thing in HER situation that fills it in.
   // Only step three is written. The generic middle step is the other way this goes
   // fake: "a line was crossed" is the textbook, not a read, so it has to say WHICH.
+  // Rebuilt 2026-08-23 as a PICK, not a guess. It failed three prompt rewrites
+  // across three models, always the same way: told not to name her feeling it
+  // restated the event, told not to do that it hedged. The cause was never the
+  // wording. Answering "what is this feeling pointing at" needs to know what she
+  // was counting on and what she values, and the model has one sentence.
+  //
+  // But the app asks her the feeling one beat earlier, and a feeling does not
+  // point at infinite things. The caller now hands over the authored referents
+  // for HER feeling (SIGNAL_POINTS in v3/moment-copy), and the job shrinks from
+  // inventing her interior to placing a known shape in her situation. Recognition
+  // instead of generation, which is the same move the feelings beat already makes.
   reflect_signal:
-    'Read what her feeling is POINTING TO. Do not reframe the feeling and do not name it. ' +
-    'NEVER answer with a feeling: "you are feeling dismissed", "it might be that you feel unheard", ' +
-    '"perhaps you feel let down" are all just her own feeling said again, and they fail. ' +
-    'WORK IT IN THIS ORDER, in your thinking, and write ONLY the last step. ' +
-    '1. Take the feeling she named. ' +
-    '2. Name what a feeling of that kind is always about. Anger is about a line crossed. Hurt is ' +
-    'about care she was counting on and did not get. Dread is about something coming that she ' +
-    'cannot hold on her own. Guilt is about her own standard she went against. Shame is about who ' +
-    'she is afraid this makes her. Loneliness is about the gap between the closeness she wants and ' +
-    'the closeness she has. ' +
-    '3. Find the exact thing in HER situation that fills that in: WHICH line, WHICH standard, what ' +
-    'exactly she was counting on, what she has been putting up with, what she is protecting, what ' +
-    'she already half-knows and has not said out loud. ' +
-    'Write step 3. Step 2 on its own fails too, "a line was crossed" is a textbook sentence, say ' +
-    'which line. Offer 2 or 3 short reads, grounded in what she wrote. Each a ' +
-    'maybe pointing in her own direction, never a diagnosis and never telling her what to do, one short ' +
-    'line. If nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
+    'You are given what she wrote, the feeling she named, and a short list of the things that ' +
+    'feeling points at. Your job is to say what each one looks like IN HER SITUATION, using the ' +
+    'details she gave. ' +
+    'Take each given point and ground it: name the actual line that got crossed, the actual thing ' +
+    'she counted on, the actual standard she holds. "A line got crossed" becomes something like ' +
+    '"you do not talk to me like that in front of the team". One short line each, her situation, ' +
+    'her words where they fit. ' +
+    'Use ONLY the points you were given. Do not add a point of your own, do not merge two into one, ' +
+    'and do not return one that her words cannot support: if a given point does not fit what she ' +
+    'wrote, leave it out rather than stretching it. Fewer real ones is the right answer. ' +
+    'Never name her feeling back to her, she just told you it. Never retell the event, she wrote ' +
+    'it. The new thing in every line is WHAT THE FEELING IS STANDING ON. ' +
+    'Return only JSON: {"options": ["...", "..."]}. ' +
     REFLECT_SAFETY,
-  // The scale card (Neha 2026-08-20). `middle` used to answer an absolute with
-  // more sentences, and it measured as the weakest card in the set. The technique
-  // is not telling her the truth sits in the middle, it is putting a scale under
-  // her own word and having HER place this one on it. She does the placing, so the
-  // gap between "always" and where she actually lands is hers, not ours.
-  // Structured, not reads: see ScaleSetup in v3/moment-ai.
-  reflect_scale:
-    'Everything you write goes STRAIGHT TO HER: say "you" and "your", never "she" or "her" about her. The turn describes her in the third person, your reply does not. ' +
-    'She has used an absolute about herself or her life. Build the scale she can place this one on. ' +
-    'Return only JSON: {"claim":"...","word":"...","zero":"...","hundred":"..."}. ' +
-    'claim: the absolute she actually stated, in HER words, one short line, lightly cleaned of typos ' +
-    'but never softened and never reworded into something milder. ' +
-    'word: the single absolute word she used (always, never, everything, nothing, everyone, ruined). ' +
-    // Polarity is fixed by the CLAIM, never by good and bad (2026-08-20 test): with
-    // "I never get anything right" the model put the pleasant end at 100 on one run
-    // and the bleak end at 100 on another, which would flip the axis under her.
-    'The scale always runs the same way: 100 means her claim is COMPLETELY true, 0 means it is ' +
-    'COMPLETELY untrue. That holds whether her claim is a bleak one or not. Never order the scale by ' +
-    'good and bad. ' +
-    'hundred: what her claim being completely true would actually look like in her situation, taking her ' +
-    'own word literally, one short line. If her word is "always", 100 is EVERY single time without one ' +
-    'exception, stated plainly enough that she can see it is a real claim and not a figure of speech. ' +
-    'zero: what her claim being completely untrue would look like, equally concrete and equally specific ' +
-    'to her situation, one short line. Not a vague "sometimes not", but the real-world picture. ' +
-    'Both ends are full sentences in normal sentence case, starting with a capital letter. ' +
-    'Do not argue with her, do not hint at where she should land, and do not mention the middle. You are ' +
-    'building the ruler, she does the measuring. If she stated no real absolute, return an empty claim.',
-  // The responsibility card (Neha 2026-08-20). `whose_weight` used to TELL her the
-  // load was shared. The technique only works if she does the counting, and if the
-  // other hands are allocated BEFORE her own, so what is left for her is a result
-  // rather than an opening offer. Structured: see ResponsibilitySetup.
-  // The responsibility card (Neha 2026-08-20). SHE supplies the other hands and
-  // allocates; this only names the outcome and her own part, both of which are in
-  // her own words. It does NOT generate the contributing factors any more: asked
-  // for them it returned "it was morning" and "a marriage is made by two people",
-  // because it has one sentence and genuinely cannot know the deadline moved or
-  // that nobody told her. See components/moment/responsibility-card.tsx.
-  reflect_responsibility:
-    'Everything you write goes STRAIGHT TO HER: say "you" and "your", never "she" or "her" about her. The turn describes her in the third person, your reply does not. ' +
-    'She is holding herself responsible for something. Name two things and nothing else. ' +
-    'Return only JSON: {"outcome":"...","hers":"..."}. ' +
-    'outcome: the specific thing that HAPPENED which she is holding herself responsible for. It must be an EVENT in the world, something with a time and a place that another person could have watched happen. One short line, plain words, only from what she wrote. ' +
-    'NEVER her judgment of herself. "You are a terrible mother" is not an outcome, it is the verdict this card exists to loosen, and it is rendered as a heading in our voice, so writing it there hands it back to her with our authority behind it. Not a feeling either. If she wrote a verdict, find the EVENT underneath it and name that instead. ' +
-    'hers: what she actually DID or chose, one short line, named honestly and without cushioning. It must ' +
-    'be an ACTION she took: "you raised your voice" is her part. It must never be her belief about ' +
-    'herself ("you think you broke it"), and it must never be a verdict on whether she was to blame. ' +
-    // "You did not have a part" came back on a marriage that ended, and it would
-    // render directly under a share she has not allocated yet. The app does not get
-    // to rule on her share, she does. That is the entire card.
-    'NEVER say she had no part, never absolve her and never blame her. That question is hers to answer ' +
-    'by allocating, and a verdict here takes the card away from her. If what she did is genuinely not ' +
-    'nameable from what she wrote, return an empty hers. ' +
-    'If she is not holding herself responsible for anything, return an empty outcome.',
+  // The load card's second half (Neha 2026-08-23). The card itself makes no model
+  // call: she writes what is on her and sorts it, because the model cannot know
+  // her plate. But once she has written it, the model finally HAS the content, and
+  // it can do the one thing she cannot do from inside a pile of eleven things:
+  // read her own list back structurally.
+  //
+  // This is the principle the whole flow keeps arriving at. The model is good at
+  // operating on what she gives it and bad at inventing what she has not.
+  reflect_load_read:
+    'She has written down what is on her and sorted each one into today, can wait, or not mine. ' +
+    'You are given that list. Tell her what HER OWN LIST shows, that she cannot see from inside it. ' +
+    'Look for structure: the same person behind several items, items that would all disappear if ' +
+    'one thing happened, a whole group that belongs to someone else, several small things that are ' +
+    'really one thing, or everything landing in one part of her life while another part is absent. ' +
+    'At most 2 observations, and one is a fine answer. Each one short and plain. ' +
+    'Ground every word in the items she wrote. NEVER invent an item, never mention anything not on ' +
+    'the list, and never guess at what is behind an item she wrote plainly. ' +
+    'Do NOT comfort her. "No wonder you are tired" and "that is a lot to carry" tell her nothing she ' +
+    'does not know, and the point of the list was to make the weight visible, not to be sympathised ' +
+    'with. Do NOT tell her what to do, what to drop, or what to do first: she sorted it, the sorting ' +
+    'is hers. ' +
+    'If the list shows no real structure, say nothing at all: return an empty array rather than ' +
+    'inventing a pattern to have something to say. Two or three unrelated items usually show nothing. ' +
+    'Return only JSON: {"options": ["...", "..."]}. ' +
+    REFLECT_SAFETY,
   reflect_factsort:
     'Split what she wrote into its separate claims: 2 to 4 short lines, in her own plain words, cleaned of spelling ' +
     'and grammar slips but keeping her meaning and her charged words. Mark each line fact:true ONLY when it is a ' +
