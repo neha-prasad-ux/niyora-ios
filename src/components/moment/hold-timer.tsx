@@ -9,7 +9,7 @@
 // real number.
 //
 // The visual is her own moon, grown big and breathing a slow, subtle 4:6 while
-// the minutes run — the same ball as the guided breath, at rest. The time sits
+// the minutes run, the same ball as the guided breath, at rest. The time sits
 // under it. It does not survive leaving the screen entirely (that is the resume
 // module's job, still bound to the old flow); backgrounding is handled.
 
@@ -25,7 +25,7 @@ import { fonts } from '@/theme/fonts';
 import { spacing } from '@/theme/spacing';
 import { v3 } from '@/v3/v3-theme';
 
-// A calm, gentle breath while she waits — not the wide guided-breath swell.
+// A calm, gentle breath while she waits, not the wide guided-breath swell.
 const WAIT_IN = 4;
 const WAIT_OUT = 6;
 

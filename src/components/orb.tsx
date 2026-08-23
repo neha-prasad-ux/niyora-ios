@@ -72,15 +72,15 @@ const MATERIAL_STOPS: Record<
   diamond: { mid: 'hsl(220, 8%, 96%)', edge: 'hsl(220, 12%, 87%)', deep: 'hsl(220, 16%, 80%)' },
 };
 
-// A waning moon's shadow is a darker shade of the moon's OWN colour — a real
-// terminator — never grey and never transparent. A soft gradient ramps from the
+// A waning moon's shadow is a darker shade of the moon's OWN colour, a real
+// terminator, never grey and never transparent. A soft gradient ramps from the
 // lit limb (clear) to that darker shade on the waned limb, so the edge is never
 // a hard line. PHASE_SHADE_MAX is how strong the shadow gets at the waned edge;
 // PHASE_SOFT is the ramp half-width.
-const PHASE_SHADE_MAX = 0.55; // peak shadow strength on the waned limb — tune to taste
+const PHASE_SHADE_MAX = 0.55; // peak shadow strength on the waned limb, tune to taste
 const PHASE_SOFT = 0.18; // half-width of the soft terminator, in disc fractions
 
-// The shadow shade per material — a deeper, same-family version of each body.
+// The shadow shade per material, a deeper, same-family version of each body.
 // Moonstone derives its shadow straight from the live body hue (below).
 const SHADOW_BY_MATERIAL: Record<Exclude<MoonMaterial, 'moonstone'>, string> = {
   gold: 'hsl(38, 48%, 42%)',
@@ -99,7 +99,7 @@ const INSET_BY_MATERIAL: Record<Exclude<MoonMaterial, 'moonstone'>, string> = {
 
 // Half-ellipse arc paths around (cx, cy). SVG y is down, so sweep-flag 0 traces
 // the top (the ring's far side, drawn behind the sphere) and sweep-flag 1 the
-// bottom (the near side, drawn in front) — the Saturn front-over/back-behind cue.
+// bottom (the near side, drawn in front), the Saturn front-over/back-behind cue.
 function backArc(cx: number, cy: number, rx: number, ry: number): string {
   return `M ${cx - rx},${cy} A ${rx},${ry} 0 0 0 ${cx + rx},${cy}`;
 }
@@ -107,7 +107,7 @@ function frontArc(cx: number, cy: number, rx: number, ry: number): string {
   return `M ${cx - rx},${cy} A ${rx},${ry} 0 0 1 ${cx + rx},${cy}`;
 }
 
-// Half the Ramanujan ellipse perimeter — the length of one (top or bottom) arc.
+// Half the Ramanujan ellipse perimeter, the length of one (top or bottom) arc.
 function halfArcLength(rx: number, ry: number): number {
   const p = Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
   return p / 2;
@@ -234,7 +234,7 @@ type OrbProps = {
   illum?: number;
   /**
    * Which limb the shadow grows from: false (default) lights the right limb;
-   * true mirrors it. Cosmetic — lets a phase read as waxing or waning.
+   * true mirrors it. Cosmetic, lets a phase read as waxing or waning.
    */
   waning?: boolean;
   /**
@@ -378,7 +378,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
         }
       : MATERIAL_STOPS[material];
 
-  // Ring geometry — a tilted Saturn band. Each tier adds a concentric ring,
+  // Ring geometry, a tilted Saturn band. Each tier adds a concentric ring,
   // so the band visibly widens with the tier. rx reaches past the sphere so the
   // arcs peek out on each side; the back/front halves are drawn either side of
   // the sphere body for a 3D wrap.
@@ -520,7 +520,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             </RadialGradient>
 
             {/* Crescent rim highlight at 28% 22%. Three stops, falls off at
-                42% of its own radius — matches the Mac ::after layer. */}
+                42% of its own radius, matches the Mac ::after layer. */}
             <RadialGradient
               id="crescent"
               cx={center - sphereRadius * 0.44}
@@ -586,7 +586,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             animatedProps={haloAnimProps}
           />
 
-          {/* Ring band — back halves (far side). Drawn before the sphere so the
+          {/* Ring band, back halves (far side). Drawn before the sphere so the
               body occludes their centres, leaving the arcs wrapping behind. */}
           {rings.map(({ rx, ry, i }) => (
             <RingArc
@@ -601,7 +601,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             />
           ))}
 
-          {/* Protection rings — back halves (behind the sphere). */}
+          {/* Protection rings, back halves (behind the sphere). */}
           {shield &&
             shieldAngles.map((ang, i) => (
               <G key={`shield-back-${i}`} transform={`rotate(${ang} ${center} ${center})`}>
@@ -636,7 +636,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             <Circle cx={center} cy={center} r={sphereRadius} fill="url(#phaseShade)" />
           )}
 
-          {/* Ring band — front halves (near side). Drawn on top of the sphere so
+          {/* Ring band, front halves (near side). Drawn on top of the sphere so
               they pass in front, completing the 3D wrap. Brighter than the back. */}
           {rings.map(({ rx, ry, i }) => (
             <RingArc
@@ -651,7 +651,7 @@ export function Orb({ size = 220, tierRingCount = 0, tierHue = 335, phase, phase
             />
           ))}
 
-          {/* Protection rings — front halves (over the sphere), completing the
+          {/* Protection rings, front halves (over the sphere), completing the
               3D wrap. Brighter than the back. */}
           {shield &&
             shieldAngles.map((ang, i) => (

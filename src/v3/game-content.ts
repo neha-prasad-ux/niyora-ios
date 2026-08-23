@@ -18,7 +18,7 @@ export const FRIEND_NAME = 'Neha';
 
 export type Intensity = 'little' | 'lot';
 
-// L1 — swipe true / myth.
+// L1, swipe true / myth.
 export interface L1Card {
   id: string;
   statement: string;
@@ -26,7 +26,7 @@ export interface L1Card {
   reveal: string;
 }
 
-// L2 — read the wave, binary tap.
+// L2, read the wave, binary tap.
 export interface L2Scene {
   id: string;
   scene: string;
@@ -34,7 +34,7 @@ export interface L2Scene {
   why: string;
 }
 
-// L3 — match the move, card pick with hold-to-preview.
+// L3, match the move, card pick with hold-to-preview.
 export type MoveTier = 'best' | 'lesser' | 'worst';
 export interface L3Option {
   label: string;
@@ -1883,7 +1883,7 @@ export const ASSERTIVENESS: Chapter = {
 export const CHAPTERS: Chapter[] = [IRRITABILITY, ANXIETY, MOOD_SWINGS];
 export const WORK_CHAPTERS: Chapter[] = [WORK_ANXIETY, CONFIDENCE, ASSERTIVENESS];
 
-// Friendly, benefit-first names for each course (chapter), keyed by chapter id —
+// Friendly, benefit-first names for each course (chapter), keyed by chapter id, 
 // what she gets, not the symptom. Used where a course is named to her (the Now
 // card's coached ask), in place of the clinical `emotion`.
 export const COURSE_TITLE: Record<string, string> = {

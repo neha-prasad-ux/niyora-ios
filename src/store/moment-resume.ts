@@ -1,5 +1,5 @@
 // A resume checkpoint for the in-the-moment flow. The session is otherwise
-// ephemeral by design (see moment.tsx header) — this is the one exception: if she
+// ephemeral by design (see moment.tsx header), this is the one exception: if she
 // leaves mid-flow, Home offers to pick it up where she left off. Written as she
 // moves through beats, cleared when the flow ends (close / crisis), so a finished
 // session never offers a stale resume.
@@ -15,7 +15,7 @@ const KEY = 'niyora:moment-resume';
 // ponytail: 24h TTL, tune if resumes feel too eager or too rare.
 const TTL_MS = 24 * 60 * 60 * 1000;
 
-/** The carried narrative state — enough to land back on the beat she left. The
+/** The carried narrative state, enough to land back on the beat she left. The
  *  transient per-beat UI (streaming echo, open fields, model orderings) is not
  *  stored: re-entering a beat re-arms it. */
 export type MomentCheckpoint = {

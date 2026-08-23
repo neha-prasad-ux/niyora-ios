@@ -92,9 +92,9 @@ describe('recordLight', () => {
   it('reports the ring the crossing act earned, exactly once', async () => {
     const visit = await recordLight('visit', { now: NOW }); // 5 light
     expect(visit.ringEarned).toBeNull();
-    const calm = await recordLight('calm', { now: NOW }); // 20 light — Spark
+    const calm = await recordLight('calm', { now: NOW }); // 20 light, Spark
     expect(calm.ringEarned?.id).toBe('spark');
-    const second = await recordLight('calm', { now: NOW }); // 25 — no new ring
+    const second = await recordLight('calm', { now: NOW }); // 25, no new ring
     expect(second.event).not.toBeNull();
     expect(second.ringEarned).toBeNull();
   });

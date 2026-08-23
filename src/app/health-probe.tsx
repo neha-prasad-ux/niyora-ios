@@ -88,7 +88,7 @@ export default function HealthProbe() {
     }
   }, [append]);
 
-  // B1 — read a week of HR + activity, compute + persist the activity-aware
+  // B1, read a week of HR + activity, compute + persist the activity-aware
   // resting baseline (HR only from still, non-workout moments), and print the
   // per-hour resting curve to eyeball against felt resting HR.
   const buildBaseline = useCallback(async () => {
@@ -112,7 +112,7 @@ export default function HealthProbe() {
     }
   }, [append]);
 
-  // B2 — run the detection rule against the last 10 min of HR + activity.
+  // B2, run the detection rule against the last 10 min of HR + activity.
   const evalStress = useCallback(async () => {
     try {
       const stored = await readBaseline();
@@ -140,7 +140,7 @@ export default function HealthProbe() {
     }
   }, [append]);
 
-  // B4 — fire the interactive "Feeling tense?" nudge. Recording the fired event
+  // B4, fire the interactive "Feeling tense?" nudge. Recording the fired event
   // is the policy/background tick's job (B3); here we just exercise the
   // notification + Yes/No/Not now buttons end to end.
   const fireNudge = useCallback(async () => {
@@ -164,7 +164,7 @@ export default function HealthProbe() {
     }
   }, [append]);
 
-  // B3 — run one full tick (read → detect → policy → maybe nudge), the same
+  // B3, run one full tick (read → detect → policy → maybe nudge), the same
   // pass the background trigger will run. Permission first so a fire can show.
   const runTick = useCallback(async () => {
     try {

@@ -3,18 +3,18 @@ import { clampCycleLength } from '@/lib/pms-window';
 
 // The effort axis of the You tab's effort-vs-impact chart, one point per
 // confirmed cycle (a minted moon on the shelf). Effort here is the honest,
-// literal reading — the number of distinct days she earned any light inside
-// that cycle window ("days you showed up") — not the mint's weighted fullness,
+// literal reading, the number of distinct days she earned any light inside
+// that cycle window ("days you showed up"), not the mint's weighted fullness,
 // which is a different, key-day-biased measure. Pure so it unit-tests like the
 // rest of lib; the store joins the impact reads onto these points by anchor.
 
 export type CyclePoint = {
-  cycleStart: string; // YYYY-MM-DD — also the impact-read anchor
+  cycleStart: string; // YYYY-MM-DD, also the impact-read anchor
   cycleEnd: string; // YYYY-MM-DD, exclusive
   label: string; // short month of the cycle's start, e.g. "Apr" (or "Now" live)
   engagedDays: number; // distinct days with any light in [start, end)
   span: number; // calendar days in the cycle
-  provisional?: boolean; // the current, unfinished cycle — effort so far, no mint yet
+  provisional?: boolean; // the current, unfinished cycle, effort so far, no mint yet
 };
 
 const MONTHS = [
@@ -57,7 +57,7 @@ export function buildCycleSeries(shelf: readonly MintedMoon[], ledger: readonly 
 }
 
 /**
- * The live point for the cycle in progress — the one that hasn't minted a moon
+ * The live point for the cycle in progress, the one that hasn't minted a moon
  * yet. Effort is the days engaged so far (through today, never counting the
  * future), so the chart moves the moment she shows up instead of staying a
  * cycle behind. Impact is left to fill in when she reflects at cycle end.

@@ -7,7 +7,7 @@
 //
 // Each state has its own colour and fills as she reaches it; a gift sits past
 // the end as the promise that this goes somewhere (the actual reward is the
-// deferred light/badge system — this is only the pull toward it). Thick bars,
+// deferred light/badge system, this is only the pull toward it). Thick bars,
 // a clear gap below, so it reads as progress, not a hairline.
 
 import { useEffect } from 'react';
@@ -35,7 +35,7 @@ const LABEL: Record<Phase, string> = {
   // response, not a reaction. The internal phase key stays `react`.
   react: 'Respond',
 };
-// One calm hue per state — distinct enough to read as different chapters, muted
+// One calm hue per state, distinct enough to read as different chapters, muted
 // enough not to alarm someone already dysregulated. The HSL triplet is shared
 // so the progress and the selected-option accent are the SAME colour on any
 // given screen: one accent per state, not a violet fighting a blue.
@@ -71,7 +71,7 @@ export const PHASE_STEPS: { phase: Phase; label: string }[] = ORDER.map((p) => (
   label: LABEL[p],
 }));
 
-/** The reward at the end: bigger, and it gives a little shake now and then — a
+/** The reward at the end: bigger, and it gives a little shake now and then, a
  *  gentle "there's something here" tug, not a nag. Still under reduce-motion. */
 function Gift({ lit }: { lit: boolean }) {
   const reduce = useReducedMotion();
@@ -100,7 +100,7 @@ function Gift({ lit }: { lit: boolean }) {
 
 export function PhaseProgress({ current, fill = 0 }: { current: Phase; fill?: number }) {
   const idx = ORDER.indexOf(current);
-  // The gift lights only when she has actually finished — the current state
+  // The gift lights only when she has actually finished, the current state
   // fully filled on the last segment, not merely reached.
   const arrived = idx >= ORDER.length - 1 && fill >= 1;
   return (

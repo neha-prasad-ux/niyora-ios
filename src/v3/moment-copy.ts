@@ -66,7 +66,7 @@ export const SETS = {
 
   /**
    * [DRAFT] The hold activities, as cards (icon + short title). Cut from twelve
-   * to SIX 2026-07-28 (Neha) — twelve was a wall to read while flooded. The six
+   * to SIX 2026-07-28 (Neha), twelve was a wall to read while flooded. The six
    * kept are all OFF-PHONE and hands-busy, which is the mechanism: the hold
    * works by getting her away from the device and the impulse to send. The `why`
    * shows on the timer screen after she picks, so the grid stays a clean choice.
@@ -94,8 +94,8 @@ export const SETS = {
    *
    * What they must not do, because this is the easiest beat in the flow to get
    * wrong:
-   *   · not predict ("this will feel smaller tomorrow") — we cannot know
-   *   · not minimise ("it is not that bad") — she rated it, we did not
+   *   · not predict ("this will feel smaller tomorrow"), we cannot know
+   *   · not minimise ("it is not that bad"), she rated it, we did not
    *   · not congratulate her for feeling less than someone else might
    */
   smallReframes: [
@@ -170,7 +170,7 @@ export type Act = {
   gated?: boolean;
   /**
    * How "do it now" is carried out on the when-page. 'message' opens the iOS
-   * Messages compose (blank — she writes and sends; the app never drafts or
+   * Messages compose (blank, she writes and sends; the app never drafts or
    * sends). Absent means the act is hers to do off-app, so "now" just moves the
    * flow on without opening anything.
    */
@@ -205,7 +205,7 @@ export function offerableActs(dvScreenFired: boolean): Act[] {
   return ACTS.filter((a) => {
     if (a.gated) return false;
     // Abuse in the picture (Neha 2026-08-01): no act aimed AT the person. Not
-    // just the confrontational ones — the whole DIRECT rung goes, because "own my
+    // just the confrontational ones, the whole DIRECT rung goes, because "own my
     // part" (self-blame, D) is the abuser's own tool. She keeps prep and self;
     // the quiet safety resource shows above the menu. A filter before ranking, so
     // no confront/self-blame option can come back however the model answers.
@@ -333,8 +333,8 @@ export const COPY = {
   // actually have.
   // [DRAFT] The gentle line, SMALL emotions only. Placeholder, and the hardest
   // sentence in the flow to get right, so worth saying what it must not do:
-  //   · not predict ("this will feel smaller tomorrow") — we cannot know
-  //   · not minimise ("it is not that bad") — she rated it, we did not
+  //   · not predict ("this will feel smaller tomorrow"), we cannot know
+  //   · not minimise ("it is not that bad"), she rated it, we did not
   //   · not congratulate her for feeling less than someone else would
   // What it CAN honestly say is that naming a small one is often most of the
   // work, because that is the same claim the naming beat already makes.
@@ -408,11 +408,11 @@ export const COPY = {
   // body is not ready, so the gate never traps her into ticking something false.
   make_safe_care_defer: 'I will come back to this later', // [NEHA] 2026-07-30
   // Reframed to "wait before you react" (Neha 2026-08-02), the rationale for the
-  // hold. [DRAFT] — her final wording wins. Was "Let's distract ourselves...".
+  // hold. [DRAFT], her final wording wins. Was "Let's distract ourselves...".
   make_safe_why: "It's nice to give yourself 20 minutes to calm down and respond thoughtfully.", // [NEHA] 2026-08-02
   // The soft corner timer on the settling menu: a gentle challenge, not a
   // deadline. Pre renders as "can you wait 18:42"; done swaps in at zero (no
-  // alarm, no celebration — the one celebration lives at close). [DRAFT].
+  // alarm, no celebration, the one celebration lives at close). [DRAFT].
   hold_whisper_pre: 'can you wait', // [DRAFT] 2026-08-02
   hold_whisper_done: 'you waited it out', // [DRAFT] 2026-08-02
   make_safe_ask: 'Do you want to react now?', // [NEHA] (unused since the challenge reframe)
@@ -453,7 +453,7 @@ export const COPY = {
   // twelve activities but never the line that asks her to choose one.
   high_pick_activity: 'Pick one thing to do with the time.', // [DRAFT]
   // Why picking beats waiting. Sanctioned framing: the twenty-minute reset
-  // holds with active distraction, and an empty wait is rehearsal — so the line
+  // holds with active distraction, and an empty wait is rehearsal, so the line
   // says what having something to do is FOR, not what her body is doing.
   high_pick_activity_why:
     'Not an empty wait. Something to do with your hands is what keeps the twenty minutes from turning into going over it again.', // [DRAFT]
@@ -568,7 +568,7 @@ export const COPY = {
   // The closing "And now?" 0-10 rating was REMOVED 2026-08-01 (Neha): a self-
   // check that pulls her back into monitoring her feelings right when she should
   // disengage, and the flow already asks how she feels several times. It ends on
-  // a warm sendoff instead — the three phases done, and permission to go live her
+  // a warm sendoff instead, the three phases done, and permission to go live her
   // life while it settles. (This was the in/out delta measure; giving it up on
   // purpose.) The "not yet, show me something else" untried-options loop
   // (we_good_more) went with it.
@@ -580,7 +580,7 @@ export const COPY = {
   // The one celebration in the app (Neha 2026-07-29): a wrapped gift opens into
   // a scratch card, she scratches it to reveal an earned character, and it is
   // saved to her Soul. It rewards a hard act completed, never a feeling or a
-  // score. "The Space Mover" names what she did — made space between the feeling
+  // score. "The Space Mover" names what she did, made space between the feeling
   // and the reaction. Name is a placeholder ("or something", Neha).
   close_congrats: 'You handled that.', // [NEHA] 2026-07-29
   close_gift: 'A little something for you.', // [DRAFT]
@@ -597,7 +597,7 @@ export type CopyKey = keyof typeof COPY;
 // The Body prep checklist on the make_safe challenge screen (Neha 2026-07-30).
 // Three things she confirms are true before the hold. The "why" (examples) is
 // deliberately gentle self-care, not physiology: no mechanism, no "eat now", no
-// blood-sugar claim — the same guard rails that pulled the earlier food prompt.
+// blood-sugar claim, the same guard rails that pulled the earlier food prompt.
 export const MAKE_SAFE_BODY: readonly { id: string; label: string; examples: string }[] = [
   {
     id: 'fed',
@@ -610,3 +610,48 @@ export const MAKE_SAFE_BODY: readonly { id: string; label: string; examples: str
     examples: '',
   },
 ];
+
+// What the badge says she DID (Neha 2026-08-21).
+//
+// The badge used to be titled with the emotion and subtitled with its adjective:
+// "Shame / Ashamed", "Guilt / Guilty". Two problems. It said the same word twice,
+// so the second line carried nothing. And it labelled the wound when the thing
+// being rewarded is the act: a badge is earned by finishing the whole loop, not
+// by having the feeling. She asked the right question, what are we rewarding, and
+// the answer was in the code all along.
+//
+// One verb per constellation, because one verb cannot fit nineteen emotions.
+// "Faced" works for betrayal and is wrong for shame, which does not want bravery,
+// it wants the weight taken off.
+//
+// THE RULE, and it is not negotiable: NO CONQUEST VERBS on grief, sadness or
+// numbness. Grief is carried, never beaten, and a badge congratulating a woman
+// for defeating her grief would be the worst copy in this app. Anger, dread and
+// betrayal can take an active verb, because those feelings are asking for action.
+export const BADGE_ACT: Record<string, string> = {
+  shame: 'Put shame down',
+  guilt: 'Owned it',
+  anger: 'Let anger speak',
+  hurt: 'Tended the hurt',
+  betrayal: 'Faced betrayal',
+  rejection: 'Stayed whole',
+  abandonment: 'Stayed with yourself',
+  inadequacy: 'Took up space',
+  frustration: 'Moved through it',
+  irritability: 'Rode it out',
+  anxiety: 'Steadied anxiety',
+  dread: 'Walked toward it',
+  overwhelm: 'Set it down',
+  fear: 'Moved with fear',
+  sadness: 'Let sadness sit',
+  grief: 'Carried grief',
+  numbness: 'Found your way back',
+  loneliness: 'Reached out',
+  jealousy: 'Looked at it straight',
+};
+
+/** How many times she has worked this one through. Singular reads oddly as
+ *  "1 times", and the first one is the one worth naming plainly. */
+export function badgeCount(n: number): string {
+  return n <= 1 ? 'Once' : `${n} times`;
+}

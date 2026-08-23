@@ -11,7 +11,7 @@
 //
 // Shape: one decision per screen, not a scrolling form. The four awareness
 // questions step by one gesture each (tap a choice, glide to the next), then
-// the domain sliders, then the reveal beat — today's read joining prior cycles'
+// the domain sliders, then the reveal beat, today's read joining prior cycles'
 // ghost dots. That payoff (which otherwise lives only on the You tab she may
 // never scroll to) is the argument for why she reflects, and it lands inside
 // the flow.
@@ -53,7 +53,7 @@ import {
   type ManageLever,
 } from '@/store/reflect-log';
 
-// The rough/okay/fine word for a continuous 0–100 read, for the slider readout
+// The rough/okay/fine word for a continuous 0, 100 read, for the slider readout
 // and the reveal captions.
 const BAND_WORD = ['Rough', 'Okay', 'Fine'] as const;
 const bandWord = (v: number) => BAND_WORD[levelOf(v) - 1];
@@ -91,7 +91,7 @@ const YMD = /^\d{4}-\d{2}-\d{2}$/;
 // step and shows a progress dot.
 const STEPS = ['intro', 'noticed', 'rightSized', 'manage', 'ease', 'sliders', 'reveal'] as const;
 type Step = (typeof STEPS)[number];
-// The steps that carry a progress segment — the intro card and the reveal don't.
+// The steps that carry a progress segment, the intro card and the reveal don't.
 const PROGRESS_STEPS: Step[] = ['noticed', 'rightSized', 'manage', 'ease', 'sliders'];
 const REVEAL_INDEX = STEPS.indexOf('reveal');
 
@@ -109,7 +109,7 @@ function ghostsFor(impacts: CycleImpactEntry[], anchor: string, domain: ImpactDo
 
 export default function ReflectScreen() {
   // When opened right after logging a period (from the Now tab), the cycle to
-  // look back on is the one that just ended — its anchor is passed explicitly,
+  // look back on is the one that just ended, its anchor is passed explicitly,
   // because prefs.lastPeriodStart has already advanced to the new period. Opened
   // from the Reflect button mid-cycle, there's no param and we use the current
   // anchor as before.
@@ -138,7 +138,7 @@ export default function ReflectScreen() {
     }
   };
 
-  // Every open is a fresh look-back — a new dated entry, not a prefilled edit of
+  // Every open is a fresh look-back, a new dated entry, not a prefilled edit of
   // the last. Only the mute prefs and prior cycles' reads (the ghosts to compare
   // this one against) carry over.
   useFocusEffect(
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
   },
   headerBtn: { fontFamily: fonts.regular, fontSize: fontScale.bodyLg, color: colors.textTertiary, width: 44 },
   title: { fontFamily: fonts.medium, fontSize: fontScale.cardTitle, color: colors.textPrimary },
-  // Quiet progress across the input steps — the same thin segment bar as Level 1.
+  // Quiet progress across the input steps, the same thin segment bar as Level 1.
   segRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -775,7 +775,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   qBottom: { paddingHorizontal: pageGutter, paddingBottom: spacing.xxl },
-  // The intro card's one warm line — the reason this look-back is worth it.
+  // The intro card's one warm line, the reason this look-back is worth it.
   introLine: {
     fontFamily: fonts.medium,
     fontSize: fontScale.title,
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-  // A prior cycle's read — a quiet hollow dot on the same track to compare
+  // A prior cycle's read, a quiet hollow dot on the same track to compare
   // this cycle against.
   ghostDot: {
     position: 'absolute',

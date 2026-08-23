@@ -1,13 +1,13 @@
 // The thread key for a moment: the person or topic she names (Neha 2026-08-11).
 //
-// V1 threading is "match only when obvious" — we key a moment by the FIRST clear
+// V1 threading is "match only when obvious", we key a moment by the FIRST clear
 // person/topic word in her entry, and a later entry naming the same key continues
 // that thread. When she names no clear subject ("she keeps doing this"), we return
 // null and the moment starts fresh rather than risk pulling the wrong thread's
 // context in (bleeding the mom conversation into a work one is worse than nothing).
 //
 // ponytail: a lexical map, deliberately shallow. If mis-keying shows up in testing,
-// the upgrade is the AI naming the subject — but this needs no call and no history.
+// the upgrade is the AI naming the subject, but this needs no call and no history.
 
 // Canonical subject <- the words that map to it. Order matters: more specific
 // entries (mother-in-law) sit above the general one (mom) so they win.
@@ -37,7 +37,7 @@ export function subjectOf(text: string): string | null {
 }
 
 // An explicit "I'm continuing something" signal. On its own it says she means to
-// pick up a past thread but NOT which one — so it only resolves a thread when the
+// pick up a past thread but NOT which one, so it only resolves a thread when the
 // subject is named OR exactly one recent thread exists (see pickSubject).
 const CONTINUATION =
   /\b(before|again|last time|earlier|the other day|like i (said|mentioned|told you)|as i (said|mentioned)|remember (when|how|i)|still (going on|happening)|update on)\b/i;

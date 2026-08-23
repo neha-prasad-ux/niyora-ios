@@ -290,7 +290,7 @@ describe('mintCycleMoon', () => {
     expect(keyOnly.fullness).toBeCloseTo(28 / 42);
     expect(keyOnly.kept).toBe(true);
 
-    // Engaged only the 14 open days: 14/42 — same day count, not kept.
+    // Engaged only the 14 open days: 14/42, same day count, not kept.
     const openOnly = mintCycleMoon({
       cycleStartYmd: start,
       cycleEndYmd: end,

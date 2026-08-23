@@ -99,8 +99,8 @@ async function save(state: MoonState): Promise<MoonState> {
 
 /**
  * Light landed: refresh brightness (bright by default; only fading lessons
- * dim it — the caller derives the count from the ledger) and let the material
- * ladder re-derive. Saves — and notifies listeners — only on a real change.
+ * dim it, the caller derives the count from the ledger) and let the material
+ * ladder re-derive. Saves, and notifies listeners, only on a real change.
  */
 export async function advanceMoonOnEarn(
   totals: LedgerTotals,

@@ -1,10 +1,10 @@
 // The settling activities as "magic balls" (Neha 2026-08-02): each activity is a
 // glowing glass orb, a sibling of the moon, not a trophy. Three states:
-//   · cloudy  — dark violet orb, quiet, waiting (default).
-//   · active  — ONE orb (the flagship) glows softly from the start, so the screen
+//   · cloudy  : dark violet orb, quiet, waiting (default).
+//   · active  : ONE orb (the flagship) glows softly from the start, so the screen
 //               reads magical and invites a first tap, without a seal.
-//   · done    — the orb fills with its colour and a scatter of glitter, and a
-//               check-seal springs in. No icon, no score — light, not a pictogram.
+//   · done    : the orb fills with its colour and a scatter of glitter, and a
+//               check-seal springs in. No icon, no score, light, not a pictogram.
 // Violet family (NOT the earlier teal/blue-green), to match the moon. Ball glow
 // is native react-native-svg (RadialGradient + halo + glitter): her Variant4.svg
 // Figma filter stack (noise + stacked inner shadows) does not render reliably in
@@ -130,7 +130,7 @@ export function ActivityBall({
         style={[
           styles.tile,
           // No coloured tile fill (Neha 2026-08-02, "the purple background looks
-          // weird") — every tile keeps the neutral dark surface; the orb's own
+          // weird"), every tile keeps the neutral dark surface; the orb's own
           // glow carries "done". A faint accent border is the only tile change.
           done && { borderColor: hexA(accent, 0.35) },
           !done && active && { borderColor: hexA(accent, 0.2) },

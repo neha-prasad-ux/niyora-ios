@@ -20,17 +20,176 @@
 // deterministic build. Set EXPO_PUBLIC_MOMENT_AI=1 to light it up.
 
 import { getApp } from '@react-native-firebase/app';
-import { getAI, getGenerativeModel, VertexAIBackend } from '@react-native-firebase/ai';
+import {
+  getAI,
+  getGenerativeModel,
+  SchemaType,
+  VertexAIBackend,
+  type SchemaRequest,
+} from '@react-native-firebase/ai';
 import { MOMENT_AI } from '@/config/features';
 import { NO_PROVIDER, type MomentProvider } from '@/v3/moment-ai';
 import { scrub } from './pii';
+import { SLOT_INSTRUCTION, VOICE } from './moment-prompts';
 
 const LOCATION = 'us-central1';
-// Verified against this project's Vertex backend (firebasevertexai) with the exact
-// generationConfig below: 'gemini-3.6-flash' 404s (not a real Vertex model),
-// 'gemini-2.5-flash' returns 200. If you bump this, re-verify the model exists in
-// LOCATION or every call silently falls back to authored copy.
-const MODEL = 'gemini-2.5-flash';
+// Verified against this project's Vertex backend (firebasevertexai) 2026-08-19:
+// us-central1 serves gemini-2.5-pro, -flash and -flash-lite. Every gemini-3 name
+// 404s here. If you bump this, re-verify the model exists in LOCATION or every
+// call silently falls back to authored copy.
+//
+// Pro, not flash (2026-08-19 scenario run). Pro with a small thinking budget came
+// back BOTH better and faster than flash with a large one: 2.9s at budget 128 and
+// 5.1s at 512, against 3.2s for flash at 512, and the reads stopped being generic.
+// On the same entry flash offered "you might be hoping for a visit where you feel
+// fully accepted", pro offered "you go there hoping for a mother, and you get a
+// critic". The reads ARE the product on this beat, so it gets the better model.
+const MODEL = 'gemini-2.5-pro';
+// Reasoning tokens the model may spend before it writes. 0 (what shipped until
+// now) means it cannot run a check-then-delete rule at all, which is the shape of
+// every anti-echo rule in the prompts, and it left ~2% of cards arriving empty.
+const THINKING_BUDGET = 512;
+
+// Per-slot budgets (2026-08-21). 512 is right for a card that writes three reads
+// and wasteful for a slot that answers yes or no. Measured on 8 entries:
+// has_event scored 8/8 at both 128 and 512, but 512 spent five times the tokens
+// (2877 against 524) and 1.6s more per call. Thinking bills at the OUTPUT rate
+// and was 88% of the whole moment's output, so this is the cheapest real saving
+// available, and it makes two beats she waits on noticeably quicker.
+//
+// NEVER set this to 0 on a pro model. Verified the same day: at budget 0
+// gemini-2.5-pro returns an EMPTY body, so every call would silently produce
+// nothing and the flow would fall back to authored copy with no error anywhere.
+// 128 is the floor.
+//
+// The crisis classifier is deliberately absent: it self-limits to around 60
+// thinking tokens anyway, and it is the one call where being cheap is not a
+// trade worth making.
+const SLOT_THINKING: Record<string, number> = {
+  has_event: 128, // a yes or no
+  feelings: 128, // reordering a closed list
+};
+
+// --- Response schemas (2026-08-19) ---------------------------------------
+//
+// The JSON slots used to ask for their shape in prose and moment-ai.ts pieced the
+// reply back together by slicing from the first "{" to the last "}". That worked
+// most of the time, and "most of the time" on this beat means a card that quietly
+// falls back to authored copy because the model opened with "Here is the JSON:".
+// responseMimeType + responseSchema make Vertex ENFORCE the shape at decode time,
+// so a malformed reply is not caught, it is impossible.
+//
+// This does NOT replace the defensive parsing in moment-ai.ts. That stays as the
+// floor: a slot with no schema here, a schema Vertex rejects, or a response that
+// arrives truncated all still land in the same try/catch and still degrade to
+// authored copy. Nothing below may ever throw.
+//
+// Only the JSON slots appear here. Draft/text slots (clarify, has_event, feelings,
+// act_help, revise, reflect_friend, reflect_pattern, reflect_chat, reflect_expand)
+// return a bare line and MUST NOT get a schema, or the line arrives wrapped in
+// quotes and JSON escapes.
+const strings = (max: number): SchemaRequest => ({
+  type: SchemaType.ARRAY,
+  items: { type: SchemaType.STRING },
+  maxItems: max,
+});
+
+// Guess slots: up to 3 tappable options, [] is a legitimate decline (nothing to
+// add), so `options` is required but may be empty.
+const GUESS_SCHEMA: SchemaRequest = {
+  type: SchemaType.OBJECT,
+  properties: { options: strings(3) },
+  required: ['options'],
+};
+
+const RESPONSE_SCHEMA: Record<string, SchemaRequest> = {
+  // The two interaction cards (2026-08-20): she places / she allocates, so the
+  // model returns the setup rather than reads. Enforced shapes, because a missing
+  // end of the scale or a missing factor makes the interaction unrenderable.
+  reflect_scale: {
+    type: SchemaType.OBJECT,
+    properties: {
+      claim: { type: SchemaType.STRING },
+      word: { type: SchemaType.STRING },
+      zero: { type: SchemaType.STRING },
+      hundred: { type: SchemaType.STRING },
+    },
+    required: ['claim', 'word', 'zero', 'hundred'],
+  },
+  reflect_responsibility: {
+    type: SchemaType.OBJECT,
+    properties: {
+      outcome: { type: SchemaType.STRING },
+      hers: { type: SchemaType.STRING },
+    },
+    required: ['outcome', 'hers'],
+  },
+  reflect_simpler: GUESS_SCHEMA,
+  reflect_also_true: GUESS_SCHEMA,
+  reflect_need: GUESS_SCHEMA,
+  reflect_shame: GUESS_SCHEMA,
+  reflect_signal: GUESS_SCHEMA,
+  reflect_factsort: {
+    type: SchemaType.OBJECT,
+    properties: {
+      claims: {
+        type: SchemaType.ARRAY,
+        maxItems: 4,
+        items: {
+          type: SchemaType.OBJECT,
+          properties: { text: { type: SchemaType.STRING }, fact: { type: SchemaType.BOOLEAN } },
+          required: ['text', 'fact'],
+        },
+      },
+    },
+    required: ['claims'],
+  },
+  reflect_rule: {
+    type: SchemaType.OBJECT,
+    properties: {
+      event: { type: SchemaType.STRING },
+      rule: { type: SchemaType.STRING },
+      consequence: { type: SchemaType.STRING },
+      tests: strings(3),
+    },
+    // All four required: ruleBreakdown() declines when rule or tests are missing,
+    // and a chain with a hole in it cannot be rendered anyway. The model declines
+    // by returning an empty rule/tests, not by dropping the keys.
+    required: ['event', 'rule', 'consequence', 'tests'],
+  },
+  reflect_factsort_advise: {
+    type: SchemaType.OBJECT,
+    // reads is one gentler line PER read she sorted, so it is not capped at 3 the
+    // way the guess slots are. The caller pairs them by index.
+    properties: {
+      reads: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+      help: { type: SchemaType.STRING },
+    },
+    required: ['reads', 'help'],
+  },
+  reframe_small: {
+    type: SchemaType.OBJECT,
+    properties: { readings: strings(3), selfPrompt: { type: SchemaType.STRING } },
+    required: ['readings', 'selfPrompt'],
+  },
+};
+
+// Context caching: checked 2026-08-19, NOT usable here, do not try again without
+// new information. VOICE + REFLECT_SAFETY + a slot instruction is ~890 tokens and
+// it is re-sent on every call, so a cache looked like free money. Three separate
+// walls:
+//   1. @react-native-firebase/ai 26.2.0 has no cache API at all. The only cache
+//      surface in the package is the READ-ONLY usageMetadata.cachedContentTokenCount.
+//   2. Firebase AI Logic deliberately does not let a client create an explicit
+//      cache (a client that could would be a billing hole). Explicit caches are
+//      reachable only through server prompt templates, and the cache itself has to
+//      be created out of band against the Vertex REST API. That is a backend we do
+//      not have, for a prompt we edit weekly.
+//   3. Even with the plumbing it would not qualify: an explicit cache on a Gemini
+//      Pro model needs a MINIMUM of 4096 tokens of cached content. Our system
+//      prompt is ~890.
+// Implicit caching is already on by default for gemini-2.5-*, so whatever discount
+// this prompt can earn, it is already earning without any code.
 
 // One AI handle for the app, created lazily on first use. Firebase must be
 // configured (a GoogleService-Info.plist in the build) or getApp() throws; we
@@ -49,226 +208,6 @@ function getModelHandle() {
     return null;
   }
 }
-
-// The shared voice, prepended to every slot as the system turn. This is the
-// Voice block from the 2026-08-02 rework: persona + the universal tone bans that
-// hold for every beat, so a rule (e.g. no dashes) is fixed in one place.
-const VOICE = [
-  'You are the quiet voice inside Niyora, an app a woman opens in a hard moment. You speak like a calm, warm woman in her 30s, a close friend, in dead-simple words anyone can read. You are not a therapist and never sound like one.',
-  '',
-  'This voice holds for everything you write:',
-  '- No exclamation points, no emojis, and no dashes of any kind. Use a full stop or a comma instead. Sentence case, plain words.',
-  '- No jargon or therapist-speak. Do not say "boundaries", "nervous system", "holding space", "catastrophizing", "spiralling". No mantras or clichés.',
-  '- Never tell her it is fine, normal, will pass, or not a big deal. No "at least", no looking on the bright side.',
-  '- Use only what she wrote. Never invent a fact, a person, or a detail about her or anyone else.',
-  '- Warm and quiet, never chirpy or performative. You are here to help her feel met and make her own call, never to impress and never to win.',
-].join('\n');
-
-// Shared tail for the reflect-card slots (see v3/reflect-cards.ts). The safety
-// rules from that file's header, in one place so every card inherits them. Kept
-// OUT of VOICE on purpose: "adds a possibility" is wrong for acknowledge/feelings,
-// so it must not leak into the non-reflect slots.
-const REFLECT_SAFETY =
-  'Every line ADDS a possibility beside her feeling, it never takes it away and ' +
-  'never tells her how she feels. No "just", no "you are overreacting", nothing ' +
-  'that shrinks or dismisses what she wrote. If her feeling is tied to her cycle, ' +
-  'do not blame it on that. ' +
-  // Variety WITHOUT losing plainness (Neha 2026-08-12): the reads sound monotone
-  // when every line opens "maybe X", but forcing fancy openers made them clever and
-  // stiff, which is worse. Plain and easy always wins; variety just means not
-  // stacking the same first word.
-  'Write the way a warm woman in her 30s actually talks out loud: dead simple, easy, ' +
-  'clear. Short everyday words, natural rhythm. Do not open every line the same way, ' +
-  'but never reach for a fancier or cleverer phrasing to get that variety, and never ' +
-  'add a label like "one way to see it" in front of a read. A plain line beats a ' +
-  'clever one every time. Each read stays a maybe you gently offer, never a verdict. ' +
-  // Anti-restatement (Neha 2026-08-13, device test): the reads slid back into echo —
-  // "you notice the difference", "you are feeling this keenly" — just her own words
-  // reworded. That is worthless; she wrote them. Every read must EARN its place.
-  'NEVER just restate her feeling or her situation back to her. A line that only ' +
-  'says what she already told you ("you notice the difference", "you feel it is ' +
-  'unfair", "you are feeling this keenly", "you want fairness") is worthless, because ' +
-  'she wrote it. Every read must ADD something she did NOT say: a cause she had not ' +
-  'weighed, a distinction, a fresh angle, a small piece of insight or possibility. Do ' +
-  'not open a read with "it sounds like you", "you notice", "you are feeling", "it is ' +
-  'like you", or any mirror of her words. Lead with the new thought itself. If the ' +
-  'only honest thing you can add is a restatement, say less, but never pad with echo.';
-
-// One instruction per slot. The caller hands over the user turn (her words, and
-// for pick slots the option menu); this maps the slot to the right system.
-const SLOT_INSTRUCTION: Record<string, string> = {
-  clarify:
-    'She wrote very little. Reflect the little she gave in a few of her own words, then ask one ' +
-    'warm, open question about what happened, never presupposing a fact ("what happened that made ' +
-    'today feel this way", not "did someone upset you"). Max 2 sentences. Reply with only that.',
-  has_event:
-    'Does her message name a concrete thing that happened, an event, something someone did or ' +
-    'said, a situation? Answer only "yes" or "no". Say "no" ONLY when it is purely a feeling or ' +
-    'mood with no event at all ("I feel awful", "today was bad"). If there is any concrete thing, ' +
-    'even small, say "yes".',
-  feelings:
-    'Order the feelings in the options list by how well they fit what she wrote, best first. If ' +
-    'she names a feeling outright, that one goes first; if her word is not in the list, map it to ' +
-    'the nearest one in the list. Tell close ones apart: guilty = she did wrong, ashamed = ' +
-    'something wrong with her; hurt = wounded by someone close, angry = wronged; left out = shut ' +
-    'out of a group, lonely = alone, rejected = pushed away, ignored = not acknowledged, ' +
-    'unappreciated = effort unseen; betrayed = trust broken, blindsided = did not see it coming. ' +
-    'Judge from her words only, never her cycle. Return only the reordered list.',
-  reframe_small:
-    'Offer up to 3 gentler, plausible ways she could read the same situation, so she has another ' +
-    'angle, plus one open question that helps her reach her own. Each reading is a "maybe" about ' +
-    'her own thinking, never a claim about what happened or what anyone felt or meant: stay ' +
-    'tentative ("it could be", "maybe", "one way to read it"), state no fact. Never mind-read ' +
-    'anyone, never minimise or reassure, never explain her feeling away as her cycle, never turn ' +
-    'it on her, take no side. Each reading one sentence, max 18 words, genuinely different. ' +
-    'selfPrompt is one open question pointing at the exact thing she is reading darkly, never ' +
-    'presupposing an answer ("is there another reason he was quiet?", not "was he just tired?"), ' +
-    'max 14 words. Return an empty readings array AND an empty selfPrompt if she is attacking her ' +
-    'own worth, if it is a diffuse mood with nothing specific to loosen, or if she describes being ' +
-    'harmed. Return only JSON: {"readings": ["...", "..."], "selfPrompt": "..."}',
-  options:
-    'Choose and order the actions from the options list that best fit her situation, best first. ' +
-    'Do not inflate the confront-the-person actions; if she is hot or overwhelmed, a steadying ' +
-    'action can be the best fit. Take no side on who is right. Return only your ordering of the ' +
-    'options.',
-  act_help:
-    'She chose a way to respond. Write a draft that carries out THAT move, a starting point she ' +
-    'edits. The job of any message to another person is to help her be heard WITHOUT burning the ' +
-    'bridge: name what happened, how she felt, and what she needs, as an invitation to be understood, ' +
-    'never an attack. Most women were never taught how to say a hard thing and keep the relationship, ' +
-    'so the draft quietly models that. If the move is aimed at the other person, write the message she could send, first ' +
-    'person. If it is to tell one person, get someone whose job it is, or reach out for comfort, ' +
-    'write a short message to that person, not the one she is upset with. If it is to find out, ' +
-    'get it ready, work out what she wants, take something off her plate, let it be, look after ' +
-    'herself, or take space, write one concrete small step for herself, not a message. Carry out ' +
-    'her move, not a softer or opposite one: hold a line states the line and does not apologise it ' +
-    'away; own my part owns it once and offers to make it right, no grovel. For any message use ' +
-    'soft "I" language: what happened as plain fact (never "you always"), how she felt, one ' +
-    'specific doable ask; never accuse, label, or threaten. Ground it only in what she wrote, ' +
-    'invent no facts or people. Short: a message is 1 to 3 sentences, a step is one sentence. ' +
-    'Reply with only the draft.',
-  revise:
-    'She wants to change the draft. Rewrite it to follow her note, keeping her voice and ' +
-    'everything true to what she wrote. If her note asks to be more direct, make it clearer and ' +
-    'plainer, never harsher or more accusing. Same rules: plain, no blame, no advice, max 2 lines. ' +
-    'Reply with only the revised draft.',
-  // --- Reflect cards (v3/reflect-cards.ts). Draft slots return one line; guess
-  // slots return a JSON options array. Empty result => authored fallback. ---
-  reflect_friend:
-    'She wrote this about herself. Write the warm, honest thing she would tell a friend who said the exact same ' +
-    'thing. Kind and true, self-compassion, not fake cheer, never "do not worry". One short line, no quotes. ' +
-    'Reply with only the line. ' + REFLECT_SAFETY,
-  reflect_simpler:
-    'Offer 2 or 3 short, plainer outside reasons the situation could have, ones that are not about her being at ' +
-    'fault (for example he has been buried at work). Each is a maybe she can weigh, never a claim about what ' +
-    'happened. Concrete, not vague, one short line each. If nothing specific fits, return an empty array. Return ' +
-    'only JSON: {"options": ["...", "..."]}. ' + REFLECT_SAFETY,
-  reflect_also_true:
-    'She is bracing for the worst. Offer 2 or 3 short reads that loosen the grip of that worst case, mixing two ' +
-    'moves: (a) other, more likely ways this could actually go, each honest and set beside her fear, never a claim ' +
-    'she is wrong to fear it; and (b) if the worst did come true, how she could get through it or what would still ' +
-    'hold steady for her, grounded in her own strengths and what she wrote. When a clear worst case is there, make ' +
-    'at least one read a get-through-it one, spoken as the woman who has come out the other side. Never promise it ' +
-    'will be fine, never say the feeling will pass or that it is small, no "at least". ' +
-    'If she is NOT actually bracing for a worst case (she is upset about something that already happened, not a ' +
-    'fear of the future), do not force a worst case: instead offer other honest readings of the situation she has ' +
-    'likely not considered. Either way, never just validate her feeling back at her. Concrete, not vague, one ' +
-    'short line each. If nothing specific fits, return an empty array. Return only JSON: {"options": ["...", ' +
-    '"..."]}. ' + REFLECT_SAFETY,
-  reflect_pattern:
-    'You are given her thought now and a short list of themes from her past entries. If the same theme clearly ' +
-    'comes back, name it in one gentle line (for example this keeps coming back to the deadline). Only if it is a ' +
-    'real recurrence. If nothing genuinely repeats, reply with only the word none. One short line, no quotes. ' +
-    REFLECT_SAFETY,
-  reflect_need:
-    'Under the situation she described, what might she actually NEED right now? Offer 2 or 3 short, plain guesses ' +
-    '(for example to feel heard, a bit of rest, some space, to know it was not her fault). One of them can name ' +
-    'when holding this so tightly might be taking more from her than it gives, and what would ease if she let it ' +
-    'sit a little lighter, but never as an order to "let it go". Each a maybe grounded in what she wrote, never a ' +
-    'claim or an instruction, one short line. Name a need, do not tell her to do anything. If nothing specific ' +
-    'fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  // Special card (like factsort): returns a chain she can SEE, not a flat list.
-  // REFLECT_SAFETY is NOT appended here on purpose — event/rule/consequence are
-  // direct statements, not "maybe" reads, so its "every line is a maybe" clause
-  // would wrongly make the model hedge the plain facts. The needed guards are
-  // inline instead. (Neha 2026-08-13.)
-  reflect_rule:
-    'She may be turning her upset into a verdict on herself through a hidden rule. Break her moment into a short ' +
-    'chain she can SEE, then test the rule. Write dead simple and plain, the way a warm woman in her 30s talks, no ' +
-    'jargon. Ground every part only in what she wrote, invent no facts or people, and never blame her cycle. Return ' +
-    'only JSON: {"event":"...","rule":"...","consequence":"...","tests":["...","..."]}. ' +
-    'event: what actually happened, in her own plain words, one short line, just the facts with no meaning ' +
-    'attached. ' +
-    'rule: the rigid rule or "should" underneath it, in her voice, one short line, a real demand not a soft wish ' +
-    '(for example: a real friend always includes me. I should not care.). Do not tell her the rule is right or ' +
-    'wrong, only name it. ' +
-    'consequence: how it lands for her, the feeling and the self-judgment it turns into, one short line, only from ' +
-    'what she wrote (for example: hurt, and then I am stupid for caring). ' +
-    'tests: exactly 2 short lines that gently test the rule, each a maybe, with different openers, plain and easy. ' +
-    'At least one loosens the demand (a real friend might not always do X, for reasons that are not about her), and ' +
-    'at least one keeps her feeling valid and allowed (it is okay to feel this, it does not make her Y). NEVER say ' +
-    'the feeling itself is wrong or something to fix, only the rigid rule is ever up for question. ' +
-    'If there is no real rule to surface, return an empty tests array.',
-  reflect_shame:
-    'She may be turning one thing that happened into a verdict on who she is as a person. Offer 2 or 3 short reads ' +
-    'that separate the THING (a thing done or said, which can be faced or repaired) from a whole-person judgment ' +
-    '(who she is). Each grounded in what she wrote, a gentle maybe, never agreeing that she is bad, one short line. ' +
-    'If nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_signal:
-    'Read what her feeling might be POINTING TO, and what the calm, steady part of her most likely already knows ' +
-    'about this. Do not reframe the feeling. A feeling usually flags something that matters (anger a line crossed, ' +
-    'dread something coming she cares about, hurt something she values). Offer 2 or 3 short reads of what this ' +
-    'feeling could be telling her, or what she already half-knows underneath it, grounded in what she wrote. Each a ' +
-    'maybe pointing in her own direction, never a diagnosis and never telling her what to do, one short line. If ' +
-    'nothing fits, return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_middle:
-    'She is thinking in all-or-nothing terms (for example "I always ruin everything"). The truth usually sits in ' +
-    'the middle. Offer 2 or 3 short middle-ground readings that land BETWEEN the all-good and the all-bad, grounded ' +
-    'in what she wrote. Concrete, each a maybe, one short line. If nothing specific fits, return an empty array. ' +
-    'Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_agency:
-    'Given what she wrote, help her see how much of this she can actually work on. Offer 2 or 3 short, concrete ' +
-    'lines: at least one thing that IS in her power to act on, and at least one part that is not hers to move. ' +
-    'Never blame her, never assign her the whole load. Each a maybe, one short line. If nothing specific fits, ' +
-    'return an empty array. Return only JSON: {"options": ["...", "..."]}. ' +
-    REFLECT_SAFETY,
-  reflect_factsort:
-    'Split what she wrote into its separate claims: 2 to 4 short lines, in her own plain words, cleaned of spelling ' +
-    'and grammar slips but keeping her meaning and her charged words. Mark each line fact:true ONLY when it is a ' +
-    'plain observable event, just what happened or was plainly done, with no motive or meaning attached. Mark ' +
-    'fact:false for anything that is her interpretation, an assumption, a guess at WHY someone acted or what they ' +
-    'really meant, a claim about what WOULD have happened, or a judgment. Reporting a motive someone stated is still ' +
-    'fact:false, because whether it is true is not observable. When unsure, use fact:false. Never merge a fact and a ' +
-    'feeling into one line. Judge from her words only, never her cycle. Return only JSON: ' +
-    '{"claims":[{"text":"...","fact":true},{"text":"...","fact":false}]}. ' +
-    REFLECT_SAFETY,
-  reflect_chat:
-    'You are reflecting WITH her about the thought she brought, in a short back-and-forth. She has just said the ' +
-    'latest line. FIRST decide if what she wrote is actually about her feelings, a person, or her situation. If it ' +
-    'is NOT — a factual or trivia question (maths, general knowledge, definitions), a request to do a task, or ' +
-    'anything off-topic — do NOT reflect on it and do NOT wrap it in feeling language. Warmly say that is not really ' +
-    'what you are here for, and bring her back to what is on her mind (you may give one plain short answer to ' +
-    'something trivial first, but never turn it into an emotional reading). OTHERWISE, when she is bringing ' +
-    'something real: reply with ONE short turn, max 2 sentences. ALWAYS offer a concrete new way to see it, a gentle ' +
-    'maybe about her thinking or the situation, so she leaves the turn with a fresh angle. Never reply with only a ' +
-    'question, and never just mirror her words back: each time she asks again, give a genuinely DIFFERENT angle, not ' +
-    'the same one reworded. You may add one short question after the perspective, never instead of it. Keep her in ' +
-    'charge, stay tentative (a maybe, not a verdict). NEVER give advice, instructions, a plan, a diagnosis, or any ' +
-    'medical or money guidance, and never tell her what to do. If the turn number you are given is 3 or higher, ' +
-    'still give the fresh angle, then gently invite her to sit with what she has seen. Reply with only your line. ' +
-    REFLECT_SAFETY,
-  reflect_factsort_advise:
-    'She has sorted her claims into facts and reads. For EACH read (her interpretation), in the same order given, ' +
-    'offer one gentler, more tentative way to hold it, a maybe about her own thinking, never a claim about what ' +
-    'happened, max 16 words. For the facts together, give ONE short warm line that helps her act on or sit with what ' +
-    'is actually true, max 20 words; if there are no facts, return an empty help string. Return only JSON: ' +
-    '{"reads":["...","..."],"help":"..."}. ' +
-    REFLECT_SAFETY,
-};
 
 // Transport outcome of the last TRACKED call (the beat generations), so the flow
 // can tell "Moon isn't responding" (fail: timeout/HTTP/empty) apart from "she is
@@ -294,6 +233,8 @@ async function callGemini(
   user: string,
   timeoutMs: number,
   track = true,
+  schema?: SchemaRequest,
+  thinking: number = THINKING_BUDGET,
 ): Promise<string | null> {
   const handle = getModelHandle();
   if (!handle) return null;
@@ -306,31 +247,65 @@ async function callGemini(
   };
   // A fresh model per call: the system prompt varies by slot, and constructing a
   // GenerativeModel is cheap (no network). Low temperature: she needs steadiness,
-  // not surprise. thinkingBudget 0 keeps a gemini-3 model from spending its token
-  // budget (and seconds) on reasoning before a one-line reply.
-  const model = getGenerativeModel(handle, {
-    model: MODEL,
-    systemInstruction: system,
-    generationConfig: {
-      temperature: 0.6,
-      maxOutputTokens: 256,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  });
+  // not surprise.
+  const build = (useSchema: boolean) =>
+    getGenerativeModel(handle, {
+      model: MODEL,
+      systemInstruction: system,
+      // NO safetySettings on purpose, MEASURED 2026-08-19. The worry was that
+      // Vertex's default filters were quietly eating the entries that matter most,
+      // and a filtered reply is indistinguishable from a timeout on screen (both
+      // land on authored copy). So it was measured rather than guessed: 10 real
+      // distress entries (grief, physical abuse, coerced sex, passive suicidal
+      // ideation, self-harm history, miscarriage, bingeing and purging, a child's
+      // cancer scan, coercive control, a past overdose) through reflect_signal and
+      // act_help, with default settings and again with every category OFF.
+      // 40/40 came back finishReason STOP, zero blockReason, zero empty, and the
+      // two configurations were indistinguishable. The default filters are not
+      // touching her distress, so there is nothing to buy by loosening them and a
+      // real cost to loosening them (this same key would then also stop filtering
+      // things we DO want filtered). Re-measure with the throwaway harness before
+      // changing model or region; do not loosen on a hunch.
+      generationConfig: {
+        temperature: 0.6,
+        // maxOutputTokens COVERS THINKING TOKENS TOO. This is the trap that made
+        // cards arrive blank: the budget was spent reasoning and there was nothing
+        // left for the reply. Any change to THINKING_BUDGET has to move this with it.
+        maxOutputTokens: thinking + 400,
+        thinkingConfig: { thinkingBudget: thinking },
+        ...(useSchema && schema
+          ? { responseMimeType: 'application/json', responseSchema: schema }
+          : {}),
+      },
+    });
 
   // One attempt, classifying HOW it failed so the loop below knows whether a
   // retry is worth it. 'offline' means the network is down (never retry); a
   // timeout/abort, a safety block (text() throws with no candidate), or an empty
   // body are all transient here.
-  const attempt = async (): Promise<
-    { ok: true; text: string } | { ok: false; offline: boolean }
-  > => {
+  const attempt = async (
+    useSchema: boolean,
+  ): Promise<{ ok: true; text: string } | { ok: false; offline: boolean }> => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const res = await model.generateContent(scrubbed, { signal: ctrl.signal });
+      const res = await build(useSchema).generateContent(scrubbed, { signal: ctrl.signal });
       const text = res.response.text().trim();
       if (text) return { ok: true, text };
+      // No text with a candidate present usually means the reply was filtered or
+      // the token budget ran out mid-thought. Log the reason so a block stops
+      // looking exactly like a timeout in the Metro log (2026-08-19 audit: the two
+      // were indistinguishable, and both just showed as authored copy on screen).
+      // Dev log only, deliberately: a block does NOT get its own AiTransport
+      // state, because she does not need a different screen for it (both mean the
+      // beat renders its authored line) and the audit found the rate to be zero.
+      // Promote it to a transport state only if that number ever stops being zero.
+      if (__DEV__) {
+        const r = res.response;
+        console.log(
+          `[moon-ai] empty reply · block=${r.promptFeedback?.blockReason ?? '-'} finish=${r.candidates?.[0]?.finishReason ?? '-'}`,
+        );
+      }
       return { ok: false, offline: false };
     } catch (e) {
       // A timeout (AbortError) is "not responding", not offline.
@@ -348,14 +323,20 @@ async function callGemini(
 
   // Up to three attempts. A concurrent burst of beat calls (has_event + crisis +
   // reflect prefetch fire together, feelings a beat later) makes the model throw
-  // transient 429s / timeouts — on device feelings and reflect_friend fail often
+  // transient 429s / timeouts. On device feelings and reflect_friend fail often
   // while their neighbours succeed, which reads as "AI stops in between". Each
   // retry waits a short JITTERED pause so it lands outside the burst window; the
   // second retry recovers the tail the first misses. Offline never retries.
   // ponytail: fixed 3-attempt cap; per-slot backoff only if it still falls short.
   const ATTEMPTS = 3;
   for (let i = 0; i < ATTEMPTS; i++) {
-    const r = await attempt();
+    // Last attempt drops the response schema. If Vertex ever rejects one of the
+    // schemas above (a model change, an unsupported keyword), that slot would
+    // otherwise fail every time and die to authored copy forever. Without the
+    // schema the prompt still asks for JSON in prose and moment-ai.ts still
+    // parses it defensively, which is exactly the behaviour that shipped before,
+    // so the worst case is the old behaviour rather than a dead card.
+    const r = await attempt(i < ATTEMPTS - 1);
     if (r.ok) {
       set('ok');
       return restore(r.text); // put her real words back into the reply
@@ -380,7 +361,16 @@ const geminiProvider: MomentProvider = {
   async generate(slot, herText, timeoutMs) {
     const instruction = SLOT_INSTRUCTION[slot];
     if (!instruction) return null;
-    const out = await callGemini(`${VOICE}\n\n${instruction}`, herText, timeoutMs);
+    // RESPONSE_SCHEMA[slot] is undefined for the plain-text slots, which is the
+    // whole switch: a schema means "decode as JSON", no schema means "one line".
+    const out = await callGemini(
+      `${VOICE}\n\n${instruction}`,
+      herText,
+      timeoutMs,
+      true,
+      RESPONSE_SCHEMA[slot],
+      SLOT_THINKING[slot] ?? THINKING_BUDGET,
+    );
     // TEMP dev diagnostic (remove before ship): prints each beat call + outcome to
     // Metro so we can confirm the model is actually firing on device.
     if (__DEV__) console.log(`[moon-ai] ${slot} · ${lastTransport}${out ? ` · "${out.slice(0, 48)}"` : ' · null'}`);
@@ -427,13 +417,31 @@ const CRISIS_SYSTEM = [
   'Return only JSON: {"crisisType":"...","acuity":"acute|historical|none","isCrisisMode":true|false,"crisisScore":0-100}',
 ].join('\n');
 
+// The classifier's shape, enforced (2026-08-19). crisisType is an enum here on
+// purpose: it is routed on (CrisisSheet picks the resource by type), so a type
+// the app does not know about is worse than no read at all. Under the old prose
+// contract a drifted string would parse fine and route nowhere.
+const CRISIS_SCHEMA: SchemaRequest = {
+  type: SchemaType.OBJECT,
+  properties: {
+    crisisType: {
+      type: SchemaType.STRING,
+      enum: ['suicide', 'self_harm', 'violence_to_her', 'harm_to_care', 'harm_to_other', 'child_harmed', 'overdose', 'none'],
+    },
+    acuity: { type: SchemaType.STRING, enum: ['acute', 'historical', 'none'] },
+    isCrisisMode: { type: SchemaType.BOOLEAN },
+    crisisScore: { type: SchemaType.INTEGER },
+  },
+  required: ['crisisType', 'acuity', 'isCrisisMode', 'crisisScore'],
+};
+
 /** Model crisis read, or null on any failure (the keyword floor still stands).
  *  Escalate-only: the caller may use this to turn crisis ON, never off. */
 export async function classifyCrisis(herText: string): Promise<CrisisRead | null> {
   if (!MOMENT_AI || !getModelHandle()) return null;
   const raw = herText.trim();
   if (!raw) return null;
-  const out = await callGemini(CRISIS_SYSTEM, raw, 6000, false);
+  const out = await callGemini(CRISIS_SYSTEM, raw, 6000, false, CRISIS_SCHEMA);
   if (!out) return null;
   try {
     const j = JSON.parse(out.replace(/^```json\s*|```$/g, '').trim());

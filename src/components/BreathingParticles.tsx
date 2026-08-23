@@ -6,13 +6,13 @@
  * The previous implementation rendered 120 native <Animated.View>s (a core + an
  * aura per particle), each with a live OS shadow and per-frame width/height
  * changes. On a phone that meant 120 shadow recomputes + 120 relayouts every
- * frame, fighting a 50ms React state treadmill for the same thread — the
+ * frame, fighting a 50ms React state treadmill for the same thread, the
  * "glitch". The Mac is smooth because it draws everything into ONE canvas per
  * frame with zero React work.
  *
  * This version matches the Mac's model: one Skia <Canvas> drawing all particles
- * in a single <Atlas> call on the render thread. Each particle is one sprite —
- * a soft radial "glow dot" baked once (src/components/.. via useTexture) — drawn
+ * in a single <Atlas> call on the render thread. Each particle is one sprite, 
+ * a soft radial "glow dot" baked once (src/components/.. via useTexture), drawn
  * with a per-particle transform (position + size) and per-particle colour
  * (phase hue + its own opacity). No views, no shadows, no relayout.
  *
@@ -72,7 +72,7 @@ const GLOW_SCALE = 4.2;
 const BRIGHTNESS = 1.35;
 
 // ---------------------------------------------------------------------------
-// Colour helper (worklet) — HSL(0-360, 0-100, 0-100) → RGB(0-1)
+// Colour helper (worklet), HSL(0-360, 0-100, 0-100) → RGB(0-1)
 // ---------------------------------------------------------------------------
 
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
@@ -109,7 +109,7 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 // ---------------------------------------------------------------------------
-// Particle initialisation (JS thread — Math.random() not in worklets)
+// Particle initialisation (JS thread, Math.random() not in worklets)
 // ---------------------------------------------------------------------------
 
 function createInitialParticles(cx: number, cy: number): Particle[] {
@@ -122,7 +122,7 @@ function createInitialParticles(cx: number, cy: number): Particle[] {
     const t = Math.sqrt(Math.random());
     const x = cx + Math.cos(angle) * t * cx * 0.92;
     const y = cy + Math.sin(angle) * t * cy * 0.92;
-    // Less than half the old 6–14px: small points of light, not blobs.
+    // Less than half the old 6, 14px: small points of light, not blobs.
     const base = 2.5 + Math.random() * 3;
     particles.push({
       x,

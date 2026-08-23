@@ -208,8 +208,14 @@ app never met it and 4.5:1 is the honest, enforceable bar.)
   at app start). Weight is chosen by **family**, never a numeric `fontWeight`
   (numeric weights synth-bold unreliably on a custom font). `apply-poppins.ts`
   is the render-time safety net.
-- No display fonts, no script fonts. (One deliberate exception: `PatrickHand`
-  for the handwritten "I feel…" journaling scene.)
+- No display fonts, no script fonts. Two deliberate exceptions:
+  - `PatrickHand` (bundled) for the handwritten "I feel…" journaling scene.
+  - `Snell Roundhand` for Neha's signature on the Premium wall, and nowhere
+    else. A name set in the UI face reads as a label; the point of that block is
+    that a person signed it. It ships with iOS, so it costs no asset, but it is
+    therefore a system face rather than a bundled one: if it ever disappears the
+    signature silently falls back. Swap in a bundled script, or an SVG of the
+    real signature, if that ever matters.
 
 **The type scale lives in `src/theme/typography.ts`.** Never write an inline
 `fontSize`. Compose a role token and, at most, override color:

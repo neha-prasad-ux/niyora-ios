@@ -23,7 +23,7 @@ export const EMPTY_V3_PROGRESS: OnboardingV3Progress = {
 
 // Which setup card the home shows. The rule: as long as the app does not have
 // her PMS read (onboarding never finished), the home keeps a way back in
-// pinned at the top — no matter how she left (closed the app, swiped back, or
+// pinned at the top, no matter how she left (closed the app, swiped back, or
 // never started). 'resume' when there is a saved step to return to, 'start'
 // when nothing is saved yet, null only once the read is done.
 export type SetupCard = 'start' | 'resume';

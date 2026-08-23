@@ -42,7 +42,7 @@ describe('reflect-feedback', () => {
 
   it('a crossed read stays queryable as its text even after the list re-rolls', () => {
     // she rejects read 1 (text preserved in the value), then a fresh read lands
-    // at a new index — the rejected text is still collectable.
+    // at a new index, the rejected text is still collectable.
     const map: PointReactions = {
       [reactionKey('simpler:0', 1)]: { text: 'the harsh read', reaction: 'reject' },
       [reactionKey('simpler:0', 3)]: { text: 'a gentler read', reaction: 'like' },

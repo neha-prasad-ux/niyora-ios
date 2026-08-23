@@ -82,7 +82,7 @@ describe('a long feeling-dump is accepted, not interrogated', () => {
   it('does not answer verbosity with "what happened"', () => {
     // She wrote a lot, with no discrete event and "for some reason" (no known
     // cause). The old path declined the carve as a rephrase and routed her to
-    // "and what happened, to bring that on?" — asking for what she just said she
+    // "and what happened, to bring that on?", asking for what she just said she
     // does not have. Now it is clear-enough to proceed (empty echo, no carve).
     const v = analyse(
       "For some reason I feel like I wanna be alone I don't wanna do anything I don't wanna shop and I think this would hurt my husband what do I do",

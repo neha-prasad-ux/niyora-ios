@@ -1,7 +1,7 @@
-// Photograph-the-sky — an in-app calm activity (Rung 1 of the hold).
+// Photograph-the-sky, an in-app calm activity (Rung 1 of the hold).
 //
 // She takes a photo (the sky, a window, anything up and out) and it fills a
-// picture — here, a ball gown becomes her sky. Two mechanisms at once:
+// picture, here, a ball gown becomes her sky. Two mechanisms at once:
 // grounding (attention outward, up and out, without leaving) and a keepsake she
 // made. The dress is just a mask; her photo shows through it.
 //
@@ -63,7 +63,7 @@ export function PhotoFill() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
     } catch {
-      // Native module not built into this binary yet — needs build:dev.
+      // Native module not built into this binary yet, needs build:dev.
     }
   };
   const choose = async () => {
@@ -74,7 +74,7 @@ export function PhotoFill() {
       const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
       if (!res.canceled && res.assets[0]) setUri(res.assets[0].uri);
     } catch {
-      // Native module not built into this binary yet — needs build:dev.
+      // Native module not built into this binary yet, needs build:dev.
     }
   };
 

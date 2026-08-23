@@ -1,7 +1,7 @@
-// The prep items for the PrepSheet — what helps, grouped by where she is in the
+// The prep items for the PrepSheet, what helps, grouped by where she is in the
 // cycle. See docs/pms/niyora-pms-preparedness-spec.md (v2, four-phase content
 // map). This is the buildable subset: the items whose screens already exist.
-// Neha's story (Aware) and couples ch.2–4 (Together) slot in as that content
+// Neha's story (Aware) and couples ch.2, 4 (Together) slot in as that content
 // lands.
 //
 // Framed as *what helps* (a map), never *what you owe* (a backlog): items she

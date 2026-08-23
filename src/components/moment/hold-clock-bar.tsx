@@ -1,5 +1,5 @@
 // A slim countdown for the hold activity pages (colouring, sky). Those pages are
-// white paper, so the clock is a quiet ink line at the top, not the moon ball —
+// white paper, so the clock is a quiet ink line at the top, not the moon ball, 
 // the ball would compete with the thing she is meant to be absorbed in. mm:ss on
 // the left, a hairline progress track filling underneath. It is the challenge
 // made visible: the minutes run while she colours.
@@ -36,7 +36,7 @@ export function HoldClockBar({ onComplete }: { onComplete: () => void }) {
 }
 
 // The soft corner timer for the DARK settling menu (moment.tsx). Permission to
-// wait, not a deadline: no "left", no alarm at zero, no motion — just a faint
+// wait, not a deadline: no "left", no alarm at zero, no motion, just a faint
 // line that swaps to a reassurance when the twenty minutes are up. Same shared
 // clock as the white activity pages (HoldClockBar) via useHoldCountdown.
 export function HoldWhisper() {

@@ -1,7 +1,7 @@
 // In-app pub/sub for the reward moments the tab bar renders: `lightEarned`
 // fires from the ledger the instant an act earns light (the mote overlay
 // listens), `moteArrived` fires when a mote reaches the tab-bar moon (the moon
-// listens, and pulses). Pure TS — no React, no native — so stores can emit and
+// listens, and pulses). Pure TS, no React, no native, so stores can emit and
 // tests stay quiet.
 
 import type { LightEvent } from '@/lib/moon-light';

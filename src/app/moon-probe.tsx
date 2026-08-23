@@ -18,7 +18,7 @@ import { fontScale } from '@/theme/typography';
 import { spacing, radius } from '@/theme/spacing';
 
 // The four materials, in order. `unlock` is the warm, user-facing version of the
-// underlying light/behaviour gate. [DRAFT] copy — awaiting Neha's voice.
+// underlying light/behaviour gate. [DRAFT] copy, awaiting Neha's voice.
 const MATERIALS: { material: MoonMaterial; name: string; unlock: string }[] = [
   { material: 'moonstone', name: 'Moonstone', unlock: 'Where every moon begins.' },
   { material: 'gold', name: 'Gold', unlock: 'Show up steadily, and keep one full cycle.' },

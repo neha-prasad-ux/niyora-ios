@@ -2,15 +2,15 @@
 // the emotion, tailor the options under it, instead of a separate situation
 // router). One plan per feeling word from FEELING_SET:
 //
-//   · science  — the ONE earned line shown over the options (C8/M5). Not a
+//   · science  : the ONE earned line shown over the options (C8/M5). Not a
 //                paragraph, not repeated grounding: one true, mature line about
 //                this feeling. No "don't worry", no "harder day" framing.
-//   · composer — which component leads the respond step. 'fill' opens the
+//   · composer, which component leads the respond step. 'fill' opens the
 //                fill-in template ("I felt __ when __, I need __") for the
 //                relational feelings where saying it well is the work; 'cards'
 //                keeps the ranked calming acts for the hot feelings, where
 //                steadying comes before any message.
-//   · template — the fill-in parts, when composer is 'fill'. The feeling itself
+//   · template, the fill-in parts, when composer is 'fill'. The feeling itself
 //                seeds the first blank so she starts mid-sentence, not blank.
 //
 // All copy here is [DRAFT], in the app voice (clear, warm, specific, no em
@@ -21,19 +21,40 @@ import type { TemplatePart } from '@/components/moment/fill-in-assemble';
 import type { Act } from '@/v3/moment-copy';
 
 // Grounded fill-in for the option labels (Neha 2026-08-01, "grounded fill-in
-// only"). The person in a label is lifted VERBATIM from her own text — a relation
-// she named, or the pronoun she used — never one she didn't. So a label can never
+// only"). The person in a label is lifted VERBATIM from her own text, a relation
+// she named, or the pronoun she used, never one she didn't. So a label can never
 // introduce a "husband" she never mentioned: it is correct by construction, the
 // same principle as the echo carve. No person found → the authored label stands.
 // Mechanical on purpose: no model runs, so there is nothing to ground-check.
 const RELATION =
-  /\bmy (husband|wife|partner|boyfriend|girlfriend|fianc[ée]e?|fiance|bf|gf|sister|brother|mum|mom|mother|dad|father|boss|manager|friend|colleague|son|daughter|roommate|ex)\b/i;
+  // Widened 2026-08-20 with the work relations. "my lead" was absent, so on an
+  // entry naming both a colleague and a lead only ONE matched and the ambiguity
+  // check below could not see the second person at all.
+  /\bmy (husband|wife|partner|boyfriend|girlfriend|fianc[ée]e?|fiance|bf|gf|sister|brother|mum|mom|mother|dad|father|boss|manager|lead|supervisor|coworker|co-worker|teammate|friend|colleague|son|daughter|roommate|ex|mother-in-law|father-in-law|sister-in-law|brother-in-law)\b/i;
 
 /** The person she is talking about, in her own words, or null. Relation first
- *  (most grounded), then the pronoun she used. */
+ *  (most grounded), then the pronoun she used.
+ *
+ *  AMBIGUITY DECLINES (2026-08-20). This used to take the FIRST relation in her
+ *  text, which on "i have been covering for my colleague ... and today my lead
+ *  thanked her" returned "your colleague": the message she is offered would have
+ *  been aimed at the person who did nothing, while the lead she is actually upset
+ *  with goes unnamed. She could send that.
+ *
+ *  There is no honest lexical way to tell which of two named people she is upset
+ *  with, and the risk is not symmetric: an unpersonalised label ("Say it to them")
+ *  costs her a little warmth, a wrongly aimed one costs her a relationship. So
+ *  when she names more than one DISTINCT relation, this declines and the authored
+ *  label stands. A single relation, or the same one repeated, still personalises.
+ *  ponytail: lexical decline. If the miss rate matters, the model already reads
+ *  her text elsewhere and could be asked who this is about. */
 export function personRef(herText: string): string | null {
-  const m = RELATION.exec(herText);
-  if (m) return `your ${m[1].toLowerCase()}`;
+  const found = [...(herText ?? '').matchAll(new RegExp(RELATION.source, 'gi'))].map((m) =>
+    m[1].toLowerCase(),
+  );
+  const distinct = [...new Set(found)];
+  if (distinct.length > 1) return null; // two people named, we do not guess
+  if (distinct.length === 1) return `your ${distinct[0]}`;
   if (/\b(he|him|his)\b/i.test(herText)) return 'him';
   if (/\b(she|her|hers)\b/i.test(herText)) return 'her';
   if (/\b(they|them|their)\b/i.test(herText)) return 'them';
@@ -44,7 +65,13 @@ export function personRef(herText: string): string | null {
 // personRef; acts with no person (prep/self) are absent here and keep their
 // authored label. Keyed by Act.id. [DRAFT] voice.
 const PERSONALISED: Record<string, (p: string) => string> = {
-  A: (p) => `Tell ${p} how you feel`, // Say it to them
+  // A was "Tell {person} how you feel" until 2026-08-20. Act A is `Say it to them`
+  // and its evidence tag is `assertiveness`, not disclosure. The old label turned
+  // a boundary into a feelings report, and because this label is what act_help is
+  // handed as "her move", the drafts followed the label rather than the act: the
+  // manager draft came back as "when you cut me off, I felt shut down in front of
+  // the team", sent to the person who writes her review. Say what the act is.
+  A: (p) => `Say it to ${p}`, // Say it to them
   B: (p) => `Ask ${p} for what you need`, // Ask for the thing
   C: (p) => `Tell ${p} what's not okay`, // Hold a line
   D: (p) => `Own your part with ${p}`, // Own my part
@@ -52,7 +79,7 @@ const PERSONALISED: Record<string, (p: string) => string> = {
 
 /** The label to show for an act: her person filled in where the act addresses
  *  one, else the authored label. The act's identity and safety flags are
- *  untouched — this is display only. */
+ *  untouched, this is display only. */
 export function personalisedLabel(a: Act, herText: string): string {
   const make = PERSONALISED[a.id];
   if (!make) return a.label;

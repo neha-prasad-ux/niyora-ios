@@ -1,7 +1,7 @@
 // The Now card's cycle bar: a calm, non-interactive progress bar. The cycle is
 // three proportional zones (build -> PMS -> period) with soft phase-tinted
 // gradients; the elapsed part of the cycle glows a shade brighter, and a
-// luminous pearl marks today at the fill's leading edge. Display only — the
+// luminous pearl marks today at the fill's leading edge. Display only, the
 // doors it used to hold now live on the card button and the utility row.
 
 import { StyleSheet, View } from 'react-native';
@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { BandPhase, PhaseBand } from '@/lib/phase-band';
 import { colors } from '@/theme/colors';
 
-// Per-phase vertical gradient pairs — a dim resting wash and a lit elapsed wash,
+// Per-phase vertical gradient pairs, a dim resting wash and a lit elapsed wash,
 // each with a soft top-to-bottom shade so the bar reads as glass. On-brand: it
 // leads with the app's signature violet (build, the Calm-now purple) and warms
 // to rose (PMS) then a deeper period rose.
@@ -55,7 +55,7 @@ export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarP
   const readyPct = Math.max(0, Math.min(1, readiness ?? 0)) * 100;
 
   // Internal phase boundaries (0..1), drawn as seams on top of the readiness
-  // fill so the true proportions stay visible — Build is the long stretch, PMS a
+  // fill so the true proportions stay visible, Build is the long stretch, PMS a
   // short slice near the end, Period shorter still.
   const boundaries: number[] = [];
   let acc = 0;
@@ -68,7 +68,7 @@ export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarP
     <View style={styles.wrap}>
       <View style={styles.bar}>
         {band.segments.map((seg, i) => {
-          // Prep mode leaves the zones as a dim track — the readiness overlay
+          // Prep mode leaves the zones as a dim track, the readiness overlay
           // below is the only fill; otherwise the elapsed cycle lights the zones.
           const fill = prepMode ? 0 : i < curIdx ? 1 : i > curIdx ? 0 : band.pearl;
           const z = ZONE[seg.phase];
@@ -110,7 +110,7 @@ export function CycleBar({ band, periodEmphasized, readiness = null }: CycleBarP
             />
           </View>
         )}
-        {/* Glass sheen across the whole bar — brightest along the top edge. */}
+        {/* Glass sheen across the whole bar, brightest along the top edge. */}
         <LinearGradient
           pointerEvents="none"
           colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.03)', 'rgba(255,255,255,0)']}
@@ -145,7 +145,7 @@ const READY_FILL: [string, string] = ['hsla(268, 72%, 72%, 0.96)', 'hsla(262, 62
 
 const BAR_HEIGHT = 12;
 // The today marker sits *within* the bar height (never protruding) and carries
-// no knob border — so it reads as a luminous position mark, not a draggable thumb.
+// no knob border, so it reads as a luminous position mark, not a draggable thumb.
 const PEARL = 9;
 
 const styles = StyleSheet.create({

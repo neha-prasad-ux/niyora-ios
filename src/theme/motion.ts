@@ -1,4 +1,4 @@
-// Motion — the timing language the app was missing. The audit found animation
+// Motion, the timing language the app was missing. The audit found animation
 // durations scattered across ~30 arbitrary values (90, 120, 220, 280, 340,
 // 460, 520 …) with no scale. Easing was already coherent; these names just
 // pin it down. Pull durations and easings from here.

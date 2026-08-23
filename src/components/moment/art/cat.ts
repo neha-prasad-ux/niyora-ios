@@ -1,10 +1,10 @@
 // Cat line-art (SVG path), from Neha's supplied colouring page
-// (cute-cat-colouring-page). ONE FILLED path with fill-rule evenodd — the
-// black ink of the drawing — drawn FILLED on top of her colour, same as the
+// (cute-cat-colouring-page). ONE FILLED path with fill-rule evenodd, the
+// black ink of the drawing, drawn FILLED on top of her colour, same as the
 // penguin. Its fill type MUST be evenOdd or the holes flood solid.
 
 export const CAT = {
-  // The caption shown under the drawing and sent with it. [DRAFT] — Neha's pass.
+  // The caption shown under the drawing and sent with it. [DRAFT], Neha's pass.
   message: "You make it feel like home.",
   vbW: 742,
   vbH: 961,

@@ -4,7 +4,7 @@
 // The reveal is real, not a fade: the foil is a Skia layer and each scratch
 // stroke is a `blendMode="clear"` path, so it punches actual transparency and
 // the views behind show through the hole. The soothing is the same as the
-// colouring page — a rhythmic rub — but here it uncovers instead of fills.
+// colouring page, a rhythmic rub, but here it uncovers instead of fills.
 //
 // Reusable: pass the prize as children, a size, and an onReveal callback that
 // fires once she has cleared enough of it.

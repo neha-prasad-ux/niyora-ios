@@ -27,8 +27,8 @@ export function MoonText({
 }) {
   // A moonstone sheen in her moon's hue. Kept BRIGHT and in a tight band (88-93%
   // lightness): the old version dipped to a muddy 74% mid-tone that read as
-  // faint, low-contrast text. This stays legible — near-white with a clear moon
-  // tint — while still shimmering rather than sitting flat.
+  // faint, low-contrast text. This stays legible, near-white with a clear moon
+  // tint, while still shimmering rather than sitting flat.
   const colors: [string, string, string] = [
     `hsl(${hue}, 46%, 93%)`,
     `hsl(${hue}, 42%, 88%)`,

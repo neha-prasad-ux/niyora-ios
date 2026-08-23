@@ -1,4 +1,4 @@
-// Photograph-the-sky as its own screen — level two of the hold, reached from the
+// Photograph-the-sky as its own screen, level two of the hold, reached from the
 // colouring page when she would rather ground on the real sky than fill paper. A
 // white page, like paper. The 20-minute hold clock carries over from level one
 // and keeps running here.

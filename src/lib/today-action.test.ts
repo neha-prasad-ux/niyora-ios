@@ -20,7 +20,7 @@ import { DEFAULT_TRAINING } from '@/store/training-v3';
 import { EMPTY_ANSWERS } from '@/v3/v3-content';
 import { CHAPTERS, WORK_CHAPTERS } from '@/v3/game-content';
 
-// Every course in every pillar — the only state that reaches the Grow replay now
+// Every course in every pillar, the only state that reaches the Grow replay now
 // that build days walk mind then work before looping.
 const ALL_LEVELS = [...CHAPTERS, ...WORK_CHAPTERS].flatMap((c) => c.levels.map((l) => l.id));
 import type { PmsRead } from '@/store/pms-reads';
@@ -125,7 +125,7 @@ describe('pickTodayAction: setup and window', () => {
     }
   });
 
-  it('never settles to done in the window — the SOS is not a daily checkbox', () => {
+  it('never settles to done in the window, the SOS is not a daily checkbox', () => {
     const now = morning(2026, 1, 25);
     const readiness = withChecks(now, {
       calcium: true,
@@ -172,7 +172,7 @@ describe('pickTodayAction: period', () => {
     expect(isRingClosed(inp, a)).toBe(true);
   });
 
-  it('asks check-ins in the evening too — period asks are not time-gated', () => {
+  it('asks check-ins in the evening too, period asks are not time-gated', () => {
     const a = pickTodayAction(input({ now: evening(2026, 1, 29) }));
     expect(a.id).toBe('checkin:period-confirm');
   });
@@ -356,14 +356,14 @@ describe('reflectionAnchor', () => {
 
   it('keeps the current anchor mid-cycle (nothing new logged)', () => {
     // Jan 1 start, reflecting on Jan 20: not periodConfirmed, so the read stays
-    // on the cycle in progress — which is exactly where it will mint at cycle end.
+    // on the cycle in progress, which is exactly where it will mint at cycle end.
     expect(reflectionAnchor(PREFS, HISTORY, morning(2026, 1, 20))).toBe('2026-01-01');
   });
 
   it('steps back to the just-ended cycle once the next period is logged', () => {
     // She logged Jan 29 (a fresh period) and reflects on Jan 30. The cycle she is
-    // looking back on ended at Jan 29 and started at Jan 1 — the anchor the moon
-    // for that cycle was minted with — so the read must attach there.
+    // looking back on ended at Jan 29 and started at Jan 1, the anchor the moon
+    // for that cycle was minted with, so the read must attach there.
     const confirmed = { ...PREFS, lastPeriodStart: '2026-01-29' };
     expect(reflectionAnchor(confirmed, HISTORY, morning(2026, 1, 30))).toBe('2026-01-01');
   });

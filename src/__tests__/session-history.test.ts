@@ -18,7 +18,7 @@ const mockGetItem = AsyncStorage.getItem as jest.Mock;
 const mockReadFreezeState = readFreezeState as jest.Mock;
 const mockApplyFreezesToDates = applyFreezesToDates as jest.Mock;
 
-// Pin to Wednesday 2026-01-07 noon local — Monday of that week is 2026-01-05.
+// Pin to Wednesday 2026-01-07 noon local, Monday of that week is 2026-01-05.
 const FAKE_NOW = new Date(2026, 0, 7, 12, 0, 0);
 const IN_WEEK_MON = new Date(2026, 0, 5, 8, 0, 0).toISOString();
 const IN_WEEK_WED = new Date(2026, 0, 7, 10, 0, 0).toISOString();

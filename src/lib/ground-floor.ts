@@ -76,7 +76,7 @@ const NO_ECHO =
   /\b(stupid|pathetic|insane|crazy|psycho|idiot|worthless|dramatic|"?overreacting"?)\b/i;
 
 /**
- * The core beliefs, in her own voice. Name-calling is not the dangerous shape —
+ * The core beliefs, in her own voice. Name-calling is not the dangerous shape, 
  * this is: a flat global claim about who she is, which she believes, and which
  * an echo turns into the app agreeing with her.
  *
@@ -84,7 +84,7 @@ const NO_ECHO =
  *   echo says   "so, you're too much."
  *
  * The word list above misses every one of these, and so does `isGrounded`,
- * because each word IS hers — grounding checks for invention, and there is no
+ * because each word IS hers, grounding checks for invention, and there is no
  * invention here, only endorsement. That is why this is a separate rule and not
  * more words in NO_ECHO.
  *
@@ -140,7 +140,7 @@ export interface GroundedReflection {
 /**
  * Is `reply` just her sentence handed back? A reflection is a GIST; a near-
  * verbatim playback of a long paste is a parrot, and she never wants to see one
- * ("I never want to see this as a rephrase", Neha 2026-08-01) — whether it came
+ * ("I never want to see this as a rephrase", Neha 2026-08-01), whether it came
  * from the model or the mechanical carve. Both paths call this.
  *
  * Short entries are exempt: reflecting a 7-word event fully ("you were
@@ -214,7 +214,7 @@ export function groundedReflection(herText: string): GroundedReflection {
     // ("...I end up feeling guilty"). A bare first-clause carve reflects the setup
     // and drops the wound, which is what made the moon open on his good qualities.
     // Prefer the LAST clause that carries a feeling/turn cue; else the first.
-    // ponytail: keyword heuristic — misses a wound phrased without these words;
+    // ponytail: keyword heuristic, misses a wound phrased without these words;
     // upgrade to the model echo (which this only backstops) when it lands.
     const charged = valid.filter((v) => CHARGE.test(v.orig));
     const chosen = charged.length ? charged[charged.length - 1] : valid[0];

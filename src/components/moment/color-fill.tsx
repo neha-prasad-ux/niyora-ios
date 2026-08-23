@@ -1,4 +1,4 @@
-// Scrub-to-fill colouring — the in-app calm activity (Rung 1 of the hold).
+// Scrub-to-fill colouring, the in-app calm activity (Rung 1 of the hold).
 //
 // The soothing is in the STROKE: rhythmic back-and-forth, colour building up
 // where she rubs, like a crayon. And it IS a crayon now, not a marker: each
@@ -6,7 +6,7 @@
 // at different seeds and widths, so the deposit is rough and uneven the way wax
 // catches on paper tooth, not a flat even fill. Three curated colours so it is
 // always pretty and never a decision, plus an eraser. The whole white page is
-// paintable (Neha, 2026-07-28) — free colouring, with a big penguin outline
+// paintable (Neha, 2026-07-28), free colouring, with a big penguin outline
 // drawn on top as a guide her colour shows straight through.
 //
 // Illustration is her supplied SVG (art/penguin), built into a Skia path. It
@@ -82,18 +82,18 @@ const OUTLINE = '#2B2632';
 const PAD = 22;
 const BAND = 74;
 const FRAME = '#E7E4EC';
-// A cute handwritten caption font — Patrick Hand, already bundled and loaded in
+// A cute handwritten caption font, Patrick Hand, already bundled and loaded in
 // _layout (it is the app's journaling hand), so it renders the same everywhere
 // and needs no rebuild. `apply-poppins` honours an explicit fontFamily, so this
 // survives the global Poppins enforcement.
 const HAND_FONT = 'PatrickHand';
 // The one brush: a clean, bold paint stroke (crayon was removed 2026-07-29 at
-// Neha's call — the paint brush alone is enough). The chosen size multiplies
+// Neha's call, the paint brush alone is enough). The chosen size multiplies
 // the base width, and the result is stored ON each stroke so past strokes keep
 // the size they were drawn at.
 const BRUSH_WIDTH = 24;
 const BRUSH_ALPHA = 0.85;
-// The eraser is a solid paper-white stroke, wider than the brush — it must cover
+// The eraser is a solid paper-white stroke, wider than the brush, it must cover
 // cleanly. On a white page painting paper-white reads as erasing; the flower
 // outline is drawn after all strokes, so it can never be rubbed away.
 const ERASER_WIDTH = 40;
@@ -509,7 +509,7 @@ export const ColorFill = forwardRef<ColorFillHandle, ColorFillProps>(function Co
                 </Group>
               </Group>
             </Group>
-            {/* The Polaroid frame line — only while sharing, so the colouring page
+            {/* The Polaroid frame line, only while sharing, so the colouring page
                 stays clean and frameless but the shared keepsake reads as a boxed
                 Polaroid. */}
             {capturing && (

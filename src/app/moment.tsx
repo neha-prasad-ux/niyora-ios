@@ -62,6 +62,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { canOpenMoment } from '@/lib/premium';
 import { CosmicBackground } from '@/components/cosmic-background';
 import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { RingCelebration } from '@/components/RingCelebration';
@@ -79,6 +80,9 @@ import {
   phaseTint,
 } from '@/components/moment/phase-progress';
 import { MoonText } from '@/components/moment/moon-text';
+import { ScaleCard } from '@/components/moment/scale-card';
+import { LoadCard } from '@/components/moment/load-card';
+import { ResponsibilityCard } from '@/components/moment/responsibility-card';
 import { Orb } from '@/components/orb';
 import { OptionRow, ScaleButtons, SkeletonRows, ThinkingDots, WhyLine } from '@/components/moment/controls';
 import { HoldWhisper } from '@/components/moment/hold-clock-bar';
@@ -102,6 +106,7 @@ import {
 } from '@/v3/moment-analyse';
 import {
   pick,
+  compose,
   draftAct,
   revise,
   hasConcreteEvent,
@@ -110,8 +115,12 @@ import {
   factSortAdvise,
   reflectChat,
   ruleBreakdown,
+  scaleSetup,
+  responsibilitySetup,
   type MomentProvider,
   type RuleBreakdown,
+  type ScaleSetup,
+  type ResponsibilitySetup,
 } from '@/v3/moment-ai';
 import {
   AI_THINKING,
@@ -121,6 +130,7 @@ import {
   PMS_NOTE,
   REFLECT_CARDS,
   REFLECT_CYCLE_NOTE,
+  detectTimeframe,
   RULE_LABELS,
   SETTLE,
   detectSignals,
@@ -139,6 +149,8 @@ import {
   type Reaction,
 } from '@/v3/reflect-feedback';
 import { getMomentProvider, type CrisisType } from '@/lib/moment-gemini';
+import { TIME_NOTE } from '@/lib/moment-prompts';
+import { loadReflectMemoryClause, rememberReactions } from '@/store/reflect-memory';
 import { getMoonConsent, setMoonConsent } from '@/store/moon-consent';
 import { MeetMoonConsent } from '@/app/onboarding-v3';
 import { foldLedger } from '@/lib/moon-light';
@@ -210,10 +222,10 @@ const BREATH_OUT = 6;
 // responses lower-stakes. Plain words, no jargon; it steers the model, she never
 // sees it.
 // PMS deliberately no longer changes tone, reads, or responses (Neha 2026-08-11).
-// The ONLY PMS behaviour is the auto heads-up note (PMS_NOTE) — the app must never
+// The ONLY PMS behaviour is the auto heads-up note (PMS_NOTE), the app must never
 // dismiss her feeling as hormonal ("the week talking / it will pass"). Kept as an
 // empty string so the `pmsActive.current ? CYCLE_NOTE : ...` prompt sites inject
-// nothing. Do NOT re-populate — the PMS tone dose was removed on purpose.
+// nothing. Do NOT re-populate, the PMS tone dose was removed on purpose.
 const CYCLE_NOTE = '';
 
 // The AI content for a reflect card. draft/guess cards go through a per-card
@@ -230,13 +242,13 @@ export type ReflectContent = { line?: string; options?: string[] };
 const CONFLICT_CUES =
   /\b(fight|fought|argu(e|ed|ing|ment)|yell|scream|shout|blew up|snapped at|hung up|my (husband|wife|boyfriend|girlfriend|partner|bf|gf)|with (him|her))\b/i;
 
-// C3: a small nod each step — the moon behind shines and the card gives one of
+// C3: a small nod each step, the moon behind shines and the card gives one of
 // these. Short, so the lift is felt without cheering over her.
 const STEP_PRAISE = ['Good.', 'Nice.', 'Well done.', 'That is the work.', 'Great job.'];
 
 // C5: the two fast body resets, now guided in-place steps (not a flash of snack
 // that vanishes). Each ends on Done, marks itself finished like the other
-// settling items, and earns the same shine + praise. [DRAFT] copy — Neha's pass.
+// settling items, and earns the same shine + praise. [DRAFT] copy, Neha's pass.
 const MICRO: Record<'cold' | 'shoulders', { title: string; steps: string[] }> = {
   cold: {
     title: 'Cold water',
@@ -303,6 +315,47 @@ export default function Moment() {
   const [draft, setDraft] = useState('');
   // One good entry example, picked once per open so it rotates across sessions
   // (partner / family / work) without crowding the screen with all three.
+  /** Has she written a moment before? (Neha 2026-08-21.) The guiding example
+   *  under the entry field teaches what kind of sentence the flow can work with,
+   *  which is worth a lot on her first moment and is clutter on her fortieth. It
+   *  showed every time the field was empty, forever. Read from the history she
+   *  already has, so this needs no new store. `null` while unknown, so a returning
+   *  woman never sees it flash in and out. */
+  const [wroteBefore, setWroteBefore] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getMoments()
+      .then((m) => alive && setWroteBefore(m.length > 0))
+      .catch(() => alive && setWroteBefore(true)); // on doubt, stay out of her way
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /** The Premium gate. It lives HERE, not at the buttons that open this screen, so
+   *  every door into the flow (Home's CTA, the prep card, a deep link, anything
+   *  added later) is metered by the same check. `gating` holds the scene blank
+   *  the same way `hydrating` does, so the entry card never flashes before the
+   *  wall lands.
+   *
+   *  A resumed moment is never gated: she already spent the credit when she
+   *  started it, and the count only moves when a moment is finished. */
+  const [gating, setGating] = useState(resume !== '1');
+  useEffect(() => {
+    if (resume === '1') return;
+    let alive = true;
+    canOpenMoment()
+      .then((ok) => {
+        if (!alive) return;
+        if (ok) setGating(false);
+        else router.replace('/paywall');
+      })
+      .catch(() => alive && setGating(false)); // on doubt, let her in
+    return () => {
+      alive = false;
+    };
+  }, [resume]);
+
   const [goodExample] = useState(
     () => COPY.raw_entry_examples_good[
       Math.floor(Math.random() * COPY.raw_entry_examples_good.length)
@@ -382,6 +435,21 @@ export default function Moment() {
    *  where it lands) plus the reactable tests. null = not fetched / cleared for a
    *  re-roll; the rule fetch effect refetches whenever it is null on that card. */
   const [ruleChain, setRuleChain] = useState<RuleBreakdown | null>(null);
+  /** The two interaction cards (2026-08-20). Like `rule`, these are not lists of
+   *  reads: the model returns a setup and SHE does the work on it. Null means not
+   *  fetched yet; a failed fetch lands on cardFailed like every other card. */
+  /** Slots with a fetch in flight (2026-08-21). `cardContent` is not enough of a
+   *  guard on its own: the fetch effects depend on it AND write to it, so every
+   *  write re-runs them, and a prefetch that has not landed yet still looks
+   *  un-fetched. On device that fired the same slot three to five times for one
+   *  card, and the duplicates competed with each other and forced retries, so the
+   *  prefetch meant to make cards instant was making them slower. */
+  const inFlight = useRef<Set<string>>(new Set());
+  const [scaleData, setScaleData] = useState<ScaleSetup | null>(null);
+  const [respData, setRespData] = useState<ResponsibilitySetup | null>(null);
+  /** The chain last shown on the rule card, fed back into a re-roll so it cannot
+   *  return the same one. Cleared with the rest of the reflect state. */
+  const lastRule = useRef<RuleBreakdown | null>(null);
   const [factLoading, setFactLoading] = useState(false);
   /** The PMS heads-up banner has been dismissed ("Got it") for this moment. */
   const [pmsDismissed, setPmsDismissed] = useState(false);
@@ -492,7 +560,7 @@ export default function Moment() {
    *  gates the CYCLE_NOTE added to the reframe/ranking/draft prompts. */
   const pmsActive = useRef(false);
   /** The FIRST reflect card's AI content, warmed at send() so the ~3-5s compose
-   *  runs during the echo + feeling-guess beats and the card lands instantly when
+   *  runs during the feeling-guess beat and the card lands instantly when
    *  she reaches Reflect, rather than making her wait. Only for a draft/guess
    *  first card; a question-mode first card needs no AI (stays null). */
   const reflectPrefetch = useRef<Promise<ReflectContent> | null>(null);
@@ -502,7 +570,7 @@ export default function Moment() {
    *  she finishes reflecting. */
   const momentSaved = useRef(false);
   /** M6 context gate: the AI "is there a concrete event here?" check, fired at
-   *  send() so it runs during the echo + feeling-guess beats and is settled by the
+   *  send() so it runs during the feeling-guess beat and is settled by the
    *  time she reaches the first reflect card. Consumed once under that card's
    *  spinner; a confident `false` reroutes her to clarify, anything else proceeds. */
   const eventGate = useRef<Promise<boolean | null> | null>(null);
@@ -510,7 +578,7 @@ export default function Moment() {
    *  next re-roll. Empty = a blind "show me others". Reset per card. */
   const reflectSteer = useRef('');
   /** Re-rolls used on the current guess card. Capped so it never becomes a slot
-   *  machine — past the cap, "none of these" advances instead of re-rolling. */
+   *  machine, past the cap, "none of these" advances instead of re-rolling. */
   const rerolls = useRef(0);
   // C3: counts forward steps, to rotate the per-step praise line.
   const stepN = useRef(0);
@@ -532,9 +600,22 @@ export default function Moment() {
    *  response become context so Moon builds on it instead of starting cold. Reset
    *  per submission. */
   const priorThread = useRef<MomentRecord | null>(null);
-  /** Whether this entry's subject has been worked through 2+ times before — flips
+  /** Whether this entry's subject has been worked through 2+ times before, flips
    *  the `pattern` reflect card on. Loaded async at send() alongside priorThread. */
   const recurring = useRef(false);
+  /** What she has brought here before on this same thread, as lines the `pattern`
+   *  card's prompt can name a repeat from. Until 2026-08-19 the app sent NOTHING
+   *  here while the prompt asked for "a short list of themes from her past
+   *  entries", so the card replied "none" and rendered authored copy on exactly
+   *  the moments it exists for. Same-subject only and capped at 4, so the extra
+   *  words leaving the device are the ones the card actually needs. */
+  const pastThemes = useRef('');
+  /** What has landed for her in EARLIER moments, as a clause the prompts read
+   *  (2026-08-19). Until now her heart/cross reactions were useState and died when
+   *  she closed the flow, so nothing ever learned. Loaded fire-and-forget at
+   *  send() like the thread refs; empty string until it resolves, and empty
+   *  forever for a woman who has never reacted to anything. */
+  const memoryClause = useRef('');
   const dictation = useDictation((t) => {
     if (dictationSuppress.current) {
       dictationSuppress.current = false;
@@ -546,7 +627,7 @@ export default function Moment() {
 
   // How far the current state's segment is filled: the distinct beats she has
   // passed through in THIS phase over a rough main-path length. Counting graph
-  // nodes would be wrong — a phase holds branches she never visits — so this
+  // nodes would be wrong, a phase holds branches she never visits, so this
   // counts what she actually walked and caps at full. Approximate on purpose:
   // it reads as progress within the state, never a precise "N steps left".
   const PHASE_LENGTH: Record<Phase, number> = { reflect: 5, regulate: 6, react: 5 };
@@ -572,7 +653,7 @@ export default function Moment() {
         : next;
     setHistory((h) => [...h, from]);
     setCurrent(resolved);
-    // C3: a small lift each step — the moon behind shines and the card nods.
+    // C3: a small lift each step, the moon behind shines and the card nods.
     stepN.current += 1;
     moonBloom.value = withSequence(withTiming(0.45, { duration: 220 }), withTiming(0, { duration: 720 }));
     setSnack(STEP_PRAISE[stepN.current % STEP_PRAISE.length]);
@@ -580,7 +661,7 @@ export default function Moment() {
 
   /** Step back one beat. Not memoised: it closes over this render's `history`
    *  so it always pops the real top, and it is cheap. From the first beat there
-   *  is nothing to go back to, so it leaves the flow — same as close. */
+   *  is nothing to go back to, so it leaves the flow, same as close. */
   const back = () => {
     tap();
     // Sub-states first: these are second screens on the SAME beat, so back
@@ -595,7 +676,7 @@ export default function Moment() {
     }
     // In-place second screens on the settling menu: a micro reset (cold water /
     // shoulders), the body-prep checklist (either entry point), or the reminder
-    // chooser. Back closes the sub-screen and stays on the beat — without these
+    // chooser. Back closes the sub-screen and stays on the beat, without these
     // guards it fell through and popped a whole beat too, jumping two screens.
     if (microStep) {
       setMicroStep(null);
@@ -702,6 +783,12 @@ export default function Moment() {
     momentSaved.current = false; // fresh moment → save it again when she finishes
     setPmsOpen(false);
     setCardContent({});
+    inFlight.current.clear();
+    setScaleData(null);
+    setRespData(null);
+    setExpanded({});
+    setExpanding(null);
+    lastRule.current = null;
     setOtherOpen(false);
     setDraft('');
     setHistory((h) => [...h, from]);
@@ -719,9 +806,25 @@ export default function Moment() {
       priorThread.current = subject ? latestForSubject(moments, subject) : null;
       const named = subjectOf(text);
       recurring.current = named ? subjectCount(moments, named) >= 2 : false;
+      const thread = named ?? subject;
+      pastThemes.current = thread
+        ? moments
+            .filter((m) => m.subject === thread)
+            .slice(0, 4) // newest-first
+            .map((m) => `- "${m.entry}" (she felt ${m.feeling})`)
+            .join('\n')
+        : '';
     } catch {
       priorThread.current = null;
       recurring.current = false;
+      pastThemes.current = '';
+    }
+    // Independent of the thread lookup above: her reaction history is not
+    // thread-scoped, so a failure there must not cost her this.
+    try {
+      memoryClause.current = await loadReflectMemoryClause();
+    } catch {
+      memoryClause.current = '';
     }
   }, []);
 
@@ -739,6 +842,18 @@ export default function Moment() {
     );
   };
 
+  /** What the reflect prompts are told about WHEN this is happening (2026-08-19).
+   *  A 15-year pattern and a fight still going on in the next room are different
+   *  material, and until now every prompt was handed them identically. Empty for
+   *  a plain one-off, so the common case sends no extra words. */
+  const timeClause = () => TIME_NOTE[detectTimeframe(herText.current)] ?? '';
+
+  /** The `pattern` card is the only slot that needs her history in the turn. */
+  const themesClause = (id: ReflectCardId) =>
+    id === 'pattern' && pastThemes.current
+      ? `\nwhat she brought here before on this thread:\n${pastThemes.current}`
+      : '';
+
   /** She took a card (accepted the reading, or owned it by editing): reflection is
    *  done, on to regulate. */
   /** Save this moment to My Soul, once per session. Called when she finishes
@@ -750,6 +865,13 @@ export default function Moment() {
     const feeling = chosenFeeling.current;
     if (!herText.current.trim() || !feeling) return;
     momentSaved.current = true;
+    // Her per-read reactions outlive the session from here (2026-08-19). Derived
+    // from the reaction map's own keys, so there is no per-tap wiring, and
+    // idempotent on (card, text) so saving twice cannot inflate a lean.
+    rememberReactions(reactionsRef.current, {
+      feeling,
+      subject: subjectOf(herText.current) ?? undefined,
+    }).catch(() => {});
     addMoment({
       entry: herText.current,
       feeling,
@@ -784,6 +906,44 @@ export default function Moment() {
     }
   };
 
+  /** Depth on tap (2026-08-19). Every read in the flow is one short line, so when
+   *  one finally lands she has nowhere to go with it, and the only "more" on offer
+   *  was more one-liners. Tapping a read opens THAT thought out into a few
+   *  sentences: what makes it plausible for her, what it would mean if it were
+   *  true, and what to notice next. Keyed like reactions (scope#index) so a
+   *  re-rolled list never shows the previous line's expansion. */
+  const [expanded, setExpanded] = useState<Record<string, string>>({});
+  const [expanding, setExpanding] = useState<string | null>(null);
+
+  const expandRead = (scope: string, index: number, text: string) => {
+    const key = reactionKey(scope, index);
+    tap();
+    if (expanded[key]) {
+      // Second tap closes it. Kept in state, not refetched, if she opens it again.
+      setExpanded((m) => {
+        const n = { ...m };
+        delete n[key];
+        return n;
+      });
+      return;
+    }
+    if (!aiOn || expanding) return;
+    setExpanding(key);
+    const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
+    compose(
+      provider,
+      'reflect_expand',
+      `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${
+        chosenFeeling.current || 'upset'
+      }\nthe read she tapped: "${text}"${cycle}${timeClause()}`,
+    )
+      .then((out) => {
+        if (out) setExpanded((m) => ({ ...m, [key]: out }));
+      })
+      .catch(() => {})
+      .finally(() => setExpanding(null));
+  };
+
   const [moreLoading, setMoreLoading] = useState(false);
   /** Guess cards are the rephrasing: the calm comes from reading MORE angles, not
    *  picking one. This APPENDS fresh reads to the growing list (never replaces),
@@ -804,7 +964,7 @@ export default function Moment() {
       card.slot,
       `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${
         chosenFeeling.current || 'upset'
-      }\nalready offered: ${JSON.stringify(already)}${steer}${cycle}${feedbackClause(reactionsRef.current)}`,
+      }${themesClause(id)}\nalready offered: ${JSON.stringify(already)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`,
     )
       .then((r) => {
         if (r.options?.length) {
@@ -840,27 +1000,6 @@ export default function Moment() {
     return next === 'reject' && cur !== 'reject';
   };
 
-  /** Cross on the current reflect card: swap the rejected read for a fresh one via
-   *  the EXISTING re-roll path — no new network call. Guess cards append a fresh
-   *  read (moreReads); a draft's single line is refetched through the reflectRetry
-   *  path (its generation scope bumps, so the crossed line's reaction is preserved,
-   *  not inherited by the new line). The crossed read stays marked in `reactions`
-   *  so it is still queryable. */
-  const rerollRejectedRead = () => {
-    if (!reflectCards) return;
-    const id = reflectCards[reflectIdx];
-    const card = REFLECT_CARDS[id];
-    if (card.mode === 'draft') {
-      setCardContent((c) => {
-        const n = { ...c };
-        delete n[id];
-        return n;
-      });
-      setReflectRetry((k) => k + 1);
-    } else {
-      moreReads(); // guess: append a genuinely-different read (already-offered aware)
-    }
-  };
 
   // Resume, once, on mount: restore the carried state and land on the saved
   // beat. Only the narrative state is restored; per-beat UI re-derives itself
@@ -948,7 +1087,7 @@ export default function Moment() {
       setActDrafting(true);
       setActDraft('');
       setActDraftLoading(true);
-      draftAct(provider, herText.current.trim(), chosenFeeling.current, personalisedLabel(a, herText.current), [pmsActive.current ? CYCLE_NOTE : '', threadPreamble().trim()].filter(Boolean).join('\n') || undefined)
+      draftAct(provider, herText.current.trim(), chosenFeeling.current, personalisedLabel(a, herText.current), [pmsActive.current ? CYCLE_NOTE : '', threadPreamble().trim(), timeClause().trim()].filter(Boolean).join('\n') || undefined)
         .then((t) => setActDraft(t ?? ''))
         .catch(() => {})
         .finally(() => setActDraftLoading(false));
@@ -1003,7 +1142,7 @@ export default function Moment() {
     // exact task she saved, not just its label.
     const text = actDraft.trim();
     // Save the chosen reminder time onto the plan record too, not only the OS
-    // notification — otherwise the Today list never shows the time she picked.
+    // notification, otherwise the Today list never shows the time she picked.
     if (a) addPlannedAction(a.label, text || undefined, date?.toISOString()).catch(() => {});
     if (date) {
       await scheduleActionReminder(
@@ -1054,8 +1193,8 @@ export default function Moment() {
       },
     });
 
-    // Her latest event text, kept for the feeling suggestions and the echo
-    // correction prefill.
+    // Her latest event text, kept for the feeling suggestions and every AI turn
+    // in Reflect and Respond.
     herText.current = text;
     // Reset the thread refs for this submission, then load them async from history
     // (fire-and-forget, never blocks send). By the time she reaches Reflect they
@@ -1172,7 +1311,7 @@ export default function Moment() {
   // The Orb's own idle loop normalises to a fixed ~10px radius travel at ANY
   // size, which on a 15pt sphere is most of the moon. So it is frozen (`still`)
   // and breathed from here instead: a 3% swell, slow, just enough to read as
-  // alive. Steady is the point — it is the thing that is not reacting.
+  // alive. Steady is the point, it is the thing that is not reacting.
   const breath = useSharedValue(1);
   useEffect(() => {
     if (reduceMotion) return;
@@ -1217,7 +1356,7 @@ export default function Moment() {
 
   // C5: reward each completed settling activity, not just beat advances. The
   // done-set lives outside React (an activity screen marks itself done on its own
-  // route), so we listen to it and shine the instant it grows — "I don't see a
+  // route), so we listen to it and shine the instant it grows, "I don't see a
   // reward for finishing an action" (Neha). Set-state is in the emitted callback,
   // not the effect body, so it never runs on mount.
   useEffect(() => {
@@ -1229,8 +1368,8 @@ export default function Moment() {
     });
   }, [rewardShine]);
 
-  // Walk the guided breath. Each step holds for its own length — a breath in
-  // for four, out for six, the intro and the counts shorter — then advances. A
+  // Walk the guided breath. Each step holds for its own length, a breath in
+  // for four, out for six, the intro and the counts shorter, then advances. A
   // light tick lands at the start of every inhale and exhale so she can pace it
   // with her eyes shut. Past the last step the flow moves on to the hold. The
   // ball's visual swell is gated by reduce-motion elsewhere; the copy sequence
@@ -1263,7 +1402,7 @@ export default function Moment() {
   }, [current, breathStep, go]);
 
   // Feelings PICK: the model RANKS the closed feeling set for her text (most
-  // likely first), but it never asserts one as the answer — the screen stays a
+  // likely first), but it never asserts one as the answer, the screen stays a
   // neutral "which feeling is strongest?" picker she chooses from (Neha
   // 2026-08-01). Null keeps the deterministic offerFeelings order.
   useEffect(() => {
@@ -1275,7 +1414,7 @@ export default function Moment() {
     pick(provider, 'feelings', her, FEELING_SET, 3, (f) => f.label)
       .then((r) => {
         // Trust ONLY a real model ranking. On any AI failure (timeout, rate limit,
-        // HTTP), pick returns the authored HEAD of the set — always Dismissed / Not
+        // HTTP), pick returns the authored HEAD of the set, always Dismissed / Not
         // taken seriously / Angry, the "same three every time" she sees. Leaving
         // feelingOrder null in that case lets the render fall to the text-seeded
         // offerFeelings, which varies with her words.
@@ -1340,7 +1479,7 @@ export default function Moment() {
   //
   // Cycle context (REFLECT_CYCLE_NOTE) is added only when the PMS gate holds, and
   // only as a TONE dose: it warms the wording, it never names the cycle or uses it
-  // as a reason. This is NOT the act-beat CYCLE_NOTE — that one could turn a reading
+  // as a reason. This is NOT the act-beat CYCLE_NOTE, that one could turn a reading
   // into "it's just your hormones" against a real grievance, which the reflect note
   // plus REFLECT_SAFETY explicitly forbid. Reflect offers gentler, never explains
   // her feeling away.
@@ -1349,20 +1488,23 @@ export default function Moment() {
     const id = reflectCards[reflectIdx];
     const card = REFLECT_CARDS[id];
     if (card.mode === 'question' || !card.slot) return; // no AI content
-    if (id === 'rule') return; // special card, its own fetch (structured chain, not options)
+    // The three special cards fetch their own structured setup below, not options.
+    if (id === 'rule' || id === 'middle' || id === 'whose_weight' || id === 'load') return;
     if (cardContent[id]) return; // already have it
     if (!aiOn) return; // authored fallback stands
+    if (inFlight.current.has(id)) return; // already asking for exactly this
+    inFlight.current.add(id);
     let alive = true;
     setCardLoading(true);
     const steer = reflectSteer.current
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both. Do not just reword or re-tone the earlier reads.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${feedbackClause(reactionsRef.current)}`;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${themesClause(id)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`;
     // The send-time prefetch is cold: it warmed card 0 for the NON-thread route
     // (recurring/priorThread aren't loaded yet at send). So skip reusing it when
-    // either is now active — recurring makes `pattern` the new card 0, and a
-    // prior thread needs the continuation folded in — and refetch instead.
+    // either is now active, recurring makes `pattern` the new card 0, and a
+    // prior thread needs the continuation folded in, and refetch instead.
     const pending =
       reflectIdx === 0 && reflectPrefetch.current && !steer && !priorThread.current && !recurring.current
         ? reflectPrefetch.current
@@ -1383,6 +1525,7 @@ export default function Moment() {
         if (alive) setCardFailed(true);
       })
       .finally(() => {
+        inFlight.current.delete(id);
         if (alive) setCardLoading(false);
       });
     return () => {
@@ -1390,10 +1533,104 @@ export default function Moment() {
     };
   }, [current, reflectCards, reflectIdx, cardContent, aiOn, provider, reflectRetry]);
 
+  // The two interaction cards' setups (2026-08-20). Same shape as the rule fetch
+  // above: run when this card is active and we have none, null result means the
+  // model found nothing to work with and the card declines to the honest retry.
+  useEffect(() => {
+    if (current !== 'reflect' || !reflectCards) return;
+    const id = reflectCards[reflectIdx];
+    if (id !== 'middle' || scaleData !== null || !aiOn) return;
+    let alive = true;
+    setCardLoading(true);
+    const user = `she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${timeClause()}`;
+    scaleSetup(provider, user)
+      .then((r) => {
+        if (!alive) return;
+        if (r) {
+          setScaleData(r);
+          setCardFailed(false);
+        } else setCardFailed(true);
+      })
+      .catch(() => alive && setCardFailed(true))
+      .finally(() => alive && setCardLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [current, reflectCards, reflectIdx, scaleData, aiOn, provider]);
+
+  useEffect(() => {
+    if (current !== 'reflect' || !reflectCards) return;
+    const id = reflectCards[reflectIdx];
+    if (id !== 'whose_weight' || respData !== null || !aiOn) return;
+    let alive = true;
+    setCardLoading(true);
+    const user = `she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${timeClause()}`;
+    responsibilitySetup(provider, user)
+      .then((r) => {
+        if (!alive) return;
+        if (r) {
+          setRespData(r);
+          setCardFailed(false);
+        } else setCardFailed(true);
+      })
+      .catch(() => alive && setCardFailed(true))
+      .finally(() => alive && setCardLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [current, reflectCards, reflectIdx, respData, aiOn, provider]);
+
+  // Warm the NEXT card while she is reading this one (Neha 2026-08-21).
+  //
+  // Only card 0 was ever prefetched, at send(), so it landed instantly and every
+  // card after it made her watch a spinner for the full compose. On pro with a
+  // thinking budget that is around five seconds, three or four times a session,
+  // at the exact moments she has just decided to keep going.
+  //
+  // It fetches straight into `cardContent`, which is the same place the main
+  // fetch writes and the same place it checks before fetching, so an advance
+  // finds the content already there and renders with no spinner at all. No new
+  // plumbing, and a prefetch that never arrives simply means the old behaviour.
+  //
+  // Skipped for question cards (no AI at all) and for the three special cards,
+  // which own their own structured fetch and their own state.
+  useEffect(() => {
+    if (current !== 'reflect' || !reflectCards || !aiOn) return;
+    const nextId = reflectCards[reflectIdx + 1];
+    if (!nextId) return;
+    const next = REFLECT_CARDS[nextId];
+    if (!next.slot || next.mode === 'question') return;
+    if (['rule', 'middle', 'whose_weight', 'load'].includes(nextId)) return;
+    if (cardContent[nextId]) return;
+    if (inFlight.current.has(nextId)) return; // already warming this one
+    // Only once the CURRENT card is on screen, so the prefetch never competes
+    // with the fetch she is actually waiting for.
+    if (!cardContent[reflectCards[reflectIdx]]) return;
+    inFlight.current.add(nextId);
+    let alive = true;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${
+      chosenFeeling.current || 'upset'
+    }${themesClause(nextId)}${pmsActive.current ? REFLECT_CYCLE_NOTE : ''}${timeClause()}${feedbackClause(
+      reactionsRef.current,
+    )}`;
+    reflectCard(provider, next.slot, user)
+      .then((r) => {
+        // Silent on failure: the main fetch will simply run when she arrives.
+        if (alive && (r.line || r.options?.length)) {
+          setCardContent((c) => (c[nextId] ? c : { ...c, [nextId]: r }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => inFlight.current.delete(nextId));
+    return () => {
+      alive = false;
+    };
+  }, [current, reflectCards, reflectIdx, cardContent, aiOn, provider]);
+
   // Second lens fetch (Neha 2026-08-10): when adding context surfaced a new frame,
   // fetch that card's reads so they can render inline under the current ones,
   // steered by the same added context. Independent of the current-card fetch so
-  // both land together. Silent on failure — the "also" block just doesn't appear.
+  // both land together. Silent on failure, the "also" block just doesn't appear.
   useEffect(() => {
     if (current !== 'reflect' || !secondLensId || !aiOn) return;
     if (cardContent[secondLensId]) return; // already have it
@@ -1405,7 +1642,7 @@ export default function Moment() {
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${feedbackClause(reactionsRef.current)}`;
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`;
     reflectCard(provider, card.slot, user)
       .then((r) => {
         if (alive && (r.line || r.options?.length)) {
@@ -1424,8 +1661,8 @@ export default function Moment() {
   // M6 context gate: consume the send-time hasConcreteEvent check under the first
   // reflect card's spinner. A confident `false` means her entry read as an event
   // to the lexical analyse() but the model sees only a mood, so route her back to
-  // clarify for the detail the reads and response need. Anything else — yes, null,
-  // timeout, AI-off, or no pending gate — proceeds untouched. Cancelled the moment
+  // clarify for the detail the reads and response need. Anything else, yes, null,
+  // timeout, AI-off, or no pending gate, proceeds untouched. Cancelled the moment
   // she advances past the first card or engages it (validates / edits), via the
   // cleanup alive-flag, so a late reply can never yank her backward.
   useEffect(() => {
@@ -1500,11 +1737,22 @@ export default function Moment() {
       ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together and break down the rule that fits it now.`
       : '';
     const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${feedbackClause(reactionsRef.current)}`;
+    // What the last chain said, so a re-roll cannot hand her the identical card
+    // back (2026-08-19 run: the rule slot returned byte-identical output on every
+    // pull, because nothing in the turn changed). She only ever re-rolls this card
+    // by crossing a line she does not buy, so returning the same rule is the one
+    // answer that is certainly wrong.
+    const shown = lastRule.current
+      ? `\nyou already showed her this rule: "${lastRule.current.rule}" with these tests: ${JSON.stringify(
+          lastRule.current.tests,
+        )}. She asked again, so find a DIFFERENT rule underneath this, or test the same rule from a genuinely different direction. Do not return what you returned before.`
+      : '';
+    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${steer}${cycle}${timeClause()}${shown}${feedbackClause(reactionsRef.current)}`;
     ruleBreakdown(provider, user)
       .then((r) => {
         if (!alive) return;
         if (r) {
+          lastRule.current = r;
           setRuleChain(r);
           setCardFailed(false);
         } else {
@@ -1596,16 +1844,23 @@ export default function Moment() {
 
     // Open chat (no fact-sort claims): answer in the reflect framework (points),
     // not a chatbot line. lensForText is a shallow regex that misses a lot, so when
-    // it finds no specific lens we DEFAULT to `signal` (applies to almost any real
-    // moment) rather than dropping to a plain line — item H, Neha device test
-    // 2026-08-13. If that lens still comes back empty (genuinely off-topic, e.g.
-    // trivia), the `pts.length` check below falls to runReflectChat, which declines.
-    const lens = claims === null ? lensForText(msg) ?? 'signal' : null;
+    // it finds no specific lens we DEFAULT to a broadly-applicable one rather than
+    // dropping to a plain line (item H, Neha device test 2026-08-13). If that lens
+    // still comes back empty (genuinely off-topic, e.g. trivia), the `pts.length`
+    // check below falls to runReflectChat, which declines.
+    //
+    // The default was `signal` until 2026-08-19, when the scenario run measured it
+    // as the WORST card in the set: 71% of its lines gave her back her own words,
+    // against 25% for `need`. So the lens every unrecognised message fell to was
+    // the one least likely to tell her anything. `need` is just as broadly
+    // applicable (every real moment has something she needs under it) and measures
+    // nearly three times better.
+    const lens = claims === null ? lensForText(msg) ?? 'need' : null;
     if (lens) {
       const card = REFLECT_CARDS[lens];
       const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
       setChatBusy(true);
-      reflectCard(provider, card.slot!, `${threadPreamble()}she wrote: "${msg}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}${feedbackClause(reactionsRef.current)}`)
+      reflectCard(provider, card.slot!, `${threadPreamble()}she wrote: "${msg}"\nshe feels: ${chosenFeeling.current || 'upset'}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`)
         .then((r) => {
           const pts = r.options?.length ? r.options : r.line ? [r.line] : [];
           if (pts.length) {
@@ -1651,7 +1906,7 @@ export default function Moment() {
 
   /**
    * The head of every card: her moon beside the phase and the question, on one
-   * line. Never mirrors her — it shows the state of the session, not a
+   * line. Never mirrors her, it shows the state of the session, not a
    * judgement of her, and its job is to be the steady thing in the frame while
    * she is not steady. Always full.
    */
@@ -1713,7 +1968,7 @@ export default function Moment() {
 
   /**
    * The chat-style composer used by every typing beat: a rounded dark field with
-   * the controls docked in a bottom bar inside it — an optional mic on the left,
+   * the controls docked in a bottom bar inside it, an optional mic on the left,
    * a small circular send arrow on the right (violet when there is text, muted
    * when empty). This replaces the full-width "Continue" button, which read as a
    * wall across the card; a corner send icon is the pattern from any chat app and
@@ -1734,7 +1989,7 @@ export default function Moment() {
     compact?: boolean;
   }) => {
     // Every field carries the mic now (Neha 2026-08-11, "every text field should
-    // have the speaker") — opt OUT only, never in.
+    // have the speaker"), opt OUT only, never in.
     const withMic = opts.withMic ?? true;
     // Enabled while she is still speaking too, so she never has to tap the mic
     // off before she can send (Neha 2026-08-02).
@@ -1759,7 +2014,7 @@ export default function Moment() {
           // compound it. Tap the mic to stop, then type. (End users will do both.)
           editable={!(withMic && dictation.listening)}
           placeholder={opts.placeholder}
-          placeholderTextColor="rgba(255,255,255,0.30)"
+          placeholderTextColor={colors.textOnDark.placeholder}
           selectionColor="rgba(196, 178, 255, 0.9)"
           multiline
           textAlignVertical="top"
@@ -1789,7 +2044,7 @@ export default function Moment() {
               <SymbolView
                 name={dictation.listening ? 'mic.fill' : 'mic'}
                 size={22}
-                tintColor={dictation.listening ? '#F2A2C0' : 'rgba(255,255,255,0.55)'}
+                tintColor={dictation.listening ? '#F2A2C0' : colors.textOnDark.tertiary}
               />
             </Pressable>
           ) : null}
@@ -1811,7 +2066,7 @@ export default function Moment() {
               name="arrow.up"
               size={20}
               weight="semibold"
-              tintColor={canSend ? '#FFFFFF' : 'rgba(255,255,255,0.4)'}
+              tintColor={canSend ? '#FFFFFF' : colors.textOnDark.faint}
             />
           </Pressable>
         </View>
@@ -1821,11 +2076,11 @@ export default function Moment() {
 
   // CALLED, not rendered as <Beat />. Declaring a component inside the render
   // body makes a NEW component type every render, so React unmounts and
-  // remounts the whole subtree on each state change — which with a TextInput
+  // remounts the whole subtree on each state change, which with a TextInput
   // inside meant every keystroke tore down the field and dismissed the
   // keyboard. Calling it inlines the JSX with no component boundary.
   const ui =
-    crisis ? Crisis() : hydrating ? { body: null, cta: null } : Beat();
+    crisis ? Crisis() : hydrating || gating ? { body: null, cta: null } : Beat();
 
   // A "composer beat" is a typing screen whose chat-style field lives in the
   // pinned CTA slot (raw_entry / clarify). On these
@@ -1881,7 +2136,7 @@ export default function Moment() {
           behind the card (M28), instead of the old aurora. */}
       <CosmicBackground />
       {/* The moon sits BEHIND the full-screen frosted card, so it always reads
-          as a soft blurred glow through the glass — never the raw sharp moon
+          as a soft blurred glow through the glass, never the raw sharp moon
           exposed on bare sky. The card filling the screen is what keeps it
           covered; that (not hiding the moon) is what fixed the earlier "big raw
           moon below a short card". It blooms brighter on the finish. */}
@@ -1950,7 +2205,7 @@ export default function Moment() {
               than resetting. `layout` eases the card's height and position as
               the content grows or shrinks, so pages resize INTO each other
               instead of snapping. Only the body and the button crossfade
-              (below) — a dissolve, not a slide: the card is continuous and only
+              (below), a dissolve, not a slide: the card is continuous and only
               what it says changes. */}
           <Animated.View
             style={styles.card}
@@ -1969,7 +2224,7 @@ export default function Moment() {
             <BlurView intensity={72} tint="dark" pointerEvents="none" style={StyleSheet.absoluteFill} />
             <View pointerEvents="none" style={styles.glassTint} />
             <LinearGradient
-              colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.03)', 'transparent']}
+              colors={[colors.border.base, colors.fill.faint, 'transparent']}
               locations={[0, 0.28, 0.62]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -2039,7 +2294,7 @@ export default function Moment() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* THE FINISH: a big one-shot burst — bloom + sunburst + sparks flying out
+      {/* THE FINISH: a big one-shot burst, bloom + sunburst + sparks flying out
           from the moon, in her moon's hue. Painted ABOVE the frosted card (not
           behind it), so the glass never mutes the payoff. pointerEvents:none via
           its own absoluteFill root, so the card underneath stays tappable. */}
@@ -2070,12 +2325,12 @@ export default function Moment() {
     const bodyReady = MAKE_SAFE_BODY.every((it) => bodyChecks[it.id]);
     switch (current) {
       // The welcome: the three states as cards in their own flow colours, so she
-      // sees the shape before the first question — three known chapters, not an
+      // sees the shape before the first question, three known chapters, not an
       // open-ended chat. Signed "with Moon AI"; "Think with me" opens the flow.
       // The entry card: her free-text "what happened". The upfront 0-10 rating
       // that used to share this card was cut 2026-08-09 (it felt arbitrary and
       // boring, and rating a thing she had not named yet was a cold step). A clear
-      // entry now goes straight to the echo.
+      // entry now goes straight to the feeling guess.
       case 'raw_entry':
         return {
           // Speaker/question sticky at the top (body); the chat composer sticky
@@ -2087,8 +2342,10 @@ export default function Moment() {
               {head(COPY.raw_entry)}
               {/* One quiet guiding example for the empty field; it fades out once
                   she starts typing. The why-line and the "bad" example were cut
-                  2026-08-10 — the entry page was too text-heavy. */}
-              {!draft.trim() && !dictation.listening && (
+                  2026-08-10, the entry page was too text-heavy. Shown ONLY before
+                  her first moment (2026-08-21): once she has written one she knows
+                  the shape, and the line is just text in the way. */}
+              {wroteBefore === false && !draft.trim() && !dictation.listening && (
                 <Animated.View
                   style={styles.entryExamples}
                   entering={reduceMotion ? undefined : FadeIn.duration(220)}
@@ -2138,7 +2395,7 @@ export default function Moment() {
       // that said her words back first was removed (repeating her sentence did not
       // help), so the flow opens straight on this guess. Moon PROPOSES a few feeling
       // words, she confirms one or swaps (2026-08-09). Skipped entirely when she
-      // already named a feeling in her text (send routes straight to Reflect) —
+      // already named a feeling in her text (send routes straight to Reflect), 
       // affect labeling without the chore. The AI RANKS the closed set
       // (feelingOrder); it never writes one, and offerFeelings is the deterministic
       // fallback. Capped to FEELING_GUESS.count so it reads as a guess, not a menu.
@@ -2190,7 +2447,7 @@ export default function Moment() {
                       value={draft}
                       onChangeText={setDraft}
                       placeholder={COPY.feelings_other_hint}
-                      placeholderTextColor="rgba(255,255,255,0.30)"
+                      placeholderTextColor={colors.textOnDark.placeholder}
                       selectionColor="rgba(196, 178, 255, 0.9)"
                       autoFocus
                       inputAccessoryViewID={
@@ -2236,7 +2493,7 @@ export default function Moment() {
       // The guided breath. Her own moon, grown big, IS the breath ball: it
       // swells on an inhale step, settles on an exhale, holds on the intro and
       // the counts. The copy changes with each step; a light tick marks every
-      // turn. One quiet exit — leaving and finishing both land on the hold.
+      // turn. One quiet exit, leaving and finishing both land on the hold.
       case 'breathe': {
         const step =
           BREATH_SCRIPT[breathStep] ?? BREATH_SCRIPT[BREATH_SCRIPT.length - 1];
@@ -2290,7 +2547,7 @@ export default function Moment() {
       }
 
       // The hold, framed as a challenge (Neha 2026-07-28): "20-Minute Challenge
-      // — beat the urge to react immediately", she is ready or not. Names no
+      //, beat the urge to react immediately", she is ready or not. Names no
       // person: the app does not know who she is upset with unless she said so.
       case 'make_safe': {
         // M8 (Neha's rule a): body-prep is no longer a gate on this choice. She
@@ -2331,7 +2588,7 @@ export default function Moment() {
         }
         return {
           // The SETTLE gate (2026-08-09): regulate is optional and tied to
-          // responding — "want a moment to settle before you respond?". "Yes"
+          // responding, "want a moment to settle before you respond?". "Yes"
           // (settle) takes the breath + settling menu; "No, respond now" opens the
           // body-prep page in place. "Yes" is the hero, so the encouraged path
           // leads. Reflect was for everyone; this she only takes if she chooses.
@@ -2363,7 +2620,7 @@ export default function Moment() {
       // The reflect-card system (2026-08-09): one routed card at a time, the
       // FIRST thing after naming, not the fifth screen. Every card ADDS a
       // possibility and none subtracts her feeling; every "no" either walks to
-      // the next card or backs off and validates — it never invalidates her.
+      // the next card or backs off and validates, it never invalidates her.
       case 'reflect': {
         if (!reflectCards || reflectCards.length === 0) {
           // routeCards always returns safe defaults, so this is defensive only.
@@ -2377,7 +2634,7 @@ export default function Moment() {
         const content = cardContent[id] ?? {};
 
         // Moon is down on a card that needs it (timeout / empty / HTTP, or AI off).
-        // Honest, with a retry, AND a quiet way forward — an outage must never trap
+        // Honest, with a retry, AND a quiet way forward, an outage must never trap
         // her, since Regulate and Respond run on authored copy (Neha 2026-08-10).
         // `onRetry` is the per-card-type refetch.
         const aiDown = (onRetry: () => void) => ({
@@ -2397,14 +2654,14 @@ export default function Moment() {
                   onRetry();
                 }}
               />
-              {/* No canned no-AI reflection — a real human instead. Opens her mail
+              {/* No canned no-AI reflection, a real human instead. Opens her mail
                   app to Neha (no auto-send); the address already ships in the app
                   (Neha 2026-08-10). */}
               <Pressable
                 onPress={() => {
                   tap();
                   Linking.openURL(
-                    `mailto:neha@niyora.com?subject=${encodeURIComponent('Niyora — I could use a hand')}`,
+                    `mailto:neha@niyora.com?subject=${encodeURIComponent('Niyora, I could use a hand')}`,
                   ).catch(() => {});
                 }}
                 style={styles.differentWay}
@@ -2423,7 +2680,11 @@ export default function Moment() {
             body: (
               <>
                 {chatLog.length === 0 ? head('What else is on your mind about this?') : null}
-                <ChatTurns log={chatLog} react={{ reactions, onReact: recordReaction }} />
+                <ChatTurns
+                  log={chatLog}
+                  react={{ reactions, onReact: recordReaction }}
+                  expand={{ open: expanded, busy: expanding, onExpand: expandRead }}
+                />
                 {chatBusy ? (
                   <View style={[styles.chatMoon, styles.chatThinking]}>
                     <ThinkingDots />
@@ -2434,7 +2695,7 @@ export default function Moment() {
             cta: (
               <View style={styles.stack}>
                 {entryField({
-                  placeholder: 'Say more, or ask Moon to look again',
+                  placeholder: 'Add context, ask about this, or correct me',
                   a11yLabel: 'Reflect with Moon',
                   onSend: sendChat,
                   autoFocus: false,
@@ -2512,7 +2773,7 @@ export default function Moment() {
                 cta: <BeginButton fullWidth label={FACTSORT.cta} onPress={factContinue} />,
               };
             }
-            // result stage — only the NEW, helpful content. Her own words were
+            // result stage, only the NEW, helpful content. Her own words were
             // already on the sort stage, so we never repeat them here.
             const reads = (factAdvise?.reads ?? []).filter(Boolean);
             return {
@@ -2537,7 +2798,11 @@ export default function Moment() {
                         <Text style={styles.factTakeaway}>{factAdvise.help}</Text>
                       ) : null}
                       {/* The bounded reflective chat: her turns right, Moon's left. */}
-                      <ChatTurns log={chatLog} react={{ reactions, onReact: recordReaction }} />
+                      <ChatTurns
+                  log={chatLog}
+                  react={{ reactions, onReact: recordReaction }}
+                  expand={{ open: expanded, busy: expanding, onExpand: expandRead }}
+                />
                       {chatBusy ? (
                         <View style={[styles.chatMoon, styles.chatThinking]}>
                           <ThinkingDots />
@@ -2555,7 +2820,7 @@ export default function Moment() {
               cta: (
                 <View style={styles.stack}>
                   {entryField({
-                    placeholder: 'Say more, or ask Moon to look again',
+                    placeholder: 'Add context, ask about this, or correct me',
                     a11yLabel: 'Reflect with Moon',
                     onSend: sendChat,
                     autoFocus: false,
@@ -2572,6 +2837,79 @@ export default function Moment() {
           // responding. NEVER the old plain-echo + two-button card. Retry clears
           // claims so the split effect refetches; "Respond anyway" moves on.
           return aiDown(() => setClaims(null));
+        }
+
+        // The load card (2026-08-21). The only card with no model call at all:
+        // there is nothing to re-see, so she writes down what is on her and sorts
+        // it. Renders instantly, which is right for the one entry that means she
+        // has no capacity left.
+        if (id === 'load') {
+          return { body: <LoadCard onDone={() => advanceCard()} />, cta: null };
+        }
+
+        // The scale card (2026-08-20). She places, we only draw the ruler. Replaces
+        // the old `middle` reads, which answered an absolute with more sentences
+        // and measured as the weakest card in the set.
+        if (id === 'middle') {
+          const retryScale = () => {
+            setCardFailed(false);
+            setScaleData(null);
+          };
+          if (!scaleData) {
+            if (cardFailed || !aiOn) return aiDown(retryScale);
+            return {
+              body: (
+                <View style={styles.reflectStage}>
+                  <ThinkingDots label={AI_THINKING} />
+                </View>
+              ),
+              cta: null,
+            };
+          }
+          return {
+            body: (
+              <ScaleCard
+                word={scaleData.word}
+                zero={scaleData.zero}
+                hundred={scaleData.hundred}
+                onDone={() => advanceCard()}
+              />
+            ),
+            cta: null,
+          };
+        }
+
+        // The responsibility card (2026-08-20). An INPUT card: the model names the
+        // outcome and her own part, she supplies the other hands and allocates, and
+        // her share is whatever is left. See the component header for why the model
+        // is not allowed to write the hands.
+        if (id === 'whose_weight') {
+          const retryResp = () => {
+            setCardFailed(false);
+            setRespData(null);
+          };
+          if (!respData) {
+            if (cardFailed || !aiOn) return aiDown(retryResp);
+            return {
+              body: (
+                <View style={styles.reflectStage}>
+                  <ThinkingDots label={AI_THINKING} />
+                </View>
+              ),
+              cta: null,
+            };
+          }
+          return {
+            body: (
+              <ResponsibilityCard
+                outcome={respData.outcome}
+                hers={respData.hers}
+                onDone={() => advanceCard()}
+                onSkip={() => advanceCard()}
+              />
+            ),
+            cta: null,
+          };
         }
 
         // The rule card (2026-08-13): the REBT chain made visible. What happened →
@@ -2639,7 +2977,7 @@ export default function Moment() {
                   <PointReaction
                     reaction={reactionAt(reactions, demandScope, 0)}
                     onReact={(next) => {
-                      if (recordReaction(demandScope, 0, ruleChain.rule, next)) rerollRule();
+                      recordReaction(demandScope, 0, ruleChain.rule, next);
                     }}
                   />
                 </View>
@@ -2659,7 +2997,7 @@ export default function Moment() {
                       scope: testScope,
                       reactions,
                       onReact: (index, text, next) => {
-                        if (recordReaction(testScope, index, text, next)) rerollRule();
+                        recordReaction(testScope, index, text, next);
                       },
                     }}
                   />
@@ -2668,17 +3006,19 @@ export default function Moment() {
                   <View style={styles.chipRow}>
                     <Pressable
                       onPress={() => advanceCard()}
-                      style={styles.chip}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.chipText}>Reflect more</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => acceptReflect()}
                       style={[styles.chip, styles.chipPrimary]}
                       accessibilityRole="button"
                     >
-                      <Text style={[styles.chipText, styles.chipPrimaryText]}>Respond</Text>
+                      <Text style={[styles.chipText, styles.chipPrimaryText]}>
+                        Reflect differently
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => acceptReflect()}
+                      style={styles.chip}
+                      accessibilityRole="button"
+                    >
+                      <Text style={styles.chipText}>Respond</Text>
                     </Pressable>
                   </View>
                 ) : null}
@@ -2687,7 +3027,7 @@ export default function Moment() {
             cta: (
               <View style={styles.stack}>
                 {entryField({
-                  placeholder: 'Add anything, or ask Moon to look again',
+                  placeholder: 'Add context, ask about this, or correct me',
                   a11yLabel: 'Add context',
                   onSend: submitRuleContext,
                   autoFocus: false,
@@ -2698,7 +3038,7 @@ export default function Moment() {
           };
         }
 
-        // A reality ("question") card's "no": respect that it's real and STOP —
+        // A reality ("question") card's "no": respect that it's real and STOP, 
         // a warm validation, never another reframe. Then straight to regulate.
         if (reflectValidated) {
           return {
@@ -2749,7 +3089,7 @@ export default function Moment() {
             setReflectRetry((n) => n + 1);
           });
         }
-        // question cards echo HER OWN words — the carved clause when we have one,
+        // question cards echo HER OWN words, the carved clause when we have one,
         // else her raw text. No AI call, so nothing to invent.
         const herClause =
           verdict?.kind === 'clear' && verdict.echo ? verdict.echo : herText.current;
@@ -2765,9 +3105,23 @@ export default function Moment() {
         const reflectReact: ReadReactProps = {
           scope: readScope,
           reactions,
+          // Reactions TEACH, buttons DRIVE (Neha 2026-08-20). A cross used to also
+          // fetch more reads, which meant the only way to get another angle was to
+          // reject one, and the button that said "show me more" actually changed
+          // the question. Two controls doing each other's jobs. Now a cross only
+          // records, and it outlives the session in reflect-memory.
           onReact: (index, text, next) => {
-            if (recordReaction(readScope, index, text, next)) rerollRejectedRead();
+            recordReaction(readScope, index, text, next);
           },
+        };
+        // Depth on tap (2026-08-19): the same scope as the reactions, so a re-roll
+        // clears both together and an expansion can never end up under a read it
+        // was not written for.
+        const reflectExpand: ReadExpandProps = {
+          scope: readScope,
+          open: expanded,
+          busy: expanding,
+          onExpand: (index, text) => expandRead(readScope, index, text),
         };
 
         // The card's "second" button behaviour, by contract. A guess card's "no"
@@ -2856,85 +3210,8 @@ export default function Moment() {
         return {
           body: (
             <>
-              <Text style={[styles.l3Prompt, styles.reflectTitle]}>{card.title}</Text>
-              {card.subtitle ? <WhyLine>{card.subtitle}</WhyLine> : null}
-              {loading ? (
-                <View style={styles.reflectStage}>
-                  <ThinkingDots label={AI_THINKING} />
-                </View>
-              ) : card.mode === 'guess' ? (
-                // The rephrasing: a GROWING list of reads to sit with. Calm comes
-                // from reading more angles, not picking one. Left-aligned points
-                // divided by lines, not boxes — the same for every reading card
-                // including `middle` (Neha 2026-08-10).
-                <ReadPoints
-                  items={content.options?.length ? content.options : SETS.smallReframes}
-                  loading={moreLoading}
-                  react={reflectReact}
-                />
-              ) : card.mode === 'question' ? (
-                // Her own words, quieter than the question so the question leads
-                // and the quote reads as "here's your thought", not a second title.
-                <Text style={styles.reflectQuote}>{herClause}</Text>
-              ) : (
-                // Draft: the AI's reading as a single point, same voice as the reads.
-                <ReadPoints items={[content.line ?? SETS.smallReframes[0]]} react={reflectReact} />
-              )}
-
-              {/* Second lens (Neha 2026-08-10): when her added context surfaced a
-                  frame her entry didn't, that reflection's reads sit here under a
-                  soft connector — additive, one page, no screen-swap. Shows only
-                  while it has content or is still fetching; a failed fetch is silent. */}
-              {!loading &&
-              secondLensId &&
-              (cardContent[secondLensId]?.options?.length ||
-                cardContent[secondLensId]?.line ||
-                secondLensLoading) ? (
-                <View style={styles.alsoWrap}>
-                  <View style={styles.alsoDivider} />
-                  <Text style={styles.alsoConnector}>We could also see it like this</Text>
-                  <Text style={styles.alsoQuestion}>{REFLECT_CARDS[secondLensId].title}</Text>
-                  {cardContent[secondLensId]?.options?.length || cardContent[secondLensId]?.line ? (
-                    <ReadPoints
-                      items={
-                        cardContent[secondLensId]?.options?.length
-                          ? cardContent[secondLensId]!.options!
-                          : [cardContent[secondLensId]!.line!]
-                      }
-                    />
-                  ) : (
-                    <View style={styles.reflectStage}>
-                      <ThinkingDots />
-                    </View>
-                  )}
-                </View>
-              ) : null}
-
-              {/* The two chips ride inline right after the reads (guess/draft):
-                  "Reflect more" walks to the next reflection, "Respond" moves the
-                  flow on. Only the text field stays sticky (footer below). Hidden
-                  while she is typing, so a send tap never lands on a chip. */}
-              {!loading && !keyboardUp && (card.mode === 'guess' || card.mode === 'draft') ? (
-                <View style={styles.chipRow}>
-                  <Pressable
-                    onPress={() => advanceCard()}
-                    style={styles.chip}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.chipText}>Reflect more</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => acceptReflect()}
-                    style={[styles.chip, styles.chipPrimary]}
-                    accessibilityRole="button"
-                  >
-                    <Text style={[styles.chipText, styles.chipPrimaryText]}>Respond</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-
               {/* The cycle heads-up: shown AUTOMATICALLY on the first reflect card
-                  when the prediction says she's likely premenstrual — she should
+                  when the prediction says she's likely premenstrual, she should
                   know, we don't make her fish for it (Neha 2026-08-11). Once, never
                   on crisis. It is the ONLY thing PMS changes now; tone and reads are
                   identical whether or not she is in the window. */}
@@ -2953,9 +3230,146 @@ export default function Moment() {
                   </Pressable>
                 </View>
               ) : null}
+              <Text style={[styles.l3Prompt, styles.reflectTitle]}>{card.title}</Text>
+              {card.subtitle ? <WhyLine>{card.subtitle}</WhyLine> : null}
+              {loading ? (
+                <View style={styles.reflectStage}>
+                  <ThinkingDots label={AI_THINKING} />
+                </View>
+              ) : card.mode === 'guess' ? (
+                // The rephrasing: a GROWING list of reads to sit with. Calm comes
+                // from reading more angles, not picking one. Left-aligned points
+                // divided by lines, not boxes, the same for every reading card
+                // including `middle` (Neha 2026-08-10).
+                <ReadPoints
+                  items={content.options?.length ? content.options : SETS.smallReframes}
+                  loading={moreLoading}
+                  react={reflectReact}
+                  expand={reflectExpand}
+                />
+              ) : card.mode === 'question' ? (
+                // Her own words, quieter than the question so the question leads
+                // and the quote reads as "here's your thought", not a second title.
+                <Text style={styles.reflectQuote}>{herClause}</Text>
+              ) : (
+                // Draft: the AI's reading as a single point, same voice as the reads.
+                <ReadPoints
+                  items={[content.line ?? SETS.smallReframes[0]]}
+                  react={reflectReact}
+                  expand={reflectExpand}
+                />
+              )}
+
+              {/* Second lens (Neha 2026-08-10): when her added context surfaced a
+                  frame her entry didn't, that reflection's reads sit here under a
+                  soft connector, additive, one page, no screen-swap. Shows only
+                  while it has content or is still fetching; a failed fetch is silent. */}
+              {!loading &&
+              secondLensId &&
+              (cardContent[secondLensId]?.options?.length ||
+                cardContent[secondLensId]?.line ||
+                secondLensLoading) ? (
+                <View style={styles.alsoWrap}>
+                  <View style={styles.alsoDivider} />
+                  <Text style={styles.alsoConnector}>We could also see it like this</Text>
+                  <Text style={styles.alsoQuestion}>{REFLECT_CARDS[secondLensId].title}</Text>
+                  {cardContent[secondLensId]?.options?.length || cardContent[secondLensId]?.line ? (
+                    // The second lens gets the same controls as any other read
+                    // (2026-08-21). It was the ONE place a read could not be
+                    // hearted or opened, so the controls vanished exactly where
+                    // she had gone deepest. Its own scope, so its reactions and
+                    // expansions never mix with the primary card's.
+                    <ReadPoints
+                      items={
+                        cardContent[secondLensId]?.options?.length
+                          ? cardContent[secondLensId]!.options!
+                          : [cardContent[secondLensId]!.line!]
+                      }
+                      react={{
+                        scope: `also:${secondLensId}:${reflectRetry}`,
+                        reactions,
+                        onReact: (index, text, next) =>
+                          recordReaction(`also:${secondLensId}:${reflectRetry}`, index, text, next),
+                      }}
+                      expand={{
+                        scope: `also:${secondLensId}:${reflectRetry}`,
+                        open: expanded,
+                        busy: expanding,
+                        onExpand: (index, text) =>
+                          expandRead(`also:${secondLensId}:${reflectRetry}`, index, text),
+                      }}
+                    />
+                  ) : (
+                    <View style={styles.reflectStage}>
+                      <ThinkingDots />
+                    </View>
+                  )}
+                </View>
+              ) : null}
+
+              {/* The two chips ride inline right after the reads (guess/draft):
+                  "Reflect differently" walks to the NEXT LENS, a different question
+                  entirely, which is what it always did; it used to say "Reflect
+                  more", which promised more of the same. "Respond" moves the
+                  flow on. Only the text field stays sticky (footer below). Hidden
+                  while she is typing, so a send tap never lands on a chip. */}
+              {/* More of THIS lens (Neha 2026-08-20). Deliberately a quiet link and
+                  not a chip: it appends to the list she is already reading rather
+                  than moving her anywhere, so it should not compete with the two
+                  decisions below it. Guess cards only, since a draft card has one
+                  line and "more of these" means nothing there. */}
+              {!loading && !keyboardUp && card.mode === 'guess' && content.options?.length ? (
+                <Pressable
+                  onPress={() => moreReads()}
+                  disabled={moreLoading}
+                  style={styles.differentWay}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show more reads like these"
+                >
+                  <View style={styles.showMoreRow}>
+                    <Text style={styles.skipLinkText}>
+                      {moreLoading ? 'Finding more' : 'Show more of these'}
+                    </Text>
+                    <SymbolView
+                      name="chevron.down"
+                      size={11}
+                      weight="semibold"
+                      tintColor={colors.textOnDark.tertiary}
+                    />
+                  </View>
+                </Pressable>
+              ) : null}
+
+              {!loading && !keyboardUp && (card.mode === 'guess' || card.mode === 'draft') ? (
+                <View style={styles.chipRow}>
+                  {/* Reflect differently leads, on every card and at every depth
+                      (Neha 2026-08-21). Responding early is the failure mode this
+                      flow exists to slow down. An earlier version flipped the
+                      hierarchy after three lenses, which meant the same two buttons
+                      swapped weight partway through a session: that reads as the app
+                      changing its mind, not as guidance. Respond stays a real,
+                      unshamed exit the whole way through, just quieter. */}
+                  <Pressable
+                    onPress={() => advanceCard()}
+                    style={[styles.chip, styles.chipPrimary]}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.chipText, styles.chipPrimaryText]}>
+                      Reflect differently
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => acceptReflect()}
+                    style={styles.chip}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.chipText}>Respond</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </>
           ),
-          // Sticky footer. Guess/draft: ONLY the text field stays pinned here —
+          // Sticky footer. Guess/draft: ONLY the text field stays pinned here, 
           // its two actions (Reflect more / Respond) now ride inline under the
           // reads (Neha 2026-08-10). Question: the two answer buttons (the reality
           // check IS the action).
@@ -2963,8 +3377,8 @@ export default function Moment() {
             <View style={styles.stack}>
               {card.mode === 'guess' || card.mode === 'draft' ? (
                 entryField({
-                  placeholder: 'Say more, or add your own take',
-                  a11yLabel: 'Add context',
+                  placeholder: 'Add context, ask about this, or correct me',
+                  a11yLabel: 'Add context, ask a question, or correct this',
                   onSend: card.mode === 'guess' ? submitMoreContext : refineDraft,
                   autoFocus: false,
                   compact: true,
@@ -2996,7 +3410,7 @@ export default function Moment() {
       }
 
       // The warm ending (Neha 2026-08-01), replacing the closing "And now?" 0-10
-      // rating: name the three phases done and hand her evening back — no more
+      // rating: name the three phases done and hand her evening back, no more
       // "how do you feel", which pulls her into monitoring right when she should
       // disengage. Then the reward.
       case 'sendoff':
@@ -3182,7 +3596,7 @@ export default function Moment() {
       // The settling menu (Neha 2026-07-29): four ways to fill the wait, each a
       // full-screen route she does and marks done; she can do as many as she
       // likes. Colour is the flagship (recommended). "I am ready to respond" is
-      // the cta — always there, un-shamed, and it is what advances the flow.
+      // the cta, always there, un-shamed, and it is what advances the flow.
       case 'activities': {
         // M8 (wait path): body-prep as one item in the settling list. Tapping it
         // opens the same checklist; Done returns to the list.
@@ -3205,7 +3619,7 @@ export default function Moment() {
 
         // C5: a fast body reset (cold water / shoulders) as a guided in-place
         // step. Done marks it finished, which fires the shine + praise and shows
-        // the check back on the list — a real little flow, not a vanishing snack.
+        // the check back on the list, a real little flow, not a vanishing snack.
         if (microStep) {
           const m = MICRO[microStep];
           return {
@@ -3434,7 +3848,7 @@ export default function Moment() {
                     style={styles.input}
                     value={actDraft}
                     onChangeText={setActDraft}
-                    placeholderTextColor="rgba(255,255,255,0.30)"
+                    placeholderTextColor={colors.textOnDark.placeholder}
                     selectionColor="rgba(196, 178, 255, 0.9)"
                     multiline
                     textAlignVertical="top"
@@ -3647,7 +4061,7 @@ export default function Moment() {
     return {
       body: <CrisisSheet crisisType={crisisType.current} />,
       // "No am good, let me rephrase" returns her to her own words (setCrisis
-      // false) instead of exiting the moment — her draft is intact, so she can
+      // false) instead of exiting the moment, her draft is intact, so she can
       // edit and resend (Neha 2026-08-02). Resources stay one send away. This is
       // the ONLY setCrisis(false): the AI/keyword layer may only turn crisis ON.
       // The back label is identical across both copies, so CRISIS_COPY.back fits.
@@ -3704,7 +4118,7 @@ const CLARIFY_ASK: Record<ClarifyReason, string> = {
  * the placeholder is the only place the app can say what kind of answer works.
  * The third is the most useful of the three: it tells her, without lecturing,
  * that the app works from what happened rather than from what she thinks it
- * meant — which is also why it declined to say her line back to her.
+ * meant, which is also why it declined to say her line back to her.
  */
 const CLARIFY_HINT: Record<ClarifyReason, string> = {
   'too-short': 'One sentence is plenty. What was said or done, and by whom.',
@@ -3744,7 +4158,7 @@ const BRANCH_LABEL: Record<string, string> = {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
-/** One heart / cross control under a reflect read. A soft scale settle on tap —
+/** One heart / cross control under a reflect read. A soft scale settle on tap, 
  *  calm, no bounce (this is a hard moment). Lit uses `activeName`/`activeTint`. */
 function ReactionButton({
   active,
@@ -3830,6 +4244,15 @@ type ReadReactProps = {
   onReact: (index: number, text: string, next: Reaction) => void;
 };
 
+/** Depth on tap (2026-08-19). Same scope/index keying as the reactions, so a
+ *  re-rolled list cannot show the previous line's expansion under a new read. */
+type ReadExpandProps = {
+  scope: string;
+  open: Record<string, string>;
+  busy: string | null;
+  onExpand: (index: number, text: string) => void;
+};
+
 /** Reflect reads as left-aligned points divided by hairlines, not boxes (Neha
  *  2026-08-10). One bullet per read, a thin line between. `loading` appends a
  *  quiet thinking row for an in-flight fetch. Used by every guess/draft card.
@@ -3839,28 +4262,60 @@ function ReadPoints({
   items,
   loading,
   react,
+  expand,
 }: {
   items: readonly string[];
   loading?: boolean;
   react?: ReadReactProps;
+  expand?: ReadExpandProps;
 }) {
   return (
     <View>
-      {items.map((o, i) => (
-        <View key={`${i}-${o}`}>
-          {i > 0 ? <View style={styles.readDivider} /> : null}
+      {items.map((o, i) => {
+        const key = expand ? reactionKey(expand.scope, i) : '';
+        const openText = expand ? expand.open[key] : undefined;
+        const busy = expand ? expand.busy === key : false;
+        // The read itself is the tap target when expansion is wired. No chevron
+        // and no "read more" label: a control on every line would turn a quiet
+        // list of maybes into a menu, which is the thing the points UI replaced.
+        const line = (
           <View style={styles.readRow}>
             <Text style={styles.readBullet}>{'•'}</Text>
             <Text style={styles.readText}>{o}</Text>
           </View>
-          {react ? (
-            <PointReaction
-              reaction={reactionAt(react.reactions, react.scope, i)}
-              onReact={(next) => react.onReact(i, o, next)}
-            />
-          ) : null}
-        </View>
-      ))}
+        );
+        return (
+          <View key={`${i}-${o}`}>
+            {i > 0 ? <View style={styles.readDivider} /> : null}
+            {expand ? (
+              <Pressable
+                onPress={() => expand.onExpand(i, o)}
+                accessibilityRole="button"
+                accessibilityLabel={openText ? `Close: ${o}` : `Sit with this: ${o}`}
+              >
+                {line}
+              </Pressable>
+            ) : (
+              line
+            )}
+            {busy ? (
+              <View style={styles.readExpandWrap}>
+                <ThinkingDots />
+              </View>
+            ) : openText ? (
+              <View style={styles.readExpandWrap}>
+                <Text style={styles.readExpandText}>{openText}</Text>
+              </View>
+            ) : null}
+            {react ? (
+              <PointReaction
+                reaction={reactionAt(react.reactions, react.scope, i)}
+                onReact={(next) => react.onReact(i, o, next)}
+              />
+            ) : null}
+          </View>
+        );
+      })}
       {loading ? (
         <>
           {items.length > 0 ? <View style={styles.readDivider} /> : null}
@@ -3875,7 +4330,7 @@ function ReadPoints({
 
 /** A turn in the open reflect chat. Moon replies either as a plain line (a short
  *  reflective reply / off-topic decline) OR, when her message fits a reading lens,
- *  as that template's reads — the SAME points UI as the cards (Neha 2026-08-10). */
+ *  as that template's reads, the SAME points UI as the cards (Neha 2026-08-10). */
 type ChatTurn =
   | { role: 'you'; text: string }
   | { role: 'moon'; text: string }
@@ -3891,42 +4346,96 @@ function chatTurnText(m: ChatTurn): string {
 function ChatTurns({
   log,
   react,
+  expand,
 }: {
   log: ChatTurn[];
   react?: {
     reactions: PointReactions;
     onReact: (scope: string, index: number, text: string, next: Reaction) => void;
   };
+  // Depth on tap reaches the chat too (2026-08-19). It was wired to the cards
+  // first and stopped there, which left the chat as the one surface where a line
+  // that landed was a dead end: her reply is capped at two sentences by
+  // reflect_chat, so without this the cap has no release valve. Same scope shape
+  // as the reactions above, so a turn's reads and its expansions agree.
+  expand?: {
+    open: Record<string, string>;
+    busy: string | null;
+    onExpand: (scope: string, index: number, text: string) => void;
+  };
 }) {
   return (
     <>
-      {log.map((m, i) =>
-        m.role === 'you' ? (
-          <View key={i} style={styles.chatYou}>
+      {log.map((m, i) => {
+        const scope = `chat:${i}`;
+        const expandFor = expand
+          ? {
+              scope,
+              open: expand.open,
+              busy: expand.busy,
+              onExpand: (index: number, text: string) => expand.onExpand(scope, index, text),
+            }
+          : undefined;
+        if (m.role === 'you') {
+          return (
+            <View key={i} style={styles.chatYou}>
+              <Text style={styles.chatText}>{m.text}</Text>
+            </View>
+          );
+        }
+        if ('reads' in m) {
+          return (
+            <View key={i} style={styles.chatReads}>
+              <Text style={styles.alsoQuestion}>{m.title}</Text>
+              <ReadPoints
+                items={m.reads}
+                react={
+                  react
+                    ? {
+                        scope,
+                        reactions: react.reactions,
+                        onReact: (index, text, next) => react.onReact(scope, index, text, next),
+                      }
+                    : undefined
+                }
+                expand={expandFor}
+              />
+            </View>
+          );
+        }
+        // Moon's plain line. Two sentences by design, so it is the turn most
+        // likely to land and leave her with nowhere to go. Tapping opens it out
+        // the same way a read opens, index 0 because the bubble is the only line.
+        const key = reactionKey(scope, 0);
+        const openText = expand?.open[key];
+        const busy = expand?.busy === key;
+        const bubble = (
+          <View style={styles.chatMoon}>
             <Text style={styles.chatText}>{m.text}</Text>
+            {busy ? (
+              <View style={styles.chatExpandWrap}>
+                <ThinkingDots />
+              </View>
+            ) : openText ? (
+              <View style={styles.chatExpandWrap}>
+                <Text style={styles.readExpandText}>{openText}</Text>
+              </View>
+            ) : null}
           </View>
-        ) : 'reads' in m ? (
-          <View key={i} style={styles.chatReads}>
-            <Text style={styles.alsoQuestion}>{m.title}</Text>
-            <ReadPoints
-              items={m.reads}
-              react={
-                react
-                  ? {
-                      scope: `chat:${i}`,
-                      reactions: react.reactions,
-                      onReact: (index, text, next) => react.onReact(`chat:${i}`, index, text, next),
-                    }
-                  : undefined
-              }
-            />
-          </View>
+        );
+        return expand ? (
+          <Pressable
+            key={i}
+            onPress={() => expand.onExpand(scope, 0, m.text)}
+            accessibilityRole="button"
+            accessibilityLabel={openText ? `Close: ${m.text}` : `Sit with this: ${m.text}`}
+          >
+            {bubble}
+          </Pressable>
         ) : (
-          <View key={i} style={styles.chatMoon}>
-            <Text style={styles.chatText}>{m.text}</Text>
-          </View>
-        ),
-      )}
+          <View key={i}>{bubble}</View>
+        );
+      })}
     </>
   );
 }
@@ -3959,7 +4468,7 @@ const styles = StyleSheet.create({
   confetti: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   // "The situation" is a label sitting above; the moon and the question below
   // it are one unit, so the gap here is what separates label from speech.
-  // No scrim of its own — the whole-card dark tint (glassTint) keeps the speaker
+  // No scrim of its own, the whole-card dark tint (glassTint) keeps the speaker
   // + question legible, so the head is just spacing.
   head: { gap: spacing.sm },
   // The moon sits ON the question's first line, not above the whole block, so
@@ -3994,13 +4503,13 @@ const styles = StyleSheet.create({
   // than a flat panel, so the colour behind it carries through.
   // A floating glass panel rather than a sheet welded to the screen edge.
   // Every corner is rounded and the hairline runs the whole way round, so
-  // there is no point where an edge starts or stops mid-curve — which is what
+  // there is no point where an edge starts or stops mid-curve, which is what
   // was reading as broken when the outline only covered the top.
   card: {
     // FILLS the screen (flex:1, no maxHeight cap) so the frosted glass covers
     // the whole area and there is no exposed sky/moon below a short beat. The
     // moon is hidden during the session, so behind the empty glass is only the
-    // plain starfield — a full frosted surface, not a small card floating over a
+    // plain starfield, a full frosted surface, not a small card floating over a
     // big moon.
     flex: 1,
     marginHorizontal: spacing.md,
@@ -4026,10 +4535,10 @@ const styles = StyleSheet.create({
   // Composer beats only: grow to fill, pushing the chat-style field (in the CTA
   // slot) down to the bottom edge like a messaging bar.
   scrollGrow: { flexGrow: 1 },
-  // A light frost darkening over the blur — Home's exact value, kept translucent
+  // A light frost darkening over the blur, Home's exact value, kept translucent
   // so the moon's halo and the cosmic sky glow through the glass.
   // The whole-card dark tint. Per-element tints (a well behind each button, a
-  // scrim behind the head) read patchy — the bright moon showed through the gaps
+  // scrim behind the head) read patchy, the bright moon showed through the gaps
   // between them. So the tint lives HERE, over the entire frosted card, and
   // everything sits on one uniform dark surface. The moon still shows, now as a
   // soft dim glow rather than a legibility problem.
@@ -4048,10 +4557,15 @@ const styles = StyleSheet.create({
   // The per-beat block rhythm. It moved off `cardBody` onto the crossfade
   // wrapper (the scroll's single child), so the gap falls between the beat's
   // own blocks again rather than doing nothing between one lone wrapper.
-  beatBody: { gap: spacing.lg },
+  // 24, not 16 (2026-08-21). Reads sit 8 above and below their divider, so two
+  // reads are 16 apart. With blocks also 16 apart, an item inside a group was
+  // exactly as far from its neighbour as the whole group was from the next thing,
+  // and the reads stopped reading as one object. Proximity is the only grouping
+  // cue on this card, since there are no boxes. Items close, groups apart.
+  beatBody: { gap: spacing.xxl },
   cta: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: spacing.xl },
 
-  // TYPE SCALE — four roles, no more (Neha 2026-07-28). Every text on a card is
+  // TYPE SCALE, four roles, no more (Neha 2026-07-28). Every text on a card is
   // one of these; if a new size is tempting, it is a sign two things want to be
   // one.
   //   H1     the beat's question / heading  → `ask`         (SemiBold 21)
@@ -4064,7 +4578,7 @@ const styles = StyleSheet.create({
   // Gives the masked AI text the same row flex the plain Text had, so it wraps
   // to the card width instead of collapsing to its content.
   askFill: { flex: 1 },
-  // H1 — the beat's question. `moon.title` (20 semibold, -0.2 tracking).
+  // H1, the beat's question. `moon.title` (20 semibold, -0.2 tracking).
   ask: {
     ...moon.title,
     flex: 1,
@@ -4074,7 +4588,7 @@ const styles = StyleSheet.create({
   input: {
     ...moon.body,
     color: colors.textOnDark.primary,
-    // A dark, mostly-opaque well — darker than the card's frost tint (0.20), so
+    // A dark, mostly-opaque well, darker than the card's frost tint (0.20), so
     // the field reads as a recessed surface and light text stays legible over
     // the moon glowing through the translucent card behind it.
     backgroundColor: 'rgba(10,8,16,0.55)',
@@ -4105,8 +4619,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     // FIXED height, not min/max: the field must never grow with the text, or it
     // eats upward and pushes the speaker off the top. At a fixed height the
-    // speaker stays pinned above and the send button below — both always in
-    // place — and a long entry scrolls INSIDE the field instead.
+    // speaker stays pinned above and the send button below, both always in
+    // place, and a long entry scrolls INSIDE the field instead.
     height: 150,
   },
   // The slim chat-bar variant: a single row, input + send inline, the field height
@@ -4141,7 +4655,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primarySolid,
   },
-  sendBtnOff: { backgroundColor: 'rgba(255,255,255,0.10)' },
+  sendBtnOff: { backgroundColor: colors.border.faint },
   todo: {
     ...moon.caption,
     letterSpacing: 0.6,
@@ -4164,7 +4678,7 @@ const styles = StyleSheet.create({
   // smaller: the app is not making a point here, it is showing it listened.
   saidLine: {
     // The moon's spoken line. SAME SIZE as the question now (it only layers over
-    // `ask`, so dropping the size override lets it inherit the title size —
+    // `ask`, so dropping the size override lets it inherit the title size, 
     // Moon's voice is one consistent size, Neha 2026-08-02). It still reads
     // lighter than the SemiBold question through WEIGHT (medium), not size or
     // dimness. Medium + primary (0.95) white keeps it legible over the moon glow;
@@ -4207,7 +4721,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   // The guided micro reset (cold water / relax shoulders): the shared `settles`
-  // subtitle read too small here. Its own larger, brighter type — a real
+  // subtitle read too small here. Its own larger, brighter type, a real
   // instruction to follow, not fine print.
   microTitle: {
     ...moon.title,
@@ -4233,7 +4747,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   stack: { gap: spacing.sm },
-  // Reflect cards — the Training Level-3 look (game-v3 LevelThree), so the cards
+  // Reflect cards, the Training Level-3 look (game-v3 LevelThree), so the cards
   // feel native to the app: a centred prompt (the card title), a big line or
   // tappable options below, then the yes/second controls.
   l3Prompt: {
@@ -4243,7 +4757,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
-  // The AI line (draft): the big text she rules on — the hero of the card.
+  // The AI line (draft): the big text she rules on, the hero of the card.
   reflectLine: {
     ...moon.voice,
     color: colors.textOnDark.primary,
@@ -4308,22 +4822,38 @@ const styles = StyleSheet.create({
     ...moon.caption,
     color: colors.textOnDark.tertiary,
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
     marginTop: spacing.sm,
   },
   factResultRow: { gap: spacing.xs, marginBottom: spacing.sm },
   // Reflect reads as points (Neha 2026-08-10): left-aligned title, then bullet
   // rows divided by hairlines, then the two chips inline. Calmer than boxes.
   reflectTitle: { textAlign: 'left', marginBottom: spacing.md },
-  readRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.md },
+  // Tightened 2026-08-21 (Neha: "make the reflect page longer, to avoid
+  // scrolling"). The screen cannot grow, so the only way to fit more of the card
+  // is to stop spending height between the reads. sm top and bottom still leaves
+  // a clear band per read, and the hairline divider is what separates them
+  // anyway, not the gap.
+  readRow: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm },
   readBullet: { ...moon.body, fontFamily: fonts.regular, color: 'rgba(196,178,255,0.9)' },
   // The reads are the primary thing she reads; moon.body is `light` and rendered
   // too thin on device (Neha 2026-08-13), so the reads step up to `regular`.
   readText: { ...moon.body, fontFamily: fonts.regular, flex: 1, color: colors.textOnDark.primary },
-  readDivider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.1)' },
+  readDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border.faint },
+  // The opened-out read (2026-08-19). Indented to the bullet's text column and a
+  // step quieter than the read, so it reads as the same thought going deeper and
+  // never competes with the line she tapped.
+  readExpandWrap: { paddingLeft: spacing.md + spacing.sm, paddingBottom: spacing.md },
+  // Inside Moon's chat bubble the text is already inset, so the opened-out reply
+  // only needs separating from the line above it, not indenting again.
+  chatExpandWrap: { paddingTop: spacing.sm },
+  readExpandText: {
+    ...moon.body,
+    fontFamily: fonts.regular,
+    color: colors.textOnDark.secondary,
+  },
   // Per-read reactions sit under the read, indented past the bullet so they read
-  // as belonging to it. Generous gap + hit area — there's vertical room and this
+  // as belonging to it. Generous gap + hit area, there's vertical room and this
   // is a hard moment (Neha 2026-08-12).
   reactRow: {
     flexDirection: 'row',
@@ -4333,12 +4863,13 @@ const styles = StyleSheet.create({
   },
   reactBtn: { paddingVertical: spacing.xs, paddingHorizontal: spacing.xs },
   chipRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  showMoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   chip: {
     borderRadius: radius.pill,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: colors.border.strong,
   },
   chipText: { ...moon.bodyStrong, color: colors.textOnDark.primary },
   chipPrimary: { backgroundColor: colors.primarySolid, borderColor: 'transparent' },
@@ -4369,7 +4900,7 @@ const styles = StyleSheet.create({
   alsoWrap: { marginTop: spacing.md },
   alsoDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: colors.fill.strong,
     marginBottom: spacing.md,
   },
   alsoConnector: { ...moon.caption, color: colors.textOnDark.tertiary, marginBottom: spacing.xs },
@@ -4408,7 +4939,7 @@ const styles = StyleSheet.create({
   chatThinking: { paddingVertical: spacing.md },
   chatText: { ...moon.body, color: colors.textOnDark.primary },
   // A lens reply in the chat: full-width (Moon's side), the question then its reads
-  // as points — the same UI as the cards, so the chat stays a reflection.
+  // as points, the same UI as the cards, so the chat stays a reflection.
   chatReads: { alignSelf: 'stretch', marginVertical: spacing.xs },
   // Magic-ball settling grid: two orbs per row (activity-ball tiles).
   activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -4417,9 +4948,9 @@ const styles = StyleSheet.create({
   divider: {
     alignSelf: 'stretch',
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.fill.strong,
   },
-  // Secondary action, bordered (sibling to the primary's rounded shape) — e.g.
+  // Secondary action, bordered (sibling to the primary's rounded shape), e.g.
   // "Save for later" on the draft screen.
   secondaryBtn: {
     alignSelf: 'stretch',
@@ -4428,7 +4959,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     borderCurve: 'continuous',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
+    borderColor: colors.border.strong,
   },
   secondaryBtnText: {
     ...moon.bodyStrong,
@@ -4501,8 +5032,8 @@ const styles = StyleSheet.create({
     color: colors.textSubtitle,
   },
 
-  // The safety guard, above the timer ball. Clear and centred — the one
-  // instruction that matters here — with the benefit a lighter line under it.
+  // The safety guard, above the timer ball. Clear and centred, the one
+  // instruction that matters here, with the benefit a lighter line under it.
   holdGuardBlock: { alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.sm },
   holdGuard: {
     ...moon.title,
@@ -4537,7 +5068,7 @@ const styles = StyleSheet.create({
 
   // The welcome: an encouraging lead, then the three states as a connected
   // stepper in their own flow colours, then the "with Moon AI" signature.
-  // Generous spacing — it is the calm front door.
+  // Generous spacing, it is the calm front door.
   introWrap: { gap: spacing.lg, paddingVertical: spacing.xs },
   introLead: { gap: spacing.xs, alignItems: 'center', paddingHorizontal: spacing.sm },
   introHead: {

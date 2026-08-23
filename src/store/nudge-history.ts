@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { withStoreLock } from './storage-lock';
 
-// Phase B4 — nudge history (the ground truth).
+// Phase B4, nudge history (the ground truth).
 //
 // Every "feeling tense?" nudge and the user's Yes / No / Not-now answer is
 // recorded here, on device only. This is the answer key the whole system tunes

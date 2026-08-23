@@ -1,5 +1,5 @@
 // Flower line-art (SVG path), from Neha's supplied SVG (flower5-svgrepo-com).
-// One continuous outline path in a 241.35 square viewBox — used as the guide the
+// One continuous outline path in a 241.35 square viewBox, used as the guide the
 // colouring is drawn under, stroked on top so her colour shows through.
 
 export const FLOWER = {

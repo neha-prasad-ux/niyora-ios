@@ -34,7 +34,7 @@ function parseRecords(raw: string | null): SessionRecord[] {
 // Pure computation: walk backward from now counting consecutive days that have
 // sessions, frozen dates, or can be bridged by a freeze.
 // A freeze only bridges a SINGLE missed day that has a session or frozen date
-// on the far side — preventing freezes from extending past the session history.
+// on the far side, preventing freezes from extending past the session history.
 function computeEffectiveStreak(
   sessionDates: Set<string>,
   freezeState: FreezeState,
@@ -56,7 +56,7 @@ function computeEffectiveStreak(
       offset++;
     } else {
       // No session here. Only bridge if the day further back (offset+1) also
-      // has a session or frozen date — ensuring a freeze spans exactly one gap.
+      // has a session or frozen date, ensuring a freeze spans exactly one gap.
       const behind = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (offset + 1));
       const behindStr = localDateStr(behind);
       if (remaining > 0 && (sessionDates.has(behindStr) || frozenDates.has(behindStr))) {

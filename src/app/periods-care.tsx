@@ -1,5 +1,5 @@
 // The Periods-care checklist: soothing things for the heavy days, opened from
-// the Grow tab. A gentle list, not a program — tick what you've done today and
+// the Grow tab. A gentle list, not a program, tick what you've done today and
 // it holds until tomorrow. Ticking earns no light (the period is the rest
 // phase); it just lets the list remember. Rows that map to a real activity are
 // tappable: they open the full guided activity (which does earn light, like any

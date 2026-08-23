@@ -23,7 +23,7 @@ describe('preparednessScore', () => {
     expect(preparednessScore(NONE, false)).toBe(0);
   });
 
-  it('never reaches the ceiling — even everything done', () => {
+  it('never reaches the ceiling, even everything done', () => {
     const max = preparednessScore(ALL, true);
     expect(max).toBeLessThan(PREP_CEILING + 1e-9);
     expect(max).toBeLessThan(1);
@@ -38,7 +38,7 @@ describe('preparednessScore', () => {
     }
   });
 
-  it('has diminishing returns — each step adds less than the last', () => {
+  it('has diminishing returns, each step adds less than the last', () => {
     const s = [0, 1, 2, 3].map((n) => preparednessScore(checksWith(n), false));
     const d1 = s[1] - s[0];
     const d2 = s[2] - s[1];

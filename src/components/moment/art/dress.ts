@@ -1,5 +1,5 @@
 // A ball-gown silhouette (bell skirt + sweetheart bodice), hand-built as an SVG
-// path — a placeholder for a real "Cinderella dress" SVG, which drops in the
+// path, a placeholder for a real "Cinderella dress" SVG, which drops in the
 // same way the flower did (paste the path's `d` and its viewBox size here).
 //
 // The dress is the SHAPE her photo gets masked into: strapless bodice down to a

@@ -2,7 +2,7 @@
 // CosmicBackground and the scrolling content. Its whole job is to give the glass
 // cards something to FROST: over pure black a glass card refracts nothing and
 // goes flat grey, so a few big, low, desaturated glows bleed across the screen
-// and the cards lens them as they scroll — that shimmer is what reads as glass.
+// and the cards lens them as they scroll, that shimmer is what reads as glass.
 //
 // Kept muted and cool (barely-there violet/blue), so it never becomes colour on
 // a card, only a faint light the frost catches. Pointer-safe; behind everything.

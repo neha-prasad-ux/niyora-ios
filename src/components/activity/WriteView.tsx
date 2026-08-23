@@ -54,7 +54,7 @@ export function WriteView({ activity, onComplete }: Props) {
     Keyboard.dismiss();
 
     // CRISIS SCAN. This field is the one place in the app where she writes
-    // whatever she wants, unprompted, knowing it disappears — which is exactly
+    // whatever she wants, unprompted, knowing it disappears, which is exactly
     // where someone puts the thing they would never tap a button about. Wysa's
     // data: 82% of crisis instances were surfaced by DETECTION, only 18% by the
     // user saying so.
@@ -83,7 +83,7 @@ export function WriteView({ activity, onComplete }: Props) {
     //    subtler self-harm read the keyword list missed can still cancel the
     //    dissolve and show the resources (escalate-only). NO onAbuse here
     //    (Neha 2026-08-12): a plain physical-abuse mention must NOT pop the DV
-    //    sheet on this ephemeral field — that is loud on a shared/monitored phone,
+    //    sheet on this ephemeral field, that is loud on a shared/monitored phone,
     //    against the disclosure-minimising design. Genuine ACUTE violence still
     //    escalates via the AI crisis net (onEscalate). If it resolves after the
     //    words dissolved and the field unmounted, `mounted` makes it a safe no-op.

@@ -76,7 +76,7 @@ export function PeriodCalendar({
     () => ({
       Day: (day: CalendarDay) => {
         const isMoon = moonDays.has(dayToYmd(day.date));
-        // Future days (past the cap) are unselectable — show that, so a tap that
+        // Future days (past the cap) are unselectable, show that, so a tap that
         // does nothing reads as "not yet", not a broken calendar.
         const isDisabled = day.isDisabled;
         return (

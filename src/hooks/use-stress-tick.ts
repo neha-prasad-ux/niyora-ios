@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 
 import { liveStressCheck } from '@/lib/stress-tick-live';
 
-// Phase B3 — foreground trigger.
+// Phase B3, foreground trigger.
 //
 // Runs a stress tick when the app launches and each time it returns to the
 // foreground, throttled so rapid background/foreground flips don't re-run it.
@@ -36,7 +36,7 @@ export function useStressTick(enabled: boolean): void {
       liveStressCheck()
         .then(({ refresh, tick }) => {
           if (!cancelled) {
-            // Surfaces in the Metro logs — otherwise silent unless it nudges.
+            // Surfaces in the Metro logs, otherwise silent unless it nudges.
             const r = refresh.refreshed ? ` baseline+${refresh.samples}` : '';
             console.log(
               `[stress-tick] ${trigger}: ${tick.verdict.reason}/${tick.decision.reason} fired=${tick.fired}${r}`,

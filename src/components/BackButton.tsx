@@ -1,5 +1,5 @@
 // The back control, a soft round that matches CloseButton exactly so a
-// full-screen flow can carry both — back on the left, close on the right —
+// full-screen flow can carry both, back on the left, close on the right, 
 // and they read as one set. Same size, same fill, same weight; only the glyph
 // differs.
 

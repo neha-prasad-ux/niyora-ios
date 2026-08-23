@@ -25,7 +25,7 @@ import { weightToFamily } from './fonts';
 
 // Uppercase the first letter of a string, skipping leading whitespace. Leaves
 // the string untouched when its first non-space character is not a lowercase
-// a–z (digits, symbols, already-capital letters), so only sentence starts that
+// a, z (digits, symbols, already-capital letters), so only sentence starts that
 // need it get capitalised.
 function leadCap(s: string): string {
   for (let i = 0; i < s.length; i++) {

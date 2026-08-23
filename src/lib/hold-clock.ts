@@ -4,7 +4,7 @@
 //
 // Remaining time is derived from a START TIMESTAMP, never from counting ticks.
 // The whole point of the hold is that she can put the phone down, which suspends
-// the JS runtime and freezes any interval — a clock stays honest across that
+// the JS runtime and freezes any interval, a clock stays honest across that
 // gap, a tick counter would lie when she comes back.
 
 import { useEffect, useRef, useState } from 'react';
@@ -33,7 +33,7 @@ export function holdRemaining(): number {
 
 /** Live countdown for a hold activity screen (colouring, sky). Starts the clock
  *  on mount if it is not already running, fires `onComplete` once the instant it
- *  reaches zero, and recomputes on return from background — where the interval
+ *  reaches zero, and recomputes on return from background, where the interval
  *  has not been running. Returns the remaining ms and the 0..1 elapsed fraction. */
 export function useHoldCountdown(onComplete: () => void): {
   remaining: number;

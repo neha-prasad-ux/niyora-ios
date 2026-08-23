@@ -21,7 +21,7 @@ describe('voice cue mapping', () => {
         }
       }
     }
-    // If this fails, a technique's phase label changed and its cue went silent —
+    // If this fails, a technique's phase label changed and its cue went silent, 
     // add the label to LABEL_TO_CLIP (or record the matching clip).
     expect(unmapped).toEqual([]);
   });

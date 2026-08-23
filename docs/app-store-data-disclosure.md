@@ -1,10 +1,11 @@
-# Niyora — App Store "App Privacy" data disclosure (2026-08-12)
+# Niyora — App Store "App Privacy" data disclosure (2026-08-12, subscription added 2026-08-23)
 
 The exact answers for the App Store Connect **App Privacy** questionnaire, mapped to
 Apple's data-type categories. Derived from the real architecture, not aspiration:
 `src/store/moment-history.ts` (on-device encrypted memory), `src/lib/moment-gemini.ts`
 (the single AI egress), `src/lib/pii.ts` (the scrub), `src/lib/firebase.ts` (App Check),
-and `docs/launch-prep.md` gate #1.
+`src/lib/premium.ts` and `src/app/paywall.tsx` (the subscription), and `docs/launch-prep.md`
+gate #1.
 
 ## The one thing to understand first
 
@@ -29,6 +30,15 @@ There is **no account, no sign-in, no email collection, no analytics SDK, no adv
 no third-party tracking, no IDFA**. Firebase Auth + Firestore were added then reverted
 (launch-prep note, 2026-08-11); only AI Logic + App Check remain. Because there is no
 identity, **nothing collected can be "Linked to you," and nothing is used for "Tracking."**
+
+The app now sells an auto-renewing subscription, **Niyora Premium**
+(`com.niyora.premium.monthly`, `com.niyora.premium.yearly`). It is StoreKit only, through
+the `expo-iap` library, with no payment SDK, no server of ours, and no receipt validation
+anywhere off the device. The purchase happens between the user and her Apple Account;
+we never see a card, a name, or an Apple Account identifier. The only trace inside the app
+is a boolean cached in AsyncStorage under `niyora:premium` (`src/lib/premium.ts`), which
+never leaves the phone. This adds one **Yes** to the questionnaire, **Purchases**, and it
+is a conservative Yes. See category 11 and flag 7.
 
 Before send, `scrub()` swaps emails, 10–15 digit phone numbers, and cue-marked names for
 reversible stand-ins. It is precise, not exhaustive: bare standalone names ("Sarah slapped
@@ -65,7 +75,12 @@ tracking, ads, or training.
 
 ### 3. Financial Info
 - **Collected? No.**
-- No payments, no in-app purchases, no subscriptions, no financial data of any kind.
+- The app sells an auto-renewing subscription, but it never touches financial data. Payment
+  is handled entirely by Apple through StoreKit: no card number, billing address, bank
+  detail, or credit score reaches the app, and there is no payment processor, no server of
+  ours, and no receipt sent anywhere. Apple's *Financial Info* covers payment instruments
+  and financial account data, none of which the app collects. The fact **that** she bought
+  something is disclosed under *Purchases* (category 11), which is where Apple puts it.
 
 ### 4. Location
 - **Collected? No.**
@@ -119,14 +134,29 @@ tracking, ads, or training.
     IDFA is requested. If the developer confirms Firebase transmits an installations ID,
     disclose Device ID as above. **No User ID** (no accounts).
 
-### 11. Purchases
-- **Collected? No.** No IAP, no purchase history.
+### 11. Purchases  (⚠️ CONSERVATIVE YES, see flags)
+- **Collected? Yes (recommended, conservative).** Subtype: **Purchase History**.
+  - **Linked to identity? No.** The app has no accounts, no sign-in, and no user ID, so
+    there is nothing for a purchase to be linked to. `src/lib/premium.ts` stores one
+    boolean, `niyora:premium`, in the app's own AsyncStorage and reads the live answer back
+    from StoreKit with `hasActiveSubscriptions`. Nothing is ever sent to us, and nothing
+    ties a purchase to a person on our side.
+  - **Used for tracking? No.** No advertising, no data broker, no cross-app or cross-site
+    matching, no IDFA. Nothing about the purchase is combined with any other data.
+  - **Purpose: App Functionality.** The entitlement exists only to open the Moon flow past
+    the free monthly allowance (`canOpenMoment`). It drives no analytics, no messaging, and
+    no personalization.
+  - Justification: the app sells `com.niyora.premium.monthly` and
+    `com.niyora.premium.yearly` through StoreKit via `expo-iap`. Apple, as the store,
+    necessarily has the purchase; we do not, and no third party does. Answering **Yes** here
+    is the safe reading and carries no penalty when it is not linked and not used for
+    tracking. See flag 7 for why **No** is arguable but not recommended.
 
 ### 12. Usage Data
 - **Collected? No.**
 - No analytics SDK, no product-interaction telemetry, no advertising data. launch-prep
-  confirms "No analytics, so lean on testers." (Verify no analytics rides in via a
-  dependency — see flags.)
+  confirms "No analytics, so lean on testers." `expo-iap` is a StoreKit wrapper and sends
+  no telemetry of its own. (Verify no analytics rides in via a dependency — see flags.)
 
 ### 13. Diagnostics
 - **Collected? No.**
@@ -176,6 +206,21 @@ tracking, ads, or training.
    scrub removes some direct identifiers but sends the full emotional narrative. The
    disclosures above already treat the raw text as sent — keep them that way.
 
+7. **Purchases Yes vs No.** **Yes** is the recommendation and the safe answer. The argument
+   for **No** is real and worth knowing, because a reviewer may ask: under Apple's own
+   definition of "Collect", nothing about the purchase is transmitted off the device to us
+   or to a partner. StoreKit is Apple's, the entitlement boolean never leaves the phone,
+   there is no receipt validation server, and no third party is in the path. Some
+   StoreKit-only apps answer **No** on exactly that basis. Answer **Yes** anyway: it costs
+   nothing when the answer is not linked and not tracking, whereas a label that says "no
+   purchase data" on an app with a visible paywall is the kind of mismatch that reads as
+   under-disclosure. Do not answer Yes to *Financial Info*; that one is genuinely No.
+
+8. **Purchases does not depend on the AI flag.** Unlike every other Yes in this document,
+   the subscription is in the build unconditionally. Even a build shipped with AI off still
+   sells Premium, so *Purchases* stays **Yes** in every configuration. Only the
+   User Content, Health and Identifiers answers move with `EXPO_PUBLIC_MOMENT_AI`.
+
 ## Summary table
 
 | Apple category      | Collected | Linked | Tracking | Purpose          |
@@ -190,7 +235,7 @@ tracking, ads, or training.
 | Browsing History    | No        | –      | –        | –                |
 | Search History      | No        | –      | –        | –                |
 | Identifiers ⚠️      | Yes*      | No     | No       | App Functionality|
-| Purchases           | No        | –      | –        | –                |
+| Purchases ⚠️        | Yes*      | No     | No       | App Functionality|
 | Usage Data          | No        | –      | –        | –                |
 | Diagnostics         | No        | –      | –        | –                |
 | Other Data          | No        | –      | –        | –                |
@@ -198,6 +243,8 @@ tracking, ads, or training.
 *Conservative recommendation pending the flagged verification above.
 
 Note: if the store build ships with `EXPO_PUBLIC_MOMENT_AI` off or Firebase unconfigured,
-there is **no AI egress at all** and every "Yes" above becomes **No** (the app is fully
-on-device). The questionnaire must describe the build you actually submit — if AI is on in
-the shipped build, disclose as above.
+there is **no AI egress at all** and the Health & Fitness, User Content and Identifiers
+"Yes" answers become **No** (the app is fully on-device for those). The questionnaire must
+describe the build you actually submit, so if AI is on in the shipped build, disclose as
+above. **Purchases is the exception and stays Yes either way**, because the subscription is
+in the build unconditionally.

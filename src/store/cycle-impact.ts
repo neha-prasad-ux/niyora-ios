@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Per-cycle impact reads — the other axis of the You tab's effort-vs-impact
+// Per-cycle impact reads, the other axis of the You tab's effort-vs-impact
 // chart. At each period boundary the Now tab asks, per life domain, how the
 // cycle that just ended actually landed (rough / okay / fine). Effort (light,
 // engaged days) answers "how much did she meet the app"; this answers "did it
@@ -9,26 +9,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // latest read per domain per cycle (latestReadsByAnchor). On device only.
 //
 // The Now tab owns the asking (when, tone, the "don't ask this" mute); this
-// store is the shared contract — the Reflect flow writes with appendCycleImpact /
+// store is the shared contract, the Reflect flow writes with appendCycleImpact /
 // setDomainMuted, the You tab reads with getCycleImpacts / getMutedDomains.
 
 export type ImpactDomain = 'work' | 'partner' | 'yourself';
 
 // How the cycle landed per domain, as a continuous read on a Rough → Fine
-// track: an integer 0–100 (0 = roughest, 100 = fine). Absolute (not a raw
+// track: an integer 0, 100 (0 = roughest, 100 = fine). Absolute (not a raw
 // delta) so the chart has a stable line and the first cycle still plots.
 // Continuous, because "a little better" is exactly the signal that keeps her
-// logging — a 3-step scale can't show it.
-export type ImpactValue = number; // 0–100, clamped
+// logging, a 3-step scale can't show it.
+export type ImpactValue = number; // 0, 100, clamped
 
 // The coarse rough/okay/fine bucket, derived from a value where any code still
 // wants three bands (e.g. a caption). Kept as a type alias for readability.
 export type ImpactLevel = 1 | 2 | 3;
 
 // Legacy entries (before the continuous scale) stored ImpactLevel 1|2|3. They
-// are reinterpreted onto the 0–100 track at parse time, at the middle of each
+// are reinterpreted onto the 0, 100 track at parse time, at the middle of each
 // band, so old history plots sensibly beside new reads. The store is
-// append-only, so we never rewrite old entries — only reinterpret on read.
+// append-only, so we never rewrite old entries, only reinterpret on read.
 const LEGACY_VALUE: Record<1 | 2 | 3, ImpactValue> = { 1: 15, 2: 50, 3: 85 };
 
 function clampValue(n: number): ImpactValue {
@@ -36,7 +36,7 @@ function clampValue(n: number): ImpactValue {
 }
 
 /**
- * Reinterpret a stored number onto the 0–100 scale. Exactly 1, 2, or 3 is
+ * Reinterpret a stored number onto the 0, 100 scale. Exactly 1, 2, or 3 is
  * treated as a legacy level and mapped to its band's midpoint; every other
  * number is a continuous read, clamped and rounded. New writes never emit
  * 1|2|3 (see reflect.tsx), so this collision is only ever legacy data.
@@ -170,7 +170,7 @@ export function priorDomainReads(
 }
 
 /**
- * The reads from her most recent reflection of any cycle — the ghost "last
+ * The reads from her most recent reflection of any cycle, the ghost "last
  * time" marker a fresh reflection is compared against.
  */
 export function lastImpactReads(
@@ -184,7 +184,7 @@ export function lastImpactReads(
 }
 
 // The domains she has muted ("don't ask this"). The Now tab stops asking; the
-// You tab hides the chip and its line. Kept as a simple global preference — a
+// You tab hides the chip and its line. Kept as a simple global preference, a
 // mute holds across cycles until she turns it back on.
 export function parseMutedDomains(raw: string | null): ImpactDomain[] {
   if (!raw) return [];

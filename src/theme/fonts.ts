@@ -1,5 +1,5 @@
 /**
- * Niyora typography — font families (design-system source of truth).
+ * Niyora typography, font families (design-system source of truth).
  *
  * DESIGN SYSTEM RULE: every piece of text in the app renders in Poppins. We
  * never fall back to the platform system font (SF Pro). This is enforced two
@@ -7,14 +7,14 @@
  *
  *   1. When writing a Text style, prefer a semantic family from `fonts.*`
  *      (or a token from `typography`).
- *   2. As a safety net, `src/theme/apply-poppins.ts` — imported once at the app
- *      root — maps every <Text>/<TextInput>'s `fontWeight` to the matching
+ *   2. As a safety net, `src/theme/apply-poppins.ts`, imported once at the app
+ *      root, maps every <Text>/<TextInput>'s `fontWeight` to the matching
  *      Poppins family at render time. So even a style that forgets `fontFamily`
  *      still renders Poppins at the correct weight.
  *
  * Each Poppins file already carries its weight, so a named family does not need
  * an accompanying `fontWeight` (a matching one is redundant but harmless; a
- * heavier `fontWeight` than the family would trigger ugly synthetic bolding —
+ * heavier `fontWeight` than the family would trigger ugly synthetic bolding, 
  * so map to the right family instead of leaning on `fontWeight`).
  */
 

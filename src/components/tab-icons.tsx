@@ -4,7 +4,7 @@
 // canvas so they can overflow the slot the way it does.
 //
 // Resting, each icon is a flat neutral silhouette; on focus it crossfades to its
-// full colour — the sun a warm glow, the star gold, Today's rings a cool
+// full colour, the sun a warm glow, the star gold, Today's rings a cool
 // moonstone. All three grey out at rest; only the live moon (now the Moon tab)
 // stays lit while resting, because it is her actual moon rather than a symbol.
 
@@ -108,7 +108,7 @@ export function SunIcon({ focused, size = 24 }: TabIconProps) {
 // --- Today: the rings, with no body -------------------------------------------
 // The moon body moved to the Moon tab, so what stays on Today is the ring: the
 // thing she grows, and the daily ask. Drawn as the moon's rings at the same
-// tilt and proportion, so the two icons read as the same object seen twice —
+// tilt and proportion, so the two icons read as the same object seen twice, 
 // but deliberately empty in the middle, because her moon is not here any more.
 //
 // Static, unlike the live moon. The ring here is a symbol for the daily loop,

@@ -1,4 +1,4 @@
-// You: progress, identity, and settings — the third tab. Grew out of the
+// You: progress, identity, and settings, the third tab. Grew out of the
 // My Soul modal (itself ported from the Mac Settings.tsx panel); same cards,
 // now living on a tab instead of behind a close button.
 
@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -28,6 +29,7 @@ import { CosmicBackground } from '@/components/cosmic-background';
 import { GlassCardBg } from '@/components/glass-card-bg';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { SHOW_CHECKIN, SHOW_ANALYTICS, SHOW_MOOD_TREND } from '@/config/features';
+import { redeemComp } from '@/lib/premium';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
 import {
@@ -101,6 +103,8 @@ import { secondaryButtonSurface } from '@/theme/controls';
 import { MAC_SOUL_HUES, MAC_SOUL_DISPLAY, freshSoul } from '@/lib/mac-soul';
 import { MOON_DRAWINGS } from '@/components/moment/moon-drawings';
 import { badgesFrom, getMoments, type MomentRecord } from '@/store/moment-history';
+import { deleteHerContent } from '@/store/delete-her-data';
+import { BADGE_ACT, badgeCount } from '@/v3/moment-copy';
 import { getPmsReads, type PmsRead } from '@/store/pms-reads';
 import { CRISIS_COPY, openCrisisLine } from '@/lib/crisis-scan';
 import { getOnboardingV3Progress } from '@/store/onboarding-v3-progress';
@@ -136,6 +140,7 @@ export default function MySoulScreen() {
   const [periodHistory, setPeriodHistoryState] = useState<string[]>([]);
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [crisisOpen, setCrisisOpen] = useState(false);
+  const [versionTaps, setVersionTaps] = useState(0);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
   // The real feelings she has named and worked through, from on-device history.
   const [moments, setMoments] = useState<MomentRecord[]>([]);
@@ -148,8 +153,12 @@ export default function MySoulScreen() {
     cancelPairing,
   } = useNiyoraSync();
 
-  useFocusEffect(
-    useCallback(() => {
+  /** Deleting her history is confirmed in a destructive alert that names what she
+   *  loses (2026-08-21), never a bare tap on a row. */
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState('');
+
+  const loadAll = useCallback(() => {
       let active = true;
       getMoments().then((m) => {
         if (active) setMoments(m);
@@ -201,8 +210,9 @@ export default function MySoulScreen() {
         if (active) setPmsReads(reads);
       }).catch(() => {});
       return () => { active = false; };
-    }, [])
-  );
+  }, []);
+
+  useFocusEffect(loadAll);
 
   function handleCheckInDone(recorded: boolean) {
     setShowCheckIn(false);
@@ -239,6 +249,27 @@ export default function MySoulScreen() {
     // If she enables it mid-PMS-span, hand straight to the reconciler so the
     // breath reminder pauses right away instead of doubling up until next launch.
     await syncPmsReminders().catch(() => {});
+  }
+
+  /** Runs only after she confirms in the alert. Tells her the truth either way:
+   *  a partial delete that claims success is worse than one that says what is
+   *  left, and the screen reloads so her badges cannot sit there afterwards
+   *  looking like nothing happened. */
+  function runDelete() {
+    setDeleting(true);
+    deleteHerContent()
+      .then(({ failed }) => {
+        setDeleteMsg(
+          failed.length === 0
+            ? 'Your history is deleted.'
+            : 'Some of it could not be deleted. Try again.',
+        );
+        if (failed.length === 0) loadAll();
+        // The row says what happened, then goes back to being a row.
+        setTimeout(() => setDeleteMsg(''), 4000);
+      })
+      .catch(() => setDeleteMsg('Could not delete it. Try again.'))
+      .finally(() => setDeleting(false));
   }
 
   async function handleReminderTimeChange(hour: number, minute: number) {
@@ -279,7 +310,7 @@ export default function MySoulScreen() {
 
   // Logging a period from the calendar: append it to the additive history (the
   // same store onboarding and Now write to) and re-anchor the prediction to the
-  // newest start. This is the edit surface, so it stays light — no moon minting
+  // newest start. This is the edit surface, so it stays light, no moon minting
   // or reflection offers (those belong to the Now honesty loop).
   async function handlePeriodConfirm(dt: Date) {
     const history = await addPeriodStart(toYmdLocal(dt)).catch(() => null);
@@ -318,7 +349,7 @@ export default function MySoulScreen() {
   const level = materialLevel(moonMaterial);
   const totals = foldLedger(ledger);
   const cycleSeries = buildCycleSeries(shelf, ledger);
-  // The live cycle joins the chart so You reflects Now the moment she shows up —
+  // The live cycle joins the chart so You reflects Now the moment she shows up, 
   // shown once she's engaged this cycle, or alongside any completed cycles, but
   // never as a lonely zero point that would only make the empty state look wrong.
   const liveCycle = currentCyclePoint(pmsPrefs.lastPeriodStart, pmsPrefs.cycleLength, ledger, new Date());
@@ -390,10 +421,10 @@ export default function MySoulScreen() {
                 streak={currentStreak}
               />
 
-              <SectionEyebrow title="Your badges" />
+              <SectionEyebrow title="Badges won" />
               <EmotionsCard moments={moments} />
 
-              {/* Eyebrow above the card, matching "Your badges"/"Your growth". */}
+              {/* Eyebrow above the card, matching "Badges won"/"Your growth". */}
               <SectionEyebrow title="You & Niyora" />
               <EffortImpactCard
                 series={cycleSeriesLive}
@@ -492,6 +523,50 @@ export default function MySoulScreen() {
                 <Text style={styles.replayIntroText}>Redo onboarding</Text>
               </Pressable>
 
+              {/* Deleting her history (2026-08-21). The privacy policy has promised
+                  this in two places since launch ("you can delete your history from
+                  within the app") and nothing in the app could do it, so the promise
+                  was not true. Confirmed in an alert that names what she loses, so
+                  a pocket press cannot do it and she is not surprised afterwards.
+                  Settings and her AI consent survive: deleting her diary should not
+                  dump her back into onboarding as a stranger. */}
+              <Pressable
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setDeleteMsg('');
+                  // A system alert, not a second tap on the row. "Delete my
+                  // history" reads like deleting a diary, but what actually goes is
+                  // her badges, the patterns Moon has noticed, and its ability to
+                  // pick up a thread she has worked before. She should be told that
+                  // BEFORE it happens rather than discover it afterwards, and a
+                  // destructive alert is the affordance every iOS user already
+                  // knows how to cancel.
+                  Alert.alert(
+                    'Delete everything you have written?',
+                    'This removes your moments, your badges, the patterns Moon has noticed, and everything about your cycle. Moon will not be able to pick up a thread you have worked on before. Your settings stay. This cannot be undone.',
+                    [
+                      { text: 'Keep it', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: runDelete },
+                    ],
+                  );
+                }}
+                disabled={deleting}
+                hitSlop={8}
+                style={styles.crisisRow}
+                accessibilityRole="button"
+                accessibilityLabel="Delete my history"
+              >
+                <SymbolView
+                  name="trash"
+                  tintColor={colors.textSubtitle}
+                  size={15}
+                  weight="regular"
+                />
+                <Text style={styles.crisisRowText}>
+                  {deleting ? 'Deleting' : deleteMsg || 'Delete my history'}
+                </Text>
+              </Pressable>
+
               <Pressable
                 onPress={() => {
                   Haptics.selectionAsync();
@@ -509,7 +584,22 @@ export default function MySoulScreen() {
               <Text style={styles.footer}>
                 Niyora does not collect any data
               </Text>
-              <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
+              <Pressable
+                onPress={() => {
+                  const n = versionTaps + 1;
+                  if (n < 7) return setVersionTaps(n);
+                  setVersionTaps(0);
+                  Haptics.selectionAsync();
+                  Alert.prompt('Code', undefined, async (code) => {
+                    const ok = await redeemComp(code ?? '');
+                    Alert.alert(ok ? 'Premium is open on this phone.' : 'That code did not work.');
+                  });
+                }}
+                hitSlop={12}
+                accessibilityRole="text"
+              >
+                <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
+              </Pressable>
             </>
           )}
         </ScrollView>
@@ -681,11 +771,17 @@ function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
               </View>
             )}
           </View>
+          {/* Title is what she DID, subtitle is the feeling and how often. The
+              old pair titled the emotion and subtitled its adjective, which said
+              the same word twice and rewarded the wound instead of the work. */}
           <View style={styles.badgeText}>
             <Text style={styles.emotionChipLabel}>
-              {constellation.charAt(0).toUpperCase() + constellation.slice(1)}
+              {BADGE_ACT[constellation] ??
+                constellation.charAt(0).toUpperCase() + constellation.slice(1)}
             </Text>
-            {feelings.length > 0 && <Text style={styles.badgeFeelings}>{feelings.join(', ')}</Text>}
+            <Text style={styles.badgeFeelings}>
+              {[feelings.join(', '), badgeCount(count)].filter(Boolean).join(' · ')}
+            </Text>
           </View>
         </View>
       ))}
@@ -787,7 +883,7 @@ const DOMAIN_COLOR: Record<ImpactDomain, string> = {
 };
 
 // Per-domain caption, keyed off the last move. Honest in both directions: a
-// worse cycle names the dip and credits the effort anyway — never "you slipped"
+// worse cycle names the dip and credits the effort anyway, never "you slipped"
 // (moon-reward-spec.md: honesty is never penalized, copy never says "failed").
 const IMPACT_CAPS: Record<ImpactDomain, Record<'up' | 'flat' | 'down', string>> = {
   work: {
@@ -823,7 +919,7 @@ function SectionEyebrow({ title, hint }: { title: string; hint?: string }) {
 }
 
 // "Where you are": her lifetime tier and the four depth behaviours that move it.
-// No forward requirements, no rainbow — just where she stands and a whisper of
+// No forward requirements, no rainbow, just where she stands and a whisper of
 // how far the ladder runs (the pips).
 function ScoreboardCard({
   material,
@@ -879,8 +975,8 @@ function StatCell({ n, t, suffix }: { n: number; t: string; suffix?: string }) {
   );
 }
 
-// "Is it working?": each cycle's engaged days (faint bars — the effort) under
-// the selected domain's felt line (rough → fine — the impact). The chips switch
+// "Is it working?": each cycle's engaged days (faint bars, the effort) under
+// the selected domain's felt line (rough → fine, the impact). The chips switch
 // domains; muted domains never appear. Until the Now-tab check-in has fed a
 // read, the bars stand alone with a gentle note.
 // An empty state that sells the payoff instead of apologising: a blurred,
@@ -940,7 +1036,7 @@ function GhostPreview({
   );
 }
 
-// Sample data for the blurred previews — never persisted, never shown crisp.
+// Sample data for the blurred previews, never persisted, never shown crisp.
 const GHOST_SERIES: CyclePoint[] = [
   { cycleStart: '2026-04-01', cycleEnd: '2026-05-01', label: 'Apr', engagedDays: 5, span: 30 },
   { cycleStart: '2026-05-01', cycleEnd: '2026-06-01', label: 'May', engagedDays: 8, span: 31 },
@@ -957,7 +1053,7 @@ const GHOST_SHELF: MintedMoon[] = [
 const CHART_H = 156;
 
 // The chart drawing, split out so the live card and the blurred preview render
-// the same shape. `levels` is one impact reading per cycle on the 0–100 scale
+// the same shape. `levels` is one impact reading per cycle on the 0, 100 scale
 // (null = not rated), so the line lands at any height and shows a real slope.
 function EffortChart({
   series,
@@ -1106,7 +1202,7 @@ function EffortImpactCard({
   } else if (present.length < 2) {
     caption = "We have just one cycle to see now, let's see next month";
   } else {
-    // A small wobble on the continuous scale isn't a real move — only credit a
+    // A small wobble on the continuous scale isn't a real move, only credit a
     // change once it crosses a band, so the copy doesn't flip on noise.
     const delta = levelOf(present[present.length - 1]) - levelOf(present[present.length - 2]);
     caption = IMPACT_CAPS[domain][delta > 0 ? 'up' : delta === 0 ? 'flat' : 'down'];
@@ -1165,7 +1261,7 @@ function EffortImpactCard({
   );
 }
 
-// "Your cycles": the shelf as a record. Each confirmed cycle is a minted moon —
+// "Your cycles": the shelf as a record. Each confirmed cycle is a minted moon, 
 // material-tinted, its ring the share of days she engaged, a check on the ones
 // she kept. Tappable back into that cycle's compare (wired when the Now flow
 // lands).
@@ -1642,7 +1738,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.light,
     color: colors.textOnDark.faint,
   },
-  // Scoreboard — no card box; the level line sits under the page header.
+  // Scoreboard, no card box; the level line sits under the page header.
   scoreboard: {
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.xs,
@@ -2128,6 +2224,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
   },
+  // The armed delete row and its confirmation. accentRose, not a new red: this is
+  // a serious action, not an error, and the app has no alarm colour by design.
   crisisRowText: {
     fontSize: fontScale.caption,
     fontFamily: fonts.regular,

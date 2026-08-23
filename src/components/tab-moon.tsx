@@ -1,8 +1,8 @@
 // The Now tab's icon is the actual moon: its lit portion is the persisted
-// brightness (moon-reward-spec.md — full by default, waning only while a
+// brightness (moon-reward-spec.md, full by default, waning only while a
 // lesson is fading) and its tint is the lifetime material, so the reward state
-// travels with her to every tab. It listens to the moon store and pulses — a
-// small swell plus a material-coloured flash — whenever the moon brightens or
+// travels with her to every tab. It listens to the moon store and pulses, a
+// small swell plus a material-coloured flash, whenever the moon brightens or
 // a light mote (light-motes.tsx) lands on it. The selection glow and scale
 // live in the tab bar button, not here; this component only knows how to be a
 // moon.

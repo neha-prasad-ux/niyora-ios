@@ -69,13 +69,22 @@ export const colors = {
     secondary: 'rgba(255, 255, 255, 0.70)',
     tertiary: 'rgba(255, 255, 255, 0.55)',
     faint: 'rgba(255, 255, 255, 0.40)',
+    // Placeholder text only, deliberately below `faint`: a hint should sit under
+    // the dimmest real text, or it reads as something she already typed. Was
+    // hand-written at 0.30 in three places in the Moon flow (2026-08-21).
+    placeholder: 'rgba(255, 255, 255, 0.30)',
   },
 
   // Translucent surface fills, low to high (glass cards, tiles, selected rows).
+  // `on` is the ACTIVE end: a dot she has tapped, the filled part of a bar. The
+  // three below it are resting surfaces, so before it existed every "this one is
+  // chosen" fill in the Moon flow was hand-picked by eye (2026-08-21).
   fill: {
     faint: 'rgba(255, 255, 255, 0.05)',
     base: 'rgba(255, 255, 255, 0.08)',
     strong: 'rgba(255, 255, 255, 0.12)',
+    active: 'rgba(255, 255, 255, 0.35)',
+    on: 'rgba(255, 255, 255, 0.80)',
   },
 
   // Hairline / 1px strokes. `base` matches controls.ts tileSurface,

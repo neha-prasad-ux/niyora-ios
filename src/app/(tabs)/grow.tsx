@@ -1,5 +1,5 @@
-// Grow: the library. Every program and tool lives here as a shelf — training,
-// the calm toolkit, the couples section — so the Now tab can stay a single
+// Grow: the library. Every program and tool lives here as a shelf, training,
+// the calm toolkit, the couples section, so the Now tab can stay a single
 // coached action. Future verticals (CBT, workplace, family) land as new
 // shelves on this page, never as new home cards.
 
@@ -140,7 +140,7 @@ export default function GrowScreen() {
             <Text style={styles.pageSub}>Build emotional skills for softer PMS</Text>
           </View>
 
-          {/* Her PMS preparedness readout — moved here off the Today card. Shows
+          {/* Her PMS preparedness readout, moved here off the Today card. Shows
               only in the build phase and self-loads; renders nothing otherwise. */}
           <PrepCard onCalm={openCalm} />
 

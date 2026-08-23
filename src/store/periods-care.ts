@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // The Periods-care checklist: soothing things she can tick off on the heavy
-// days. Ticks are per-day and live entirely on device — a gentle list, not a
+// days. Ticks are per-day and live entirely on device, a gentle list, not a
 // score, and (unlike the PMS-prep ticks) they earn no light, because the period
 // is the rest phase, not a grind. Keyed by local YMD.
 

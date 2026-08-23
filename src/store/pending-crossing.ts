@@ -5,7 +5,7 @@ import type { Tier } from '@/models/tiers';
 
 // A crossing owed a celebration. recordLight is the one write path for light,
 // but most callers discard its result, so a ring earned by training/noticing/
-// applying/visiting — and every material crossing — used to vanish silently.
+// applying/visiting, and every material crossing, used to vanish silently.
 // Instead recordLight persists the crossing here; Home plays it the next time
 // she lands on the moon, so the "your soul just grew" moment is unified no
 // matter where the light was earned. Consumed and cleared on play. On device.

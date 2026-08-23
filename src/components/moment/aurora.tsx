@@ -65,7 +65,7 @@ type Ribbon = {
   opacity: number;
   /**
    * Seconds for one fade. Deliberately unrelated to `seconds`, so a band's
-   * brightness and its position never come back into step — which is what
+   * brightness and its position never come back into step, which is what
    * stops the sky looking like a loop.
    */
   fadeSeconds: number;
@@ -185,7 +185,7 @@ function Band({ ribbon, w, h }: { ribbon: Ribbon; w: number; h: number }) {
  *
  * Three groups rather than one per star: each group twinkles as a unit on its
  * own slow cycle, so sixty stars cost three animations instead of sixty. They
- * are placed once, on mount, and never move — the sky drifts, the stars do not.
+ * are placed once, on mount, and never move, the sky drifts, the stars do not.
  */
 function Stars({ w, h }: { w: number; h: number }) {
   const reduceMotion = useReducedMotion();

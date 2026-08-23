@@ -4,7 +4,7 @@
  * The bright counter-moment to the usual calm, dark session close. When a
  * session earns a new ring, light floods out from the Soul: a white-hot bloom
  * blooms from the orb, a sunburst flares, sparks fly outward in the ring's
- * colour, and the whole screen lifts from dark to lit — then settles into a
+ * colour, and the whole screen lifts from dark to lit, then settles into a
  * warm residual glow instead of snapping back to black.
  *
  * Rendered full-screen, beneath the orb + copy. Respects reduce motion: a

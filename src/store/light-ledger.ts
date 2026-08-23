@@ -29,8 +29,8 @@ import { getTodayActionMemory } from '@/store/today-action';
 import { withStoreLock } from '@/store/storage-lock';
 
 // Append-only ledger of every light-earning act (moon-reward-spec.md). Amounts
-// are computed once at append time — caps, diminishing repeats, and the
-// coached-action multiplier included — so history never re-prices. Lifetime
+// are computed once at append time, caps, diminishing repeats, and the
+// coached-action multiplier included, so history never re-prices. Lifetime
 // totals fold from it. Stays entirely on device, like the rest of the state.
 
 const STORAGE_KEY = 'niyora:light-ledger';
@@ -86,8 +86,8 @@ const NOTHING: RecordLightResult = { event: null, ringEarned: null };
 /**
  * The one write path for light: price the act against today's ledger, append,
  * wax the moon, and report any ring crossing (rings are lifetime-light
- * milestones — models/tiers). A null event means the act earned nothing this
- * time (repeat visit, third calm, replayed level, capped day) — the act
+ * milestones, models/tiers). A null event means the act earned nothing this
+ * time (repeat visit, third calm, replayed level, capped day), the act
  * itself is still welcome; only the light is capped.
  */
 export async function recordLight(
@@ -110,7 +110,7 @@ async function recordLightLocked(
 
   // Grandfather clause: rings used to be earned by session counts. A user with
   // history but an empty ledger gets her sessions' worth of light seeded once
-  // (a calm's worth each, capped at the last ring) so earned rings stand —
+  // (a calm's worth each, capped at the last ring) so earned rings stand, 
   // rings are never lost. Dated yesterday so it neither eats today's cap nor
   // fires a celebration for rings she already had.
   if (ledger.length === 0) {
@@ -154,7 +154,7 @@ async function recordLightLocked(
   };
   ledger.push(event);
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ledger));
-  // Brightness is bright by default; only fading lessons dim it — and only
+  // Brightness is bright by default; only fading lessons dim it, and only
   // once the recall surface exists to brighten it back (config/features).
   const brightness = RECALL_FADING
     ? moonBrightness(fadingRecalls(ledger, today).length)

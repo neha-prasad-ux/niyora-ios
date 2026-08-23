@@ -1,4 +1,4 @@
-// The app's three destinations: Now (the daily loop — the home, carrying her
+// The app's three destinations: Now (the daily loop, the home, carrying her
 // live moon), Grow (the library of programs and tools), You (progress, identity,
 // settings). Everything else in src/app/ stays a stack screen and pushes
 // full-screen over this bar.
@@ -6,7 +6,7 @@
 // The bar itself is the bottom of the night sky (night-tab-bar.tsx): content
 // scrolls under a sky-fade + glass, the home (Moon) tab's icon is the live moon
 // (tab-moon.tsx), and earned light flies into it via the mote overlay
-// (light-motes.tsx) mounted above the navigator — the moon that talks to her is
+// (light-motes.tsx) mounted above the navigator, the moon that talks to her is
 // visibly the one she fed.
 //
 // Tab ORDER here is the order in the bar and therefore `state.index`, which
@@ -28,7 +28,7 @@ export default function TabsLayout() {
         tabBar={(props) => <NightTabBar {...props} />}
         // detachInactiveScreens={false} fixes the blank Grow/Soul bug. With the
         // `animation: 'fade'` cross-fade AND the default screen detachment, a
-        // re-shown tab scene races the fade and comes back at opacity 0 — an
+        // re-shown tab scene races the fade and comes back at opacity 0, an
         // invisible screen (you see the light container behind it) that only
         // "appears" after switching tabs a few times. Keeping inactive scenes
         // attached removes the race, so the cross-fade stays and the screens
@@ -44,7 +44,7 @@ export default function TabsLayout() {
           name="now"
           options={{
             title: 'Moon',
-            // The home tab carries her actual moon — real brightness, material
+            // The home tab carries her actual moon, real brightness, material
             // and ring count, the one icon that stays lit at rest because it is a
             // readout of her state rather than a symbol. The separate Moon page
             // is gone; this is where the moon lives and where light lands.
@@ -55,7 +55,7 @@ export default function TabsLayout() {
           name="grow"
           options={{
             title: 'Train',
-            // The sun — the bright, high-drive middle of the phase. Grey at rest,
+            // The sun, the bright, high-drive middle of the phase. Grey at rest,
             // warms to full colour on focus.
             tabBarIcon: ({ focused }) => <SunIcon focused={focused} size={24} />,
           }}
@@ -64,7 +64,7 @@ export default function TabsLayout() {
           name="you"
           options={{
             title: 'Soul',
-            // A star — your own point of light. Grey at rest, gold on focus.
+            // A star, your own point of light. Grey at rest, gold on focus.
             tabBarIcon: ({ focused }) => <StarIcon focused={focused} size={24} />,
           }}
         />

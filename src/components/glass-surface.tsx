@@ -2,7 +2,7 @@
 // same thing everywhere and degrades the same way. It prefers Apple's liquid
 // glass (iOS 26 + expo-glass-effect), falls back to an expo-blur frost, and
 // finally to a plain translucent wash when the dev client was built without
-// expo-blur — so a glass panel is never a red "Unimplemented component" box
+// expo-blur, so a glass panel is never a red "Unimplemented component" box
 // (the trap the raw BlurView in the You-tab empty states used to hit). The night
 // tab bar already ships this exact ladder inline; this is the shared version for
 // cards and empty states.

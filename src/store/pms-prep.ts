@@ -2,19 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { withStoreLock } from './storage-lock';
 
-// This cycle's preparedness reward — the isolated per-cycle prep state behind
+// This cycle's preparedness reward, the isolated per-cycle prep state behind
 // Neha's story (niyora-pms-preparedness-spec.md, "Reward model"). Deliberately
 // SEPARATE from the shipped lifetime moon (src/models/tiers.ts, the light
 // ledger): this is the losable, re-earned-each-cycle layer, so it lives in its
 // own store and never touches lifetime light. The permanent moon stays intact.
 //
 // Keyed by the cycle anchor (the last period start), so a new cycle reads as a
-// clean, fresh prep with nothing done yet — "new month, new prep", the natural
+// clean, fresh prep with nothing done yet, "new month, new prep", the natural
 // wane, never "you lost your rings". Stays entirely on device.
 //
-//   fullness  — this cycle's engagement (opened the app / did the story)
-//   rings     — story completion: the correct kit items she banked this cycle
-//   readiness — the one number the Now card surfaces, a generous non-zero floor
+//   fullness  : this cycle's engagement (opened the app / did the story)
+//   rings     : story completion: the correct kit items she banked this cycle
+//   readiness, the one number the Now card surfaces, a generous non-zero floor
 
 export type PrepState = {
   // The cycle this prep belongs to (the period anchor, or 'no-cycle' when none
@@ -25,7 +25,7 @@ export type PrepState = {
   // Kit item ids she banked this cycle (only correct items are stored). These
   // are her checklist and the rings that land on the payoff.
   kitChosen: string[];
-  // True once she has opened the story this cycle — engagement, for fullness.
+  // True once she has opened the story this cycle, engagement, for fullness.
   engaged: boolean;
 };
 
@@ -43,7 +43,7 @@ const READINESS_BASELINE = 1;
 
 // Warm ring hues for the prep band (kept distinct from the lifetime SOUL_RING
 // hues so the two systems never read as the same rings): rose, amber, violet,
-// blue — the "getting ready" palette landing together on the payoff.
+// blue, the "getting ready" palette landing together on the payoff.
 export const PREP_RING_HUES: readonly number[] = [335, 45, 280, 210];
 
 export function noCycleKey(): string {
@@ -90,7 +90,7 @@ export async function setPrep(state: PrepState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-// Mark the app opened / story entered this cycle — enough on its own to lift the
+// Mark the app opened / story entered this cycle, enough on its own to lift the
 // moon off its half-lit resting state (spec: "opens the app and does anything").
 export async function markEngaged(cycleKey: string): Promise<PrepState> {
   return withStoreLock(STORAGE_KEY, async () => {

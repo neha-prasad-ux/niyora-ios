@@ -1,4 +1,4 @@
-// The colouring activity as its own screen — level one of the hold, an in-app
+// The colouring activity as its own screen, level one of the hold, an in-app
 // calm task for when moving out is too much to ask. A white page, like real
 // paper. She colours a diagram and writes a message on it to send to someone;
 // real illustrations feed in as SVGs. No countdown here (Neha, 2026-07-29): a
@@ -66,7 +66,7 @@ export default function PaintScreen() {
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <KeyboardAvoidingView style={styles.safe} behavior="padding">
-          {/* X to leave, the screen's name, and Done — both up here and light, so
+          {/* X to leave, the screen's name, and Done, both up here and light, so
               the drawing is the only heavy thing on the page (Neha, 2026-07-29). */}
           <View style={styles.header}>
             <Pressable onPress={leave} hitSlop={12} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
@@ -83,7 +83,7 @@ export default function PaintScreen() {
             </View>
           </View>
           {/* Pick which outline to colour. Switching remounts the card, so it
-              starts fresh — the drawings Neha asked for beyond the penguin. */}
+              starts fresh, the drawings Neha asked for beyond the penguin. */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}

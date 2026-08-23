@@ -32,7 +32,7 @@ const NOT_A_NAME = new Set([
   'Today', 'Tonight', 'Tomorrow', 'Yesterday', 'Home', 'Spring', 'Summer', 'Autumn',
   'Fall', 'Winter', 'Christmas', 'Easter', 'Thanksgiving', 'Halloween', 'God', 'Nature',
   // States/adjectives that can follow "I'm" and get capitalised at a sentence
-  // start — never a name, so the self-intro cue below must not scrub them.
+  // start, never a name, so the self-intro cue below must not scrub them.
   'Fine', 'Okay', 'Ok', 'Sorry', 'Done', 'Good', 'Great', 'Bad', 'Sad', 'Happy',
   'Tired', 'Angry', 'Anxious', 'Upset', 'Exhausted', 'Overwhelmed', 'Nervous',
   'Worried', 'Sick', 'Late', 'Back', 'Here', 'Ready', 'Free', 'Busy', 'Scared',
@@ -94,7 +94,7 @@ export function scrub(input: string): Scrubbed {
   };
 
   // Shared guard: a match's trailing capitalised word becomes a stand-in only if
-  // it's a real name — a genuine capital, not ALL-CAPS, not a day/month/state word.
+  // it's a real name, a genuine capital, not ALL-CAPS, not a day/month/state word.
   const swapTrailingName = (m: string, name: string): string => {
     if (
       name[0] !== name[0].toUpperCase() ||

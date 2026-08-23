@@ -28,7 +28,7 @@ const EMOTIONS: readonly (readonly string[])[] = [
   ['stretched', 'overwhelmed', 'frantic'],
 ];
 
-const HOLD_MS = 2800; // per rung — unhurried
+const HOLD_MS = 2800; // per rung, unhurried
 const FADE_MS = 600; // long, soft crossfade
 
 function pickLadder(): readonly string[] {
@@ -53,7 +53,7 @@ export function FeelingLine() {
     };
   }, []);
 
-  // Each rung: fade the word in, hold, fade it out, then advance — the next
+  // Each rung: fade the word in, hold, fade it out, then advance, the next
   // rung's run of this effect fades the new word in. Under reduce motion it just
   // holds the first rung, fully shown, and never advances.
   useEffect(() => {

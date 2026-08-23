@@ -6,7 +6,7 @@
  * (horizontal) river. On portrait mobile the stream runs vertically, so the
  * leaf enters near the top on the "place the thought on a leaf" prompt, floats
  * downstream as the prompts progress, sways and rocks on the water, and is
- * carried out the bottom — fading as it goes.
+ * carried out the bottom, fading as it goes.
  *
  * `progress` (0 = just placed, 1 = carried away) drives the vertical position;
  * `visible` fades it in. Deliberately much bigger than the Mac's ~14x8px leaf.

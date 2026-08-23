@@ -5,7 +5,7 @@ import { encrypt, decrypt } from '../lib/secure-box';
 // foundation for: My Soul showing the real emotions she named, pattern detection
 // across entries, and picking up a thread she is continuing (mom / work / ...).
 //
-// On-device only, AsyncStorage — iOS sandboxes and encrypts this at rest when the
+// On-device only, AsyncStorage, iOS sandboxes and encrypts this at rest when the
 // phone is locked. App-level encryption of `entry`/`response` (a Keychain key) is
 // the immediate follow-up; the shape below does not change when it lands, so the
 // rest of the app can build against it now.
@@ -14,7 +14,7 @@ import { encrypt, decrypt } from '../lib/secure-box';
 // linear scan measurably hurts (hundreds of moments in, not tens).
 
 export type MomentRecord = {
-  /** ISO timestamp — sorts newest-first, and the stable key. */
+  /** ISO timestamp, sorts newest-first, and the stable key. */
   at: string;
   /** YYYY-MM-DD, for day grouping and cycle correlation later. */
   date: string;
@@ -22,7 +22,7 @@ export type MomentRecord = {
   entry: string;
   /** The feeling she named (FEELING_SET label), e.g. "Hurt". */
   feeling: string;
-  /** The constellation that feeling belongs to — lights the badge on My Soul. */
+  /** The constellation that feeling belongs to, lights the badge on My Soul. */
   constellation: string;
   /** The thread key (person/topic) from moment-subject, when she named one. */
   subject?: string;
@@ -136,7 +136,7 @@ export function latestForSubject(
   return null;
 }
 
-/** How many stored moments name this subject — a subject seen 2+ times is a
+/** How many stored moments name this subject, a subject seen 2+ times is a
  *  recurring thread, which flips the `pattern` reflect card on. */
 export function subjectCount(moments: readonly MomentRecord[], subject: string): number {
   let n = 0;
@@ -215,4 +215,17 @@ export function badgeFor(
       feelings: feeling ? [feeling] : [],
     }
   );
+}
+
+/** How many moments she finished in a calendar month (YYYY-MM), the number the
+ *  Plus gate meters. Reads the raw list and never decrypts: the gate only needs
+ *  dates, and `date` is stored in the clear.
+ *
+ *  ponytail: derived from history, not a separate counter. That means "delete my
+ *  data" also resets the month's count, and that is the honest trade · a meter
+ *  that outlived a privacy deletion would make the deletion a lie. Move to its
+ *  own store only if wipe-to-reset shows up in the numbers. */
+export async function countMomentsInMonth(ym: string): Promise<number> {
+  const parsed = parseMoments(await AsyncStorage.getItem(STORAGE_KEY));
+  return parsed.filter((m) => m.date.startsWith(ym)).length;
 }

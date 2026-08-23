@@ -1,4 +1,4 @@
-// The PMS preparedness serial — "Neha's life" (niyora-pms-preparedness-spec.md).
+// The PMS preparedness serial, "Neha's life" (niyora-pms-preparedness-spec.md).
 // A content-driven engine: each Chapter is data (ordered story beats, a moment
 // to reflect, a build-your-kit list) and the reader flow in
 // src/app/pms-story.tsx renders whatever chapters live here. Story 2+ plug in as
@@ -7,7 +7,7 @@
 // The story is a warm, relatable life story where you would never guess it is
 // "about PMS." The PMS lens surfaces only in the reflect step (the ONLY place
 // PMS is named). The story prose and the reflect/kit copy are LOCKED spec
-// content, reproduced verbatim — do not reword. Voice: DESIGN.md neutrally warm,
+// content, reproduced verbatim, do not reword. Voice: DESIGN.md neutrally warm,
 // no exclamation points, no em dashes.
 
 // --- Types ------------------------------------------------------------------
@@ -57,7 +57,7 @@ export interface ReflectQuestion {
 
 // A build-your-kit item. Correct items become her checklist and tick the prep
 // score; exactly one item per chapter is wrong (with a soft `redirect`). A
-// `live` item is a real door — 'steady' opens the Steady-yourself breath.
+// `live` item is a real door, 'steady' opens the Steady-yourself breath.
 export interface KitItem {
   id: string;
   label: string;
@@ -73,7 +73,7 @@ export interface Chapter {
   // A one-line lead-in shown on the opening card before the first beat.
   intro: string;
   beats: readonly Beat[];
-  // "A moment to reflect" — the only place PMS is named.
+  // "A moment to reflect", the only place PMS is named.
   reflect: readonly ReflectQuestion[];
   kit: readonly KitItem[];
 }
@@ -315,7 +315,7 @@ export function chapterById(id: string | undefined | null): Chapter {
   return CHAPTERS.find((c) => c.id === id) ?? CHAPTERS[0];
 }
 
-// The count of correct (score-ticking) kit items in a chapter — the most rings a
+// The count of correct (score-ticking) kit items in a chapter, the most rings a
 // chapter can land. Drives the payoff moon and the prep ring target.
 export function correctKitCount(chapter: Chapter): number {
   return chapter.kit.filter((k) => k.correct).length;

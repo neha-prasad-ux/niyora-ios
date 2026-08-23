@@ -4,7 +4,7 @@
 // palette: a deep near-black indigo field, a soft glowing pearl moon, an optional
 // warm lamp/tea bleed, and a lower-third scrim so the beat copy stays legible.
 //
-// It is intentionally simple and calm — no animation to compete with the reading.
+// It is intentionally simple and calm, no animation to compete with the reading.
 
 import { Image, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

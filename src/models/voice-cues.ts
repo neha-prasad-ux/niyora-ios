@@ -21,8 +21,8 @@ export type VoiceClip =
   | 'begin'
   | 'well-done';
 
-// Every breath phase maps to one of just three calm cues — breathe in / breathe
-// out / hold — no matter the technique. The on-screen instruction already
+// Every breath phase maps to one of just three calm cues, breathe in / breathe
+// out / hold, no matter the technique. The on-screen instruction already
 // carries the specifics (which nostril, tongue position, "haaa" sound), so the
 // voice only keeps the universal in/out/hold cadence. This deliberately drops
 // the longer variant clips ("inhale through your right nostril", "exhale through

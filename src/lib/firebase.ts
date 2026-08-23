@@ -25,7 +25,12 @@ export function startAppCheck(): void {
   try {
     const provider = new ReactNativeFirebaseAppCheckProvider();
     provider.configure({
-      apple: { provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback' },
+      // App Attest only, no DeviceCheck fallback (2026-08-21). The deployment
+      // target is iOS 16.4 and App Attest needs 14, so the fallback could never
+      // fire on a device that can run this app. Asking for it meant DeviceCheck
+      // also had to be registered in the console, with its own .p8 key from
+      // Apple, to protect a path with no users on it.
+      apple: { provider: __DEV__ ? 'debug' : 'appAttest' },
     });
     initializeAppCheck(getApp(), { provider, isTokenAutoRefreshEnabled: true });
   } catch (e) {
