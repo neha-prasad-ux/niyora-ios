@@ -48,19 +48,19 @@ const tap = () => Haptics.selectionAsync().catch(() => {});
 // The option/skeleton rows sit over the moon glowing through the frosted card,
 // so a light panel (v3.panel, ~5% white) leaves white text unreadable where the
 // glow is bright. A DARK well keeps every row legible regardless of what is
-// behind it — the same value as the moment composer field.
+// behind it, the same value as the moment composer field.
 const PANEL_DARK = 'rgba(10,8,16,0.55)';
 
 // One option-motion language (motion-design rules, neha-prasad.com):
 //   · options are ACTIONS, so they RISE into place (Y-axis: bottom is action),
-//     never drop from the top — motion has to match where the thing lives.
+//     never drop from the top, motion has to match where the thing lives.
 //   · stagger 20-60ms; a small base delay so the parent card settles first
 //     (parent before children).
 //   · the press is DIRECT touch, so it is a SPRING, not an ease.
 const STAGGER = 45;
 const STAGGER_BASE = 60;
 /** How long a tapped option holds its colour before the beat advances, so the
- *  choice registers on every screen — not just the ones that tracked it by hand.
+ *  choice registers on every screen, not just the ones that tracked it by hand.
  *  Matches the moment screen's own ADVANCE_MS. */
 const ADVANCE_MS = 260;
 /** Interactive spring: stiffness 300 / damping 25 / mass 1, ~72% ratio. */
@@ -75,7 +75,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  * across a wrapped pill row while upset.
  *
  * `index` opts the row into the group stagger (options settle in one after
- * another). `hint` is the VoiceOver hint — e.g. "suggested by the moon" on an
+ * another). `hint` is the VoiceOver hint, e.g. "suggested by the moon" on an
  * AI-written reading. `tint` is the phase colour: pass it and the row lights up
  * in that colour when tapped and holds it for a beat before `onPress` fires, so
  * the choice registers the same way on every screen. Without it, `onPress`
@@ -248,7 +248,7 @@ function Dot({ index }: { index: number }) {
  */
 export function SkeletonRows({ count = 3 }: { count?: number }) {
   const reduce = useReducedMotion();
-  // A gloss band that sweeps left→right across every row on a loop — the "still
+  // A gloss band that sweeps left→right across every row on a loop, the "still
   // loading" motion. `x` runs 0→1 forever; the band (60% of the row wide) is
   // translated from just off the left edge to just off the right, so the wrap is
   // never visible. Row width is measured once so the travel matches any phone.
@@ -274,7 +274,7 @@ export function SkeletonRows({ count = 3 }: { count?: number }) {
           {!reduce && w > 0 && (
             <Animated.View style={[styles.skelShine, { width: w * 0.6 }, shine]} pointerEvents="none">
               <LinearGradient
-                colors={['transparent', 'rgba(255,255,255,0.11)', 'transparent']}
+                colors={['transparent', colors.border.faint, 'transparent']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={StyleSheet.absoluteFill}
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
 
   why: {
     // Bumped from caption/faint to body/soft (Neha 2026-08-02, "the subtext is
-    // too small, I can't read it") — these are the step subtitles now, they have
+    // too small, I can't read it"), these are the step subtitles now, they have
     // to be readable, not fine print.
     fontFamily: fonts.regular,
     fontSize: fontScale.body,
