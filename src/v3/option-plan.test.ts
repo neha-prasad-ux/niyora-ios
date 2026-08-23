@@ -31,7 +31,7 @@ describe('option labels are personalised by grounded fill-in only', () => {
 
   it('fills the person into person-addressing acts, leaves the rest authored', () => {
     // A = "Say it to them" → her pronoun filled in
-    expect(personalisedLabel(act('A'), 'I feel he keeps brushing me off')).toBe('Tell him how you feel');
+    expect(personalisedLabel(act('A'), 'I feel he keeps brushing me off')).toBe('Say it to him');
     // C = "Hold a line" (label reworded 2026-08-02)
     expect(personalisedLabel(act('C'), 'my sister crossed a line')).toBe(
       "Tell your sister what's not okay",
@@ -66,3 +66,35 @@ test('an unknown feeling falls back to the calming default', () => {
   expect(optionPlanFor('')).toBe(DEFAULT_PLAN);
   expect(optionPlanFor('Nonexistent')).toBe(DEFAULT_PLAN);
 });
+
+describe('two people named (2026-08-20)', () => {
+    // She is upset with the lead. The colleague did nothing. Aiming her message at
+    // the wrong person is worse than not personalising at all, so it declines.
+    const TWO = 'i have been covering for my colleague for months and today my lead thanked her';
+
+    it('declines to guess which one she means', () => {
+      expect(personRef(TWO)).toBeNull();
+    });
+
+    it('falls back to the authored label rather than naming the wrong person', () => {
+      const label = personalisedLabel(act('A'), TWO);
+      expect(label).toBe('Say it to them');
+      expect(label).not.toContain('colleague');
+    });
+
+    it('still personalises when the same person is named twice', () => {
+      expect(personRef('my mum said it again, my mum always does')).toBe('your mum');
+    });
+
+    it('knows the work relations, so a lead counts as a second person', () => {
+      expect(personRef('my lead ignored it')).toBe('your lead');
+    });
+  });
+
+  describe('act A says what the act is (2026-08-20)', () => {
+    it('is a boundary, not a feelings report', () => {
+      const label = personalisedLabel(act('A'), 'my mum again');
+      expect(label).toBe('Say it to your mum');
+      expect(label).not.toMatch(/how you feel/i);
+    });
+  });
