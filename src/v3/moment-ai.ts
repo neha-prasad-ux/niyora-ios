@@ -111,7 +111,7 @@ export async function pick<T extends { toString(): string }>(
   // Match by containment against the closed set, ordered by WHERE the model put
   // each item in its reply. This is a ranking beat: the model returns the set
   // reordered, and we must honour that order (Scared before Dismissed), while
-  // still only ever returning closed-set items — the provider's prose is used to
+  // still only ever returning closed-set items, the provider's prose is used to
   // look items up and order them, never to reach the screen. (Iterating `from`
   // instead would silently ignore the model's ranking and always return the
   // set's own order.)
@@ -186,7 +186,7 @@ export async function composeReadings(
       : [];
     const selfPrompt = typeof j?.selfPrompt === 'string' ? j.selfPrompt.trim() : '';
     // Empty readings is a DELIBERATE decline (self-worth attack, diffuse mood,
-    // grief, harm) — nothing to loosen. This is returned as readings: [], NOT
+    // grief, harm), nothing to loosen. This is returned as readings: [], NOT
     // null: the caller skips the reframe beat rather than showing generic
     // small-reframes, which trivialise a serious moment. null is reserved for a
     // real failure (no reply / unparseable), which keeps the authored fallback.
@@ -297,8 +297,8 @@ export async function factSort(
 
 /**
  * The rule breakdown (reflect_rule, a special card like fact-sort). Walks her
- * moment out as a chain she can SEE — event, the hidden rule/should, where it
- * lands — then tests the rule. `tests` are normal reactable reads; the chain is
+ * moment out as a chain she can SEE, event, the hidden rule/should, where it
+ * lands, then tests the rule. `tests` are normal reactable reads; the chain is
  * the diagnostic setup. Returns null (decline) if no real rule surfaces or the
  * reply is unusable, so the card falls back to the honest retry like any other.
  */
@@ -320,6 +320,63 @@ export async function ruleBreakdown(
     // them there is nothing to see or react to, so decline to the fallback.
     if (!rule || tests.length === 0) return null;
     return { event: str(j?.event), rule, consequence: str(j?.consequence), tests };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The scale card (reflect_scale, 2026-08-20). Builds the ruler, she does the
+ * measuring: her own absolute, the word she used, and what the two ends of the
+ * scale actually look like in her situation. Returns null when she stated no real
+ * absolute (empty claim) or the reply is unusable, so the card declines rather
+ * than inventing an extreme to measure against.
+ */
+export type ScaleSetup = { claim: string; word: string; zero: string; hundred: string };
+export async function scaleSetup(
+  provider: MomentProvider,
+  user: string,
+): Promise<ScaleSetup | null> {
+  const out = await compose(provider, 'reflect_scale', user);
+  if (!out) return null;
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const claim = str(j?.claim);
+    const zero = str(j?.zero);
+    const hundred = str(j?.hundred);
+    // Without both ends there is no scale to place anything on.
+    if (!claim || !zero || !hundred) return null;
+    return { claim, word: str(j?.word), zero, hundred };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The responsibility card (reflect_responsibility, 2026-08-20). The other hands on
+ * the outcome, and her own part named honestly. She allocates to the others and
+ * whatever is left is hers, which is the whole mechanism: a share she arrived at
+ * rather than one she was handed. Returns null when she is not holding herself
+ * responsible for anything, or fewer than two other factors surfaced (with one
+ * factor the allocation is not a weighing, it is a see-saw).
+ */
+// `factors` is deliberately absent (2026-08-20): SHE supplies the hands now. The
+// slot no longer generates them either. See the header of
+// components/moment/responsibility-card.tsx for the measured reason.
+export type ResponsibilitySetup = { outcome: string; hers: string };
+export async function responsibilitySetup(
+  provider: MomentProvider,
+  user: string,
+): Promise<ResponsibilitySetup | null> {
+  const out = await compose(provider, 'reflect_responsibility', user);
+  if (!out) return null;
+  try {
+    const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
+    const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+    const outcome = str(j?.outcome);
+    if (!outcome) return null;
+    return { outcome, hers: str(j?.hers) };
   } catch {
     return null;
   }
