@@ -31,7 +31,7 @@ The stored history is capped at the most recent 300 moments; older ones fall off
 
 One thing, and only one thing, leaves your device: the text you write, sent for AI processing.
 
-To turn what you wrote into a reflection, the app sends that text to Google. It travels through Firebase AI Logic to Google Cloud's Vertex AI service and is processed by the model `gemini-2.5-flash`. The generated reply comes back to your phone. This is what makes the reflections possible: an AI cannot respond to your words without receiving your words.
+To turn what you wrote into a reflection, the app sends that text to Google. It travels through Firebase AI Logic to Google Cloud's Vertex AI service and is processed by the model `gemini-2.5-pro`. The generated reply comes back to your phone. This is what makes the reflections possible: an AI cannot respond to your words without receiving your words.
 
 The same path is used for crisis detection. When you write a moment, the text is also sent to the AI to judge whether the moment calls for real-world crisis resources rather than the app's normal flow. This is a safety check; it can only add crisis resources, never remove them.
 
@@ -97,7 +97,7 @@ The App Store requires a publicly reachable privacy-policy URL at submission, en
 Recommended path: publish it at `https://niyora.com/privacy` on the existing site (a static `/privacy` page rendered from this Markdown is enough, no app work needed), and reuse that same URL for the App Store Connect "Privacy Policy URL" field and the App Store data-disclosure answers. Keep the answers consistent with this text: no data linked to identity (no accounts), no tracking, and disclose the one outbound flow (user-written text sent to Google for AI processing and safety classification).
 
 Two things to keep honest as the code changes:
-- The model constant in `src/lib/moment-gemini.ts` is `gemini-2.5-flash`. If it is bumped, update the name here.
+- The model constant in `src/lib/moment-gemini.ts` is `gemini-2.5-pro`. If it is bumped, update the name here.
 - The PII scrub in `src/lib/pii.ts` is partial by design. If it is ever moved server-side or upgraded to full NER, revise the "partial redaction" section.
 
 This is a plain-language, accurate description of the current build, not vetted legal boilerplate. For a US-primary mental-health app with global users, a review by a privacy lawyer is advisable before launch, particularly on minimum-age wording (COPPA and, for EU/UK users, GDPR/UK-GDPR age-of-consent thresholds) and on the App Store data-disclosure answers.

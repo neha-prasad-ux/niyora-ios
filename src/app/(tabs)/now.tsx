@@ -1,5 +1,5 @@
 // Now: the app's home tab. One calm, softly-blurred moon carries the whole soul
-// — her earned rings, her brightness, her material — breathing so just looking
+//, her earned rings, her brightness, her material, breathing so just looking
 // pulls you into sync. Under it, one ask in her own voice: "I feel [____]" (a
 // feeling drifting soft->intense, fresh each open) and the CTA "what do I do",
 // opening the Moon flow. A small pill up top holds the cycle context and the one
@@ -28,6 +28,7 @@ import Animated, {
 import { CosmicBackground } from '@/components/cosmic-background';
 import { PlannedActions } from '@/components/planned-actions';
 import { getPlannedActions } from '@/store/moment-plan';
+import { cachedPremium, momentsLeft } from '@/lib/premium';
 import { FeelingLine } from '@/components/feeling-line';
 import { BAR_CONTENT_HEIGHT, BAR_MIN_BOTTOM_PAD } from '@/components/night-tab-bar';
 import { Orb } from '@/components/orb';
@@ -145,7 +146,7 @@ export default function NowScreen() {
 
   // The glass card (and the moon behind it) share these bounds: a fixed height,
   // CENTRED in the space above the tab bar, black all around it. A notification
-  // renders in the gap below the card — raising notifShift to its height slides
+  // renders in the gap below the card, raising notifShift to its height slides
   // the card up to make room. The moon centres within these bounds, so the gap
   // above it (chip → moon) and below it (moon → Reflect) stay balanced.
   const avail = screenHeight - insets.top - barHeight;
@@ -194,7 +195,7 @@ export default function NowScreen() {
   const reload = useCallback(() => {
     setOpenSeed((s) => s + 1);
     // The arrival earns its light (first open of the day; repeats are free
-    // no-ops). The moon itself stays bright — absence never dims it.
+    // no-ops). The moon itself stays bright, absence never dims it.
     recordLight('visit')
       .catch(() => {})
       .finally(() => {
@@ -202,7 +203,7 @@ export default function NowScreen() {
           .then(setSnapshot)
           .catch(() => {})
           .finally(() => {
-            // A crossing earned anywhere — this visit, or a flow she just left —
+            // A crossing earned anywhere, this visit, or a flow she just left, 
             // gets its moment here on the moon. Material milestones outrank rings.
             getPendingCrossings()
               .then((owed) => {
@@ -220,6 +221,24 @@ export default function NowScreen() {
       syncPmsReminders().catch(() => {});
     }, [reload]),
   );
+
+  /** Free moments left this month, shown under the CTA only when it is getting
+   *  close (2 or fewer). A meter she can see is a meter she can plan around; the
+   *  wall arriving with no warning is the thing that reads as a trap. `null` for
+   *  Premium, and for anyone with room to spare. */
+  const [momentsFree, setMomentsFree] = useState<number | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      cachedPremium()
+        .then(async (premium: boolean) => (premium ? null : await momentsLeft()))
+        .then((n: number | null) => alive && setMomentsFree(n != null && n <= 2 ? n : null))
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') reload();
@@ -228,15 +247,15 @@ export default function NowScreen() {
   }, [reload]);
 
   // The cycle context pill: the runway line ("14 days to PMS" / "PMS days ·
-  // day 2"). Null when PMS mode is off or no period is logged — then no pill.
+  // day 2"). Null when PMS mode is off or no period is logged, then no pill.
   const pillText = snapshot == null ? null : bandHeadline(snapshot.prefs, snapshot.now);
 
-  // Onboarding gate: until she has a PMS read, the home pins one card — finish
-  // setup — in place of the ask, which needs that data.
+  // Onboarding gate: until she has a PMS read, the home pins one card, finish
+  // setup, in place of the ask, which needs that data.
   const setupCard = snapshot?.setupCard ?? null;
   const needsOnboarding = setupCard != null;
 
-  // A subtle swell when light lands or a crossing blooms — brighter is the whole
+  // A subtle swell when light lands or a crossing blooms, brighter is the whole
   // reward (no numbers, per the no-points design).
   const shimmer = useSharedValue(1);
   const glowStyle = useAnimatedStyle(() => ({ transform: [{ scale: shimmer.value }] }));
@@ -298,7 +317,7 @@ export default function NowScreen() {
     if (snapshot == null) return;
     const ymd = todayYmd(date);
     // A live confirmation closes a cycle when it lands a plausible gap after the
-    // current anchor and is recent — the same guard that lets it mint a moon.
+    // current anchor and is recent, the same guard that lets it mint a moon.
     const prevAnchor = snapshot.prefs.lastPeriodStart;
     const cycleDays = prevAnchor == null ? null : daysBetween(prevAnchor, ymd);
     const recency = daysBetween(ymd, todayYmd(snapshot.now));
@@ -335,7 +354,7 @@ export default function NowScreen() {
       .then(() => {
         // A cycle just closed and she hasn't looked back on it yet: close the
         // calendar and offer the cycle-end reflection, anchored to the cycle that
-        // ended. This offers, never gates — Reflect's own Close is the escape.
+        // ended. This offers, never gates, Reflect's own Close is the escape.
         if (closedRealCycle && !alreadyReflected && prevAnchor != null) {
           setPeriodSheetVisible(false);
           router.push({ pathname: '/reflect', params: { anchor: prevAnchor } });
@@ -373,7 +392,7 @@ export default function NowScreen() {
       {/* The ambient light-line: a shooting star arcing across the home sky. */}
       <ShootingStar />
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-        {/* The moon lives in the background — it fades in first, on the mostly-
+        {/* The moon lives in the background, it fades in first, on the mostly-
             black sky, and then the glass appears over it. Ringless sphere + rose
             halo (warmHalo keeps the halo centred on the sphere). */}
         {snapshot != null && (
@@ -398,7 +417,7 @@ export default function NowScreen() {
           </Animated.View>
         )}
 
-        {/* Until she's onboarded, the finish-setup card floats over the sky —
+        {/* Until she's onboarded, the finish-setup card floats over the sky, 
             no glass card, no cycle data to frame yet. */}
         {needsOnboarding && setupCard != null ? (
           <Animated.View
@@ -493,6 +512,13 @@ export default function NowScreen() {
                       </View>
                     </LinearGradient>
                   </Pressable>
+                  {momentsFree != null && (
+                    <Text style={styles.meter}>
+                      {momentsFree === 0
+                        ? 'No free moments left this month'
+                        : `${momentsFree} free ${momentsFree === 1 ? 'moment' : 'moments'} left this month`}
+                    </Text>
+                  )}
                   {/* A divider sets the "waiting for you" cluster (resume + the
                       Later list) apart from the primary ask above. */}
                   {(snapshot?.hasResume || (plannedLive ?? snapshot?.hasPlanned)) && (
@@ -500,7 +526,7 @@ export default function NowScreen() {
                   )}
                   {/* A flow she left unfinished: a quiet second line under the
                       CTA to pick it up where she left off. Never competes with
-                      the primary ask — it only shows when there is one to resume,
+                      the primary ask, it only shows when there is one to resume,
                       and the × dismisses it: she may not want to deal with it. */}
                   {snapshot?.hasResume && (
                     <View style={styles.resumeRow}>
@@ -621,7 +647,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingBottom: '14%',
   },
-  // The charcoal glass card: as large as it gets with a sleek margin — a thin
+  // The charcoal glass card: as large as it gets with a sleek margin, a thin
   // black frame all around. top + bottom set inline (safe inset + bar height).
   glassCard: {
     position: 'absolute',
@@ -633,7 +659,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: glass.border,
   },
-  // A light frost over the blur — kept translucent so the nebula and the moon's
+  // A light frost over the blur, kept translucent so the nebula and the moon's
   // rose halo glow through the glass, then the gloss sheen adds the highlight.
   glassTint: {
     position: 'absolute',
@@ -644,7 +670,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(28,26,38,0.20)',
   },
   // Generous interior: room above the pill, below the CTA, and to the sides of
-  // the words — the card is big, so the content breathes inside it.
+  // the words, the card is big, so the content breathes inside it.
   glassInner: {
     flex: 1,
     paddingHorizontal: spacing.xxl,
@@ -677,14 +703,14 @@ const styles = StyleSheet.create({
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
   },
-  // "Reflect · Regulate · Respond" — the arc named, quiet above the ask.
+  // "Reflect · Regulate · Respond", the arc named, quiet above the ask.
   triad: {
     fontFamily: fonts.regular,
     fontSize: fontScale.caption,
     color: colors.textOnDark.faint,
     letterSpacing: 0.6,
   },
-  // The CTA: a dark pill ringed by a pink->purple gradient border — the brand
+  // The CTA: a dark pill ringed by a pink->purple gradient border, the brand
   // colour carried as a glowing outline, not a fill, so it stays calm on the
   // charcoal card. Full width. The gradient is the 1.5px frame; the dark inner
   // View is the button face.
@@ -706,6 +732,17 @@ const styles = StyleSheet.create({
     fontSize: fontScale.emphasis,
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
+  },
+  meter: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
+    // `ask` lays its children out flex-start, so a bare Text is only as wide as
+    // its own words and textAlign has nothing to centre in. Stretch it so the
+    // line sits under the middle of the full-width CTA it belongs to. The
+    // container's own gap gives the spacing above.
+    alignSelf: 'stretch',
+    textAlign: 'center',
   },
   homeDivider: {
     alignSelf: 'stretch',
@@ -735,7 +772,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(242,162,192,0.5)',
   },
   // Pink frost fill behind the blur, explicit props (this SDK's StyleSheet type
-  // has no absoluteFillObject — AGENTS.md).
+  // has no absoluteFillObject, AGENTS.md).
   resumeChipTint: {
     position: 'absolute',
     top: 0,
