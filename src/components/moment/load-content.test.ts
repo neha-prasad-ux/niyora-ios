@@ -1,4 +1,4 @@
-import { loadResult } from './load-card';
+import { loadResult } from './load-content';
 
 // The line after she sorts. Counts and nothing else: the intervention already
 // happened when the fog became a list, and a closing reassurance would take the
