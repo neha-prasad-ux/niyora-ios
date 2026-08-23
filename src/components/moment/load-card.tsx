@@ -19,8 +19,10 @@
 // No reframe, no comfort, no verdict at the end. Just the count and where things
 // landed, then out to Respond, where "take something off my plate" is waiting.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+
+import { ThinkingDots } from '@/components/moment/controls';
 
 import { colors } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
@@ -40,6 +42,9 @@ export const LOAD_COPY = {
   wait: 'Can wait',
   notMine: 'Not mine',
   done: 'Done',
+  // Deliberately not "here is what I noticed". The finding belongs to her list,
+  // not to us.
+  readsHead: 'What your list shows',
 } as const;
 
 /**
@@ -57,7 +62,22 @@ export function loadResult(counts: Record<LoadBucket, number>): string {
   return parts.join(' ');
 }
 
-export function LoadCard({ onDone }: { onDone: (items: { text: string; bucket: LoadBucket | null }[]) => void }) {
+export function LoadCard({
+  onDone,
+  onSorted,
+  reads,
+  readsLoading,
+}: {
+  onDone: (items: { text: string; bucket: LoadBucket | null }[]) => void;
+  /** Fired once, when every item has a bucket. The parent fetches the read-back:
+   *  the model finally has content to work on, and reading her own list back
+   *  structurally is the one thing she cannot do from inside a pile of eleven
+   *  things. See reflect_load_read. */
+  onSorted?: (items: { text: string; bucket: LoadBucket }[]) => void;
+  /** What her list shows. Empty is a legitimate answer and renders nothing. */
+  reads?: string[];
+  readsLoading?: boolean;
+}) {
   const [items, setItems] = useState<{ text: string; bucket: LoadBucket | null }[]>([]);
   const [draft, setDraft] = useState('');
   const [phase, setPhase] = useState<'add' | 'sort'>('add');
@@ -87,6 +107,13 @@ export function LoadCard({ onDone }: { onDone: (items: { text: string; bucket: L
     { today: 0, wait: 0, notMine: 0 } as Record<LoadBucket, number>,
   );
   const sorted = items.length > 0 && items.every((it) => it.bucket);
+  // Ask once per completed sort, never on every re-render or every extra tap.
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!sorted || asked.current || !onSorted) return;
+    asked.current = true;
+    onSorted(items as { text: string; bucket: LoadBucket }[]);
+  }, [sorted, items, onSorted]);
 
   return (
     <View style={styles.wrap}>
@@ -176,6 +203,20 @@ export function LoadCard({ onDone }: { onDone: (items: { text: string; bucket: L
             <>
               <View style={styles.divider} />
               <Text style={styles.result}>{loadResult(counts)}</Text>
+              {readsLoading ? (
+                <View style={styles.readsWrap}>
+                  <ThinkingDots />
+                </View>
+              ) : reads?.length ? (
+                <View style={styles.readsWrap}>
+                  <Text style={styles.readsHead}>{LOAD_COPY.readsHead}</Text>
+                  {reads.map((r, i) => (
+                    <Text key={`${i}-${r}`} style={styles.readLine}>
+                      {r}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
             </>
           ) : null}
           <View style={styles.ctaRow}>
@@ -224,6 +265,14 @@ const styles = StyleSheet.create({
   addOff: { opacity: 0.4 },
   addText: { ...moon.bodyStrong, color: colors.textOnDark.primary },
   result: { ...moon.body, color: colors.textOnDark.primary, textAlign: 'center' },
+  readsWrap: { gap: spacing.sm, marginTop: spacing.sm },
+  readsHead: {
+    ...moon.caption,
+    color: colors.textOnDark.tertiary,
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  readLine: { ...moon.body, color: colors.textOnDark.primary, textAlign: 'center' },
   ctaRow: { alignItems: 'center', marginTop: spacing.sm },
   secondary: {
     borderRadius: radius.pill,
