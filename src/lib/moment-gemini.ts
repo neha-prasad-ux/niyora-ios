@@ -106,6 +106,7 @@ const RESPONSE_SCHEMA: Record<string, SchemaRequest> = {
   // The two interaction cards (2026-08-20): she places / she allocates, so the
   // model returns the setup rather than reads. Enforced shapes, because a missing
   // end of the scale or a missing factor makes the interaction unrenderable.
+  reflect_load_read: GUESS_SCHEMA,
   reflect_scale: {
     type: SchemaType.OBJECT,
     properties: {

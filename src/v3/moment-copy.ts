@@ -655,3 +655,50 @@ export const BADGE_ACT: Record<string, string> = {
 export function badgeCount(n: number): string {
   return n <= 1 ? 'Once' : `${n} times`;
 }
+
+// What each feeling POINTS AT (Neha 2026-08-23).
+//
+// The signal card asks what her feeling is standing on. It failed three prompt
+// rewrites across three models, always the same way: told not to name the feeling
+// it restated the event, told not to do that it hedged. The cause was never the
+// wording. Answering it needs to know what she was counting on and what she
+// values, and the model has one sentence.
+//
+// But the app already asks her the feeling one beat earlier, and a feeling does
+// not point at infinite things. Each has a small set of canonical referents. So
+// the model stops inventing her interior and does what the feelings beat already
+// does: takes these, phrases them for HER situation, and she picks the one that
+// fits. Recognition instead of generation.
+//
+// Authored, one entry per constellation, so a feeling can never point at
+// something nobody wrote. Keyed the same as BADGE_ACT.
+export const SIGNAL_POINTS: Record<string, string[]> = {
+  anger: ['a line got crossed', 'something was unfair', 'you were not respected'],
+  hurt: [
+    'something you valued was treated as nothing',
+    'someone you counted on let you down',
+    'you were not considered',
+  ],
+  betrayal: ['trust was broken', 'you were not told something you needed to know'],
+  rejection: ['you were not chosen', 'you were pushed away', 'you were not wanted there'],
+  abandonment: ['you were left with it alone', 'someone you needed was not there'],
+  inadequacy: ['your effort went unseen', 'you were treated as less than you are'],
+  shame: ['you were seen at your worst', 'you broke a standard you hold yourself to'],
+  guilt: ['you acted against your own standard', 'you hurt someone you care about'],
+  frustration: ['something you want is blocked', 'your effort is not moving anything'],
+  irritability: ['you are past your capacity', 'too many small things at once'],
+  anxiety: [
+    'something you care about is at risk',
+    'you cannot control what happens next',
+    'you are waiting on someone else',
+  ],
+  dread: ['something coming matters to you', 'you are bracing for a cost'],
+  overwhelm: ['more is on you than you can hold', 'there is no clear first thing'],
+  fear: ['something you care about is at risk', 'you may not be safe'],
+  sadness: ['something that mattered has changed', 'you lost something you wanted'],
+  grief: ['someone you love is gone', 'a life you expected is not going to happen'],
+  numbness: ['too much arrived at once', 'you went quiet to get through it'],
+  loneliness: ['the connection you need is not there', 'nobody has seen this but you'],
+  jealousy: ['something you want is being had by someone else', 'you fear losing your place'],
+};
+
