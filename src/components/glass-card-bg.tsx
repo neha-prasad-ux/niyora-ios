@@ -3,7 +3,7 @@
 // (theme/glass: `glass.border`, `overflow: 'hidden'`, no solid background); the
 // card's content then renders on top.
 //
-// Neutral by design — no colour. Liquid Glass supplies the frost; over the app's
+// Neutral by design, no colour. Liquid Glass supplies the frost; over the app's
 // near-black canvas it needs light behind it to look like glass, so the card
 // pages sit a soft AmbientGlow behind their content and `glass.fill` is only a
 // light legibility dim over the frost. On the blur/wash fallback (no built-in
@@ -11,11 +11,11 @@
 //
 // Each layer self-clips to `radius` (matching the card's own borderRadius +
 // continuous curve), so the frost never leaves a square corner poking out from
-// under the rounded border — relying on the parent's overflow alone left an
+// under the rounded border, relying on the parent's overflow alone left an
 // artifact at the corners on iOS.
 //
 // It still accepts `gradient`/`tintColor` props so existing callers need no edit,
-// but ignores them — the glass is one neutral look everywhere.
+// but ignores them, the glass is one neutral look everywhere.
 
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

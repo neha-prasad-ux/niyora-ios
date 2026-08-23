@@ -59,8 +59,8 @@ describe('applyLevelComplete', () => {
   it('stamps the completion day, including on replays (progress untouched)', () => {
     const a = applyLevelComplete(DEFAULT_TRAINING, 'irr-l1', undefined, '2026-07-11');
     expect(a.lastCompletedOn).toBe('2026-07-11');
-    // A replay re-stamps the day — that is what closes the Now ring on
-    // all-trained build days — but never re-counts the level or the skill.
+    // A replay re-stamps the day, that is what closes the Now ring on
+    // all-trained build days, but never re-counts the level or the skill.
     const b = applyLevelComplete(a, 'irr-l1', undefined, '2026-07-12');
     expect(b.lastCompletedOn).toBe('2026-07-12');
     expect(b.completed).toEqual(['irr-l1']);

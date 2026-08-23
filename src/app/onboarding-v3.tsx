@@ -184,7 +184,7 @@ const SEQUENCE: StepId[] = [
 // Retake ("measure your progress", entered from My Soul with mode=retake): just
 // the five question steps, then a then-vs-now compare instead of the result +
 // plan. No facts (she has seen them), no cycle re-ask, no plan hand-off, and
-// nothing written to pms-prefs or the resume progress — only a new entry in the
+// nothing written to pms-prefs or the resume progress, only a new entry in the
 // pms-reads history once the compare shows.
 const RETAKE_SEQUENCE: StepId[] = [
   'symptoms',
@@ -259,7 +259,7 @@ export default function OnboardingV3Screen() {
   const step = sequence[stepIndex];
 
   // Whether per-step persistence may run: 'pending' until the saved progress is
-  // read, then 'on' — unless the read came back done. A finished read must never
+  // read, then 'on', unless the read came back done. A finished read must never
   // be downgraded to done:false by a later partial re-entry (dev preview, or a
   // future redo): her plan already exists, so quitting a redo partway should
   // not resurrect the home setup card. complete() still overwrites regardless.
@@ -351,7 +351,7 @@ export default function OnboardingV3Screen() {
 
   // She chose to skip / step out before finishing (first-run only). Save where
   // she is, satisfy the launch gate so she lands on Now instead of being bounced
-  // straight back into onboarding, and go there — the home's "finish setting up"
+  // straight back into onboarding, and go there, the home's "finish setting up"
   // card is her way back in. getOnboardingComplete gates ONLY the launch redirect
   // (index.tsx), so setting it here is safe; `done` stays false so the card and
   // her saved step both survive. Force-save even at step 0 so progress is never
@@ -365,7 +365,7 @@ export default function OnboardingV3Screen() {
 
   // The plan hand-off: write her cycle into the app's real PMS prefs (so home,
   // the luteal card, reminders, and the game all read it), remember the period in
-  // the additive history, mark onboarding done. Does NOT navigate — the pick step
+  // the additive history, mark onboarding done. Does NOT navigate, the pick step
   // that follows chooses where she lands. Guarded by a ref so backing into the
   // plan and re-committing cannot record a duplicate baseline read.
   const committed = useRef(false);
@@ -638,7 +638,7 @@ function RenderStep({
       // The last step now (the 4-card pick page was removed): land on home.
       return <ReminderStep onDone={() => router.replace('/now' as Href)} />;
     case 'pick':
-      // "Where do you want to start?" — routes into the chosen pillar.
+      // "Where do you want to start?", routes into the chosen pillar.
       return <Pick onPick={startWith} onBack={onBack} />;
     case 'compare':
       // Retake only: record the new read, show then vs. now, return to My Soul.
@@ -840,7 +840,7 @@ function MoonIntro({ onNext }: { onNext: () => void }) {
   return (
     <View style={styles.screen}>
       {/* The moon, big and blooming, sits behind and above the glass so it glows
-          through the frosted top edge — the Home composition. */}
+          through the frosted top edge, the Home composition. */}
       <View style={styles.moonIntroHero}>
         <Orb size={196} />
       </View>
@@ -885,7 +885,7 @@ function MoonIntro({ onNext }: { onNext: () => void }) {
 
 // The Moon AI consent screen ("Meet Moon"). Apple 5.1.2(i) launch gate: explicit
 // consent BEFORE any reflection text is sent to the AI. Shown from Home the first
-// time she taps "Talk to Moon" without having agreed. COPY IS LOCKED (Neha) —
+// time she taps "Talk to Moon" without having agreed. COPY IS LOCKED (Neha), 
 // reuses the MoonIntro glass + background composition so it reads as one product.
 // "I agree" persists consent and opens Moon; the ✕ closes without consenting.
 const MOON_CONSENT_ROWS: string[] = [
@@ -1503,7 +1503,7 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
     <StepLayout
       footer={<BeginButton fullWidth label="Let's set you a plan" onPress={onNext} />}
     >
-      {/* Hero — severity on the mild -> PMDD spectrum. The only tinted card. */}
+      {/* Hero, severity on the mild -> PMDD spectrum. The only tinted card. */}
       <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.cardAnim}>
         <Panel hero accent={levelColor}>
           <Text style={styles.cardHeadingText}>Your PMS reads as</Text>
@@ -1518,7 +1518,7 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
         </Panel>
       </Animated.View>
 
-      {/* Leaderboard — the four levers as bars, tallest = strongest evidence. */}
+      {/* Leaderboard, the four levers as bars, tallest = strongest evidence. */}
       <Animated.View entering={FadeInDown.delay(400).duration(600)} style={styles.cardAnim}>
         <Panel>
           <Text style={styles.cardHeadingText}>What moves your PMS most</Text>
@@ -1526,7 +1526,7 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
         </Panel>
       </Animated.View>
 
-      {/* Next window — framed as prep, not dread. */}
+      {/* Next window, framed as prep, not dread. */}
       {(windowPhrase || remLine) && (
         <Animated.View entering={FadeInDown.delay(650).duration(600)} style={styles.cardAnim}>
           <Panel>
@@ -1549,7 +1549,7 @@ function Result({ answers, onNext }: { answers: V3Answers; onNext: () => void })
   );
 }
 
-// Then vs. now — the retake's result. Records the new read once on arrival
+// Then vs. now, the retake's result. Records the new read once on arrival
 // (she has answered everything by now; quitting on this screen keeps it), then
 // the ladder: level hero → what moved since last time → one caption. Done
 // returns to My Soul.
@@ -1801,7 +1801,7 @@ function Plan({
         </Panel>
       </Animated.View>
 
-      {/* 1 — Train your mind: one representative chapter card. (Was a negative-
+      {/* 1, Train your mind: one representative chapter card. (Was a negative-
           margin stacked deck; collapsed to a single card so nothing's buried and
           the fragile fixed-height overlap is gone. Neha 2026-08-02.) */}
       <Animated.View entering={FadeInDown.delay(180).duration(500)} style={styles.planSection}>
@@ -1814,13 +1814,13 @@ function Plan({
         />
       </Animated.View>
 
-      {/* 2 — Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
+      {/* 2, Couples: the "Us vs. the PMS" cards, stacked (featured in front). */}
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.planSection}>
         <PlanSectionHead when="Before PMS" title="Us vs. the PMS" />
         <PlanCoupleCard item={PLAN_COUPLE_DECK[PLAN_COUPLE_DECK.length - 1]} />
       </Animated.View>
 
-      {/* 3 — PMS prep checklist: real checklist items stacked, calcium in front. */}
+      {/* 3, PMS prep checklist: real checklist items stacked, calcium in front. */}
       <Animated.View entering={FadeInDown.delay(420).duration(500)} style={styles.planSection}>
         <PlanSectionHead
           when="During PMS"
@@ -1830,7 +1830,7 @@ function Plan({
         <PrepCard id={PREP_DECK[PREP_DECK.length - 1]} />
       </Animated.View>
 
-      {/* 4 — Explore your power move: the real calm cards (CardScene), horizontal. */}
+      {/* 4, Explore your power move: the real calm cards (CardScene), horizontal. */}
       <Animated.View entering={FadeInDown.delay(540).duration(500)} style={styles.planSection}>
         <PlanSectionHead
           when="Whenever you need"
@@ -1877,7 +1877,7 @@ function Plan({
 // The step after the plan. Four image-forward cards in a 2x2 grid; each previews
 // a real pillar and, on tap, routes straight into it while recording the choice
 // so the Grow tab leads with it. Story ships as a teaser ("Soon") until its
-// player screen lands — the other three are live.
+// player screen lands, the other three are live.
 
 type StartKey = 'emotion' | 'workplace' | 'partner' | 'story';
 type StartChoice = { key: StartKey; dest: Href };
@@ -1890,11 +1890,11 @@ type StartCard = {
   accent: string; // tag colour
   image?: ImageSourcePropType; // real card art (story); otherwise a live mini-render
   previewKind?: 'emotion' | 'workplace' | 'partner'; // faithful in-card rebuild of the real screen
-  soon?: boolean; // not yet playable — shown dimmed with a "Soon" pill
+  soon?: boolean; // not yet playable, shown dimmed with a "Soon" pill
 };
 
 // Each card previews its pillar with a faithful in-card mini-render (CardPreview)
-// rebuilt from the real screen's own colours/shapes — no screenshot, no drift.
+// rebuilt from the real screen's own colours/shapes, no screenshot, no drift.
 // Story already has scene art, so it shows the real image while its player is
 // pending on this branch.
 const START_CARDS: StartCard[] = [
@@ -2286,7 +2286,7 @@ function Panel({
       style={[styles.panel, accent ? { borderColor: colorAlpha(accent, 0.35) } : null, style]}
     >
       {/* The blur lives ONCE at the page root (a full-screen frost over the
-          moon), so a panel is just a light raised surface on that glass — no
+          moon), so a panel is just a light raised surface on that glass, no
           per-card BlurView. `hero` lifts a touch stronger for the primary card;
           the top-left gloss gives both the glass sheen. */}
       <View pointerEvents="none" style={hero ? styles.panelFillHero : styles.panelFill} />

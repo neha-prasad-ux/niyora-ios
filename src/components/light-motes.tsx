@@ -2,7 +2,7 @@
 // small mote drifts from the content area down into the Moon tab's moon, which
 // pulses as it absorbs (tab-moon.tsx listens for `moteArrived`). Light is
 // mostly earned inside full-screen flows that cover the tab bar, so motes
-// queue while the tabs are hidden and play on return — the moment she can
+// queue while the tabs are hidden and play on return, the moment she can
 // actually see the moon receive them. Purely decorative: pointer-transparent,
 // capped, skipped entirely under reduce-motion (the moon still pulses its
 // state change, and nothing downstream waits on a mote).
@@ -34,7 +34,7 @@ import {
 // (tabs)/_layout.tsx: the motes are aimed by pure geometry, with no ref and no
 // measurement, so a mismatch here misses the icon silently and nothing fails.
 const TAB_COUNT = 3;
-const MOON_TAB_INDEX = 0; // moon (home), grow, you — the moon is the first tab
+const MOON_TAB_INDEX = 0; // moon (home), grow, you, the moon is the first tab
 
 const QUEUE_MAX = 3; // a burst plays as at most this many motes on return
 const QUEUE_FRESH_MS = 60_000; // stale earns stop announcing themselves
@@ -127,7 +127,7 @@ function Mote({ mote, onDone }: { mote: ActiveMote; onDone: (id: number) => void
   // The bar is inset from both edges, so the tab row is narrower than the
   // screen: centre of tab MOON_TAB_INDEX among TAB_COUNT equal tabs within that
   // inset row. Written out rather than folded into one constant because the old
-  // form was a bare `/ 6` that silently meant "first of three" — when a fourth
+  // form was a bare `/ 6` that silently meant "first of three", when a fourth
   // tab landed it aimed the light at a place no tab was.
   const rowWidth = width - 2 * BAR_SIDE_INSET;
   const ex = BAR_SIDE_INSET + (rowWidth * (2 * MOON_TAB_INDEX + 1)) / (2 * TAB_COUNT);

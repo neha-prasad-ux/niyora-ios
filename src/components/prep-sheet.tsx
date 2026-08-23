@@ -1,7 +1,7 @@
 // The PrepSheet: tapping the preparedness bar on the Now card slides this up
 // (not a new screen), reusing the "know why" sheet pattern but tall and
 // scrollable. It shows this part of the cycle's prep items as a short path with
-// done markers — a *map* of what helps, never a backlog. Tapping an item
+// done markers, a *map* of what helps, never a backlog. Tapping an item
 // dismisses the sheet and hands off to that screen (the action is never nested
 // inside the sheet). See docs/pms/niyora-pms-preparedness-spec.md (v2).
 

@@ -1,9 +1,9 @@
-// "A story" — one of the settling activities. A short, wholesome, real-life
+// "A story", one of the settling activities. A short, wholesome, real-life
 // story to get absorbed in for a minute while the urge passes. She can pull
 // another, and Done marks it finished.
 //
 // [DRAFT] placeholder stories (Neha will rewrite in her voice). The mark of a
-// good one: small, true-feeling, kind — nothing dramatic to re-activate her.
+// good one: small, true-feeling, kind, nothing dramatic to re-activate her.
 
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

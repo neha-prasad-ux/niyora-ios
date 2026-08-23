@@ -1,7 +1,7 @@
 // An occasional shooting star that streaks across the home "sky". A single
 // reusable streak: it fires, arcs down across the upper portion of the screen
 // over ~0.85s leaving a fading tail, then waits a random 7-20s and fires again
-// from a new position/angle. Purely ambient — pointer-events off, and disabled
+// from a new position/angle. Purely ambient, pointer-events off, and disabled
 // when the OS reduce-motion setting is on.
 
 import { useEffect } from 'react';

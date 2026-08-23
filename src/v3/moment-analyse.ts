@@ -28,7 +28,7 @@ const FEELING_ONLY =
 
 // There was a HAS_VERB whitelist here: a sentence had to contain one of ~35
 // past-tense verbs or it was sent to clarify. It was removed 2026-07-27 because
-// it misfired constantly — "she rolled her eyes at me", "he was late again",
+// it misfired constantly, "she rolled her eyes at me", "he was late again",
 // "nobody backed me up" are all concrete events and all failed it.
 //
 // The tolerance here is ASYMMETRIC and the whitelist had it the wrong way
@@ -70,8 +70,8 @@ export function analyse(raw: string): Verdict {
     return { kind: 'unclear', reason: 'nothing-to-echo' };
   }
 
-  // A `rephrase` decline means she wrote a LOT — too much to carve without
-  // parroting — which is the OPPOSITE of "no event". Routing her to "what
+  // A `rephrase` decline means she wrote a LOT, too much to carve without
+  // parroting, which is the OPPOSITE of "no event". Routing her to "what
   // happened?" answers verbosity with an interrogation (she wrote "for some
   // reason...", then we ask her the reason). So treat it as clear enough to
   // proceed: no mechanical carve (empty echo → the authored acknowledge line),
@@ -135,7 +135,7 @@ export const FEELING_SET: readonly FeelingWord[] = [
   { label: 'Sad', constellation: 'sadness', cues: ['cried', 'crying', 'tears', 'down', 'low', 'sad', 'dont feel like', 'no energy'] },
   { label: 'Grieving', constellation: 'grief', cues: ['lost', 'gone', 'died', 'passed', 'miss'] },
   // Withdrawal / low-energy language ("dont feel like doing anything", "just
-  // wanna stay in bed") lands here — the closest word we have, and it routes to
+  // wanna stay in bed") lands here, the closest word we have, and it routes to
   // the LOW lane (behavioral activation), which is the right path for a flat,
   // do-nothing state. TODO: the set still lacks a proper "Drained"/"Flat" word.
   { label: 'Numb', constellation: 'numbness', cues: ['nothing', 'empty', 'blank', 'numb', 'dont care', 'shut down', 'dont feel like', 'not do anything', 'be on bed', 'stay in bed', 'no energy', 'cant be bothered', 'dont wanna do'] },
@@ -165,13 +165,13 @@ export const FEELING_SET: readonly FeelingWord[] = [
  *
  * HIGH is the default on purpose. An unrecognised word is far more likely to be
  * a wound-up one in this flow, and the high lane is the one that offers the
- * hold — so an unknown word errs toward waiting rather than toward acting.
+ * hold, so an unknown word errs toward waiting rather than toward acting.
  */
 export type Lane = 'high' | 'low' | 'mixed';
 
 // The low lane is for LOW-AROUSAL, shut-down feelings (flat, numb, sad, lonely,
-// grieving): the ones where behavioral activation — doing one small engaging
-// thing — beats the hold/breath, which are tools for a wound-up, high-arousal
+// grieving): the ones where behavioral activation, doing one small engaging
+// thing, beats the hold/breath, which are tools for a wound-up, high-arousal
 // state. Sad/Lonely/Grieving used to fall through to the high lane (the "beat the
 // urge to react" hold), which makes no sense for someone who is shut down, not
 // activated (Neha 2026-08-01).
@@ -188,7 +188,7 @@ export function laneFor(feeling: string): Lane {
 /**
  * The feeling she named OUTRIGHT, if any: a label whose own word she typed
  * ("guilty", "angry", "ashamed"). Affect labeling works on the emotion she
- * actually feels, so a model reorder must never bury a word she handed us — it
+ * actually feels, so a model reorder must never bury a word she handed us, it
  * did exactly that once, offering "Dismissed" over her written "guilty". This is
  * checked against the model's order and pins the named feeling back to the top.
  * Null when she named none, which is the common case (she wrote an event, not a
@@ -205,7 +205,7 @@ export function namedFeeling(herText: string): string | null {
   return hit ? hit.label : null;
 }
 
-/** Put `label` first — moving it up if the model ranked it lower, or prepending
+/** Put `label` first, moving it up if the model ranked it lower, or prepending
  *  it if the model dropped it from the top three entirely. `label` is always a
  *  real feeling word she typed (from namedFeeling), so prepending invents nothing. */
 export function pinFeeling(label: string | null, order: string[]): string[] {

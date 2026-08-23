@@ -1,10 +1,10 @@
-// Phase B3 — the stress tick.
+// Phase B3, the stress tick.
 //
 // One pass of the whole loop: read recent HR + activity, compare against the
 // resting baseline (B1), decide stressed-or-not (B2), throttle through the nudge
 // policy (B3 policy), and, when it clears, fire the "Feeling tense?" nudge (B4)
 // and record it. This is what the background HR-delivery trigger (B3 native,
-// next) will call when iOS wakes the app — and what a foreground check calls
+// next) will call when iOS wakes the app, and what a foreground check calls
 // while the app is open.
 //
 // All I/O is injected so the orchestration is pure and unit-testable; the live
@@ -66,7 +66,7 @@ function iso(ms: number): string {
 
 /**
  * Run one detection→policy→nudge pass. Never throws on a "nothing to do"
- * outcome — when there's no baseline yet, or it's calm, or the policy holds the
+ * outcome, when there's no baseline yet, or it's calm, or the policy holds the
  * nudge, it simply returns `fired: false` with the reasons in the result.
  */
 export async function runStressTick(deps: TickDeps): Promise<TickResult> {

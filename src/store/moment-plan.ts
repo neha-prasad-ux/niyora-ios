@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // "Added to today" snackbar confirms it, instead of the flow dumping her onto
 // the Today tab. On-device only, like the rest of the PMS state.
 //
-// NOTE: nothing renders these on the Today tab yet — that surface is the
+// NOTE: nothing renders these on the Today tab yet, that surface is the
 // follow-up. Saving here first keeps the data real so the snackbar is honest
 // and the Today row can read it when it is built.
 

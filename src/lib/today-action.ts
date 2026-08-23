@@ -19,7 +19,7 @@ import { trainSummary, workSummary } from '@/v3/game-content';
 // whole matrix is unit-testable.
 //
 // The phase grammar: the far-out "open" build days coach from Grow (training);
-// the pre-PMS "prep" run-up (1-7 days out) runs the preparedness ladder — Neha's
+// the pre-PMS "prep" run-up (1-7 days out) runs the preparedness ladder, Neha's
 // story first, then once that's done the PMS checklist, then training; PMS days
 // own the in-the-moment flow; period days carry the once-a-cycle check-ins. The
 // checklist only surfaces in the prep run-up (after the story) or the window
@@ -28,12 +28,12 @@ import { trainSummary, workSummary } from '@/v3/game-content';
 // morning/evening at 17:00.
 //
 // The Calm now button is the screen's constant, so the selector NEVER asks
-// for a calming practice — the coached action is always something different
+// for a calming practice, the coached action is always something different
 // (a readiness check, a training level, a check-in), and calm stays one tap
 // away regardless of the day.
 //
 // Check-in actions (period confirm, remission) are completed by the screen
-// marking the rotation store's dismissedDate for today — that is what closes
+// marking the rotation store's dismissedDate for today, that is what closes
 // the ring for checkin kinds, whether she answered or tapped "Not yet"
 // (honesty is the ask, not the period).
 
@@ -113,13 +113,13 @@ export function periodConfirmed(prefs: PmsPrefs, now: Date): boolean {
  *
  * Normally that is the current cycle (anchored at `lastPeriodStart`). But once
  * the next period is logged its start becomes `lastPeriodStart`, while the cycle
- * she is actually reflecting on — the one that just ended — started at the
+ * she is actually reflecting on, the one that just ended, started at the
  * PREVIOUS logged period. The moon minted for that ended cycle carries
  * `cycleStart = that previous start` (now.tsx onPeriodConfirm mints with the
  * prior anchor), and the You chart joins impact reads to moons by exact anchor
  * (you.tsx `readByAnchor.get(p.cycleStart)`). So when the latest period is
  * recent (periodConfirmed), step the anchor back one logged start so the read
- * lands on the moon it describes; otherwise keep the current start — the cycle
+ * lands on the moon it describes; otherwise keep the current start, the cycle
  * in progress, where this read will mint when it ends.
  *
  * `history` is newest-first (store/period-history). Without a usable history the
@@ -168,8 +168,8 @@ export function weakestLever(reads: PmsRead[]): Lever | null {
 // --- Ask content ---------------------------------------------------------
 
 // The PMS-days coached action: opens the Moon chat (/moment). During the window
-// the home shows this ONE action — the readiness checklist moved to Grow and the
-// pre-PMS notification — so a rough moment is always one tap from home.
+// the home shows this ONE action, the readiness checklist moved to Grow and the
+// pre-PMS notification, so a rough moment is always one tap from home.
 const STEADY_ACTION: TodayAction = {
   id: 'steady',
   kind: 'steady',
@@ -231,7 +231,7 @@ function trainAction(training: TrainingState): TodayAction | null {
   };
 }
 
-// Once the mind pillar is trained, learning moves on rather than looping — the
+// Once the mind pillar is trained, learning moves on rather than looping, the
 // work pillar (steadier nerves, confidence, assertiveness) is the next course.
 function workAction(training: TrainingState): TodayAction | null {
   const summary = workSummary(training);
@@ -300,7 +300,7 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
   if (phase === 'prep') {
     // The pre-PMS run-up: Neha's story first (the preparedness serial), then
     // once it is done the daily checklist, then training as other topics. This
-    // is the one place the checklist appears outside the window — after the
+    // is the one place the checklist appears outside the window, after the
     // story has set her up for the week.
     if (!input.storyDoneThisCycle) return STORY_ACTION;
     const checklistDone = isReadyDone(
@@ -312,7 +312,7 @@ export function pickTodayAction(input: TodayActionInput): TodayAction {
     return trainAction(training) ?? workAction(training) ?? GROW_REVISIT_ACTION;
   }
 
-  // Far-out "open" build days: the ask comes from Grow — walk the mind pillar,
+  // Far-out "open" build days: the ask comes from Grow, walk the mind pillar,
   // then the work pillar, and only replay once every course is trained. Never
   // the checklist; readiness asks belong to the prep run-up and the window.
   return trainAction(training) ?? workAction(training) ?? GROW_REVISIT_ACTION;
@@ -357,7 +357,7 @@ export function isRingClosed(input: TodayActionInput, action: TodayAction): bool
 
 // --- Now-tab copy --------------------------------------------------------
 
-/** "Day 22 · PMS window opens in 3 days" — null when PMS mode is off. */
+/** "Day 22 · PMS window opens in 3 days", null when PMS mode is off. */
 export function cycleStateLine(prefs: PmsPrefs, now: Date): string | null {
   if (!prefs.pmsMode || prefs.lastPeriodStart == null) return null;
   const offset = pmsOffsetDays(prefs.lastPeriodStart, prefs.cycleLength, now);

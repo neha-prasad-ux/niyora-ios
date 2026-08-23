@@ -4,7 +4,7 @@
 // prediction math as lib/pms-window, so the strip, the reminders, and the
 // action selector can never disagree about where she is.
 //
-// Copy rule: the screen never says "window" — that is forecast jargon. The
+// Copy rule: the screen never says "window", that is forecast jargon. The
 // premenstrual stretch is "PMS days", the bleed is "period days", the long
 // clear stretch is "build days". ("Window" survives only as an internal name
 // in lib/pms-window.)
@@ -30,7 +30,7 @@ export type PhaseBand = {
   dayWithin: number;
 };
 
-// The period segment covers the predicted start plus the grace days —
+// The period segment covers the predicted start plus the grace days, 
 // the same [0, +2] stretch the selector calls the `period` phase.
 const PERIOD_DAYS = PMS_GRACE_AFTER_DAYS + 1;
 
@@ -38,7 +38,7 @@ const PERIOD_DAYS = PMS_GRACE_AFTER_DAYS + 1;
  * The whole strip in one derivation. The band is anchored just after the
  * period days end, so the cycle reads left-to-right as build -> PMS -> period
  * and the PMS stretch is the visible approach, not a wraparound. null when
- * PMS mode is off or there is no usable anchor — never render a fake cycle.
+ * PMS mode is off or there is no usable anchor, never render a fake cycle.
  */
 export function derivePhaseBand(prefs: PmsPrefs, now: Date): PhaseBand | null {
   if (!prefs.pmsMode || prefs.lastPeriodStart == null) return null;
@@ -71,7 +71,7 @@ export function derivePhaseBand(prefs: PmsPrefs, now: Date): PhaseBand | null {
 
 /**
  * The card's eyebrow line, phrased as runway rather than deadline. Distant
- * counts are hedged with "about" — precision two weeks out would be false,
+ * counts are hedged with "about", precision two weeks out would be false,
  * and false precision teaches her to distrust the near-term counts too.
  */
 export function bandHeadline(prefs: PmsPrefs, now: Date): string | null {

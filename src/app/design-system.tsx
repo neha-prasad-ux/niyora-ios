@@ -1,7 +1,7 @@
 // The design-system reference: every token on one screen, so consistency is
 // visible and it's obvious when something in the app didn't come from here.
 // Dev-only (opened by long-pressing the You title). Renders straight off the
-// theme tokens — colours, type, radius/spacing, and the control surfaces — so
+// theme tokens, colours, type, radius/spacing, and the control surfaces, so
 // this page can never drift from what the components actually use.
 
 import { ScrollView, StyleSheet, Text, View } from 'react-native';

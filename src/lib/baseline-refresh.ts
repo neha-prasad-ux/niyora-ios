@@ -1,4 +1,4 @@
-// Phase E — keep the resting baseline fresh.
+// Phase E, keep the resting baseline fresh.
 //
 // Resting HR drifts (fitness, sleep, illness, the cycle), so a frozen baseline
 // slowly goes wrong and the detector mis-reads. This recomputes the
@@ -65,7 +65,7 @@ export async function refreshBaselineIfStale(
   ]);
 
   const model = computeRestingBaseline(hr, buckets, workouts);
-  // No usable data (e.g. watch wasn't worn) — keep whatever we had rather than
+  // No usable data (e.g. watch wasn't worn), keep whatever we had rather than
   // overwrite a good baseline with an empty one.
   if (model.sampleCount === 0) {
     return { refreshed: false };

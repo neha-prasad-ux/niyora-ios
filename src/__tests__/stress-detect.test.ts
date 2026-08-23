@@ -30,7 +30,7 @@ function recentHr(bpm: number | ((i: number) => number), spanMin: number): HrSam
 
 const STILL: ActivitySignals = { steps: 0, activeEnergyKcal: 0, hasActiveWorkout: false };
 
-describe('evaluateStress — activity gate', () => {
+describe('evaluateStress, activity gate', () => {
   it('returns active when a workout is in progress', () => {
     const v = evaluateStress(recentHr(90, 5), baselineResting60(), {
       ...STILL,
@@ -63,7 +63,7 @@ describe('evaluateStress — activity gate', () => {
   });
 });
 
-describe('evaluateStress — preconditions', () => {
+describe('evaluateStress, preconditions', () => {
   it('returns no-baseline when the model is empty and the user is still', () => {
     const empty = computeBaseline([]);
     const v = evaluateStress(recentHr(90, 5), empty, STILL, NOW);
@@ -95,7 +95,7 @@ describe('evaluateStress — preconditions', () => {
   });
 });
 
-describe('evaluateStress — verdict', () => {
+describe('evaluateStress, verdict', () => {
   it('flags sustained elevation at rest as stressed', () => {
     // ~88 bpm vs resting ~60 -> well above the 12% threshold, for 5 min, still.
     const v = evaluateStress(recentHr(88, 5), baselineResting60(), STILL, NOW);

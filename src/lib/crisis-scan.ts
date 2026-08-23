@@ -76,8 +76,8 @@ const CRISIS_PHRASES = [
 // SEPARATE from the crisis (self-harm) scan and it does NOT stop the flow. When
 // it fires it does two things (Neha 2026-08-01, "both, tuned to minimise
 // disclosure"): (1) removes every option aimed AT the person from the respond
-// menu — you never coach someone to confront a person who hits them, and "own
-// my part" self-blame is the abuser's own tool — and (2) surfaces a quiet,
+// menu, you never coach someone to confront a person who hits them, and "own
+// my part" self-blame is the abuser's own tool, and (2) surfaces a quiet,
 // NON-DIAGNOSTIC resource. Nothing here ever says "you are being abused": that
 // would be a disclosure on a device someone else may be reading, which in abuse
 // is common. The universal DV line (shown to everyone on "say it to them")
@@ -98,7 +98,7 @@ const ABUSE_PATTERNS: readonly RegExp[] = [
   /\b(raised (a|his|her) hand (to|at) me|laid a hand on me|lays a hand on me)\b/,
   /\b(he|she) (is|was) (violent|abusive)\b/,
   /\bhes (violent|abusive)\b/,
-  // unambiguous; NOT "hits me"/"beats me" bare — those collide with idioms ("it
+  // unambiguous; NOT "hits me"/"beats me" bare, those collide with idioms ("it
   // beats me") and are already caught, in a person context, by the first pattern.
   /\b(abuses me|abused me|domestic violence|domestic abuse|being abused)\b/,
 ];
@@ -137,7 +137,7 @@ export const DV_URL = 'sms:88788&body=START';
 // user the US short-code cannot reach. Same directory as the crisis screen.
 export const DV_INTL_URL = 'https://findahelpline.com';
 
-/** Open the DV support line. Silent on failure — a dead link must not raise a
+/** Open the DV support line. Silent on failure, a dead link must not raise a
  *  dialog in front of her. */
 export function openDvLine(): void {
   Linking.openURL(DV_URL).catch(() => {});
@@ -183,7 +183,7 @@ export const CRISIS_COPY = {
 
 // The three lines' actions, matched to CRISIS_COPY.lines BY ORDER: the 988
 // lifeline, the Crisis Text Line, and the by-country directory. Kept next to
-// the copy so a line and its number can never drift apart — a resource row
+// the copy so a line and its number can never drift apart, a resource row
 // that dials the wrong place is worse than no row.
 // Crisis Text Line only engages when the first message is the keyword HOME; the
 // body= prefill fills it so a distressed user does not have to (audit M-4). If an
@@ -200,7 +200,7 @@ export function openCrisisLine(index: number): void {
 
 // [SAFETY] Shown INSTEAD of CRISIS_COPY when the AI escalates an acute
 // violence/child-harm disclosure (crisisType violence_to_her / child_harmed).
-// The 988 suicide screen is the wrong response to "he is hurting me" — she needs
+// The 988 suicide screen is the wrong response to "he is hurting me", she needs
 // the DV line and a safety framing (audit H-1). Framed around safety, not a
 // finding about her. Text-first for the DV line: a call log is a trace an abuser
 // can find on a shared phone (same reasoning as DV_URL). Numbers verified US and
@@ -227,7 +227,7 @@ export function openDvCrisisLine(index: number): void {
 
 // [SAFETY] Shown when the AI escalates a NARROW, HIGH-BAR credible intent to harm
 // another named person (crisisType harm_to_other): a real plan, the means, or
-// immediacy — NEVER venting like "I could kill him". The job is to de-escalate and
+// immediacy, NEVER venting like "I could kill him". The job is to de-escalate and
 // put space between her and the act, never to coach the confrontation. 988 counsels
 // thoughts of harming others, not only self-harm. Numbers kept beside the copy so a
 // line can never dial the wrong place. (Neha 2026-08-13.)

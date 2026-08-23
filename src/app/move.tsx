@@ -1,4 +1,4 @@
-// "Move your body" — one of the settling activities. Neha's prompt: a single
+// "Move your body", one of the settling activities. Neha's prompt: a single
 // nudge to leave the room, breathe, and come back. Off the phone, out of the
 // spot she is stuck in. Nothing to perform; Done marks it finished.
 

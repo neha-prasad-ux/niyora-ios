@@ -49,7 +49,7 @@ function HookWrapper() {
   return null;
 }
 
-describe('useNiyoraSync — auto-reconnect', () => {
+describe('useNiyoraSync, auto-reconnect', () => {
   let renderer: ReturnType<typeof create> | null = null;
 
   beforeEach(() => {
@@ -107,7 +107,7 @@ describe('useNiyoraSync — auto-reconnect', () => {
 
     act(() => { emitState({ state: 'paired', serverId: 'mac-xyz' }); });
     expect(currentResult!.syncState.state).toBe('paired');
-    // No awaiting_approval step — the Mac recognised our static key and authed silently.
+    // No awaiting_approval step, the Mac recognised our static key and authed silently.
   });
 
   it('calls stopDiscovery and removes listeners on unmount', () => {

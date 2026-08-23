@@ -1,6 +1,6 @@
 // A saved "later" move, opened from the Later list on the Moon home. Shows the
-// exact task she parked — its label and the message/plan she or the moon drafted
-// — so she can read it back, share it, or mark it done. Reached by tapping an
+// exact task she parked, its label and the message/plan she or the moon drafted
+//, so she can read it back, share it, or mark it done. Reached by tapping an
 // item in <PlannedActions />, which passes the move's `at` (its stable key).
 
 import { useCallback, useState } from 'react';

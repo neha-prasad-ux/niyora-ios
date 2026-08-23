@@ -1,7 +1,7 @@
 // All practices grouped by category. v1 ships the data; the session screen
 // reads phases + visual colors from the breathing entries. Every technique is
 // always available: rewards celebrate, they never gate care (a locked calming
-// tool is the one thing this app must never have — moon-reward-spec.md).
+// tool is the one thing this app must never have, moon-reward-spec.md).
 
 import type { MotionType } from '../lib/motions';
 

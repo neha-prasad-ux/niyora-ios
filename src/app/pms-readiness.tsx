@@ -1,10 +1,10 @@
-// The daily PMS Day checklist. Purely proactive prep — getting ahead of the
+// The daily PMS Day checklist. Purely proactive prep, getting ahead of the
 // day, not managing a spike (in-the-moment regulation lives in the "Steady
 // yourself" flow now). Grouped by the jobs it does:
 //
-//   Relationship ("us") — a heads-up before, and topics for if you fight. Each
+//   Relationship ("us"), a heads-up before, and topics for if you fight. Each
 //     routes to an existing couples screen that scores itself.
-//   Life Style (body) — sleep enough, never run hungry, add these foods. Ticks
+//   Life Style (body), sleep enough, never run hungry, add these foods. Ticks
 //     live in the readiness store and feed the daily ring.
 //
 // Below the sections, a "Know why" grid opens the research per factor.
@@ -102,11 +102,11 @@ export default function PmsReadinessScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Your partner — the "us" jobs: a heads-up, plus fight topics. */}
+          {/* Your partner, the "us" jobs: a heads-up, plus fight topics. */}
           <SectionHeader title="Your partner" hint="Keep things good between you" />
           <RelationshipCard />
 
-          {/* Your body — sleep and food basics. Ticks feed the ring. */}
+          {/* Your body, sleep and food basics. Ticks feed the ring. */}
           <SectionHeader title="Your body" hint="The basics that make it easier" />
           <LifeStyleCard checks={checks} onToggle={toggle} />
 

@@ -52,7 +52,7 @@ export function parseTraining(raw: string | null): TrainingState {
 }
 
 // Completing a level records it once and nudges the wave steadier. Re-completing
-// is a no-op for the list and the skill, so repeats never inflate progress —
+// is a no-op for the list and the skill, so repeats never inflate progress, 
 // but it still stamps the local day: on all-trained build days the Now tab's
 // coached ask is a replay, and the ring closes on that stamp.
 export function applyLevelComplete(

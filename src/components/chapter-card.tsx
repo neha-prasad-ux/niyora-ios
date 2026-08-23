@@ -133,7 +133,7 @@ const CHAPTER_GRADIENT_FALLBACK: readonly [string, string, string] = [
 // Whole-card tap opens the chapter (resuming at her first incomplete level).
 // `peek` drops the progress tag AND the tap affordance (no chevron, not a
 // button) so the card sits in the onboarding plan preview as something to read,
-// not a control — the deck is a montage of the plan, not a menu.
+// not a control, the deck is a montage of the plan, not a menu.
 export function ChapterCard({
   chapter,
   training,

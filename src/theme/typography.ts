@@ -1,4 +1,4 @@
-// Typography — the single source of truth for every text style in the app.
+// Typography, the single source of truth for every text style in the app.
 //
 // Structure: a raw SIZE scale (fontScale) plus semantic ROLE tokens
 // (typography.*) that bind size + Poppins family + line-height + letter
@@ -6,7 +6,7 @@
 //
 //     <Text style={[typography.body, { color: colors.textOnDark.secondary }]}>
 //
-// SIX rungs (2026-07-30 merge — the old 9-rung scale crowded four sizes into a
+// SIX rungs (2026-07-30 merge, the old 9-rung scale crowded four sizes into a
 // 4px band; these six have distinct, readable jumps): 12 · 14 · 16 · 20 · 26 · 32.
 //
 // Rules (from DESIGN.md):
@@ -162,14 +162,14 @@ export const typography = {
 // ── Moon flow scale ───────────────────────────────────────────────────────────
 // The moment flow (`moment.tsx`) and onboarding share ONE small scale so Moon's
 // voice, headings, body and labels stay consistent across every card. FOUR sizes
-// only — 26 · 20 · 16 · 12 — where WEIGHT carries emphasis within a size and
+// only, 26 · 20 · 16 · 12, where WEIGHT carries emphasis within a size and
 // COLOR carries the quiet/subtitle tier (a subtitle is `body` dimmed, never
 // `body` shrunk). Headings run a tight -0.2 tracking for the calm, display feel.
 // Buttons reuse `typography.label` above; compose a role + only override color:
 //     <Text style={[moon.title, { color: colors.textPrimary }]}>
 export const moon = {
   // The one loud moment: the finish celebration. Nothing else in the flow is
-  // this big (Neha 2026-08-03 — celebration stays 26, everything else steps down).
+  // this big (Neha 2026-08-03, celebration stays 26, everything else steps down).
   celebrate: {
     fontFamily: fonts.semibold,
     fontSize: fontScale.heading, // 26
@@ -184,7 +184,7 @@ export const moon = {
     letterSpacing: -0.2,
   } satisfies TextStyle,
   // Moon's spoken / echoed line: the SAME size as the question, lighter by weight
-  // (Neha 2026-08-02 — the voice is one consistent size, distinguished by weight).
+  // (Neha 2026-08-02, the voice is one consistent size, distinguished by weight).
   voice: {
     fontFamily: fonts.medium,
     fontSize: fontScale.title, // 20

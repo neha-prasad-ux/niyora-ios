@@ -4,13 +4,13 @@
 // AsyncStorage, push/mutate in JS, write it back. Two of those running at once
 // (a background HR-tick firing a nudge while a foreground answer is being
 // written; light earned from two flows landing together) interleave their
-// get→set and the second write silently clobbers the first — losing an event
+// get→set and the second write silently clobbers the first, losing an event
 // from a log that is meant to be the system's ground truth.
 //
 // withStoreLock chains all work for a given key onto a single promise, so each
 // read-modify-write runs to completion before the next begins. Different keys
 // never block each other (independent chains), and a task that throws never
-// wedges the chain — the next task still runs.
+// wedges the chain, the next task still runs.
 
 const chains = new Map<string, Promise<unknown>>();
 

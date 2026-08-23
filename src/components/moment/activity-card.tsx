@@ -1,8 +1,8 @@
 // One hold activity, as a card: an icon and a short title, in a two-up grid.
 //
-// Same motion language as the option rows — rises in on the group stagger,
+// Same motion language as the option rows, rises in on the group stagger,
 // springs down under the thumb, and holds the phase tint for a beat before the
-// beat advances — just laid out as a card instead of a full-width row, because
+// beat advances, just laid out as a card instead of a full-width row, because
 // six choices read faster as a grid than as a long list while she is flooded.
 
 import { useEffect, useRef, useState } from 'react';

@@ -16,7 +16,7 @@ const FADE_MS = 600;
 
 export function useSessionMusic() {
   const [track, setTrackState] = useState<MusicTrack>('ocean');
-  // Single stable player — track switches use player.replace().
+  // Single stable player, track switches use player.replace().
   const player = useAudioPlayer(SOURCES.ocean);
   const fadeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Tracks which source is currently loaded so we avoid redundant replaces.
@@ -69,7 +69,7 @@ export function useSessionMusic() {
   }, []);
 
   // Pause/resume the music with the session. Pause halts the player (and any
-  // in-flight fade); resume restores full volume and plays again — unless the
+  // in-flight fade); resume restores full volume and plays again, unless the
   // user has the track muted, in which case resume is a no-op.
   const pause = useCallback(() => {
     if (fadeIntervalRef.current) {

@@ -1,4 +1,4 @@
-// Phase B3/B4 — nudge policy.
+// Phase B3/B4, nudge policy.
 //
 // Detection (B2) answers "is she stressed right now". This answers the separate
 // question "should we actually interrupt her". Background HR delivery (B3) runs

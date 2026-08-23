@@ -1,5 +1,5 @@
-// The home's cosmic backdrop: mostly black, with two faint nebula patches — one
-// top-left, one bottom-right — and nothing in between. Each patch is the tiled
+// The home's cosmic backdrop: mostly black, with two faint nebula patches, one
+// top-left, one bottom-right, and nothing in between. Each patch is the tiled
 // starfield tinted a colour (blue / violet), so its stars and faint gas read as a
 // small nebula bleeding in from the corner. Pointer-safe; sits behind everything.
 //
@@ -16,7 +16,7 @@ export function CosmicBackground() {
   return (
     <View style={[styles.fill, styles.base]} pointerEvents="none">
       {/* A faint full-screen starfield so stars fill the middle too, not only the
-          two nebula corners — even distribution without losing the corner glow. */}
+          two nebula corners, even distribution without losing the corner glow. */}
       <Image source={STARS} resizeMode="cover" style={[styles.fill, styles.spread]} />
       {/* Blue patch, bleeding in from the top-left corner. */}
       <Image

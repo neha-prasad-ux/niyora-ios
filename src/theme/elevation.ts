@@ -1,4 +1,4 @@
-// Elevation — the shadow language the app was missing. The audit found 14
+// Elevation, the shadow language the app was missing. The audit found 14
 // hand-rolled shadow treatments with no shared scale; even the two sibling CTAs
 // (Begin and Pill) used different glows. These are the three sanctioned levels.
 //

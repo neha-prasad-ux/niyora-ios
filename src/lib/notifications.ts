@@ -10,7 +10,7 @@ import { PMS_WINDOW_BEFORE_DAYS, PMS_GRACE_AFTER_DAYS } from '@/lib/pms-window';
 // (equals pmsPrepId(1)). It's the highest-intent "get ready" beat, so it plays
 // the default system sound in both the foreground (via the handler below) and
 // the background (via content.sound in schedulePmsReminders). Every other
-// notification stays silent — no sound field means iOS delivers it soundlessly.
+// notification stays silent, no sound field means iOS delivers it soundlessly.
 const PMS_ALERT_SOUND_ID = 'niyora-pms-prep-1';
 
 // Foreground behavior: if a notification fires while the app is open, still show
@@ -30,7 +30,7 @@ export const COMEBACK_NUDGE_ID = 'niyora-comeback-nudge';
 
 // Days of quiet before the comeback nudge fires. It is scheduled when she leaves
 // the app and cancelled when she returns (see _layout's background handler), so
-// it only ever reaches someone who actually drifted — not "24h after a
+// it only ever reaches someone who actually drifted, not "24h after a
 // comeback", which never reached a user who left and never came back.
 export const COMEBACK_LAPSE_DAYS = 3;
 
@@ -125,7 +125,7 @@ export async function pauseDailyReminder(): Promise<void> {
 // Schedule a one-shot comeback nudge to fire COMEBACK_LAPSE_DAYS from now.
 // Called when she leaves the app, so it lands only if she stays away that long;
 // returning cancels it (see _layout). The fixed identifier means re-scheduling
-// on every background just pushes the single nudge forward — never a stack.
+// on every background just pushes the single nudge forward, never a stack.
 export async function scheduleCombackNudge(): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     identifier: COMEBACK_NUDGE_ID,

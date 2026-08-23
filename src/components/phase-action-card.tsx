@@ -1,12 +1,12 @@
 // The Now tab's one card, redesigned: a textured phase HEADER (why this is the
 // right thing now + what it is + one phase-verb button) sitting over the cycle
 // bar, so the phase is visibly the reason the ask exists. The verb changes with
-// the phase — Start/Continue on build days, Prep on PMS days, Reflect on period
-// days — but the specific target still comes from the Now screen's selector.
+// the phase, Start/Continue on build days, Prep on PMS days, Reflect on period
+// days, but the specific target still comes from the Now screen's selector.
 //
 // The cycle bar is a display with doors: it shows where today sits and tapping a
 // phase opens that phase's surface (Build -> Grow, PMS -> checklist, Periods ->
-// the period sheet). Remission is no longer asked here — it lives in the Reflect
+// the period sheet). Remission is no longer asked here, it lives in the Reflect
 // flow now.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -46,15 +46,15 @@ const GRADIENT_LOCATIONS = [0, 0.42, 0.62, 1] as const;
 type PhaseActionCardProps = {
   /** The cycle bar rides at the bottom of the card when known. */
   band: PhaseBand | null;
-  /** The "why" eyebrow — the phase rationale. */
+  /** The "why" eyebrow, the phase rationale. */
   why: string | null;
-  /** The "what" title — the ask. */
+  /** The "what" title, the ask. */
   title: string;
   /** The phase verb: Start / Continue / Prep / Reflect. */
   ctaLabel: string;
   onCta: () => void;
   done: boolean;
-  /** True only when the ask is truly empty — a closed ring alone never disables
+  /** True only when the ask is truly empty, a closed ring alone never disables
    *  the button, so learning (Revisit a practice) stays reachable. */
   ctaDisabled: boolean;
   rose: boolean;
@@ -84,7 +84,7 @@ export function PhaseActionCard({
 }: PhaseActionCardProps) {
   const field = done ? DONE_GRADIENT : rose ? ROSE_GRADIENT : ASK_GRADIENT;
   const showPrep = readiness != null;
-  // The band word is the hero — no standing percentage (a percent reintroduces
+  // The band word is the hero, no standing percentage (a percent reintroduces
   // "why not 100 / why did it drop"). Movement shows through the bar filling.
   const band_ = showPrep ? prepBand(readiness ?? 0) : '';
   return (
@@ -133,7 +133,7 @@ export function PhaseActionCard({
         </View>
       </View>
 
-      {/* The cycle bar — the card's foot. On build days it carries the
+      {/* The cycle bar, the card's foot. On build days it carries the
           preparedness row + readiness fill and, when tappable, opens the
           PrepSheet; otherwise the plain cycle strip. */}
       {band != null && (

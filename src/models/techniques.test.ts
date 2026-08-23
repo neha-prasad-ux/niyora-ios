@@ -81,7 +81,7 @@ describe('quick-calm', () => {
 });
 
 describe('always available', () => {
-  it('no technique carries a lock — rewards never gate care', () => {
+  it('no technique carries a lock, rewards never gate care', () => {
     for (const t of TECHNIQUES) {
       expect('locked' in t).toBe(false);
     }

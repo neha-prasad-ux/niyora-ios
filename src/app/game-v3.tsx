@@ -1539,7 +1539,7 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
   };
 
   // Fly the routed card off to its gate, swap in the next one while it is still
-  // invisible (enter=0 cancels the reset opacity), then deal it in — so the old
+  // invisible (enter=0 cancels the reset opacity), then deal it in, so the old
   // card never flashes back at centre and the new one always makes an entrance.
   const nextCard = () => {
     tap();
@@ -1607,14 +1607,14 @@ function LevelFive({ ch, onDone, onExit }: { ch: Chapter; onDone: () => void; on
 
   // The card's motion: it flies out to its gate on Next (fly 0→1), and the next
   // card eases up into place (enter 0→1). Opacity multiplies the two so a card
-  // that is both reset (fly=0) and freshly dealt (enter=0) stays invisible — no
+  // that is both reset (fly=0) and freshly dealt (enter=0) stays invisible, no
   // snap-back flash of the outgoing card at centre.
   // The card flies off toward the gate it was tapped on: left gate -> left, right
   // gate -> right (basics/small/big share the same two-slot layout per card).
   const routedRight2 = routed ? shown.indexOf(routed) === 1 : false;
   // The card's live opacity: invisible while flown out (fly=1) or not yet dealt
   // (enter=0). The peek stack behind it rides the SAME opacity, so a card that
-  // has flown to its gate takes the empty peeks with it — the centre never shows
+  // has flown to its gate takes the empty peeks with it, the centre never shows
   // a hollow "blank card" mid-transition, it just clears until the next deals in.
   const cardOpacity = Animated.multiply(
     fly.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),

@@ -31,7 +31,7 @@ function parseDayNumber(iso: string): number | null {
  * The observed cycle length: the median of the last (up to) three plausible
  * intervals between consecutive logged starts. Needs at least two plausible
  * intervals (i.e. three good starts) before it dares override the onboarding
- * answer — one interval is an anecdote, not a rhythm. Returns null until then.
+ * answer, one interval is an anecdote, not a rhythm. Returns null until then.
  */
 export function tuneCycleLength(startsNewestFirst: readonly string[]): number | null {
   const days = startsNewestFirst
@@ -56,7 +56,7 @@ export function tuneCycleLength(startsNewestFirst: readonly string[]): number | 
 
 /**
  * Prefs after a period is logged: anchor the prediction on the newest logged
- * start (never moving backward — logging an old period must not rewind the
+ * start (never moving backward, logging an old period must not rewind the
  * cycle), switch PMS mode on (she gave us a cycle, mirroring the toggle's
  * seeding), and adopt the tuned length once the history can support one.
  */

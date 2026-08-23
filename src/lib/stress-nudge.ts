@@ -1,9 +1,9 @@
 import * as Notifications from 'expo-notifications';
 
-// Phase B4 — the stress nudge.
+// Phase B4, the stress nudge.
 //
 // A local, interactive notification asking the one question that is our ground
-// truth: were you actually tense? Three taps — Yes / No / Not now — answer it
+// truth: were you actually tense? Three taps, Yes / No / Not now, answer it
 // without opening the app. Same on-device-only plumbing as the daily reminder
 // and comeback nudge (no push tokens, nothing leaves the phone). When to fire
 // is decided upstream by the nudge policy; this module is just content + the
@@ -12,7 +12,7 @@ import * as Notifications from 'expo-notifications';
 export const STRESS_NUDGE_ID = 'niyora-stress-nudge';
 export const STRESS_NUDGE_CATEGORY = 'niyora-stress-nudge';
 
-/** Action button identifiers — these are the values stored as the answer. */
+/** Action button identifiers, these are the values stored as the answer. */
 export const NUDGE_ACTIONS = {
   yes: 'yes',
   no: 'no',

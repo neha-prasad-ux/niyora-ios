@@ -1,4 +1,4 @@
-// Neha's story — the PMS preparedness reader (niyora-pms-preparedness-spec.md,
+// Neha's story, the PMS preparedness reader (niyora-pms-preparedness-spec.md,
 // "Chapter structure"). One content-driven screen walks the locked flow for
 // whatever chapter is passed in:
 //
@@ -11,7 +11,7 @@
 //
 // The reward is the ISOLATED per-cycle prep state (src/store/pms-prep.ts): the
 // kit items she banks land as rings on the payoff moon. This never touches the
-// shipped lifetime moon — a fresh cycle simply starts a fresh prep.
+// shipped lifetime moon, a fresh cycle simply starts a fresh prep.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -238,7 +238,7 @@ function Opening({ chapter, onBegin }: { chapter: Chapter; onBegin: () => void }
 // --- A story beat -----------------------------------------------------------
 // The scene fills the screen (rendered behind, in the root); the copy sits in a
 // scrollable dark band low on the screen where the scrim keeps it legible. A
-// single Next control advances — tap-through, never a question mid-story.
+// single Next control advances, tap-through, never a question mid-story.
 
 function Beat({
   beatIndex,
@@ -253,7 +253,7 @@ function Beat({
 }) {
   return (
     <View style={styles.beatWrap}>
-      {/* The copy fades up as the scene cross-dissolves beneath it — keyed on the
+      {/* The copy fades up as the scene cross-dissolves beneath it, keyed on the
           beat so each turn animates. The button stays put so it never jumps. */}
       <Animated.View
         key={beatIndex}
@@ -319,7 +319,7 @@ function NextButton({ label, onPress }: { label: string; onPress: () => void }) 
 // Un-failable. She taps an option; a wrong tap tints her pick and reveals the
 // true answer, then a one-line takeaway teaches. Nothing here can be failed.
 // Keyed per question, so each one slides in from the right as the last slides
-// out to the left — the questions read as a moving deck.
+// out to the left, the questions read as a moving deck.
 
 function Reflect({
   question,
@@ -485,7 +485,7 @@ function Kit({ kit, onDone }: { kit: readonly KitItem[]; onDone: (ids: string[])
       </ScrollView>
       <View style={styles.footer}>
         {/* Require at least one pick, so tapping through never mints an empty
-            (0-ring) reward moon — the payoff should always feel earned. */}
+            (0-ring) reward moon, the payoff should always feel earned. */}
         <BeginButton
           label="Add to my prep list"
           onPress={() => onDone([...chosen])}

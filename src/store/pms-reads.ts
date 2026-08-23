@@ -4,7 +4,7 @@ import { EMPTY_ANSWERS, type V3Answers } from '@/v3/v3-content';
 
 // Every completed PMS read: the onboarding's answers, stamped with the day she
 // finished. Additive and oldest-first, so [0] is her baseline and the last
-// entry is where she stands now — the pair the "then vs. now" compare reads.
+// entry is where she stands now, the pair the "then vs. now" compare reads.
 // The first read is recorded when onboarding completes; retakes append.
 // Stays entirely on device, like the rest of the PMS state.
 export type PmsRead = {

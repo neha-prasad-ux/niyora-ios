@@ -107,7 +107,7 @@ export function PrepCard({ onCalm }: { onCalm: () => void }) {
   const onSelect = (key: PrepItemKey) => {
     setSheetOpen(false);
     Haptics.selectionAsync().catch(() => {});
-    // 'build' is this very page — the sheet just closes.
+    // 'build' is this very page, the sheet just closes.
     if (key === 'checklist') router.push('/pms-readiness' as Href);
     else if (key === 'calm') onCalm();
     else if (key === 'steady') router.push('/moment' as Href);

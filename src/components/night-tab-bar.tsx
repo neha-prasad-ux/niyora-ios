@@ -1,10 +1,10 @@
-// The tab bar as the misted bottom of the night sky: no slab, no hairline —
+// The tab bar as the misted bottom of the night sky: no slab, no hairline, 
 // just a dark blur so content softens behind the icons instead of colliding
 // with them. The one lit surface is the selection itself: a round glass
 // capsule (expo-glass-effect where the OS offers it, a whisper of the orb's
 // blue elsewhere) that glides between tabs on a spring, glowing softly, so a
 // tab switch is one continuous motion instead of three buttons popping. Every
-// tab wears its label — the resting ones dimmed, the selected one at full
+// tab wears its label, the resting ones dimmed, the selected one at full
 // white. Every press lands with the app's selection haptic.
 //
 // The geometry constants are exported for light-motes.tsx, which needs to know
@@ -66,8 +66,8 @@ export const MOON_CENTER_FROM_BAR_TOP = BAR_PAD_TOP + ICON_SLOT / 2;
 const INACTIVE_TINT = colors.textOnDark.faint;
 const ACTIVE_TINT = 'hsl(222, 82%, 84%)';
 
-// The selection highlight: a rounded-rect frost holding the whole tab — icon and
-// label both — the one lit surface on an otherwise quiet bar. Its width fills the
+// The selection highlight: a rounded-rect frost holding the whole tab, icon and
+// label both, the one lit surface on an otherwise quiet bar. Its width fills the
 // tab (the bar's third) minus an even side pad, so the pill scales with the
 // screen and the gap between pills is 2 × PILL_H_PAD.
 const PILL_H_PAD = 10; // gap from the pill to each side of its tab
@@ -81,7 +81,7 @@ const PILL_TOP = BAR_PAD_TOP + (TAB_BODY - PILL_HEIGHT) / 2;
 const SELECT_SPRING = { damping: 12, stiffness: 160, mass: 1 };
 
 // The squash-and-stretch pulse fired on every tab change: a quick stretch, then
-// a springy settle back — the pill wobbles like a bubble as it lands.
+// a springy settle back, the pill wobbles like a bubble as it lands.
 const SQUISH_SPRING = { damping: 9, stiffness: 140, mass: 0.8 };
 
 const glassAvailable = isLiquidGlassAvailable();
@@ -128,7 +128,7 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
   const pillStyle = useAnimatedStyle(
     () => ({
       width: pillWidth,
-      // Stretch along travel, thin down across it, then wobble back to 1 — the
+      // Stretch along travel, thin down across it, then wobble back to 1, the
       // bubble squishing as it lands.
       transform: [
         { translateX: active.value * tabWidth + PILL_H_PAD },
@@ -157,7 +157,7 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
       ) : blurAvailable ? (
         <BlurView pointerEvents="none" style={styles.blur} tint="dark" intensity={48} />
       ) : null}
-      {/* The bar's own night colour over the mist — the original bar's dark,
+      {/* The bar's own night colour over the mist, the original bar's dark,
           eased to let each backdrop breathe: glass carries its own material,
           blur needs a bit more, bare needs to do all the work itself. */}
       <View
@@ -186,7 +186,7 @@ export function NightTabBar({ state, descriptors, navigation }: TabBarProps) {
             <View style={styles.pillTint} />
             {/* Inner shadow: darker at the top and bottom inner edges, clear in
                 the middle, so the pill reads as a recessed glass well rather than
-                a raised chip — no outer drop shadow. */}
+                a raised chip, no outer drop shadow. */}
             <LinearGradient
               pointerEvents="none"
               colors={['rgba(0, 0, 0, 0.28)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0.16)']}
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
   // The moonlit capsule the selection rests in, with its glow bleeding softly
   // past the edges (the shadow of the translucent shape is the glow). The
-  // faint fill also gives the shadow a shape to cast from — clipping happens
+  // faint fill also gives the shadow a shape to cast from, clipping happens
   // on the glass layer inside, never on the shadow-carrying view.
   pill: {
     position: 'absolute',
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     height: PILL_HEIGHT,
     borderRadius: PILL_RADIUS,
     // A whisper of fill and a soft luminous rim instead of a matte outline. No
-    // outer drop shadow — the depth comes from the inner shadow layered inside,
+    // outer drop shadow, the depth comes from the inner shadow layered inside,
     // so the pill reads as recessed lit glass rather than a raised chip. The
     // inner-shadow layer clips to the radius, so the pill clips too.
     backgroundColor: 'rgba(214, 226, 250, 0.04)',
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: PILL_RADIUS,
-    // A pale, airy wash rather than a solid grey fill — lighter and more
+    // A pale, airy wash rather than a solid grey fill, lighter and more
     // transparent so content still glows through it.
     backgroundColor: 'rgba(216, 228, 250, 0.07)',
   },

@@ -34,7 +34,7 @@ describe('the echo says her words back, correctly', () => {
   });
 
   // "I never want to see this as a rephrase" (Neha). A long paste played back
-  // almost whole is a parrot, not a reflection — decline it, both paths.
+  // almost whole is a parrot, not a reflection, decline it, both paths.
   it('never plays a long sentence back near-verbatim', () => {
     const paste =
       'I feel he has lots of discipline, he likes building products, reading content about business, computer, software and technology';

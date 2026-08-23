@@ -231,8 +231,8 @@ function BreathingSession({
     voice.playEnd('well-done');
     fadeOut();
     // Record first so any earned ring is known before the mood overlay mounts.
-    // Let the closing animation — the dark settle, falling snow and "Well done"
-    // (and on a ring-earning finish, the sunburst and sparks) — actually play
+    // Let the closing animation, the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the sunburst and sparks), actually play
     // out before the "Feel better?" card fades in over it, rather than cutting
     // to it after half a second.
     let earned: Tier | null = null;
@@ -264,7 +264,7 @@ function BreathingSession({
   }, [cycle.done, technique.id]);
 
   // The very first completed session earns the Spark ring. Right after that
-  // celebration — the one genuine peak in v1 — ask for an App Store review.
+  // celebration, the one genuine peak in v1, ask for an App Store review.
   // Gating on Spark means it can only ever fire on session one (later rings
   // are Glow/Shine/Radiance), and requestReview is itself system-throttled and
   // a no-op in TestFlight, so this never nags.
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.3,
   },
-  // Exercise identity under the phase word — same info as the home list:
+  // Exercise identity under the phase word, same info as the home list:
   // the technique name (title) and its one-line benefit (subtitle).
   techniqueName: {
     marginTop: spacing.md,

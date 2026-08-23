@@ -87,7 +87,7 @@ describe('decideNudge', () => {
   });
 
   it('prioritises not-stressed over every other gate', () => {
-    // Calm, in quiet hours, in cooldown, over cap — still reports not-stressed.
+    // Calm, in quiet hours, in cooldown, over cap, still reports not-stressed.
     const night = new Date(2026, 5, 15, 23, 0, 0);
     expect(
       decideNudge(CALM, { now: night, lastNudgeAt: night, nudgesToday: 99 }),

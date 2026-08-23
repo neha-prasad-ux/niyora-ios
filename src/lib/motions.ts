@@ -107,7 +107,7 @@ function clampedPull(
 // ---------------------------------------------------------------------------
 
 /**
- * Box Breath — faithful port of the Mac converge motion. Each particle is
+ * Box Breath, faithful port of the Mac converge motion. Each particle is
  * pulled toward the centre on inhale with an inverse-distance "suck" (far
  * particles accelerate hard, the whole field rushes in fast), pushed back out
  * on exhale, and barely held on hold. Full per-particle noise is mixed straight
@@ -126,7 +126,7 @@ function motionConverge(
   'worklet';
   // Personal drift at FULL weight, exactly like the Mac (nx). The collective
   // breath force is a spring toward a phase target, but its magnitude is CLAMPED
-  // (maxC) so it leads the field without ever drowning this personal drift —
+  // (maxC) so it leads the field without ever drowning this personal drift, 
   // every particle visibly dances on its own AND moves with the group.
   //
   // The earlier port sprang to absolute position with no clamp, so on the
@@ -154,7 +154,7 @@ function motionConverge(
   } else if (phaseType === 'hold2') {
     // Hold after the out-breath: stay expanded. Anchor to each particle's
     // dispersed home (NOT centre) firmly enough to hold the spread, with the
-    // noise dancing on top — the mirror of the gather-hold above.
+    // noise dancing on top, the mirror of the gather-hold above.
     tx = cx + Math.cos(p.homeAngle) * p.homeR * cx * 0.92;
     ty = cy + Math.sin(p.homeAngle) * p.homeR * cy * 0.88;
     k = 0.09;
@@ -183,7 +183,7 @@ function motionConverge(
 }
 
 /**
- * Ocean Breath — left-to-right wave with sine-based vertical undulation.
+ * Ocean Breath, left-to-right wave with sine-based vertical undulation.
  * homeY acts as a per-particle phase offset so the wave travels naturally.
  */
 function motionWave(
@@ -222,7 +222,7 @@ function motionWave(
 }
 
 /**
- * Cooling Breath — particles fall like snowflakes on exhale (cooling air),
+ * Cooling Breath, particles fall like snowflakes on exhale (cooling air),
  * float upward on inhale.  Gentle horizontal drift from noise field.
  */
 function motionSnowfall(
@@ -259,7 +259,7 @@ function motionSnowfall(
 }
 
 /**
- * Alternate Nostril — uses p.side (-1 = left, 1 = right).  On inhale,
+ * Alternate Nostril, uses p.side (-1 = left, 1 = right).  On inhale,
  * particles draw from their assigned side toward centre; on exhale they
  * push out to the opposite side.
  */
@@ -299,7 +299,7 @@ function motionAlternate(
 }
 
 /**
- * Left Nostril (Chandra) — calming, moon-quality motion.  Gentle leftward
+ * Left Nostril (Chandra), calming, moon-quality motion.  Gentle leftward
  * orbital pull with soft CCW rotation.
  */
 function motionLunar(
@@ -338,7 +338,7 @@ function motionLunar(
 }
 
 /**
- * Belly Breath — downward pull on inhale (belly expands), gentle rebound on
+ * Belly Breath, downward pull on inhale (belly expands), gentle rebound on
  * exhale.  homeY anchors the rest position for each particle.
  */
 function motionBelly(
@@ -351,7 +351,7 @@ function motionBelly(
 ): { fx: number; fy: number } {
   'worklet';
   // Belly expands on the in-breath (field blooms outward) and softens back in
-  // on the out-breath — the inverse of converge, with a taller vertical reach.
+  // on the out-breath, the inverse of converge, with a taller vertical reach.
   let fx = nx * 0.3, fy = ny * 0.3;
   let rf: number;
   if (phaseType === 'inhale') {
@@ -375,7 +375,7 @@ function motionBelly(
 }
 
 /**
- * Wind Down (Sedation) — identical to converge but all forces attenuated by
+ * Wind Down (Sedation), identical to converge but all forces attenuated by
  * roundProgress so the field calms to near-stillness as rounds accumulate.
  */
 function motionSedation(
@@ -415,7 +415,7 @@ function motionSedation(
 }
 
 /**
- * Let It Drift (River) — steady directional flow like a slow current.
+ * Let It Drift (River), steady directional flow like a slow current.
  * Vertical stream on mobile: the current runs downward (downstream = toward the
  * bottom) so a leaf can float down the channel and out the bottom. Inhale draws
  * upstream (up), exhale accelerates downstream (down).
@@ -448,7 +448,7 @@ function motionRiver(
 }
 
 /**
- * Warm Pulse — particles radiate outward with warmth on inhale, draw back on
+ * Warm Pulse, particles radiate outward with warmth on inhale, draw back on
  * exhale.  Distance amplification gives a pulsing quality.
  */
 function motionWarmPulse(
@@ -482,7 +482,7 @@ function motionWarmPulse(
 }
 
 /**
- * Orbit — particles maintain a circular orbit around the centre; inhale
+ * Orbit, particles maintain a circular orbit around the centre; inhale
  * tightens the orbit (inward spiral), exhale widens it.
  */
 function motionOrbit(
@@ -522,7 +522,7 @@ function motionOrbit(
 }
 
 /**
- * Sensory — each particle has a distinct "personality" derived from
+ * Sensory, each particle has a distinct "personality" derived from
  * noiseOffsetX that blends converge, orbit, and drift behaviours.  Creates a
  * rich, varied field that emphasises sensory variety.
  */
@@ -564,7 +564,7 @@ function motionSensory(
 }
 
 /**
- * Ambient — noise-dominated; very gentle, almost no phase-based force.
+ * Ambient, noise-dominated; very gentle, almost no phase-based force.
  * Intended as the default fallback for unspecified techniques.
  */
 function motionAmbient(
@@ -674,21 +674,21 @@ export function updateParticle(
   );
 
   // Spring-damped integrate. On a breath hold the field should settle into
-  // stillness (a held breath), not keep drifting — but several motions don't
+  // stillness (a held breath), not keep drifting, but several motions don't
   // damp their own noise/drift during hold. So globally clamp down here:
   // stronger friction bleeds off residual velocity fast, and the force (which
   // includes the per-particle noise) is admitted at a whisper, so particles
   // glide to a near-stop and hover. Opacity/size still pulse (set in the motion
   // fns) so the field reads as a glowing pause rather than a dead freeze.
   const holding = phaseType === 'hold' || phaseType === 'hold2';
-  // On a hold the field settles but stays alive — the Mac never freezes it. Bleed
+  // On a hold the field settles but stays alive, the Mac never freezes it. Bleed
   // off velocity a little faster and admit the force (incl. per-particle noise)
   // at a fraction, so particles hover and drift gently rather than locking dead.
   const friction = holding ? 0.9 : 0.92;
   let vx = p.vx * friction + force.fx * dt * 8;
   let vy = p.vy * friction + force.fy * dt * 8;
 
-  // Speed cap — lifted off-hold so a gentle spring eases the particle out to its
+  // Speed cap, lifted off-hold so a gentle spring eases the particle out to its
   // target and decelerates naturally, instead of clipping to a constant-velocity
   // slide (which reads as a rigid, un-glittery slide). The softer exhale force
   // means particles rarely approach this cap anyway; it's just a runaway guard.

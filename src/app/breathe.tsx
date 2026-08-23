@@ -1,4 +1,4 @@
-// "Breathe" — one of the settling activities. A plain paced breath: a soft
+// "Breathe", one of the settling activities. A plain paced breath: a soft
 // circle that swells on the in-breath and eases on the out, four counts in and
 // six out so the exhale is the longer half (the app's calm 4:6). No claims about
 // the body, just a rhythm to follow. Done marks it finished.

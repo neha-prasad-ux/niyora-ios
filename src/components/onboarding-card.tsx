@@ -1,6 +1,6 @@
 // The "finish your setup" card pinned to the top of Now until onboarding is
 // done (setupCardFor decides start vs resume). Everything else on the dashboard
-// — the phase card, the reflection — needs her PMS read and period data, which
+//, the phase card, the reflection, needs her PMS read and period data, which
 // only onboarding gives, so until then this is the one thing the home asks.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';

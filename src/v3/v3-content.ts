@@ -179,7 +179,7 @@ export const EMPTY_ANSWERS: V3Answers = {
  * last read so the then-vs-now compare stays honest).
  *
  * DECISION (2026-07-24): first-run stays BLANK. Pre-selecting "common" answers
- * to cut drop-off was considered and rejected — pre-checking symptoms,
+ * to cut drop-off was considered and rejected, pre-checking symptoms,
  * impairment, or levers would inflate her derived level and her plan, which is
  * not a trade worth making. Do NOT add pre-selections here. Kept as its own
  * const (not a reference to EMPTY_ANSWERS) to preserve the first-run vs retake
@@ -324,7 +324,7 @@ export function levelCopy(level: Level): string {
 // --- Then vs. now (the retake compare) ---------------------------------
 // Pure comparison of two reads, driving the compare screen after a retake and
 // the one-line progress note in My Soul. Levels move slowly (the banding is
-// coarse on purpose), so the day-to-day factors are compared too — they are
+// coarse on purpose), so the day-to-day factors are compared too, they are
 // where progress shows first.
 
 const LEVEL_RANK: Record<Level, number> = { mild: 0, moderate: 1, severe: 2 };

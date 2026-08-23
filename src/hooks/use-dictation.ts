@@ -31,7 +31,7 @@ export function useDictation(onPhrase: (text: string) => void) {
       const trimmed = t.trim();
       if (trimmed) onPhrase(trimmed);
     } else {
-      // Live interim transcript — shown as she speaks.
+      // Live interim transcript, shown as she speaks.
       setPartial(t);
     }
   });

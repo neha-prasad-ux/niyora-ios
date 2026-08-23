@@ -166,7 +166,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'reflect',
     why: true,
     next: 'make_safe',
-    note: 'The reflect-card system (2026-08-09), replacing the old late-arriving reframe. detectSignals + routeCards order a set of REFLECT_CARDS; the screen shows one at a time. draft/guess cards are AI-drafted (per-card slot, called via reflectCard/compose — owner stays authored because it is a draft she rules on, never an asserted fact, exactly like the old reframe); question cards echo HER words with no AI call. An additive "no" walks to the next card; a reality "no" backs off and validates and STOPS. Any acceptance, validation or exhaustion converges on make_safe (regulate). EVERYONE reaches it, and it is now the FIRST thing after naming, not the fifth screen.',
+    note: 'The reflect-card system (2026-08-09), replacing the old late-arriving reframe. detectSignals + routeCards order a set of REFLECT_CARDS; the screen shows one at a time. draft/guess cards are AI-drafted (per-card slot, called via reflectCard/compose, owner stays authored because it is a draft she rules on, never an asserted fact, exactly like the old reframe); question cards echo HER words with no AI call. An additive "no" walks to the next card; a reality "no" backs off and validates and STOPS. Any acceptance, validation or exhaustion converges on make_safe (regulate). EVERYONE reaches it, and it is now the FIRST thing after naming, not the fifth screen.',
   },
 
   // --- settle ---------------------------------------------------------------
@@ -193,7 +193,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     phase: 'regulate',
     why: true,
     next: 'activities',
-    note: 'In for four, out for six, so the exhale is the long half. Count only, no vagus claim. The settling breath on the regulate path: make_safe "wait" (she chose to settle) leads here, then on to the settling menu. Regulate is optional now — only if she picks it at the SETTLE gate.',
+    note: 'In for four, out for six, so the exhale is the long half. Count only, no vagus claim. The settling breath on the regulate path: make_safe "wait" (she chose to settle) leads here, then on to the settling menu. Regulate is optional now, only if she picks it at the SETTLE gate.',
   },
   {
     id: 'make_safe',
@@ -204,7 +204,7 @@ export const MOMENT_FLOW: FlowNode[] = [
       { when: 'wait', next: 'breathe' },
       { when: 'now', next: 'lane_split' },
     ],
-    note: 'The SETTLE gate (2026-08-09): "want a moment to settle before you respond?". Regulate is optional and tied to responding. "Yes" (wait) takes the settling breath then the menu; "no" (now) goes straight to responding. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" opens the settling menu (`activities`): ways to fill the wait, none forced, "I am ready to respond" the exit — then the readiness check. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
+    note: 'The SETTLE gate (2026-08-09): "want a moment to settle before you respond?". Regulate is optional and tied to responding. "Yes" (wait) takes the settling breath then the menu; "no" (now) goes straight to responding. Names no person: the draft said "your husband" and the app does not know she has one. Says what the wait does FOR HER rather than what her body does, because the twenty-minute reset holds with active distraction and an empty wait is rehearsal. Both answers are un-shamed. "Wait" opens the settling menu (`activities`): ways to fill the wait, none forced, "I am ready to respond" the exit, then the readiness check. "Now" jumps to deciding the reaction, not to a 1-vs-5-minute fork.',
   },
   // The LANE SPLIT and the low and mixed lanes were removed 2026-07-27 at
   // Neha's call. make_safe now goes straight to the hold or straight to the
@@ -212,7 +212,7 @@ export const MOMENT_FLOW: FlowNode[] = [
   //
   // What went: lane_split, high_reward1, and the whole low lane (one small
   // engaging act, since the flat need an act most rather than least) and mixed
-  // lane (name the swing, check the read, an anchor — with the rule that she
+  // lane (name the swing, check the read, an anchor, with the rule that she
   // sorts swing-from-real and we do not argue either way).
   //
   // The HIGH lane's hold survives, because "wait twenty minutes" needs it.
@@ -226,13 +226,13 @@ export const MOMENT_FLOW: FlowNode[] = [
       { when: 'low', next: 'activities' },
       { when: 'mixed', next: 'mixed_name_swing' },
     ],
-    note: 'NOT A PAGE (Neha, 2026-07-27). She is never asked which lane she is in: it is derived from the feeling she already named. High (wound up) goes straight to respond; low (flat/shut down) reuses the built `activities` menu as its behavioral-activation step (Neha 2026-08-01 — "use what we built in the high lane"): one small engaging thing lifts a flat state, and it reuses a menu she already has rather than a text-only stub (the old low_activate chain was removed). Cycle phase is context here, never a fork.',
+    note: 'NOT A PAGE (Neha, 2026-07-27). She is never asked which lane she is in: it is derived from the feeling she already named. High (wound up) goes straight to respond; low (flat/shut down) reuses the built `activities` menu as its behavioral-activation step (Neha 2026-08-01, "use what we built in the high lane"): one small engaging thing lifts a flat state, and it reuses a menu she already has rather than a text-only stub (the old low_activate chain was removed). Cycle phase is context here, never a fork.',
   },
 
   // --- the hold: a menu of ways to settle -----------------------------------
   //
   // After "Yey, I'm ready" she lands on `activities` (Neha 2026-07-29): a small
-  // menu of ways to settle — colour & share (the Polaroid card, /paint), a
+  // menu of ways to settle, colour & share (the Polaroid card, /paint), a
   // wholesome real-life story (/story), move your body (/move: go out of the
   // room, breathe, come back), and a breath (/breathe). Each is a full-screen
   // route she does and marks done (src/lib/hold-activities.ts); she can do as
@@ -275,7 +275,7 @@ export const MOMENT_FLOW: FlowNode[] = [
   // (low_activate → low_justone → low_reward → low_better) were removed
   // 2026-08-01 (Neha, "use what we built in the high lane"). If the low lane
   // ever wants ACTIVATION-specific content (engaging, not soothing) distinct from
-  // the settling menu, it gets its own beat then — but a menu it already has beats
+  // the settling menu, it gets its own beat then, but a menu it already has beats
   // a text-only stub.
 
   // --- mixed lane ----------------------------------------------------------
@@ -338,7 +338,7 @@ export const MOMENT_FLOW: FlowNode[] = [
       { when: 'later', next: 'sendoff' },
       { when: 'another', next: 'options' },
     ],
-    note: 'The "when" page (Neha 2026-07-29): her chosen move, and three replies — do it now, later, try another. "Now" DOES the thing (for a message act it opens the iOS share sheet), then goes STRAIGHT to the closing rating — the if-then "Fill in to remember" was removed 2026-08-01 (Neha) as confusing after she had already acted. "Later" SAVES the move to Today, shows an "Added to today" snackbar, and continues to the closing rating. "Another" goes back to the menu.',
+    note: 'The "when" page (Neha 2026-07-29): her chosen move, and three replies, do it now, later, try another. "Now" DOES the thing (for a message act it opens the iOS share sheet), then goes STRAIGHT to the closing rating, the if-then "Fill in to remember" was removed 2026-08-01 (Neha) as confusing after she had already acted. "Later" SAVES the move to Today, shows an "Added to today" snackbar, and continues to the closing rating. "Another" goes back to the menu.',
   },
 
   // --- nothing feels possible ---------------------------------------------
@@ -370,7 +370,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'authored',
     phase: 'react',
     next: 'close',
-    note: 'The warm ending (Neha 2026-08-01): names the three phases done and hands her back her evening — go do what you like, feelings take about an hour to settle, keep busy, have fun. No rating, no "how do you feel" one more time. Then the reward.',
+    note: 'The warm ending (Neha 2026-08-01): names the three phases done and hands her back her evening, go do what you like, feelings take about an hour to settle, keep busy, have fun. No rating, no "how do you feel" one more time. Then the reward.',
   },
   // human_nudge ("you've been here a lot, go be with someone") was removed from
   // the path 2026-07-28 (Neha): it is a pure usage-frequency beat -- fires only
@@ -382,7 +382,7 @@ export const MOMENT_FLOW: FlowNode[] = [
     owner: 'reward',
     phase: 'react',
     terminal: true,
-    note: 'The one celebration in the app, and it is for a hard act she completed, never for a feeling or a score. A wrapped gift opens into a scratch card; she scratches it to reveal an earned character — "The Space Mover" — for making space between the feeling and the reaction. Saved to her Soul. Reward art stays opaque on the Soul page (a named badge discloses nothing about what she felt). NOTE: the Soul persistence + surfacing is still to wire; badge keying is the open question deferred with the reward system.',
+    note: 'The one celebration in the app, and it is for a hard act she completed, never for a feeling or a score. A wrapped gift opens into a scratch card; she scratches it to reveal an earned character, "The Space Mover", for making space between the feeling and the reaction. Saved to her Soul. Reward art stays opaque on the Soul page (a named badge discloses nothing about what she felt). NOTE: the Soul persistence + surfacing is still to wire; badge keying is the open question deferred with the reward system.',
   },
 ];
 

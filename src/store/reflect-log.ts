@@ -10,7 +10,7 @@ import { withStoreLock } from './storage-lock';
 // she can look back on a cycle more than once, and each reflection is kept as
 // its own timestamped entry rather than overwriting the last. On device only.
 
-// The levers she can pick from "what could you manage better next time" — the
+// The levers she can pick from "what could you manage better next time", the
 // same handful the prep checklist coaches, so reflection points back at action.
 export type ManageLever = 'nutrition' | 'sleep' | 'emotions';
 
@@ -67,7 +67,7 @@ export async function getReflectLog(): Promise<ReflectEntry[]> {
 }
 
 /**
- * Append a reflection. Every look-back stacks a new timestamped entry — the
+ * Append a reflection. Every look-back stacks a new timestamped entry, the
  * same cycle can be reflected on more than once, and nothing is overwritten.
  */
 export async function recordReflect(entry: ReflectEntry): Promise<ReflectEntry[]> {

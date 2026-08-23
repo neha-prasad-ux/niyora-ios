@@ -1,11 +1,11 @@
-// Phase B2 — the detection rule.
+// Phase B2, the detection rule.
 //
 // A reading counts as (likely) stress when, for its time of day, heart rate sits
 // meaningfully above the personal resting baseline (B1) AND the body is at rest
-// — low steps, low active energy, no workout. The activity gate is what makes
+//, low steps, low active energy, no workout. The activity gate is what makes
 // HR-alone usable: it removes the obvious confound (exercise also raises HR), so
 // what's left is elevation-while-still, which the probe showed tracks felt
-// stress ~73–84% personalised. The user's tap on the nudge (B4) is the real
+// stress ~73, 84% personalised. The user's tap on the nudge (B4) is the real
 // ground truth; these thresholds get tuned against it in Phase E.
 //
 // "Sustained ~5 min" matters: a single spike (stood up, sneezed) is not stress.
@@ -51,7 +51,7 @@ export const DEFAULT_STRESS_CONFIG: StressConfig = {
 export type StressReason =
   | 'stressed'
   | 'calm'
-  | 'active' // moving/exercising — gated out
+  | 'active' // moving/exercising, gated out
   | 'no-baseline' // no resting estimate yet
   | 'insufficient-data'; // not enough recent HR to judge
 

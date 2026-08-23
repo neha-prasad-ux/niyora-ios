@@ -1,6 +1,6 @@
 // Which settling activities she has finished in THIS hold (colour, story, move,
 // breath). Kept outside React, like the old hold clock, so an activity screen can
-// mark itself done and the menu underneath re-renders to show the check — even
+// mark itself done and the menu underneath re-renders to show the check, even
 // though they are separate routes. Cleared when a fresh hold starts.
 
 import { useSyncExternalStore } from 'react';
@@ -32,7 +32,7 @@ export function getActivitiesDone(): ReadonlySet<ActivityId> {
   return done;
 }
 
-/** Subscribe to done-set changes outside React — used to reward each completed
+/** Subscribe to done-set changes outside React, used to reward each completed
  *  activity (fire a moon shine + praise) the instant it lands. */
 export function subscribeActivities(cb: () => void): () => void {
   subs.add(cb);

@@ -1,5 +1,5 @@
 // The colouring drawings she can pick from on the Colour screen. Each is ONE
-// filled evenodd SVG path (the black ink), scaled to fit the card — see
+// filled evenodd SVG path (the black ink), scaled to fit the card, see
 // penguin.ts for the format. Giraffe is intentionally absent: its source is
 // multi-path stroked line-art, which this filled renderer does not handle yet.
 

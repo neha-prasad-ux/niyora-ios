@@ -1,10 +1,10 @@
 // Elephant line-art (SVG path), from Neha's supplied colouring page
-// (cute-elephant-colouring-page). ONE FILLED path with fill-rule evenodd — the
-// black ink of the drawing — drawn FILLED on top of her colour, same as the
+// (cute-elephant-colouring-page). ONE FILLED path with fill-rule evenodd, the
+// black ink of the drawing, drawn FILLED on top of her colour, same as the
 // penguin. Its fill type MUST be evenOdd or the holes flood solid.
 
 export const ELEPHANT = {
-  // The caption shown under the drawing and sent with it. [DRAFT] — Neha's pass.
+  // The caption shown under the drawing and sent with it. [DRAFT], Neha's pass.
   message: "You're the one I'll never forget.",
   vbW: 306.25,
   vbH: 317.5,

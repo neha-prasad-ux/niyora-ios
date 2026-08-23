@@ -85,7 +85,7 @@ describe('computeBaseline', () => {
   });
 
   it('keeps distinct resting levels for different times of day', () => {
-    // Early morning lower than mid-afternoon — the whole reason for time-of-day.
+    // Early morning lower than mid-afternoon, the whole reason for time-of-day.
     const morning = samplesAtHour(4, [55, 56, 57, 58, 59], 30);
     const afternoon = samplesAtHour(15, [72, 74, 76, 78, 80], 30);
     const m = computeBaseline([...morning, ...afternoon]);

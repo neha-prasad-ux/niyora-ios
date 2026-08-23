@@ -1,4 +1,4 @@
-// Mindfulness session screen — the breathing screen's sibling. Same particle
+// Mindfulness session screen, the breathing screen's sibling. Same particle
 // field + gradient background, but instead of a breath cadence it shows a
 // sequence of guided prompts that fade in and out. Ported from the Mac
 // BreathingSession mindfulness branch (prompt timing, fade, background shift).
@@ -126,7 +126,7 @@ export function MindfulnessSession({
     return () => clearInterval(id);
   }, [done]);
 
-  // Walk the prompts: fade each in, hold, fade out, advance — or finish.
+  // Walk the prompts: fade each in, hold, fade out, advance, or finish.
   useEffect(() => {
     if (done) return;
     const prompt = technique.prompts[promptIndex];
@@ -174,8 +174,8 @@ export function MindfulnessSession({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     fadeOut();
     // Record first so any earned ring is known before the mood overlay mounts.
-    // Let the closing animation — the dark settle, falling snow and "Well done"
-    // (and on a ring-earning finish, the celebration) — play out before the
+    // Let the closing animation, the dark settle, falling snow and "Well done"
+    // (and on a ring-earning finish, the celebration), play out before the
     // "Feel better?" card fades in over it, rather than cutting to it early.
     let earned: Tier | null = null;
     // A finished calm earns its light (moon-reward-spec.md): first of the day

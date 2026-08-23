@@ -1,4 +1,4 @@
-// Phase B1 — personal resting-HR baseline, time-of-day aware.
+// Phase B1, personal resting-HR baseline, time-of-day aware.
 //
 // Heart rate at rest drifts over the day (lower overnight/early morning, higher
 // mid-afternoon), so a single resting number would mislabel a normal afternoon
@@ -7,9 +7,9 @@
 // that hour's readings) plus the median for reference.
 //
 // This is the reference the detection rule (B2) compares against: a reading is
-// "elevated" when it sits ~10–15% above the resting estimate for its hour.
+// "elevated" when it sits ~10, 15% above the resting estimate for its hour.
 // HRV is intentionally unused (the watch yields none); HR alone detected stress
-// ~73–84% personalised in the probe.
+// ~73, 84% personalised in the probe.
 
 /** A single HR reading. Shape matches niyora-health's HeartRateSample. */
 export type HrSample = {
@@ -29,7 +29,7 @@ export type HourStat = {
 };
 
 export type BaselineModel = {
-  /** 24 entries (local hour 0–23); null where there is too little data. */
+  /** 24 entries (local hour 0, 23); null where there is too little data. */
   byHour: (HourStat | null)[];
   /** Whole-history resting estimate, used to fill sparse hours. */
   global: HourStat | null;
@@ -38,11 +38,11 @@ export type BaselineModel = {
 };
 
 export type BaselineOptions = {
-  /** Low percentile taken as "resting" (0–1). Default 0.25. */
+  /** Low percentile taken as "resting" (0, 1). Default 0.25. */
   restingPercentile?: number;
   /** Minimum samples for an hour bucket to be trusted. Default 20. */
   minSamplesPerHour?: number;
-  /** Implausible readings are dropped. Defaults 30–220 bpm. */
+  /** Implausible readings are dropped. Defaults 30, 220 bpm. */
   minBpm?: number;
   maxBpm?: number;
 };
@@ -56,7 +56,7 @@ const DEFAULTS = {
 
 /**
  * Percentile of a numeric array (linear interpolation between closest ranks).
- * `p` is 0–1. Returns NaN for an empty array.
+ * `p` is 0, 1. Returns NaN for an empty array.
  */
 export function percentile(values: number[], p: number): number {
   if (values.length === 0) return NaN;
@@ -81,7 +81,7 @@ function summarize(bpms: number[], restingPercentile: number): HourStat {
 
 /**
  * Build a time-of-day-aware resting baseline from HR samples. Pure; pass the
- * samples read from HealthKit (any time range — more days = steadier buckets).
+ * samples read from HealthKit (any time range, more days = steadier buckets).
  */
 export function computeBaseline(
   samples: HrSample[],
@@ -158,7 +158,7 @@ export type RestFilterOptions = {
 // further against tap ground-truth in Phase E.
 const REST_DEFAULTS = {
   intervalMinutes: 5,
-  maxStepsPerBucket: 40, // ~8 steps/min — seated with the odd shift, not walking
+  maxStepsPerBucket: 40, // ~8 steps/min, seated with the odd shift, not walking
   maxKcalPerBucket: 25, // ~5 kcal/min active burn
 };
 
@@ -166,7 +166,7 @@ const REST_DEFAULTS = {
  * Keep only the HR samples taken while at rest: their activity bucket was below
  * the step/energy thresholds, and they fell outside every workout. Buckets must
  * be contiguous and anchored at the window start (as niyora-health returns
- * them) — a sample is matched to its bucket by index from the first bucket.
+ * them), a sample is matched to its bucket by index from the first bucket.
  *
  * Returns [] when there are no buckets (no activity context to judge rest by).
  */

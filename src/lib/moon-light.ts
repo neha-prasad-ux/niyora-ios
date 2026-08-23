@@ -2,8 +2,8 @@ import type { RemissionAnswer } from '@/store/remission-log';
 
 // The moon reward system (moon-reward-spec.md is the contract). One currency
 // (light) earned by acts of different depth; two axes on the Now-tab moon:
-// fullness (current engagement — waxes with rings and light, wanes with
-// absence, floors at a sliver) and material (lifetime mastery — moonstone →
+// fullness (current engagement, waxes with rings and light, wanes with
+// absence, floors at a sliver) and material (lifetime mastery, moonstone →
 // gold → opal → diamond, monotonic, never lost). Pure functions only; the
 // stores (light-ledger, moon-state) persist and compose.
 
@@ -12,7 +12,7 @@ export type LightKind = 'visit' | 'calm' | 'train' | 'recall' | 'notice' | 'appl
 export type LightEvent = {
   date: string; // local YYYY-MM-DD
   kind: LightKind;
-  amount: number; // light granted at append time, after caps — immutable after
+  amount: number; // light granted at append time, after caps, immutable after
   refId?: string; // levelId / skillId / techniqueId
   matchedAction?: boolean; // earned as today's coached action (the ×1.5)
 };
@@ -29,7 +29,7 @@ export type MintedMoon = {
 };
 
 export type MoonState = {
-  fullness: number; // brightness, DIM_FLOOR..FULLNESS_MAX — bright by default
+  fullness: number; // brightness, DIM_FLOOR..FULLNESS_MAX, bright by default
   material: MoonMaterial;
   facets: number; // post-diamond kept cycles, cosmetic only
   shelf: MintedMoon[]; // one minted moon per confirmed cycle
@@ -56,7 +56,7 @@ export const DAILY_LIGHT_CAP = 100; // binge days can't substitute for rhythm
 /**
  * Light for one act, given what today already earned. Zero means "welcome,
  * but no light": repeat visits, third calms, capped days. Self-ratings never
- * reach this function — reflecting is the rewarded act, not the grade.
+ * reach this function, reflecting is the rewarded act, not the grade.
  */
 export function earnLight(input: {
   kind: LightKind;
@@ -84,14 +84,14 @@ export function earnLight(input: {
 
 // --- Brightness: bright by default ---------------------------------------------
 
-// The moon is bright for everyone, always — brightness is not a meter to farm,
+// The moon is bright for everyone, always, brightness is not a meter to farm,
 // and absence never dims it. Continuous decay proved forgettable and
 // unmeasurable; the discrete layers (rings, material, the shelf) carry
-// progression instead. Brightness dims one step per fading lesson — a recall
-// left past its grace — and restores the moment she refreshes, so a dim moon
+// progression instead. Brightness dims one step per fading lesson, a recall
+// left past its grace, and restores the moment she refreshes, so a dim moon
 // is never a punishment, only a gentle "something wants remembering".
 export const FULLNESS_MAX = 1;
-export const DIM_FLOOR = 0.4; // clearly lit even at its dimmest — never a dark sky
+export const DIM_FLOOR = 0.4; // clearly lit even at its dimmest, never a dark sky
 export const DIM_PER_FADING = 0.15;
 
 export const DEFAULT_MOON_STATE: MoonState = {
@@ -119,10 +119,10 @@ export function withBrightness(state: MoonState, brightness: number): MoonState 
 
 // Chapter one of the reward journey: every act advances the ring band, so the
 // fragile first days always have something visibly growing. Denominated in the
-// same light as everything else — no parallel currency. The names carry over
+// same light as everything else, no parallel currency. The names carry over
 // from the original Soul tiers; the thresholds are tuned so a typical engaged
 // day (~50 light) rings on day one, ~day 3, ~week one, and ~week two.
-// Rings are permanent (like material, never lost) and gate NOTHING — every
+// Rings are permanent (like material, never lost) and gate NOTHING, every
 // technique is always available; rewards celebrate, they never gate care.
 export const RINGS = [
   { id: 'spark', name: 'Spark', light: 20 },
@@ -138,8 +138,8 @@ export function ringsEarned(lifetimeLight: number): number {
 }
 
 /**
- * The fourth ring fuses the band into the soul halo — the graduation ceremony
- * — and only then is the moon's material story revealed. The last ring (600)
+ * The fourth ring fuses the band into the soul halo, the graduation ceremony
+ *, and only then is the moon's material story revealed. The last ring (600)
  * sits just under the gold gate (800) so the handoff has no dead zone: light
  * already earned immediately counts toward the next thing.
  */
@@ -187,7 +187,7 @@ export const MATERIAL_GATES = {
   diamond: { light: 6000, cyclesKept: 3, skillsLived: 3, applications: 10 },
 } as const;
 
-// The material ladder, in order — moonstone (level 1) to diamond (level 4).
+// The material ladder, in order, moonstone (level 1) to diamond (level 4).
 // The You tab's scoreboard reads a level number and total off this.
 export const MATERIAL_ORDER: readonly MoonMaterial[] = ['moonstone', 'gold', 'opal', 'diamond'];
 
@@ -262,7 +262,7 @@ function recallsAt(events: LightEvent[], todayYmd: string, slack: number): DueRe
 /**
  * Spaced recall, scheduled straight off the ledger: a level's `train` event is
  * its completion record, so recalls come due 2 and 7 days later. A miss simply
- * stays due — no penalty, no expiry.
+ * stays due, no penalty, no expiry.
  */
 export function dueRecalls(events: LightEvent[], todayYmd: string): DueRecall[] {
   return recallsAt(events, todayYmd, 0);
@@ -271,7 +271,7 @@ export function dueRecalls(events: LightEvent[], todayYmd: string): DueRecall[] 
 /**
  * The lessons that are fading: recalls left unanswered past their grace.
  * Each one dims the moon a step (moonBrightness); answering restores it
- * immediately — "not knowing answers" is the only thing that ever dims light.
+ * immediately, "not knowing answers" is the only thing that ever dims light.
  */
 export function fadingRecalls(events: LightEvent[], todayYmd: string): DueRecall[] {
   return recallsAt(events, todayYmd, FADE_GRACE_DAYS);
@@ -286,7 +286,7 @@ export const KEY_DAY_SPAN = 14; // the last 14 days of the cycle are the key day
 /**
  * At period confirmation the cycle becomes a shelf moon: fullness is the
  * weighted share of days she engaged (any light that day), with the 14 days
- * before the period — prep + window — counting double, because those are the
+ * before the period, prep + window, counting double, because those are the
  * days the app exists for.
  */
 export function mintCycleMoon(input: {

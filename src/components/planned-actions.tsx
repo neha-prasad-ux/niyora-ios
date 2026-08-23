@@ -82,7 +82,7 @@ export function PlannedActions({ onCount }: { onCount?: (n: number) => void }) {
     Haptics.selectionAsync().catch(() => {});
     await removePlannedAction(a.at).catch(() => {});
     // Following through on a parked move brightens the moon (the calm reward),
-    // never confetti — the one celebration stays the moment-flow finish (Neha
+    // never confetti, the one celebration stays the moment-flow finish (Neha
     // 2026-08-02, "moon-bloom, not graffiti").
     recordLight('apply').catch(() => {});
     getPlannedActions().then(setItems).catch(() => {});

@@ -17,7 +17,7 @@ const KEY_NAME = 'niyora.momentKey';
 
 /** Random bytes as a hex string. crypto-js's own WordArray.random cannot run in
  *  React Native (no global crypto.getRandomValues, no node crypto) and throws
- *  "Native crypto module could not be used" — which silently killed every save
+ *  "Native crypto module could not be used", which silently killed every save
  *  until 2026-08-19. expo-crypto is the platform CSPRNG. */
 function randomHex(bytes: number): string {
   return [...Crypto.getRandomBytes(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('');
