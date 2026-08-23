@@ -28,6 +28,7 @@ import Animated, {
 import { CosmicBackground } from '@/components/cosmic-background';
 import { PlannedActions } from '@/components/planned-actions';
 import { getPlannedActions } from '@/store/moment-plan';
+import { cachedPremium, momentsLeft } from '@/lib/premium';
 import { FeelingLine } from '@/components/feeling-line';
 import { BAR_CONTENT_HEIGHT, BAR_MIN_BOTTOM_PAD } from '@/components/night-tab-bar';
 import { Orb } from '@/components/orb';
@@ -219,6 +220,24 @@ export default function NowScreen() {
       reload();
       syncPmsReminders().catch(() => {});
     }, [reload]),
+  );
+
+  /** Free moments left this month, shown under the CTA only when it is getting
+   *  close (2 or fewer). A meter she can see is a meter she can plan around; the
+   *  wall arriving with no warning is the thing that reads as a trap. `null` for
+   *  Premium, and for anyone with room to spare. */
+  const [momentsFree, setMomentsFree] = useState<number | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      cachedPremium()
+        .then(async (premium: boolean) => (premium ? null : await momentsLeft()))
+        .then((n: number | null) => alive && setMomentsFree(n != null && n <= 2 ? n : null))
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, []),
   );
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -493,6 +512,13 @@ export default function NowScreen() {
                       </View>
                     </LinearGradient>
                   </Pressable>
+                  {momentsFree != null && (
+                    <Text style={styles.meter}>
+                      {momentsFree === 0
+                        ? 'No free moments left this month'
+                        : `${momentsFree} free ${momentsFree === 1 ? 'moment' : 'moments'} left this month`}
+                    </Text>
+                  )}
                   {/* A divider sets the "waiting for you" cluster (resume + the
                       Later list) apart from the primary ask above. */}
                   {(snapshot?.hasResume || (plannedLive ?? snapshot?.hasPlanned)) && (
@@ -706,6 +732,17 @@ const styles = StyleSheet.create({
     fontSize: fontScale.emphasis,
     color: colors.textOnDark.primary,
     letterSpacing: 0.3,
+  },
+  meter: {
+    fontFamily: fonts.light,
+    fontSize: fontScale.caption,
+    color: colors.textOnDark.faint,
+    // `ask` lays its children out flex-start, so a bare Text is only as wide as
+    // its own words and textAlign has nothing to centre in. Stretch it so the
+    // line sits under the middle of the full-width CTA it belongs to. The
+    // container's own gap gives the spacing above.
+    alignSelf: 'stretch',
+    textAlign: 'center',
   },
   homeDivider: {
     alignSelf: 'stretch',

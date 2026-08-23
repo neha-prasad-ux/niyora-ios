@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import {
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -28,6 +29,7 @@ import { CosmicBackground } from '@/components/cosmic-background';
 import { GlassCardBg } from '@/components/glass-card-bg';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { SHOW_CHECKIN, SHOW_ANALYTICS, SHOW_MOOD_TREND } from '@/config/features';
+import { redeemComp } from '@/lib/premium';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
 import {
@@ -136,6 +138,7 @@ export default function MySoulScreen() {
   const [periodHistory, setPeriodHistoryState] = useState<string[]>([]);
   const [periodSheetVisible, setPeriodSheetVisible] = useState(false);
   const [crisisOpen, setCrisisOpen] = useState(false);
+  const [versionTaps, setVersionTaps] = useState(0);
   const [tab, setTab] = useState<'soul' | 'settings'>('soul');
   // The real feelings she has named and worked through, from on-device history.
   const [moments, setMoments] = useState<MomentRecord[]>([]);
@@ -509,7 +512,27 @@ export default function MySoulScreen() {
               <Text style={styles.footer}>
                 Niyora does not collect any data
               </Text>
-              <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
+              {/* Seven taps on the version opens a code prompt: how a comped
+                  Premium reaches a tester, a friend, or family without a
+                  purchase. Hidden rather than a visible row because it is not a
+                  feature of the app, and the code itself ships in the binary, so
+                  treat it as public once it leaves your hands. */}
+              <Pressable
+                onPress={() => {
+                  const n = versionTaps + 1;
+                  if (n < 7) return setVersionTaps(n);
+                  setVersionTaps(0);
+                  Haptics.selectionAsync();
+                  Alert.prompt('Code', undefined, async (code) => {
+                    const ok = await redeemComp(code ?? '');
+                    Alert.alert(ok ? 'Premium is open on this phone.' : 'That code did not work.');
+                  });
+                }}
+                hitSlop={12}
+                accessibilityRole="text"
+              >
+                <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '—'}</Text>
+              </Pressable>
             </>
           )}
         </ScrollView>

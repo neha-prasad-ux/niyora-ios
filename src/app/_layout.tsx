@@ -29,6 +29,7 @@ import { getReminder } from '../store/reminder-prefs';
 import { useStressTick } from '../hooks/use-stress-tick';
 import { STRESS_EXPERIMENT } from '../config/features';
 import { startAppCheck } from '../lib/firebase';
+import { refreshPremium } from '../lib/premium';
 import { duration } from '../theme/motion';
 
 // One calm-fade config for every full-screen push that should dissolve rather
@@ -66,6 +67,13 @@ export default function RootLayout() {
   // Register the stress-nudge action buttons once, before any nudge can fire.
   useEffect(() => {
     registerStressNudgeCategory().catch(() => {});
+  }, []);
+
+  // Ask StoreKit once per launch whether Premium is live, so the gate's cached
+  // answer is right for a renewal, a cancellation, a refund, or a fresh install
+  // on a phone she already subscribed on. Failures leave the cache alone.
+  useEffect(() => {
+    refreshPremium().catch(() => {});
   }, []);
 
   // Run a stress tick on launch and each foreground (experiment builds only).

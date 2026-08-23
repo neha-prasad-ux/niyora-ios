@@ -216,3 +216,16 @@ export function badgeFor(
     }
   );
 }
+
+/** How many moments she finished in a calendar month (YYYY-MM), the number the
+ *  Premium gate meters. Reads the raw list and never decrypts: the gate only
+ *  needs dates, and `date` is stored in the clear.
+ *
+ *  ponytail: derived from history, not a separate counter. That means "delete my
+ *  data" also resets the month's count, and that is the honest trade: a meter
+ *  that outlived a privacy deletion would make the deletion a lie. Move to its
+ *  own store only if wipe-to-reset shows up in the numbers. */
+export async function countMomentsInMonth(ym: string): Promise<number> {
+  const parsed = parseMoments(await AsyncStorage.getItem(STORAGE_KEY));
+  return parsed.filter((m) => m.date.startsWith(ym)).length;
+}

@@ -37,3 +37,18 @@ export const RECALL_FADING = false;
 // configured (GoogleService-Info.plist); with either missing, getMomentProvider()
 // returns NO_PROVIDER and the flow is byte-identical to the deterministic build.
 export const MOMENT_AI = Constants.expoConfig?.extra?.momentAi === true;
+
+// ── Paywall preview (design work only) ───────────────────────────────────────
+// StoreKit needs a native module and a configured store, so on a plain dev build
+// there is no way to see a price and the wall's design cannot be judged at all.
+// These two open that door, and BOTH must be false in anything that ships:
+// together they mean nobody can ever buy. src/config/features.test.ts fails
+// while either is on, so a preview flag cannot reach a build by being forgotten.
+
+/** Render the wall from a fixture instead of StoreKit, and never mount useIAP. */
+export const PAYWALL_PREVIEW = false;
+
+/** Send every Moon flow to the wall, so it can be reached without first writing
+ *  five real moments. Leaves FREE_MOMENTS_PER_MONTH alone so the copy still
+ *  states the real rule. */
+export const FORCE_PAYWALL = false;

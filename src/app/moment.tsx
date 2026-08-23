@@ -62,6 +62,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { canOpenMoment } from '@/lib/premium';
 import { CosmicBackground } from '@/components/cosmic-background';
 import { CelebrationParticles } from '@/components/CelebrationParticles';
 import { RingCelebration } from '@/components/RingCelebration';
@@ -297,6 +298,30 @@ export default function Moment() {
   // until it loads, so the entry card never flashes before the saved beat lands.
   const { resume } = useLocalSearchParams<{ resume?: string }>();
   const [hydrating, setHydrating] = useState(resume === '1');
+
+  /** The Premium gate. It lives HERE, not at the buttons that open this screen, so
+   *  every door into the flow (Home's CTA, the prep card, a deep link, anything
+   *  added later) is metered by the same check. `gating` holds the scene blank
+   *  the same way `hydrating` does, so the entry card never flashes before the
+   *  wall lands.
+   *
+   *  A resumed moment is never gated: she already spent the credit when she
+   *  started it, and the count only moves when a moment is finished. */
+  const [gating, setGating] = useState(resume !== '1');
+  useEffect(() => {
+    if (resume === '1') return;
+    let alive = true;
+    canOpenMoment()
+      .then((ok) => {
+        if (!alive) return;
+        if (ok) setGating(false);
+        else router.replace('/paywall');
+      })
+      .catch(() => alive && setGating(false)); // on doubt, let her in
+    return () => {
+      alive = false;
+    };
+  }, [resume]);
   // The "Let's work through this together" intro is a first-run orientation, not a
   // gate to sit through every time. On a normal start, skip straight to the entry
   // once she has seen it. Resume has its own start, so it needs no check.
@@ -1825,7 +1850,7 @@ export default function Moment() {
   // inside meant every keystroke tore down the field and dismissed the
   // keyboard. Calling it inlines the JSX with no component boundary.
   const ui =
-    crisis ? Crisis() : hydrating ? { body: null, cta: null } : Beat();
+    crisis ? Crisis() : hydrating || gating ? { body: null, cta: null } : Beat();
 
   // A "composer beat" is a typing screen whose chat-style field lives in the
   // pinned CTA slot (raw_entry / clarify). On these
