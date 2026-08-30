@@ -165,14 +165,23 @@ const styles = StyleSheet.create({
   endTextHigh: { color: colors.textOnDark.primary },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.fill.strong },
   ask: { ...moon.bodyStrong, color: colors.textOnDark.primary, marginTop: spacing.sm },
-  track: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  track: { flexDirection: 'row', alignItems: 'center' },
   // A generous tap target around a small dot: she may be shaking.
-  stopHit: { paddingVertical: spacing.md, paddingHorizontal: 2 },
+  //
+  // The hit area takes an equal SHARE of the track (Neha, on device 2026-08-30:
+  // "it doesn't feel clickable, and it's too slow"). It used to be the dot plus
+  // 2px, about a 12pt target against Apple's 44pt minimum, so she was aiming and
+  // missing and the card felt slow because of it. Eleven flex:1 cells divide the
+  // full width instead, and there is no dead space left between them to miss into.
+  stopHit: { flex: 1, alignItems: 'center', paddingVertical: spacing.md },
+  // Resting dots also read as decoration at 0.12 on the night ground, so nothing
+  // said "tap me". Brighter and slightly larger, still clearly under a filled
+  // stop (fill.on, 0.80) so the placed half of the scale keeps winning the eye.
   stop: {
-    width: 8,
-    height: 8,
+    width: 10,
+    height: 10,
     borderRadius: radius.pill,
-    backgroundColor: colors.fill.strong,
+    backgroundColor: colors.fill.active,
   },
   // 0.45 against 0.18 was invisible on the night ground: the filled half of the
   // scale read as ten dead dots (Neha, on device 2026-08-21). Filled stops are

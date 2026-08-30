@@ -446,6 +446,10 @@ export default function Moment() {
    *  card, and the duplicates competed with each other and forced retries, so the
    *  prefetch meant to make cards instant was making them slower. */
   const inFlight = useRef<Set<string>>(new Set());
+  // The card whose fetch is allowed to touch the GLOBAL cardFailed flag. A late
+  // result for a card she has already left must never mark the card she is
+  // looking at as failed.
+  const activeCard = useRef<string | null>(null);
   /** What her own load list shows, fetched once she has sorted it (2026-08-23).
    *  The load card makes no model call to BUILD the list, because the model
    *  cannot know her plate. Once she has written it, the model finally has
@@ -1494,6 +1498,36 @@ export default function Moment() {
     };
   }, []);
 
+  // The cards that fetch their OWN structured setup (scaleSetup / responsibility
+  // Setup / ruleBreakdown) or none at all, rather than reads into cardContent.
+  const SETUP_CARDS: ReflectCardId[] = ['rule', 'middle', 'whose_weight', 'load'];
+
+  /** The user turn for a card's fetch. One copy, so the card she is looking at and
+   *  the card warmed behind it are asked in exactly the same way. */
+  const cardUserFor = (id: ReflectCardId) => {
+    const steer = reflectSteer.current
+      ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both. Do not just reword or re-tone the earlier reads.`
+      : '';
+    const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
+    return `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${themesClause(id)}${signalClause(id)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`;
+  };
+
+  // Cards warmed ahead of her that she has not arrived at yet. Tracked so added
+  // context can throw them away: they were generated without it.
+  const prefetched = useRef<Set<string>>(new Set());
+
+  // cardFailed is ONE flag shared by every card, and moving to the next card used
+  // to leave it set. So a single failure anywhere poisoned the rest of the
+  // session: every later card rendered the "Moon AI isn't working" screen
+  // immediately, without even attempting its own fetch, and the log showed no
+  // call for it at all. Each card has to be judged on its own result, so the flag
+  // resets whenever the active card changes. Declared BEFORE the fetch effect so
+  // it clears first on a card change and a fresh failure still sticks.
+  useEffect(() => {
+    setCardFailed(false);
+    if (reflectCards) prefetched.current.delete(reflectCards[reflectIdx]);
+  }, [reflectIdx, reflectCards]);
+
   // Reflect card CONTENT: fetch the AI line/options for the current draft/guess
   // card. question cards need no AI (they echo her words). The first card reuses
   // the send-time prefetch so it lands instantly; later cards fetch on arrival.
@@ -1513,48 +1547,105 @@ export default function Moment() {
     if (card.mode === 'question' || !card.slot) return; // no AI content
     // The three special cards fetch their own structured setup below, not options.
     if (id === 'rule' || id === 'middle' || id === 'whose_weight' || id === 'load') return;
+    activeCard.current = id;
     if (cardContent[id]) return; // already have it
     if (!aiOn) return; // authored fallback stands
     if (inFlight.current.has(id)) return; // already asking for exactly this
     inFlight.current.add(id);
-    let alive = true;
     setCardLoading(true);
-    const steer = reflectSteer.current
-      ? `\nshe has now ADDED this to what she first wrote: "${reflectSteer.current}". Read the whole picture together, her first words AND this addition, and come back with richer reads that hold both. Do not just reword or re-tone the earlier reads.`
-      : '';
-    const cycle = pmsActive.current ? REFLECT_CYCLE_NOTE : '';
-    const user = `${threadPreamble()}she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${themesClause(id)}${signalClause(id)}${steer}${cycle}${timeClause()}${feedbackClause(reactionsRef.current)}`;
+    const user = cardUserFor(id);
     // The send-time prefetch is cold: it warmed card 0 for the NON-thread route
     // (recurring/priorThread aren't loaded yet at send). So skip reusing it when
     // either is now active, recurring makes `pattern` the new card 0, and a
     // prior thread needs the continuation folded in, and refetch instead.
     const pending =
-      reflectIdx === 0 && reflectPrefetch.current && !steer && !priorThread.current && !recurring.current
+      reflectIdx === 0 &&
+      reflectPrefetch.current &&
+      !reflectSteer.current &&
+      !priorThread.current &&
+      !recurring.current
         ? reflectPrefetch.current
         : reflectCard(provider, card.slot, user);
+    // ALWAYS commit the result, even if this effect run has been torn down since
+    // (a dep change mid-flight, or a Fast Refresh in dev). An `alive` guard used
+    // to drop it, and that was the one failure with no way out: `inFlight` is a
+    // ref, so it outlives the teardown, the replacement run saw the id still in
+    // flight and skipped its own fetch, and then this resolve threw away the only
+    // content that would have cleared `loading`. Empty content plus cardFailed
+    // false is a spinner with no retry, which is exactly how it looked on device.
+    // setCardContent is keyed by `id`, so a late commit can only fill its own
+    // slot. Only the global cardFailed flag has to care whether she is still here.
     pending
       .then((r) => {
-        if (!alive) return;
+        const stillHere = activeCard.current === id;
         // Real content clears any prior failure; an empty reply IS a failure now
         // (it used to fall silently to authored reads).
         if (r.line || r.options?.length) {
           setCardContent((c) => ({ ...c, [id]: r }));
-          setCardFailed(false);
-        } else {
+          if (stillHere) setCardFailed(false);
+        } else if (stillHere) {
           setCardFailed(true);
         }
       })
       .catch(() => {
-        if (alive) setCardFailed(true);
+        if (activeCard.current === id) setCardFailed(true);
       })
       .finally(() => {
         inFlight.current.delete(id);
-        if (alive) setCardLoading(false);
+        setCardLoading(false);
       });
-    return () => {
-      alive = false;
-    };
   }, [current, reflectCards, reflectIdx, cardContent, aiOn, provider, reflectRetry]);
+
+  // Warm the NEXT card while she reads this one (Neha, on device 2026-08-30: the
+  // cards load slowly). Card 0 already had a send-time prefetch, which is the only
+  // reason the first card ever felt instant; every card after it paid a cold call,
+  // about five seconds on pro at a 512 thinking budget. This runs the same fetch
+  // one card ahead, through the same `inFlight` guard into the same `cardContent`
+  // map, so an advance just finds the content already there.
+  //
+  // It waits for the visible card to land first: a warm-up must never compete with
+  // the call she is actually sitting in front of.
+  //
+  // A prefetch NEVER touches cardFailed. If it fails she has not arrived yet, and
+  // the real fetch on arrival gets to make that judgement with its own result.
+  //
+  // ponytail: plain guess/draft cards only. rule/middle/whose_weight/load hold
+  // their setup in their own single state slot rather than a keyed entry in
+  // cardContent, so warming those means duplicating that state per card. Worth it
+  // only if they measure slow enough to pay for the machinery.
+  useEffect(() => {
+    if (current !== 'reflect' || !reflectCards || !aiOn) return;
+    const here = reflectCards[reflectIdx];
+    const hereCard = REFLECT_CARDS[here];
+    // The four setup cards keep their content in their own state slot, never in
+    // cardContent, so gating on cardContent[here] left them permanently "not
+    // ready" and nothing behind one of them ever warmed. `middle` sits second in
+    // a common route, which killed the whole chain for that route. They run their
+    // own fetch, so count them ready and let the next card warm alongside: these
+    // are network waits, not CPU, and two in flight cost nothing but a socket.
+    const hereReady =
+      hereCard.mode === 'question' ||
+      !hereCard.slot ||
+      !!cardContent[here] ||
+      SETUP_CARDS.includes(here);
+    if (!hereReady) return; // she is still waiting on this one
+    const next = reflectCards[reflectIdx + 1];
+    if (!next) return;
+    const card = REFLECT_CARDS[next];
+    if (card.mode === 'question' || !card.slot) return; // no AI content to warm
+    if (SETUP_CARDS.includes(next)) return;
+    if (cardContent[next] || inFlight.current.has(next)) return;
+    inFlight.current.add(next);
+    prefetched.current.add(next);
+    reflectCard(provider, card.slot, cardUserFor(next))
+      .then((r) => {
+        if (r.line || r.options?.length) setCardContent((c) => ({ ...c, [next]: r }));
+        else prefetched.current.delete(next);
+      })
+      .catch(() => prefetched.current.delete(next))
+      .finally(() => inFlight.current.delete(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, reflectCards, reflectIdx, cardContent, aiOn, provider]);
 
   // The two interaction cards' setups (2026-08-20). Same shape as the rule fetch
   // above: run when this card is active and we have none, null result means the
@@ -1566,13 +1657,20 @@ export default function Moment() {
     let alive = true;
     setCardLoading(true);
     const user = `she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${timeClause()}`;
+    // A null here is the model DECLINING, not an outage: the setup returns null
+    // when her words carry no real absolute / no outcome she is holding herself
+    // responsible for. Routing is a cheap lexical guess, so it will offer these
+    // two cards to entries they do not fit. Showing "Moon AI isn't working" for
+    // that is a lie about the app AND about her, so a declined lens is skipped
+    // and she walks to the next card. A genuine outage still surfaces: every
+    // reading card fails its own fetch and shows the honest retry.
     scaleSetup(provider, user)
       .then((r) => {
         if (!alive) return;
         if (r) {
           setScaleData(r);
           setCardFailed(false);
-        } else setCardFailed(true);
+        } else advanceCard();
       })
       .catch(() => alive && setCardFailed(true))
       .finally(() => alive && setCardLoading(false));
@@ -1588,13 +1686,20 @@ export default function Moment() {
     let alive = true;
     setCardLoading(true);
     const user = `she wrote: "${herText.current.trim()}"\nshe feels: ${chosenFeeling.current || 'upset'}${timeClause()}`;
+    // A null here is the model DECLINING, not an outage: the setup returns null
+    // when her words carry no real absolute / no outcome she is holding herself
+    // responsible for. Routing is a cheap lexical guess, so it will offer these
+    // two cards to entries they do not fit. Showing "Moon AI isn't working" for
+    // that is a lie about the app AND about her, so a declined lens is skipped
+    // and she walks to the next card. A genuine outage still surfaces: every
+    // reading card fails its own fetch and shows the honest retry.
     responsibilitySetup(provider, user)
       .then((r) => {
         if (!alive) return;
         if (r) {
           setRespData(r);
           setCardFailed(false);
-        } else setCardFailed(true);
+        } else advanceCard();
       })
       .catch(() => alive && setCardFailed(true))
       .finally(() => alive && setCardLoading(false));
@@ -2820,6 +2925,32 @@ export default function Moment() {
                       {factAdvise?.help ? (
                         <Text style={styles.factTakeaway}>{factAdvise.help}</Text>
                       ) : null}
+                      {/* The same two chips every other card carries. This stage
+                          used to end at a big sticky Respond, which made the two
+                          fact-sort lenses the only place in the flow where she
+                          could not walk to a different lens, and inverted the
+                          hierarchy the rest of the flow holds: reflect leads,
+                          respond stays a quiet, unshamed exit. */}
+                      {!keyboardUp ? (
+                        <View style={styles.chipRow}>
+                          <Pressable
+                            onPress={() => advanceCard()}
+                            style={[styles.chip, styles.chipPrimary]}
+                            accessibilityRole="button"
+                          >
+                            <Text style={[styles.chipText, styles.chipPrimaryText]}>
+                              Reflect differently
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => acceptReflect()}
+                            style={styles.chip}
+                            accessibilityRole="button"
+                          >
+                            <Text style={styles.chipText}>Respond</Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
                       {/* The bounded reflective chat: her turns right, Moon's left. */}
                       <ChatTurns
                   log={chatLog}
@@ -2840,6 +2971,8 @@ export default function Moment() {
               ),
               // Sticky footer: the chat field (a clickable chat bar) above Continue.
               // In the body it sat under the pinned footer and ate the taps.
+              // Sticky footer: the field ONLY, matching every other card. Respond
+              // moved inline above, next to Reflect differently.
               cta: (
                 <View style={styles.stack}>
                   {entryField({
@@ -2849,9 +2982,6 @@ export default function Moment() {
                     autoFocus: false,
                     compact: true,
                   })}
-                  {!keyboardUp && (
-                    <BeginButton fullWidth label="Respond" onPress={() => acceptReflect()} />
-                  )}
                 </View>
               ),
             };
@@ -3231,8 +3361,12 @@ export default function Moment() {
             const n = { ...c };
             delete n[cid];
             if (lens) delete n[lens]; // refetch the lens steered on the new context
+            // Anything warmed ahead of her was generated WITHOUT this context, so
+            // it would arrive stale. Drop it and let it refetch with her addition.
+            for (const warmed of prefetched.current) delete n[warmed];
             return n;
           });
+          prefetched.current.clear();
         };
 
         // Draft cards show ONE line, so "add context" re-generates that line with
