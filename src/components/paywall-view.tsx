@@ -71,8 +71,12 @@ const WHAT_IT_FUNDS = [
 ];
 
 export type PaywallViewProps = {
-  /** Free moments a month, so the headline states the real rule. */
+  /** Free moments a month, so the copy states the real rule. */
   freeCount: number;
+  /** Why she is here. 'gate' means she has spent the month's free moments;
+   *  'offer' means this is the trial, shown once at the end of her first run,
+   *  where she has spent nothing and "your moments are used" would be a lie. */
+  variant: 'gate' | 'offer';
   /** Localised prices straight from StoreKit. `null` while unknown. */
   yearlyPrice: string | null;
   monthlyPrice: string | null;
@@ -95,6 +99,7 @@ export type PaywallViewProps = {
 
 export function PaywallView({
   freeCount,
+  variant,
   yearlyPrice,
   monthlyPrice,
   savingPercent,
@@ -162,9 +167,16 @@ export function PaywallView({
             contentContainerStyle={[styles.scroll, { paddingBottom: footerH + spacing.xl }]}
             showsVerticalScrollIndicator={false}
           >
-          <Text style={styles.title}>Keep talking to Moon.</Text>
+          <Text style={styles.title}>
+            {/* "Keep" means carry on, which is true at the gate, where she was cut
+                off mid-conversation, and false at onboarding, where she has never
+                had one. At onboarding the screen has to say what the app IS. */}
+            {variant === 'gate' ? 'Keep talking to Moon.' : 'PMS care'}
+          </Text>
           <Text style={styles.sub}>
-            Your {freeCount} free moments are used. Back on the first.
+            {variant === 'gate'
+              ? `Your ${freeCount} free moments are used. Back on the first.`
+              : 'Woman to woman.'}
           </Text>
 
           {/* The voice changes here, from the app to the person who made it. The
@@ -187,6 +199,11 @@ export function PaywallView({
           </View>
 
           <View style={styles.rule} />
+
+          {/* Said next to the prices, not in the header. She should know a free
+              tier exists at the moment she is deciding to pay, not discover it
+              thirty seconds later and feel the screen was working her. */}
+          <Text style={styles.freeNote}>{freeCount} moments a month stay free either way.</Text>
 
           <View style={styles.plans}>
             <Plan
@@ -451,7 +468,13 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rowTitle: { ...typography.body, color: colors.textOnDark.primary, flex: 1 },
 
-  plans: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl },
+  freeNote: {
+    ...typography.caption,
+    color: colors.textOnDark.secondary,
+    marginTop: spacing.xl,
+    textAlign: 'center',
+  },
+  plans: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   plan: {
     flex: 1,
     padding: spacing.md,
