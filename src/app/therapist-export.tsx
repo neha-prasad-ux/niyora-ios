@@ -1,0 +1,289 @@
+// The review pass before her record leaves the phone. Nothing exports unseen:
+// she reads every line, drops what she does not want, and adds the questions she
+// wants to ask. Reached from My Soul.
+//
+// Two things this screen owes her:
+//   1. She decides, entry by entry. An earlier pass asked "who is this for?" and
+//      defaulted the sensitive entries from the answer. That inferred a choice
+//      she is already making by hand on this screen, and made her categorise a
+//      relationship before reading a word. The crisis scan still MARKS an entry
+//      so she can see it at a glance, it just no longer decides for her.
+//   2. Leaving an entry out removes it from the COUNTS too, not just the quotes.
+//      buildTherapistExport applies `exclude` before anything is tallied, so the
+//      denominators always describe the document she is actually sending.
+
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, useFocusEffect } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+
+import { BackgroundGradient } from '@/components/background-gradient';
+import { BeginButton } from '@/components/begin-button';
+import { loadTherapistExport } from '@/lib/therapist-export';
+import { renderTherapistExport } from '@/lib/therapist-export-text';
+import type { TherapistExport } from '@/lib/therapist-export-types';
+import { colors } from '@/theme/colors';
+import { spacing, radius } from '@/theme/spacing';
+import { moon } from '@/theme/typography';
+
+const PHASE_LABEL = { build: 'build days', pms: 'PMS days', period: 'period days' } as const;
+
+export default function TherapistExportScreen() {
+  const [doc, setDoc] = useState<TherapistExport | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  // Everything she wrote goes unless she says otherwise. It is her record, and
+  // she is reading it line by line before it moves.
+  const [excludedSet, setExcludedSet] = useState<Record<string, true>>({});
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [draft, setDraft] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      loadTherapistExport()
+        .then((d) => {
+          if (!alive) return;
+          setDoc(d);
+          setLoaded(true);
+        })
+        .catch(() => {
+          if (alive) setLoaded(true);
+        });
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+
+  const excluded = useMemo(() => Object.keys(excludedSet), [excludedSet]);
+
+  const triedFor = useCallback(
+    (at: string) => doc?.tried.find((t) => t.at === at) ?? null,
+    [doc],
+  );
+
+  const toggle = (at: string, include: boolean) => {
+    Haptics.selectionAsync().catch(() => {});
+    setExcludedSet(({ [at]: _dropped, ...rest }) =>
+      include ? rest : { ...rest, [at]: true },
+    );
+  };
+
+  const addQuestion = () => {
+    const q = draft.trim();
+    if (!q) return;
+    Haptics.selectionAsync().catch(() => {});
+    setQuestions((list) => [...list, q]);
+    setDraft('');
+  };
+
+  const onShare = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    // Rebuild from the store with her choices applied, so the shared document is
+    // recounted, never the full model with quotes filtered out afterwards.
+    const finalDoc = await loadTherapistExport({ exclude: excluded, questions }).catch(
+      () => null,
+    );
+    if (!finalDoc) return;
+    await Share.share({ message: renderTherapistExport(finalDoc) }).catch(() => {});
+  };
+
+  const p = doc?.provenance;
+  const sending = (doc?.excerpts.length ?? 0) - excluded.length;
+
+  return (
+    <View style={styles.root}>
+      <BackgroundGradient />
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel="Close">
+            <Text style={styles.close}>Close</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>For your appointment</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {loaded && doc == null ? (
+            <Text style={styles.empty}>
+              Nothing to send yet. This fills up as you write moments.
+            </Text>
+          ) : doc != null && p != null ? (
+            <>
+              <Text style={styles.lede}>
+                Read it before it leaves your phone. Nothing here is sent anywhere on its own.
+              </Text>
+
+              <View style={styles.summary}>
+                <Text style={styles.summaryLine}>
+                  {p.from} to {p.to} · {p.cyclesCovered} cycles
+                </Text>
+                <Text style={styles.summaryLine}>
+                  Wrote on {p.daysLogged} of {p.spanDays} days · {p.entries} entries
+                </Text>
+                <Text style={styles.summaryQuiet}>
+                  Your own record, written in the moment. Not a diagnosis.
+                </Text>
+              </View>
+
+              <Text style={styles.sectionTitle}>Your words</Text>
+              <Text style={styles.hint}>
+                {sending} of {doc.excerpts.length} included. Tap one to leave it out.
+              </Text>
+              {doc.excerpts.map((e) => {
+                const on = !excludedSet[e.at];
+                const tried = triedFor(e.at);
+                return (
+                  <Pressable
+                    key={e.at}
+                    onPress={() => toggle(e.at, !on)}
+                    style={[styles.entry, !on && styles.entryOff]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={`${e.date}, ${e.feeling}`}>
+                    <Text style={styles.entryMeta}>
+                      {e.date}
+                      {e.phase ? ` · ${PHASE_LABEL[e.phase]}` : ''}
+                      {e.source === 'predicted' ? ' · estimated' : ''} · {e.feeling}
+                      {e.crisis ? ' · sensitive' : ''}
+                    </Text>
+                    <Text style={styles.entryText}>{e.text}</Text>
+                    {tried ? <Text style={styles.triedText}>Tried: {tried.text}</Text> : null}
+                  </Pressable>
+                );
+              })}
+
+              <Text style={styles.sectionTitle}>What you want to ask</Text>
+              {questions.map((q, i) => (
+                <Pressable
+                  key={`${q}-${i}`}
+                  onPress={() => setQuestions((list) => list.filter((_, n) => n !== i))}
+                  style={styles.question}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove question: ${q}`}>
+                  <Text style={styles.questionText}>
+                    {i + 1}. {q}
+                  </Text>
+                </Pressable>
+              ))}
+              <View style={styles.askRow}>
+                <TextInput
+                  value={draft}
+                  onChangeText={setDraft}
+                  onSubmitEditing={addQuestion}
+                  returnKeyType="done"
+                  placeholder="Add a question"
+                  placeholderTextColor={colors.textOnDark.placeholder}
+                  style={styles.input}
+                  accessibilityLabel="Add a question for your appointment"
+                />
+                <Pressable
+                  onPress={addQuestion}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add question">
+                  <Text style={styles.add}>Add</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
+        </ScrollView>
+
+        {doc != null && (
+          <View style={styles.footer}>
+            <BeginButton fullWidth label="Share my record" onPress={onShare} />
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.backgroundBottom },
+  safe: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xs,
+  },
+  headerSpacer: { width: 48 },
+  close: { ...moon.body, color: colors.textOnDark.tertiary, width: 48 },
+  headerTitle: { ...moon.bodyStrong, color: colors.textPrimary },
+  scroll: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+    gap: spacing.sm,
+  },
+  lede: { ...moon.body, color: colors.textOnDark.secondary, marginBottom: spacing.md },
+  sectionTitle: { ...moon.title, color: colors.textPrimary, marginTop: spacing.lg },
+  hint: { ...moon.caption, color: colors.textOnDark.tertiary, marginBottom: spacing.xs },
+  summary: {
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.card,
+    backgroundColor: colors.fill.faint,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border.faint,
+    gap: spacing.xs,
+  },
+  summaryLine: { ...moon.body, color: colors.textOnDark.primary },
+  summaryQuiet: { ...moon.caption, color: colors.textOnDark.tertiary },
+  entry: {
+    padding: spacing.lg,
+    borderRadius: radius.control,
+    backgroundColor: colors.fill.faint,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border.faint,
+    gap: spacing.xs,
+  },
+  // Left out: still readable, visibly not going. Never hidden, she has to be
+  // able to see what she is dropping and put it back.
+  entryOff: { opacity: 0.35, borderColor: colors.border.faint },
+  entryMeta: { ...moon.caption, color: colors.textOnDark.tertiary },
+  entryText: { ...moon.body, color: colors.textOnDark.primary },
+  triedText: { ...moon.caption, color: colors.textOnDark.secondary },
+  question: { paddingVertical: spacing.sm },
+  questionText: { ...moon.body, color: colors.textOnDark.primary },
+  askRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  input: {
+    flex: 1,
+    ...moon.body,
+    color: colors.textOnDark.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.control,
+    backgroundColor: colors.fill.faint,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border.faint,
+  },
+  add: { ...moon.bodyStrong, color: colors.textPrimary },
+  empty: {
+    ...moon.body,
+    color: colors.textOnDark.secondary,
+    textAlign: 'center',
+    marginTop: spacing.xxl,
+  },
+  footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
+});

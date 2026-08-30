@@ -225,6 +225,7 @@ export default function RootLayout() {
           <Stack.Screen name="moon-probe" options={CALM_FADE} />
           {/* A saved "later" move, opened from the Later list on the home. */}
           <Stack.Screen name="saved-task" options={CALM_FADE} />
+          <Stack.Screen name="therapist-export" options={CALM_FADE} />
         </Stack>
       </ErrorBoundary>
     </GestureHandlerRootView>

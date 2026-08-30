@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { localYmd } from '../lib/day';
 import { encrypt, decrypt } from '../lib/secure-box';
 
 // Every finished moment, remembered on-device (Neha 2026-08-11). This is the
@@ -76,7 +78,7 @@ export async function addMoment(
   const now = new Date();
   const rec: MomentRecord = {
     at: m.at ?? now.toISOString(),
-    date: m.date ?? now.toISOString().slice(0, 10),
+    date: m.date ?? localYmd(now),
     entry: m.entry.trim(),
     feeling: m.feeling,
     constellation: m.constellation,

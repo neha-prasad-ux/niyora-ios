@@ -785,6 +785,16 @@ function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
           </View>
         </View>
       ))}
+      {/* The one place this history is worth more outside the app than in it: a
+          doctor gets a few minutes and asks how she has been, and a shrug is the
+          usual answer. She reviews and edits everything before it leaves. */}
+      <Pressable
+        onPress={() => router.push('/therapist-export' as Href)}
+        style={styles.appointmentRow}
+        accessibilityRole="button"
+        accessibilityLabel="Take this to an appointment">
+        <Text style={styles.appointmentText}>Take this to an appointment</Text>
+      </Pressable>
     </View>
   );
 }
@@ -1657,6 +1667,17 @@ function MessageCard() {
 }
 
 const styles = StyleSheet.create({
+  appointmentRow: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border.faint,
+  },
+  appointmentText: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.body,
+    color: colors.textOnDark.secondary,
+  },
   root: {
     flex: 1,
     backgroundColor: colors.backgroundBottom,
