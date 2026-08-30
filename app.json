@@ -2,7 +2,7 @@
   "expo": {
     "name": "Niyora",
     "slug": "niyora",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "niyora",
@@ -49,14 +49,18 @@
       [
         "@react-native-firebase/app",
         {
-          "ios": { "disableSPM": true }
+          "ios": {
+            "disableSPM": true
+          }
         }
       ],
       "@react-native-firebase/app-check",
       [
         "expo-build-properties",
         {
-          "ios": { "useFrameworks": "static" }
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ],
       "expo-router",
