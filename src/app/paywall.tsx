@@ -12,7 +12,7 @@
 // useful when the screen is the thing being looked at.
 
 import { useCallback, useEffect, useState } from 'react';
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useIAP } from 'expo-iap';
 import { presentCodeRedemptionSheetIOS } from 'expo-iap';
@@ -49,14 +49,19 @@ function closeWall() {
 }
 
 export default function Paywall() {
-  return PAYWALL_PREVIEW ? <PaywallPreview /> : <PaywallLive />;
+  // ?offer=1 is the once-only trial shown after onboarding. Anything else is the
+  // gate, reached by spending the month's free moments.
+  const { offer } = useLocalSearchParams<{ offer?: string }>();
+  const variant = offer === '1' ? 'offer' : 'gate';
+  return PAYWALL_PREVIEW ? <PaywallPreview variant={variant} /> : <PaywallLive variant={variant} />;
 }
 
-function PaywallPreview() {
+function PaywallPreview({ variant }: { variant: 'gate' | 'offer' }) {
   const [busy, setBusy] = useState<string | null>(null);
   return (
     <PaywallView
       freeCount={FREE_MOMENTS_PER_MONTH}
+      variant={variant}
       {...PREVIEW_FIXTURE}
       unavailable={false}
       busy={busy}
@@ -73,7 +78,7 @@ function PaywallPreview() {
   );
 }
 
-function PaywallLive() {
+function PaywallLive({ variant }: { variant: 'gate' | 'offer' }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
@@ -188,6 +193,7 @@ function PaywallLive() {
   return (
     <PaywallView
       freeCount={FREE_MOMENTS_PER_MONTH}
+      variant={variant}
       yearlyPrice={yearlyPrice}
       monthlyPrice={monthlyPrice}
       savingPercent={savingPercent}

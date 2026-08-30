@@ -75,6 +75,9 @@ export const SETTINGS_KEYS = [
   // Apple is the source of truth anyway (refreshPremium re-reads it every launch).
   'niyora:premium',
   'niyora:premium-comp', // a comped entitlement. Same reasoning: not something she wrote.
+  // Whether the trial has been offered. Settings, not content: deleting her
+  // diary must not make the wall reappear as if she were new.
+  'niyora:premium-offered',
 ] as const;
 
 // The AES key in the Keychain ('niyora.momentKey') is deliberately NOT deleted.

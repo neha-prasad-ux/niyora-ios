@@ -29,6 +29,8 @@ import { CosmicBackground } from '@/components/cosmic-background';
 import { PlannedActions } from '@/components/planned-actions';
 import { getPlannedActions } from '@/store/moment-plan';
 import { cachedPremium, momentsLeft } from '@/lib/premium';
+import { getOnboardingComplete } from '@/store/onboarding-complete';
+import { getPremiumOffered, setPremiumOffered } from '@/store/premium-offered';
 import { FeelingLine } from '@/components/feeling-line';
 import { BAR_CONTENT_HEIGHT, BAR_MIN_BOTTOM_PAD } from '@/components/night-tab-bar';
 import { Orb } from '@/components/orb';
@@ -220,6 +222,36 @@ export default function NowScreen() {
       reload();
       syncPmsReminders().catch(() => {});
     }, [reload]),
+  );
+
+  /** The trial, offered ONCE at the end of her first run.
+   *
+   *  Hooked here rather than at the end of onboarding on purpose: onboarding-v3
+   *  leaves for Home from several places, and one check on arrival covers all of
+   *  them and any route added later. It also means she closes the wall onto
+   *  Home, which is where she was going anyway, instead of back into a flow she
+   *  has finished.
+   *
+   *  Never shown to someone who has not onboarded, who already pays, or who has
+   *  seen it once. The flag is set before navigating, so a crash or a fast
+   *  dismiss cannot produce a second showing. */
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        const [done, offered, premium] = await Promise.all([
+          getOnboardingComplete().catch(() => false),
+          getPremiumOffered().catch(() => true),
+          cachedPremium().catch(() => true),
+        ]);
+        if (!alive || !done || offered || premium) return;
+        await setPremiumOffered().catch(() => {});
+        if (alive) router.push('/paywall?offer=1' as Href);
+      })();
+      return () => {
+        alive = false;
+      };
+    }, []),
   );
 
   /** Free moments left this month, shown under the CTA only when it is getting
