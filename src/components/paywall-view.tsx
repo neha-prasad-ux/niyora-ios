@@ -76,7 +76,7 @@ export type PaywallViewProps = {
   /** Why she is here. 'gate' means she has spent the month's free moments;
    *  'offer' means this is the trial, shown once at the end of her first run,
    *  where she has spent nothing and "your moments are used" would be a lie. */
-  variant: 'gate' | 'offer';
+  variant: 'gate' | 'offer' | 'report';
   /** Localised prices straight from StoreKit. `null` while unknown. */
   yearlyPrice: string | null;
   monthlyPrice: string | null;
@@ -167,16 +167,39 @@ export function PaywallView({
             contentContainerStyle={[styles.scroll, { paddingBottom: footerH + spacing.xl }]}
             showsVerticalScrollIndicator={false}
           >
+          {/* The splash's own brand block, rebuilt: the violet SCIENCE-BACKED
+              kicker over the "PMS care" lede, same words and same order she saw
+              at launch (onboarding-v3, the scienceKicker style). Recognition
+              does work here that a new line of copy cannot. */}
+          {variant === 'offer' && <Text style={styles.kicker}>SCIENCE-BACKED</Text>}
           <Text style={styles.title}>
             {/* "Keep" means carry on, which is true at the gate, where she was cut
                 off mid-conversation, and false at onboarding, where she has never
-                had one. At onboarding the screen has to say what the app IS. */}
-            {variant === 'gate' ? 'Keep talking to Moon.' : 'PMS care'}
+                had one. At onboarding the screen has to say what the app IS.
+                
+                And it has to say it in words she already has. Onboarding-v3 is
+                entirely PMS assessment: it never says "Moon", never says
+                "moments", never mentions a report. Every feature name is a word
+                she has not met yet. So the offer says what she gets in plain
+                words, with no feature name in it, and "as often as you need"
+                carries the unlimited part. The trial is stated by the button and
+                the plan card, which is where a price belongs. */}
+            {/* `report` is the third door (2026-08-30): she tapped Download
+                Report, so the wall names that and nothing else. Leading with
+                "PMS care" or "Keep talking to Moon" would answer a question she
+                did not ask. */}
+            {variant === 'gate'
+              ? 'Keep talking to Moon.'
+              : variant === 'report'
+                ? 'Get your cycle report'
+                : 'PMS care'}
           </Text>
           <Text style={styles.sub}>
             {variant === 'gate'
               ? `Your ${freeCount} free moments are used. Back on the first.`
-              : 'Woman to woman.'}
+              : variant === 'report'
+                ? 'Your cycles, what you felt, and what keeps coming back.'
+                : 'Help when and as often as you need.'}
           </Text>
 
           {/* The voice changes here, from the app to the person who made it. The
@@ -417,6 +440,17 @@ const styles = StyleSheet.create({
   // translucent and the fine print scrolled through the text.
   footerFade: { position: 'absolute', left: 0, right: 0, bottom: '100%', height: FADE_RUN },
 
+  // Matches onboarding-v3's scienceKicker exactly: Poppins medium at caption
+  // size, 2pt tracking, the violet accent. Tighter tracking than a wordmark so
+  // the two never read as twins.
+  kicker: {
+    fontFamily: fonts.medium,
+    fontSize: fontScale.caption,
+    letterSpacing: 2,
+    color: colors.accentViolet,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
   title: { ...typography.heading, color: colors.textOnDark.primary, textAlign: 'center' },
   sub: {
     ...typography.body,

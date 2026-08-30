@@ -52,11 +52,11 @@ export default function Paywall() {
   // ?offer=1 is the once-only trial shown after onboarding. Anything else is the
   // gate, reached by spending the month's free moments.
   const { offer } = useLocalSearchParams<{ offer?: string }>();
-  const variant = offer === '1' ? 'offer' : 'gate';
+  const variant = offer === 'report' ? 'report' : offer === '1' ? 'offer' : 'gate';
   return PAYWALL_PREVIEW ? <PaywallPreview variant={variant} /> : <PaywallLive variant={variant} />;
 }
 
-function PaywallPreview({ variant }: { variant: 'gate' | 'offer' }) {
+function PaywallPreview({ variant }: { variant: 'gate' | 'offer' | 'report' }) {
   const [busy, setBusy] = useState<string | null>(null);
   return (
     <PaywallView
@@ -78,7 +78,7 @@ function PaywallPreview({ variant }: { variant: 'gate' | 'offer' }) {
   );
 }
 
-function PaywallLive({ variant }: { variant: 'gate' | 'offer' }) {
+function PaywallLive({ variant }: { variant: 'gate' | 'offer' | 'report' }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
