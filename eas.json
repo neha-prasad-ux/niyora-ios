@@ -8,7 +8,10 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "env": { "NIYORA_HEALTHKIT": "1", "EXPO_PUBLIC_STRESS_EXPERIMENT": "1" },
+      "env": {
+        "NIYORA_HEALTHKIT": "1",
+        "EXPO_PUBLIC_STRESS_EXPERIMENT": "1"
+      },
       "ios": {
         "buildConfiguration": "Debug"
       }
@@ -16,9 +19,12 @@
     "production": {
       "autoIncrement": true,
       "environment": "production",
-      "env": { "EXPO_PUBLIC_MOMENT_AI": "1" },
+      "env": {
+        "EXPO_PUBLIC_MOMENT_AI": "1"
+      },
       "ios": {
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "image": "latest"
       }
     },
     "preview": {
