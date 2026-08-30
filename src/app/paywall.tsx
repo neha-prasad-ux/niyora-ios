@@ -1,8 +1,8 @@
 // The Premium wall's wiring. All of its looks live in components/paywall-view.
 //
 // Two paths, one set of markup:
-//   · live    — real StoreKit through expo-iap, what ships.
-//   · preview — a fixture with realistic prices, for working on the design.
+//   · live, real StoreKit through expo-iap, which is what ships.
+//   · preview, a fixture with realistic prices, for working on the design.
 //
 // PREVIEW exists because StoreKit needs a native module and a configured store,
 // so on a dev build that has neither there is no way to see a price, and the
@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { router, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useIAP } from 'expo-iap';
+import { presentCodeRedemptionSheetIOS } from 'expo-iap';
 
 import { PAYWALL_PREVIEW } from '@/config/features';
 import { PaywallView } from '@/components/paywall-view';
@@ -153,6 +154,27 @@ function PaywallLive() {
     requestPurchase({ request: { apple: { sku } }, type: 'subs' }).catch(() => setBusy(null));
   };
 
+  /** Apple's own redemption sheet, for an App Store Connect Offer Code. This is
+   *  the sanctioned way to comp someone: codes are made per campaign with a
+   *  limit and an expiry, they can be revoked, and nothing secret ships in the
+   *  binary. Redeeming grants a REAL subscription, so hasActiveSubscriptions
+   *  picks it up and there is no second entitlement to keep in step.
+   *
+   *  The sheet needs a real store, so it does nothing useful in the Simulator. */
+  const onRedeem = async () => {
+    Haptics.selectionAsync().catch(() => {});
+    setNote(null);
+    try {
+      await presentCodeRedemptionSheetIOS();
+    } catch {
+      setNote('The redemption sheet could not open.');
+      return;
+    }
+    // She comes back from the sheet with a subscription StoreKit already knows
+    // about, so just re-ask rather than trying to read the sheet's outcome.
+    if (await refreshPremium()) closeWall();
+  };
+
   const onRestore = async () => {
     Haptics.selectionAsync().catch(() => {});
     setBusy('restore');
@@ -175,6 +197,7 @@ function PaywallLive() {
       note={note}
       onBuy={buy}
       onRestore={onRestore}
+      onRedeem={onRedeem}
       onClose={closeWall}
     />
   );
