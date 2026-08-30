@@ -28,39 +28,11 @@ import { colors } from '@/theme/colors';
 import { spacing, radius } from '@/theme/spacing';
 import { moon } from '@/theme/typography';
 
-export type LoadBucket = 'today' | 'wait' | 'notMine';
+import { LOAD_COPY, loadResult, type LoadBucket } from './load-content';
 
-export const LOAD_COPY = {
-  addTitle: 'What is actually on you right now?',
-  addWhy: 'One line each. Big or small, it all counts.',
-  placeholder: 'The thing you keep remembering',
-  add: 'Add',
-  next: 'Continue',
-  sortTitle: 'Which of these are really yours today?',
-  sortWhy: 'Tap each one.',
-  today: 'Today',
-  wait: 'Can wait',
-  notMine: 'Not mine',
-  done: 'Done',
-  // Deliberately not "here is what I noticed". The finding belongs to her list,
-  // not to us.
-  readsHead: 'What your list shows',
-} as const;
+export { LOAD_COPY, loadResult, type LoadBucket };
 
-/**
- * What we say once she has sorted. Counts only, no comfort and no conclusion:
- * the intervention already happened when the fog became a list, and a closing
- * reassurance would take the finding off her.
- */
-export function loadResult(counts: Record<LoadBucket, number>): string {
-  const total = counts.today + counts.wait + counts.notMine;
-  if (total === 0) return '';
-  const parts = [`${total} ${total === 1 ? 'thing' : 'things'}.`];
-  if (counts.today) parts.push(`${counts.today} for today.`);
-  if (counts.wait) parts.push(`${counts.wait} can wait.`);
-  if (counts.notMine) parts.push(`${counts.notMine} not yours to carry.`);
-  return parts.join(' ');
-}
+
 
 export function LoadCard({
   onDone,
