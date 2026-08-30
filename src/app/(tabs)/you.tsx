@@ -29,7 +29,7 @@ import { CosmicBackground } from '@/components/cosmic-background';
 import { GlassCardBg } from '@/components/glass-card-bg';
 import { CheckInSheet } from '@/components/CheckInSheet';
 import { SHOW_CHECKIN, SHOW_ANALYTICS, SHOW_MOOD_TREND } from '@/config/features';
-import { redeemComp } from '@/lib/premium';
+import { cachedPremium, redeemComp } from '@/lib/premium';
 import { getLightLedger } from '@/store/light-ledger';
 import { getMoonState } from '@/store/moon-state';
 import {
@@ -787,15 +787,51 @@ function EmotionsCard({ moments }: { moments: MomentRecord[] }) {
       ))}
       {/* The one place this history is worth more outside the app than in it: a
           doctor gets a few minutes and asks how she has been, and a shrug is the
-          usual answer. She reviews and edits everything before it leaves. */}
-      <Pressable
-        onPress={() => router.push('/therapist-export' as Href)}
-        style={styles.appointmentRow}
-        accessibilityRole="button"
-        accessibilityLabel="Take this to an appointment">
-        <Text style={styles.appointmentText}>Take this to an appointment</Text>
-      </Pressable>
+          usual answer. She reviews and edits everything before it leaves.
+          Premium: without it this opens the wall instead of the record. */}
+      <ExportReportButton />
     </View>
+  );
+}
+
+/** Premium entry point to the therapist record. Reads the CACHED entitlement, not
+ *  the store, so it is instant and a woman offline is not locked out of something
+ *  she pays for. Re-read on focus, so coming back from the wall after buying
+ *  lands her on the record rather than the wall again. */
+function ExportReportButton() {
+  const [premium, setPremium] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      cachedPremium()
+        .then((p) => alive && setPremium(p))
+        .catch(() => {});
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {});
+        // offer=1, not the bare gate. The gate variant's subline is "Your N free
+        // moments are used", which is the paywall's own documented lie-case: she
+        // may have spent nothing this month and simply tapped a paid feature.
+        router.push((premium ? '/therapist-export' : '/paywall?offer=report') as Href);
+      }}
+      style={styles.exportBtn}
+      accessibilityRole="button"
+      accessibilityLabel={premium ? "Download report" : "Download report, Premium"}
+    >
+      <SymbolView
+        name={premium ? 'square.and.arrow.down' : 'lock.fill'}
+        size={16}
+        weight="semibold"
+        tintColor={premium ? colors.textOnDark.primary : colors.textOnDark.secondary}
+      />
+      <Text style={styles.exportText}>Download Report</Text>
+    </Pressable>
   );
 }
 
@@ -1667,16 +1703,21 @@ function MessageCard() {
 }
 
 const styles = StyleSheet.create({
-  appointmentRow: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border.faint,
+  exportBtn: {
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.button,
+    ...secondaryButtonSurface,
   },
-  appointmentText: {
+  exportText: {
     fontFamily: fonts.medium,
     fontSize: fontScale.body,
-    color: colors.textOnDark.secondary,
+    color: colors.textOnDark.primary,
   },
   root: {
     flex: 1,

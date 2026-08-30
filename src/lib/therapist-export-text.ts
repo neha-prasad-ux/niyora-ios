@@ -40,10 +40,10 @@ export function renderTherapistExport(doc: TherapistExport): string {
   const p = doc.provenance;
   const out: string[] = [];
 
-  out.push('NIYORA RECORD');
+  out.push('NIYORA REPORT');
   out.push(line(`${p.from} to ${p.to}`, `${p.spanDays} days`, `${p.cyclesCovered} cycles`));
   out.push(line(`Wrote on ${p.daysLogged} of ${p.spanDays} days`, `${p.entries} entries`));
-  out.push('My own record, written in the moment. Self-reported. Not a diagnosis.');
+  out.push('Written by me, in the moment. Self-reported. Not a diagnosis.');
 
   if (doc.cycles.length > 0) {
     out.push('', 'CYCLES');
@@ -100,7 +100,7 @@ export function renderTherapistExport(doc: TherapistExport): string {
     doc.questions.forEach((q, i) => out.push(`  ${i + 1}. ${q}`));
   }
 
-  out.push('', 'WHAT THIS RECORD IS NOT');
+  out.push('', 'WHAT THIS REPORT IS NOT');
   out.push('  A day with no entry is a day I did not write, not a day without symptoms.');
   out.push('  Phases marked estimated come from my typical cycle length, not a logged period.');
   out.push('  There are no daily severity ratings here, so this is not a DRSP chart.');

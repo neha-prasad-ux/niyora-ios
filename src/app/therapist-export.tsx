@@ -25,11 +25,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Print from 'expo-print';
 
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { loadTherapistExport } from '@/lib/therapist-export';
 import { summarise } from '@/lib/therapist-export-summary';
+import { renderTherapistExportHtml } from '@/lib/therapist-export-html';
 import { renderTherapistExport } from '@/lib/therapist-export-text';
 import type { TherapistExport } from '@/lib/therapist-export-types';
 import { colors } from '@/theme/colors';
@@ -102,7 +104,21 @@ export default function TherapistExportScreen() {
       () => null,
     );
     if (!finalDoc) return;
-    await Share.share({ message: renderTherapistExport(finalDoc) }).catch(() => {});
+    // A PDF, not a wall of text in a message body. printToFileAsync renders the
+    // same document a clinician would print, and the share sheet then offers
+    // Files, Mail and AirDrop with a real attachment.
+    //
+    // Falling back to text if the render fails is not belt-and-braces: printing
+    // can fail on a full disk, and a woman on her way to an appointment should
+    // still leave with her record rather than a dead button.
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html: renderTherapistExportHtml(finalDoc),
+      });
+      await Share.share({ url: uri });
+    } catch {
+      await Share.share({ message: renderTherapistExport(finalDoc) }).catch(() => {});
+    }
   };
 
   const p = doc?.provenance;
@@ -210,7 +226,7 @@ export default function TherapistExportScreen() {
 
         {doc != null && (
           <View style={styles.footer}>
-            <BeginButton fullWidth label="Share my report" onPress={onShare} />
+            <BeginButton fullWidth label="Download Report" onPress={onShare} />
           </View>
         )}
       </SafeAreaView>
