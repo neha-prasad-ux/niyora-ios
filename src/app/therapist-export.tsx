@@ -29,6 +29,7 @@ import * as Haptics from 'expo-haptics';
 import { BackgroundGradient } from '@/components/background-gradient';
 import { BeginButton } from '@/components/begin-button';
 import { loadTherapistExport } from '@/lib/therapist-export';
+import { summarise } from '@/lib/therapist-export-summary';
 import { renderTherapistExport } from '@/lib/therapist-export-text';
 import type { TherapistExport } from '@/lib/therapist-export-types';
 import { colors } from '@/theme/colors';
@@ -36,6 +37,13 @@ import { spacing, radius } from '@/theme/spacing';
 import { moon } from '@/theme/typography';
 
 const PHASE_LABEL = { build: 'build days', pms: 'PMS days', period: 'period days' } as const;
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+// A one-day export reads "2026-08-30 to 2026-08-30 · 0 cycles" otherwise.
+const span = (p: TherapistExport['provenance']) =>
+  (p.from === p.to ? p.from : `${p.from} to ${p.to}`) +
+  (p.cyclesCovered > 0 ? ` · ${plural(p.cyclesCovered, 'cycle')}` : '');
 
 export default function TherapistExportScreen() {
   const [doc, setDoc] = useState<TherapistExport | null>(null);
@@ -98,7 +106,13 @@ export default function TherapistExportScreen() {
   };
 
   const p = doc?.provenance;
-  const sending = (doc?.excerpts.length ?? 0) - excluded.length;
+  // Everything the card says is derived from the entries still switched on, so
+  // the numbers describe the document she is actually sending, not the store.
+  const shown = useMemo(
+    () => (doc?.excerpts ?? []).filter((e) => !excludedSet[e.at]),
+    [doc, excludedSet],
+  );
+  const pattern = useMemo(() => summarise(shown), [shown]);
 
   return (
     <View style={styles.root}>
@@ -123,25 +137,17 @@ export default function TherapistExportScreen() {
             </Text>
           ) : doc != null && p != null ? (
             <>
-              <Text style={styles.lede}>
-                Read it before it leaves your phone. Nothing here is sent anywhere on its own.
-              </Text>
-
               <View style={styles.summary}>
+                <Text style={styles.summaryLine}>{span(p)}</Text>
                 <Text style={styles.summaryLine}>
-                  {p.from} to {p.to} · {p.cyclesCovered} cycles
+                  {plural(shown.length, 'entry', 'entries')} on {plural(p.daysLogged, 'day')}
                 </Text>
-                <Text style={styles.summaryLine}>
-                  Wrote on {p.daysLogged} of {p.spanDays} days · {p.entries} entries
-                </Text>
-                <Text style={styles.summaryQuiet}>
-                  Your own record, written in the moment. Not a diagnosis.
-                </Text>
+                {pattern ? <Text style={styles.summaryQuiet}>{pattern}</Text> : null}
               </View>
 
               <Text style={styles.sectionTitle}>Your words</Text>
               <Text style={styles.hint}>
-                {sending} of {doc.excerpts.length} included. Tap one to leave it out.
+                {shown.length} of {doc.excerpts.length} · tap one to leave it out
               </Text>
               {doc.excerpts.map((e) => {
                 const on = !excludedSet[e.at];
@@ -157,7 +163,7 @@ export default function TherapistExportScreen() {
                     <Text style={styles.entryMeta}>
                       {e.date}
                       {e.phase ? ` · ${PHASE_LABEL[e.phase]}` : ''}
-                      {e.source === 'predicted' ? ' · estimated' : ''} · {e.feeling}
+                      {e.source === 'predicted' ? ' (est.)' : ''} · {e.feeling}
                       {e.crisis ? ' · sensitive' : ''}
                     </Text>
                     <Text style={styles.entryText}>{e.text}</Text>
@@ -166,7 +172,7 @@ export default function TherapistExportScreen() {
                 );
               })}
 
-              <Text style={styles.sectionTitle}>What you want to ask</Text>
+              <Text style={styles.sectionTitle}>Questions to ask</Text>
               {questions.map((q, i) => (
                 <Pressable
                   key={`${q}-${i}`}
@@ -204,7 +210,7 @@ export default function TherapistExportScreen() {
 
         {doc != null && (
           <View style={styles.footer}>
-            <BeginButton fullWidth label="Share my record" onPress={onShare} />
+            <BeginButton fullWidth label="Share my report" onPress={onShare} />
           </View>
         )}
       </SafeAreaView>
@@ -231,11 +237,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     gap: spacing.sm,
   },
-  lede: { ...moon.body, color: colors.textOnDark.secondary, marginBottom: spacing.md },
   sectionTitle: { ...moon.title, color: colors.textPrimary, marginTop: spacing.lg },
   hint: { ...moon.caption, color: colors.textOnDark.tertiary, marginBottom: spacing.xs },
   summary: {
-    marginTop: spacing.md,
     padding: spacing.lg,
     borderRadius: radius.card,
     backgroundColor: colors.fill.faint,

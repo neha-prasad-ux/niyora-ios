@@ -594,6 +594,51 @@ export const SLOT_INSTRUCTION: Record<string, string> = {
   //
   // This is the principle the whole flow keeps arriving at. The model is good at
   // operating on what she gives it and bad at inventing what she has not.
+  // The two interaction cards (2026-08-20) shipped with schemas, setup parsers,
+  // components and routing, but never got their instruction text. generate()
+  // returns null before its log line when a slot has no instruction, so both
+  // cards failed silently and rendered "Moon AI isn't working" with no trace in
+  // Metro. `middle` sits second in a very common route, which is why a session
+  // reliably died on the second card.
+  //
+  // Both are INPUT cards. The model builds the apparatus, she does the work. That
+  // is the whole reason they exist, so neither prompt is allowed to reach a
+  // conclusion for her.
+  reflect_scale:
+    'She has stated something as an absolute. Build the ruler she can measure it on. ' +
+    'Do not argue with it, do not soften it, and never tell her the truth is somewhere in ' +
+    'the middle. She does the measuring, you only draw the line. ' +
+    'Find the ONE absolute claim in what she wrote, the sentence that admits no exceptions. ' +
+    'It is usually carried by a word like always, never, everyone, nobody, nothing, every time. ' +
+    '"claim" is that claim in HER words, cut to a short phrase, not a sentence you wrote. ' +
+    '"word" is the absolute word itself, exactly as she used it: always, never, everyone. ' +
+    '"hundred" is what her claim being COMPLETELY TRUE would look like taken literally, in her ' +
+    'actual situation. Literally means without a single exception: every time, every person. ' +
+    '"zero" is what her claim being COMPLETELY UNTRUE would look like, in that same situation. ' +
+    'Both ends are concrete, specific to what she wrote, and a short phrase each. Someone reading ' +
+    'the two ends should be able to picture the difference between them. Never put the absolute ' +
+    'word itself inside the zero end. ' +
+    'If she stated no real absolute, or the word is a figure of speech she is not actually ' +
+    'holding, return "" for claim. An invented absolute is worse than no card. ' +
+    'Return only JSON: {"claim": "...", "word": "...", "zero": "...", "hundred": "..."}. ' +
+    REFLECT_SAFETY_PROSE,
+  reflect_responsibility:
+    'She is holding herself responsible for how something turned out. Name only two things, and ' +
+    'both are already in her words: the outcome, and the part she is taking on. She supplies ' +
+    'everything else herself. ' +
+    '"outcome" is the thing she is blaming herself for, stated plainly as a short phrase: what ' +
+    'happened, not who caused it. ' +
+    '"hers" is her own part in it, named honestly and specifically, in a few words. Honestly ' +
+    'means you do not empty it out: if she did something that genuinely contributed, name that ' +
+    'thing. Do not tell her it was not her fault, do not reassure her, do not shrink it. She ' +
+    'decides the size of her share herself, and a part you softened in advance makes the whole ' +
+    'exercise read as a trick to get her off the hook. ' +
+    'Do NOT list other people or other causes. You do not know what else was going on, and a ' +
+    'list of guessed factors costs the card her trust in the one moment it needs it. ' +
+    'If she is not holding herself responsible for anything, return "" for outcome. If she ' +
+    'genuinely had no part in it, return "" for hers and still return the outcome. ' +
+    'Return only JSON: {"outcome": "...", "hers": "..."}. ' +
+    REFLECT_SAFETY_PROSE,
   reflect_load_read:
     'She has written down what is on her and sorted each one into today, can wait, or not mine. ' +
     'You are given that list. Tell her what HER OWN LIST shows, that she cannot see from inside it. ' +
