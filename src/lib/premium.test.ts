@@ -45,7 +45,12 @@ function seed(n: number, ym: string) {
   mockStore.set(HISTORY_KEY, JSON.stringify(rows));
 }
 
-const thisMonth = () => new Date().toISOString().slice(0, 7);
+// Local, matching how moment-history stamps a date. A UTC month here would make
+// the test agree with a bug instead of catching it.
+const thisMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
 
 beforeEach(() => {
   mockStore.clear();

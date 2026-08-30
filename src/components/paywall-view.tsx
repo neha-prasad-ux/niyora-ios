@@ -54,7 +54,13 @@ const TERMS_URL = 'https://niyora.com/terms';
 // "still nothing leaves your phone", which is NOT true: the text she writes goes
 // to Google through Vertex to be reflected on. On a screen whose whole argument
 // is honesty, a comfortable overstatement is the one thing that cannot ship.
-const NOTE = 'I build Niyora alone. No investor, no advertiser. Premium is what funds it:';
+const SALUTATION = 'Dear woman,';
+
+const NOTE =
+  'Our bodies are overworked, under-researched, and never cared for the way they deserve. I would like to contribute to the change. Your Premium funds it:';
+
+/** Title above the name, the way she signed it. */
+const ROLE = 'Founder, builder & a woman';
 
 /** The three, as part of the note rather than a list beside it. Ticks, not
  *  icons: the eye reads a tick as "included" without being taught. */
@@ -82,6 +88,8 @@ export type PaywallViewProps = {
   note: string | null;
   onBuy: (sku: string) => void;
   onRestore: () => void;
+  /** Opens Apple's code redemption sheet. Undefined where there is no store. */
+  onRedeem?: () => void;
   onClose: () => void;
 };
 
@@ -96,6 +104,7 @@ export function PaywallView({
   note,
   onBuy,
   onRestore,
+  onRedeem,
   onClose,
 }: PaywallViewProps) {
   // Two plans, one primary button. Two competing buttons made her decide and act
@@ -155,7 +164,7 @@ export function PaywallView({
           >
           <Text style={styles.title}>Keep talking to Moon.</Text>
           <Text style={styles.sub}>
-            Your {freeCount} free moments are used. They come back on the first.
+            Your {freeCount} free moments are used. Back on the first.
           </Text>
 
           {/* The voice changes here, from the app to the person who made it. The
@@ -165,6 +174,7 @@ export function PaywallView({
           <View style={styles.rule} />
 
           <View style={styles.card}>
+            <Text style={styles.salutation}>{SALUTATION}</Text>
             <Text style={styles.note_p}>{NOTE}</Text>
             {WHAT_IT_FUNDS.map((line) => (
               <View key={line} style={styles.row}>
@@ -172,6 +182,7 @@ export function PaywallView({
                 <Text style={styles.rowTitle}>{line}</Text>
               </View>
             ))}
+            <Text style={styles.role}>{ROLE}</Text>
             <Text style={styles.sign}>Neha</Text>
           </View>
 
@@ -209,9 +220,19 @@ export function PaywallView({
           )}
           {note != null && <Text style={styles.note}>{note}</Text>}
 
-          <Pressable onPress={onRestore} disabled={busy != null} hitSlop={10} accessibilityRole="button">
-            <Text style={styles.restore}>{busy === 'restore' ? 'Checking...' : 'Restore purchase'}</Text>
-          </Pressable>
+          <View style={styles.quietRow}>
+            <Pressable onPress={onRestore} disabled={busy != null} hitSlop={10} accessibilityRole="button">
+              <Text style={styles.restore}>{busy === 'restore' ? 'Checking...' : 'Restore purchase'}</Text>
+            </Pressable>
+            {onRedeem != null && (
+              <>
+                <Text style={styles.restore}>·</Text>
+                <Pressable onPress={onRedeem} disabled={busy != null} hitSlop={10} accessibilityRole="button">
+                  <Text style={styles.restore}>Redeem a code</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
 
           {/* Apple requires the renewal terms and both links on the wall itself. */}
           <Text style={styles.fine}>
@@ -396,7 +417,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   card: { marginTop: spacing.lg, gap: spacing.sm },
+  salutation: { ...typography.body, color: colors.textOnDark.primary },
   note_p: { ...typography.body, color: colors.textOnDark.primary },
+  role: {
+    ...typography.caption,
+    color: colors.textOnDark.secondary,
+    alignSelf: 'flex-end',
+    marginTop: spacing.lg,
+  },
   // The signature. DESIGN.md says Poppins is the only typeface in the app, and
   // this is the one deliberate exception: a name set in the UI face reads as a
   // label, and the whole point of this block is that a person signed it. Snell
@@ -418,7 +446,6 @@ const styles = StyleSheet.create({
     lineHeight: spacing.xxxl,
     color: colors.accentViolet,
     alignSelf: 'flex-end',
-    marginTop: spacing.xs,
   },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -467,7 +494,14 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.5 },
 
   note: { ...typography.caption, color: colors.textOnDark.primary, marginTop: spacing.lg, textAlign: 'center' },
-  restore: { ...typography.body, color: colors.textOnDark.secondary, marginTop: spacing.xl, textAlign: 'center' },
+  quietRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+  },
+  restore: { ...typography.body, color: colors.textOnDark.secondary, textAlign: 'center' },
 
   fine: { ...typography.tagline, color: colors.textOnDark.tertiary, marginTop: spacing.xxl, textAlign: 'center' },
   links: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md },

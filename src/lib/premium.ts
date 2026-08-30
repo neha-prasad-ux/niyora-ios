@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hasActiveSubscriptions, initConnection } from 'expo-iap';
 
 import { FORCE_PAYWALL } from '@/config/features';
+import { localYmd } from '@/lib/day';
 import { countMomentsInMonth } from '@/store/moment-history';
 
 export const MONTHLY_SKU = 'com.niyora.premium.monthly';
@@ -73,10 +74,14 @@ export async function grantPremium(): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEY, '1');
 }
 
-/** The month the free moments are counted in. UTC, matching how moment-history
- *  stamps `date`. */
+/** The month the free moments are counted in.
+ *
+ *  LOCAL, not UTC, because moment-history stamps `date` with localYmd. Mixing
+ *  the two is a real lockout: east of Greenwich, just after midnight on the 1st,
+ *  UTC still reads the previous month, so the count would find last month's five
+ *  moments and hold the gate shut at the exact moment her allowance reset. */
 function thisMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return localYmd().slice(0, 7);
 }
 
 export async function momentsLeft(): Promise<number> {
@@ -84,7 +89,7 @@ export async function momentsLeft(): Promise<number> {
   return Math.max(0, FREE_MOMENTS_PER_MONTH - used);
 }
 
-/** May she open the Moon flow right now? Plus, or free moments left this month. */
+/** May she open the Moon flow right now? Premium, or free moments left this month. */
 export async function canOpenMoment(): Promise<boolean> {
   if (FORCE_PAYWALL) return false; // design preview, see config/features
   if (await cachedPremium()) return true;
