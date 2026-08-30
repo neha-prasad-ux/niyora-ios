@@ -140,3 +140,48 @@ export function scrub(input: string): Scrubbed {
   };
   return { text, restore };
 }
+
+/** One-way scrub for the therapist export. Not scrub(): that one swaps real
+ *  names for other *realistic* names (Robin, Alex, Sam) so Gemini keeps its
+ *  coreference, and swaps them back on the reply. In a document a clinician
+ *  reads, a plausible fake name is worse than no name, they would take "Sam" for
+ *  a real person. So here the name is dropped and the relation kept, which is
+ *  also the only part that carries clinical meaning: "my sister Jess" -> "my
+ *  sister". Later bare mentions of a name a cue already proved become "they",
+ *  because a leaked name matters more than a bumpy sentence, and she edits the
+ *  document before it leaves the phone anyway.
+ *
+ *  Her OWN name is left alone: this is her document about herself, handed over
+ *  by her, so the self-introduction cues scrub() uses are skipped here.
+ *
+ *  ponytail: inherits scrub()'s deliberate under-redaction (a bare standalone
+ *  name with no cue still passes). Her review pass is the backstop. Upgrade path
+ *  is the same first-name gazetteer noted at the top of this file. */
+export function scrubForExport(input: string): string {
+  const dropped = new Set<string>();
+
+  const dropTrailingName = (m: string, name: string): string => {
+    if (
+      name[0] !== name[0].toUpperCase() ||
+      name === name.toUpperCase() ||
+      NOT_A_NAME.has(name) ||
+      AMBIGUOUS.has(name)
+    )
+      return m;
+    dropped.add(name);
+    return m.slice(0, m.length - name.length).replace(/[.,:;\s–—-]+$/, '');
+  };
+
+  let text = input.replace(NAME_CUE, dropTrailingName);
+  for (const name of dropped) {
+    text = text.replace(new RegExp(`\\b${name}\\b`, 'g'), 'they');
+  }
+
+  text = text.replace(EMAIL, '[email]');
+  text = text.replace(PHONE, (m) => {
+    const digits = m.replace(/\D/g, '');
+    return digits.length < 10 || digits.length > 15 ? m : '[phone]'; // else it is a date or a count
+  });
+
+  return text;
+}

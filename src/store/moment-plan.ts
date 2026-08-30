@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { localYmd } from '../lib/day';
+
 // Moves she chose to do LATER in the in-the-moment flow, parked for Today.
 //
 // When she taps "Later" on the act she picked, the move is saved here and an
@@ -57,7 +59,7 @@ export async function addPlannedAction(
   remindAt?: string,
 ): Promise<string> {
   const now = new Date();
-  const date = now.toISOString().slice(0, 10);
+  const date = localYmd(now);
   const existing = await getPlannedActions();
   const next: PlannedAction[] = [
     {

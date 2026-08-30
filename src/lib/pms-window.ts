@@ -22,7 +22,9 @@ function dayNumberLocal(d: Date): number {
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / MS_PER_DAY);
 }
 
-function parseDayNumber(iso: string): number | null {
+// Exported for lib/phase-for-date, which anchors historical moments to real
+// logged period starts and needs the identical day arithmetic.
+export function parseDayNumber(iso: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!m) return null;
   return Math.floor(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / MS_PER_DAY);
